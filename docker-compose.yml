@@ -13,7 +13,6 @@ services:
     environment:
       # Flask 配置
       - FLASK_APP=web_outlook_app.py
-      - FLASK_ENV=production
       # 应用配置
       - PORT=5000
       - HOST=0.0.0.0
@@ -28,7 +27,7 @@ services:
     networks:
       - outlook-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/login"]
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/login || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

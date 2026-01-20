@@ -4,6 +4,11 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
+# 安装 curl（用于健康检查）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -12,9 +17,10 @@ ENV PYTHONUNBUFFERED=1 \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装依赖
+# 安装依赖（包括生产服务器）
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r requirements.txt && \
+    pip install gunicorn
 
 # 复制应用代码
 COPY . .
@@ -25,5 +31,5 @@ RUN mkdir -p /app/data
 # 暴露端口
 EXPOSE 5000
 
-# 启动应用
-CMD ["python", "web_outlook_app.py"]
+# 启动应用（使用 Gunicorn）
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "--access-logfile", "-", "web_outlook_app:app"]

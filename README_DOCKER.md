@@ -63,13 +63,13 @@ ports:
 
 ## 🚀 GitHub Actions 自动构建
 
-项目已配置 GitHub Actions，当代码推送到 `main` 或 `master` 分支时，会自动构建并推送 Docker 镜像到 GitHub Container Registry。
+项目已配置 GitHub Actions，当代码推送到 `main` 或 `master` 分支时，会自动构建并推送 Docker 镜像到 `ghcr.io/assast/outlookemail:latest`。
 
 ### 使用预构建镜像
 
 ```bash
 # 拉取镜像
-docker pull ghcr.io/<your-username>/<your-repo>:latest
+docker pull ghcr.io/assast/outlookemail:latest
 
 # 运行容器
 docker run -d \
@@ -77,7 +77,14 @@ docker run -d \
   -p 5000:5000 \
   -v $(pwd)/data:/app/data \
   -e LOGIN_PASSWORD=your_password \
-  ghcr.io/<your-username>/<your-repo>:latest
+  ghcr.io/assast/outlookemail:latest
+```
+
+### 使用生产配置
+
+```bash
+# 使用 docker-compose.prod.yml
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ### 触发构建
@@ -174,6 +181,55 @@ location / {
 
 ## 🛠️ 故障排查
 
+### 容器状态 unhealthy
+
+容器显示 `unhealthy` 通常是因为健康检查失败。
+
+**解决方法：**
+
+```bash
+# 1. 重新构建镜像（已修复健康检查）
+docker-compose down
+docker-compose build
+docker-compose up -d
+
+# 2. 查看健康检查日志
+docker inspect outlook-mail-reader | grep -A 10 Health
+
+# 3. 手动测试
+docker exec outlook-mail-reader curl -f http://localhost:5000/login
+```
+
+### 502 错误（Nginx）
+
+**原因：** 应用未正常启动或使用了 Flask 开发服务器
+
+**解决方法：**
+
+```bash
+# 1. 检查容器状态
+docker ps
+
+# 2. 查看应用日志
+docker-compose logs
+
+# 3. 测试应用是否响应
+curl http://localhost:5000/login
+
+# 4. 重新构建（使用 Gunicorn）
+docker-compose down
+docker-compose build
+docker-compose up -d
+```
+
+**正确的日志应该显示：**
+```
+[INFO] Starting gunicorn 21.2.0
+[INFO] Listening at: http://0.0.0.0:5000
+[INFO] Using worker: sync
+[INFO] Booting worker with pid: 7
+```
+
 ### 容器无法启动
 
 ```bash
@@ -208,7 +264,7 @@ docker-compose up -d --build
 ### 从镜像更新
 
 ```bash
-docker pull ghcr.io/<your-username>/<your-repo>:latest
+docker pull ghcr.io/assast/outlookemail:latest
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
