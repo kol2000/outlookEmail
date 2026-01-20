@@ -32,4 +32,4 @@ RUN mkdir -p /app/data
 EXPOSE 5000
 
 # 启动应用（使用 Gunicorn）
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "--access-logfile", "-", "web_outlook_app:app"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "--timeout", "120", "--access-logfile", "-", "web_outlook_app:app"]
