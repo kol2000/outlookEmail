@@ -49,6 +49,32 @@ GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # 测试 API Key，�
 TEMP_EMAIL_GROUP_ID = -1
 
 
+# ==================== 应用初始化 ====================
+
+def init_app():
+    """初始化应用（确保目录和数据库存在）"""
+    # 确保 templates 目录存在
+    os.makedirs('templates', exist_ok=True)
+    
+    # 确保数据目录存在
+    data_dir = os.path.dirname(DATABASE)
+    if data_dir:
+        os.makedirs(data_dir, exist_ok=True)
+    
+    # 初始化数据库
+    init_db()
+    
+    print("=" * 60)
+    print("Outlook 邮件 Web 应用已初始化")
+    print(f"数据库文件: {DATABASE}")
+    print(f"GPTMail API: {GPTMAIL_BASE_URL}")
+    print("=" * 60)
+
+
+# 在模块加载时初始化应用
+init_app()
+
+
 # ==================== 数据库操作 ====================
 
 def get_db():
@@ -1553,15 +1579,6 @@ def api_update_settings():
 # ==================== 主程序 ====================
 
 if __name__ == '__main__':
-    # 确保 templates 目录存在
-    os.makedirs('templates', exist_ok=True)
-    
-    # 确保数据目录存在
-    os.makedirs('data', exist_ok=True)
-    
-    # 初始化数据库
-    init_db()
-    
     # 从环境变量获取配置
     port = int(os.getenv('PORT', 5000))
     host = os.getenv('HOST', '0.0.0.0')
@@ -1571,8 +1588,6 @@ if __name__ == '__main__':
     print("Outlook 邮件 Web 应用")
     print("=" * 60)
     print(f"访问地址: http://{host}:{port}")
-    print(f"数据库文件: {DATABASE}")
-    print(f"GPTMail API: {GPTMAIL_BASE_URL}")
     print(f"运行模式: {'开发' if debug else '生产'}")
     print("=" * 60)
     

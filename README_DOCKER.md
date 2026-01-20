@@ -2,7 +2,58 @@
 
 ## 📦 快速开始
 
-### 使用 Docker Compose（推荐）
+### 使用预构建镜像（推荐）
+
+直接使用 GitHub Actions 自动构建的镜像，无需本地构建：
+
+```bash
+# 拉取最新镜像
+docker pull ghcr.io/assast/outlookemail:latest
+
+# 运行容器
+docker run -d \
+  --name outlook-mail-reader \
+  -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -e LOGIN_PASSWORD=admin123 \
+  ghcr.io/assast/outlookemail:latest
+
+# 查看日志
+docker logs -f outlook-mail-reader
+
+# 停止容器
+docker stop outlook-mail-reader
+docker rm outlook-mail-reader
+```
+
+**首次启动会自动：**
+- 创建数据目录
+- 初始化数据库
+- 创建默认分组
+- 设置默认密码（admin123）
+
+### 使用 Docker Compose
+
+修改 `docker-compose.yml` 使用预构建镜像：
+
+```yaml
+version: '3.8'
+
+services:
+  outlook-mail-reader:
+    image: ghcr.io/assast/outlookemail:latest
+    container_name: outlook-mail-reader
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - LOGIN_PASSWORD=admin123
+      - FLASK_ENV=production
+    restart: unless-stopped
+```
+
+然后启动服务：
 
 ```bash
 # 启动服务
@@ -13,25 +64,6 @@ docker-compose logs -f
 
 # 停止服务
 docker-compose down
-```
-
-### 使用 Docker 命令
-
-```bash
-# 构建镜像
-docker build -t outlook-mail-reader .
-
-# 运行容器
-docker run -d \
-  --name outlook-mail-reader \
-  -p 5000:5000 \
-  -v $(pwd)/data:/app/data \
-  -e LOGIN_PASSWORD=your_password \
-  outlook-mail-reader
-
-# 停止容器
-docker stop outlook-mail-reader
-docker rm outlook-mail-reader
 ```
 
 ## 🔧 配置说明
@@ -61,43 +93,43 @@ ports:
   - "8080:5000"  # 将容器的 5000 端口映射到主机的 8080 端口
 ```
 
-## 🚀 GitHub Actions 自动构建
+## 🚀 镜像说明
 
-项目已配置 GitHub Actions，当代码推送到 `main` 或 `master` 分支时，会自动构建并推送 Docker 镜像到 `ghcr.io/assast/outlookemail:latest`。
+项目使用 GitHub Actions 自动构建并推送 Docker 镜像到 `ghcr.io/assast/outlookemail:latest`。
 
-### 使用预构建镜像
+### 可用镜像标签
+
+- `ghcr.io/assast/outlookemail:latest` - 最新的主分支构建（推荐）
+- `ghcr.io/assast/outlookemail:main` - main 分支最新版本
+- `ghcr.io/assast/outlookemail:master` - master 分支最新版本
+
+### 更新镜像
 
 ```bash
-# 拉取镜像
+# 拉取最新镜像
 docker pull ghcr.io/assast/outlookemail:latest
 
-# 运行容器
+# 重启容器
+docker-compose down
+docker-compose up -d
+```
+
+### 自己构建镜像（可选）
+
+如果需要修改代码或自定义构建：
+
+```bash
+# 构建镜像
+docker build -t outlook-mail-reader .
+
+# 运行自己构建的镜像
 docker run -d \
   --name outlook-mail-reader \
   -p 5000:5000 \
   -v $(pwd)/data:/app/data \
-  -e LOGIN_PASSWORD=your_password \
-  ghcr.io/assast/outlookemail:latest
+  -e LOGIN_PASSWORD=admin123 \
+  outlook-mail-reader
 ```
-
-### 使用生产配置
-
-```bash
-# 使用 docker-compose.prod.yml
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### 触发构建
-
-- 推送代码到 `main` 或 `master` 分支
-- 修改 `*.py`、`requirements.txt`、`Dockerfile`、`templates/**` 文件
-- 手动触发（在 Actions 页面点击 "Run workflow"）
-
-### 镜像标签
-
-- `latest` - 最新的主分支构建
-- `main` 或 `master` - 分支名称
-- `main-<commit-sha>` - 分支名+提交哈希
 
 ## 🌐 生产环境部署
 
@@ -188,21 +220,21 @@ location / {
 **解决方法：**
 
 ```bash
-# 1. 重新构建镜像（已修复健康检查）
-docker-compose down
-docker-compose build
-docker-compose up -d
-
-# 2. 查看健康检查日志
+# 1. 查看健康检查日志
 docker inspect outlook-mail-reader | grep -A 10 Health
 
-# 3. 手动测试
+# 2. 手动测试
 docker exec outlook-mail-reader curl -f http://localhost:5000/login
+
+# 3. 使用最新镜像重启
+docker pull ghcr.io/assast/outlookemail:latest
+docker-compose down
+docker-compose up -d
 ```
 
 ### 502 错误（Nginx）
 
-**原因：** 应用未正常启动或使用了 Flask 开发服务器
+**原因：** 应用未正常启动
 
 **解决方法：**
 
@@ -216,9 +248,9 @@ docker-compose logs
 # 3. 测试应用是否响应
 curl http://localhost:5000/login
 
-# 4. 重新构建（使用 Gunicorn）
+# 4. 重新拉取镜像并重启
+docker pull ghcr.io/assast/outlookemail:latest
 docker-compose down
-docker-compose build
 docker-compose up -d
 ```
 
@@ -230,17 +262,28 @@ docker-compose up -d
 [INFO] Booting worker with pid: 7
 ```
 
-### 容器无法启动
+### 数据库表不存在错误
+
+**错误信息：** `sqlite3.OperationalError: no such table: settings`
+
+**原因：** 数据库未初始化
+
+**解决方法：**
 
 ```bash
-# 查看日志
-docker-compose logs
+# 方法 1：删除旧数据库，重新初始化
+docker-compose down
+rm -rf data/outlook_accounts.db
+docker-compose up -d
 
-# 检查端口占用
-lsof -i :5000
+# 方法 2：手动初始化数据库
+docker exec outlook-mail-reader python -c "from web_outlook_app import init_db; init_db()"
+docker-compose restart
 
-# 检查数据目录权限
-chmod 755 ./data
+# 方法 3：使用最新镜像
+docker pull ghcr.io/assast/outlookemail:latest
+docker-compose down
+docker-compose up -d
 ```
 
 ### 数据库问题
@@ -254,18 +297,25 @@ docker-compose up -d
 
 ## 🔄 更新应用
 
-### 从源码更新
+### 更新到最新版本
 
 ```bash
-git pull
-docker-compose up -d --build
-```
-
-### 从镜像更新
-
-```bash
+# 拉取最新镜像
 docker pull ghcr.io/assast/outlookemail:latest
-docker-compose -f docker-compose.prod.yml up -d
+
+# 重启服务
+docker-compose down
+docker-compose up -d
+
+# 或使用 Docker 命令
+docker stop outlook-mail-reader
+docker rm outlook-mail-reader
+docker run -d \
+  --name outlook-mail-reader \
+  -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -e LOGIN_PASSWORD=admin123 \
+  ghcr.io/assast/outlookemail:latest
 ```
 
 ## 📚 相关文档
