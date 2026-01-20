@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  outlook-mail-reader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: outlook-mail-reader
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # 持久化数据库文件
+      - ./data:/app/data
+    environment:
+      # Flask 配置
+      - FLASK_APP=web_outlook_app.py
+      - FLASK_ENV=production
+      # 可选：自定义登录密码
+      # - LOGIN_PASSWORD=your_password
+    networks:
+      - outlook-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  outlook-network:
+    driver: bridge

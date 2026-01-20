@@ -25,7 +25,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # 登录密码配置（可以修改为你想要的密码）
-LOGIN_PASSWORD = "admin123"
+LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "admin123")
 
 # ==================== 配置 ====================
 # Token 端点
@@ -39,11 +39,11 @@ IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
 
 # 数据库文件
-DATABASE = "outlook_accounts.db"
+DATABASE = os.getenv("DATABASE_PATH", "data/outlook_accounts.db")
 
 # GPTMail API 配置
-GPTMAIL_BASE_URL = "https://mail.chatgpt.org.uk"
-GPTMAIL_API_KEY = "gpt-test"  # 测试 API Key，可以修改为正式 Key
+GPTMAIL_BASE_URL = os.getenv("GPTMAIL_BASE_URL", "https://mail.chatgpt.org.uk")
+GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # 测试 API Key，可以修改为正式 Key
 
 # 临时邮箱分组 ID（系统保留）
 TEMP_EMAIL_GROUP_ID = -1
@@ -1556,16 +1556,24 @@ if __name__ == '__main__':
     # 确保 templates 目录存在
     os.makedirs('templates', exist_ok=True)
     
+    # 确保数据目录存在
+    os.makedirs('data', exist_ok=True)
+    
     # 初始化数据库
     init_db()
     
-    port = 5001
+    # 从环境变量获取配置
+    port = int(os.getenv('PORT', 5000))
+    host = os.getenv('HOST', '0.0.0.0')
+    debug = os.getenv('FLASK_ENV', 'production') != 'production'
+    
     print("=" * 60)
     print("Outlook 邮件 Web 应用")
     print("=" * 60)
-    print(f"访问地址: http://127.0.0.1:{port}")
+    print(f"访问地址: http://{host}:{port}")
     print(f"数据库文件: {DATABASE}")
     print(f"GPTMail API: {GPTMAIL_BASE_URL}")
+    print(f"运行模式: {'开发' if debug else '生产'}")
     print("=" * 60)
     
-    app.run(debug=True, host='127.0.0.1', port=port)
+    app.run(debug=debug, host=host, port=port)
