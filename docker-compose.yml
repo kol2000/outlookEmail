@@ -13,12 +13,12 @@ services:
     environment:
       # Flask 配置
       - FLASK_APP=web_outlook_app.py
-      # Session 密钥（建议修改为随机字符串，重启后保持不变）
+      # Session 密钥（建议修改为随机的一个字符串）本人用的这个生成的uuid https://it.idev.dev/uuid-generator
       - SECRET_KEY=outlook-mail-reader-secret-key-please-change-me
       # 应用配置
       - PORT=5000
       - HOST=0.0.0.0
-      # 登录密码（请修改为你自己的密码）
+      # 登录密码（请修改为你自己的密码 这里建议不要放带特殊字符的密码 有特殊字符可能登录不上报密码错误，如果要特殊字符，请登录以后在设置里面修改）
       - LOGIN_PASSWORD=admin123
       # 数据库配置
       - DATABASE_PATH=/app/data/outlook_accounts.db
