@@ -32,3 +32,5 @@ data/
 # 系统文件
 .DS_Store
 Thumbs.db
+/get_oauth_token.py
+/test_token.py

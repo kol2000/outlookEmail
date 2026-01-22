@@ -385,13 +385,10 @@
             display: none;
         }
         
+        /* 邮件列表头部 */
         .email-list-header {
-            padding: 0 20px;
-            height: 52px;
+            padding: 16px 20px;
             border-bottom: 1px solid #e5e5e5;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             background-color: #ffffff;
         }
         
@@ -913,6 +910,39 @@
             font-weight: 500;
         }
         
+        /* 文件夹切换标签 */
+        .folder-tabs {
+            display: inline-flex;
+            gap: 8px;
+            background-color: #f5f5f5;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        
+        .folder-tab {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #666;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .folder-tab:hover {
+            background-color: #e5e5e5;
+            color: #333;
+        }
+        
+        .folder-tab.active {
+            background-color: #1a1a1a;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
         /* 响应式 */
         @media (max-width: 1200px) {
             .group-panel {
@@ -1031,12 +1061,24 @@
             <!-- 邮件列表面板 -->
             <div class="email-list-panel" id="emailListPanel">
                 <div class="email-list-header">
-                    <h2>
-                        收件箱
-                        <span class="email-count" id="emailCount"></span>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <div class="folder-tabs" id="folderTabs" style="display: none;">
+                            <button class="folder-tab active" data-folder="inbox" onclick="switchFolder('inbox')">
+                                📨 收件箱
+                            </button>
+                            <button class="folder-tab" data-folder="junkemail" onclick="switchFolder('junkemail')">
+                                ⚠️ 垃圾邮件
+                            </button>
+                        </div>
+                        <button class="refresh-btn" onclick="refreshEmails()">获取邮件</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h2 style="margin: 0; font-size: 16px; font-weight: 600;">
+                            邮件
+                            <span class="email-count" id="emailCount"></span>
+                        </h2>
                         <span class="method-tag" id="methodTag" style="display:none;"></span>
-                    </h2>
-                    <button class="refresh-btn" onclick="refreshEmails()">获取邮件</button>
+                    </div>
                 </div>
                 <div class="email-list" id="emailList">
                     <div class="empty-state">
@@ -1245,7 +1287,47 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- 获取 Refresh Token 模态框 -->
+    <div class="modal" id="getRefreshTokenModal">
+        <div class="modal-content" style="width: 600px;">
+            <div class="modal-header">
+                <h3>🔑 获取 Refresh Token</h3>
+                <button class="modal-close" onclick="hideGetRefreshTokenModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">步骤 1: 访问授权链接</label>
+                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                        <input type="text" class="form-input" id="authUrlInput" readonly style="flex: 1; font-size: 12px; font-family: monospace;">
+                        <button class="btn btn-secondary" onclick="copyAuthUrl()" style="white-space: nowrap;">📋 复制</button>
+                        <button class="btn btn-primary" onclick="openAuthUrl()" style="white-space: nowrap;">🔗 打开</button>
+                    </div>
+                    <div class="form-hint">点击"打开"按钮在浏览器中授权，或点击"复制"后手动粘贴到浏览器</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">步骤 2: 粘贴授权后的完整 URL</label>
+                    <textarea class="form-textarea" id="redirectUrlInput" placeholder="授权成功后，浏览器会跳转到一个空白页，请复制地址栏中的完整 URL 并粘贴到这里" style="height: 80px; font-size: 12px; font-family: monospace;"></textarea>
+                    <div class="form-hint">URL 格式类似：http://localhost:8080/?code=xxxxx&state=12345</div>
+                </div>
+
+                <div class="form-group" id="refreshTokenResult" style="display: none;">
+                    <label class="form-label">✅ 账号信息（已获取成功）</label>
+                    <textarea class="form-textarea" id="refreshTokenOutput" readonly style="height: 100px; font-size: 12px; font-family: monospace; background-color: #f0f9ff; border-color: #0078d4;"></textarea>
+                    <div class="form-hint" style="color: #0078d4;">
+                        <strong>格式说明：</strong>邮箱----密码----client_id----refresh_token<br>
+                        请将"your@outlook.com"和"yourpassword"替换为您的实际邮箱和密码，然后复制整行内容到"导入邮箱"中使用
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideGetRefreshTokenModal()">关闭</button>
+                <button class="btn btn-primary" id="exchangeTokenBtn" onclick="exchangeToken()">换取 Token</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 消息提示 -->
     <div class="toast" id="toast"></div>
     
@@ -1255,6 +1337,7 @@
         let currentGroupId = null;
         let currentEmails = [];
         let currentMethod = 'graph';
+        let currentFolder = 'inbox'; // 当前文件夹：inbox 或 deleteditems
         let isListVisible = true;
         let groups = [];
         let accountsCache = {}; // 缓存各分组的邮箱列表
@@ -1262,11 +1345,15 @@
         let selectedColor = '#1a1a1a';
         let isTempEmailGroup = false; // 是否是临时邮箱分组
         let tempEmailGroupId = null; // 临时邮箱分组 ID
+        let isLoadingMore = false; // 是否正在加载更多邮件
+        let hasMoreEmails = true; // 是否还有更多邮件
+        let currentSkip = 0; // 当前分页偏移量
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             loadGroups();
             initColorPicker();
+            initEmailListScroll();
         });
         
         // 初始化颜色选择器
@@ -1281,6 +1368,98 @@
                     document.getElementById('customColorHex').value = selectedColor;
                 });
             });
+        }
+        
+        // 初始化邮件列表滚动监听
+        function initEmailListScroll() {
+            const emailList = document.getElementById('emailList');
+            emailList.addEventListener('scroll', function() {
+                // 检查是否滚动到底部
+                if (emailList.scrollHeight - emailList.scrollTop <= emailList.clientHeight + 50) {
+                    if (!isLoadingMore && hasMoreEmails && currentAccount && !isTempEmailGroup) {
+                        loadMoreEmails();
+                    }
+                }
+            });
+        }
+        
+        // 加载更多邮件
+        async function loadMoreEmails() {
+            if (isLoadingMore || !hasMoreEmails) return;
+            
+            isLoadingMore = true;
+            currentSkip += 20; // 每页20封
+            
+            // 在列表底部显示加载状态
+            const emailList = document.getElementById('emailList');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'loading loading-small';
+            loadingDiv.id = 'loadingMore';
+            loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
+            emailList.appendChild(loadingDiv);
+            
+            try {
+                const response = await fetch(
+                    `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${currentSkip}&top=20`
+                );
+                const data = await response.json();
+                
+                if (data.success && data.emails.length > 0) {
+                    // 追加新邮件到列表
+                    currentEmails = currentEmails.concat(data.emails);
+                    hasMoreEmails = data.has_more;
+                    
+                    // 移除加载状态
+                    const loadingEl = document.getElementById('loadingMore');
+                    if (loadingEl) loadingEl.remove();
+                    
+                    // 重新渲染邮件列表
+                    renderEmailList(currentEmails);
+                    
+                    // 更新邮件数量
+                    document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
+                } else {
+                    hasMoreEmails = false;
+                    // 显示"没有更多邮件"
+                    const loadingEl = document.getElementById('loadingMore');
+                    if (loadingEl) {
+                        loadingEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>';
+                    }
+                }
+            } catch (error) {
+                const loadingEl = document.getElementById('loadingMore');
+                if (loadingEl) loadingEl.remove();
+                showToast('加载失败', 'error');
+            } finally {
+                isLoadingMore = false;
+            }
+        }
+        
+        // 切换文件夹（不触发查询）
+        function switchFolder(folder) {
+            if (currentFolder === folder) return;
+            
+            currentFolder = folder;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.folder-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.folder === folder);
+            });
+            
+            // 清空邮件列表，显示提示
+            document.getElementById('emailList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📬</div>
+                    <div class="empty-state-text">点击"获取邮件"按钮获取${folder === 'inbox' ? '收件箱' : '垃圾邮件'}</div>
+                </div>
+            `;
+            document.getElementById('emailCount').textContent = '';
+            document.getElementById('methodTag').style.display = 'none';
+            
+            // 重置分页状态
+            currentEmails = [];
+            currentSkip = 0;
+            hasMoreEmails = true;
         }
         
         // 选择自定义颜色（颜色选择器）
@@ -1440,6 +1619,7 @@
                 `;
             } else {
                 footer.innerHTML = `
+                    <button class="add-account-btn" onclick="showGetRefreshTokenModal()" style="background-color: #0078d4; margin-bottom: 8px;">🔑 获取 Refresh Token</button>
                     <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
                 `;
             }
@@ -1509,13 +1689,18 @@
                 const select = document.getElementById(selectId);
                 if (select) {
                     const currentValue = select.value;
-                    select.innerHTML = groups.map(g => 
+                    // 过滤掉临时邮箱分组（导入邮箱时不能选择临时邮箱分组）
+                    const filteredGroups = selectId === 'importGroupSelect' 
+                        ? groups.filter(g => g.name !== '临时邮箱')
+                        : groups;
+                    
+                    select.innerHTML = filteredGroups.map(g => 
                         `<option value="${g.id}">${escapeHtml(g.name)}</option>`
                     ).join('');
                     // 恢复之前的选择
-                    if (currentValue && groups.find(g => g.id === parseInt(currentValue))) {
+                    if (currentValue && filteredGroups.find(g => g.id === parseInt(currentValue))) {
                         select.value = currentValue;
-                    } else if (currentGroupId) {
+                    } else if (currentGroupId && filteredGroups.find(g => g.id === currentGroupId)) {
                         select.value = currentGroupId;
                     }
                 }
@@ -1753,6 +1938,12 @@
                 }
             });
             
+            // 隐藏文件夹切换按钮（临时邮箱不支持文件夹）
+            const folderTabs = document.getElementById('folderTabs');
+            if (folderTabs) {
+                folderTabs.style.display = 'none';
+            }
+            
             document.getElementById('emailList').innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📬</div>
@@ -1938,6 +2129,7 @@
         function selectAccount(email) {
             currentAccount = email;
             isTempEmailGroup = false;
+            currentFolder = 'inbox'; // 重置为收件箱
             
             document.getElementById('currentAccount').classList.add('show');
             document.getElementById('currentAccountEmail').textContent = email;
@@ -1949,6 +2141,16 @@
                     item.classList.add('active');
                 }
             });
+            
+            // 显示文件夹切换按钮
+            const folderTabs = document.getElementById('folderTabs');
+            if (folderTabs) {
+                folderTabs.style.display = 'flex';
+                // 重置为收件箱
+                document.querySelectorAll('.folder-tab').forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.folder === 'inbox');
+                });
+            }
             
             document.getElementById('emailList').innerHTML = `
                 <div class="empty-state">
@@ -2343,15 +2545,24 @@
         // 加载邮件列表
         async function loadEmails(email) {
             const container = document.getElementById('emailList');
+            
+            // 重置分页状态
+            currentSkip = 0;
+            hasMoreEmails = true;
+            
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
             
             try {
-                const response = await fetch(`/api/emails/${encodeURIComponent(email)}?method=${currentMethod}`);
+                // 每次只查询20封邮件
+                const response = await fetch(
+                    `/api/emails/${encodeURIComponent(email)}?method=${currentMethod}&folder=${currentFolder}&skip=0&top=20`
+                );
                 const data = await response.json();
                 
                 if (data.success) {
                     currentEmails = data.emails;
                     currentMethod = data.method === 'Graph API' ? 'graph' : 'imap';
+                    hasMoreEmails = data.has_more;
                     
                     // 显示使用的方法和邮件数量
                     const methodTag = document.getElementById('methodTag');
@@ -2631,9 +2842,114 @@
                 return dateStr;
             }
         }
-        
+
+        // ==================== OAuth Refresh Token 相关 ====================
+
+        // 显示获取 Refresh Token 模态框
+        async function showGetRefreshTokenModal() {
+            document.getElementById('getRefreshTokenModal').classList.add('show');
+
+            // 重置表单
+            document.getElementById('redirectUrlInput').value = '';
+            document.getElementById('refreshTokenResult').style.display = 'none';
+            document.getElementById('refreshTokenOutput').value = '';
+
+            // 重置按钮状态
+            const btn = document.getElementById('exchangeTokenBtn');
+            btn.disabled = false;
+            btn.textContent = '换取 Token';
+            btn.style.display = '';
+
+            // 获取授权 URL
+            try {
+                const response = await fetch('/api/oauth/auth-url');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('authUrlInput').value = data.auth_url;
+                } else {
+                    showToast('获取授权链接失败', 'error');
+                }
+            } catch (error) {
+                showToast('获取授权链接失败', 'error');
+            }
+        }
+
+        // 隐藏获取 Refresh Token 模态框
+        function hideGetRefreshTokenModal() {
+            document.getElementById('getRefreshTokenModal').classList.remove('show');
+        }
+
+        // 复制授权 URL
+        function copyAuthUrl() {
+            const input = document.getElementById('authUrlInput');
+            input.select();
+            document.execCommand('copy');
+            showToast('授权链接已复制到剪贴板', 'success');
+        }
+
+        // 打开授权 URL
+        function openAuthUrl() {
+            const url = document.getElementById('authUrlInput').value;
+            if (url) {
+                window.open(url, '_blank');
+                showToast('已在新窗口打开授权页面', 'info');
+            }
+        }
+
+        // 换取 Token
+        async function exchangeToken() {
+            const redirectUrl = document.getElementById('redirectUrlInput').value.trim();
+
+            if (!redirectUrl) {
+                showToast('请先粘贴授权后的完整 URL', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('exchangeTokenBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 换取中...';
+
+            try {
+                const response = await fetch('/api/oauth/exchange-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        redirected_url: redirectUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 生成完整的导入格式
+                    const importFormat = `your@outlook.com----yourpassword----${data.client_id}----${data.refresh_token}`;
+
+                    // 显示结果
+                    document.getElementById('refreshTokenOutput').value = importFormat;
+                    document.getElementById('refreshTokenResult').style.display = 'block';
+
+                    showToast('✅ Refresh Token 获取成功！', 'success');
+
+                    // 重置按钮状态（不隐藏，允许重复使用）
+                    btn.disabled = false;
+                    btn.textContent = '换取 Token';
+                } else {
+                    showToast(data.error || '换取 Token 失败', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '换取 Token';
+                }
+            } catch (error) {
+                showToast('换取 Token 失败: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.textContent = '换取 Token';
+            }
+        }
+
         // ==================== 设置相关 ====================
-        
+
         // 显示设置模态框
         async function showSettingsModal() {
             document.getElementById('settingsModal').classList.add('show');

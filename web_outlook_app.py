@@ -52,6 +52,16 @@ GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # 测试 API Key，�
 # 临时邮箱分组 ID（系统保留）
 TEMP_EMAIL_GROUP_ID = -1
 
+# OAuth 配置
+OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "24d9a0ed-8787-4584-883c-2fd79308940a")
+OAUTH_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8080")
+OAUTH_SCOPES = [
+    "offline_access",
+    "https://graph.microsoft.com/Mail.Read",
+    "https://graph.microsoft.com/Mail.ReadWrite",
+    "https://graph.microsoft.com/User.Read"
+]
+
 
 # ==================== 数据库操作 ====================
 
@@ -530,16 +540,26 @@ def get_access_token_graph(client_id: str, refresh_token: str) -> Optional[str]:
         return None
 
 
-def get_emails_graph(client_id: str, refresh_token: str, top: int = 20) -> Optional[List[Dict]]:
-    """使用 Graph API 获取邮件列表"""
+def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20) -> Optional[List[Dict]]:
+    """使用 Graph API 获取邮件列表（支持分页和文件夹选择）"""
     access_token = get_access_token_graph(client_id, refresh_token)
     if not access_token:
         return None
     
     try:
-        url = "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages"
+        # 根据文件夹类型选择 API 端点
+        folder_map = {
+            'inbox': 'inbox',
+            'junkemail': 'junkemail',
+            'deleteditems': 'deleteditems',
+            'trash': 'deleteditems'  # 垃圾箱的别名
+        }
+        folder_name = folder_map.get(folder.lower(), 'inbox')
+        
+        url = f"https://graph.microsoft.com/v1.0/me/mailFolders/{folder_name}/messages"
         params = {
             "$top": top,
+            "$skip": skip,
             "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview",
             "$orderby": "receivedDateTime desc"
         }
@@ -608,8 +628,8 @@ def get_access_token_imap(client_id: str, refresh_token: str) -> Optional[str]:
         return None
 
 
-def get_emails_imap(account: str, client_id: str, refresh_token: str, top: int = 20) -> Optional[List[Dict]]:
-    """使用 IMAP 获取邮件列表"""
+def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20) -> Optional[List[Dict]]:
+    """使用 IMAP 获取邮件列表（支持分页和文件夹选择）"""
     access_token = get_access_token_imap(client_id, refresh_token)
     if not access_token:
         return None
@@ -619,17 +639,35 @@ def get_emails_imap(account: str, client_id: str, refresh_token: str, top: int =
         connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT)
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
-        connection.select('"INBOX"')
+        
+        # 根据文件夹类型选择 IMAP 文件夹
+        folder_map = {
+            'inbox': '"INBOX"',
+            'junkemail': '"Junk Email"',
+            'deleteditems': '"Deleted Items"',
+            'trash': '"Deleted Items"'  # 垃圾箱的别名
+        }
+        imap_folder = folder_map.get(folder.lower(), '"INBOX"')
+        
+        connection.select(imap_folder)
         
         status, messages = connection.search(None, 'ALL')
         if status != 'OK' or not messages or not messages[0]:
             return []
         
         message_ids = messages[0].split()
-        recent_ids = message_ids[-top:][::-1]
+        # 计算分页范围
+        total = len(message_ids)
+        start_idx = max(0, total - skip - top)
+        end_idx = total - skip
+        
+        if start_idx >= end_idx:
+            return []
+        
+        paged_ids = message_ids[start_idx:end_idx][::-1]  # 倒序，最新的在前
         
         emails = []
-        for msg_id in recent_ids:
+        for msg_id in paged_ids:
             try:
                 status, msg_data = connection.fetch(msg_id, '(RFC822)')
                 if status == 'OK' and msg_data and msg_data[0]:
@@ -1105,17 +1143,20 @@ def api_delete_account_by_email(email_addr):
 @app.route('/api/emails/<email_addr>')
 @login_required
 def api_get_emails(email_addr):
-    """获取邮件列表"""
+    """获取邮件列表（支持分页，不使用缓存）"""
     account = get_account_by_email(email_addr)
     
     if not account:
         return jsonify({'success': False, 'error': '账号不存在'})
     
     method = request.args.get('method', 'graph')
+    folder = request.args.get('folder', 'inbox')  # inbox, junkemail, deleteditems
+    skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
     
     if method == 'graph':
-        emails = get_emails_graph(account['client_id'], account['refresh_token'], top)
+        # 每次只查询20封邮件
+        emails = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top)
         if emails is not None:
             # 格式化 Graph API 返回的数据
             formatted = []
@@ -1129,12 +1170,23 @@ def api_get_emails(email_addr):
                     'has_attachments': e.get('hasAttachments', False),
                     'body_preview': e.get('bodyPreview', '')
                 })
-            return jsonify({'success': True, 'emails': formatted, 'method': 'Graph API'})
+            
+            return jsonify({
+                'success': True,
+                'emails': formatted,
+                'method': 'Graph API',
+                'has_more': len(formatted) >= top
+            })
     
     # 如果 Graph API 失败，尝试 IMAP
-    emails = get_emails_imap(account['email'], account['client_id'], account['refresh_token'], top)
+    emails = get_emails_imap(account['email'], account['client_id'], account['refresh_token'], folder, skip, top)
     if emails is not None:
-        return jsonify({'success': True, 'emails': emails, 'method': 'IMAP'})
+        return jsonify({
+            'success': True,
+            'emails': emails,
+            'method': 'IMAP',
+            'has_more': len(emails) >= top
+        })
     
     return jsonify({'success': False, 'error': '获取邮件失败，请检查账号配置'})
 
@@ -1524,6 +1576,89 @@ def api_refresh_temp_email_messages(email_addr):
         })
     else:
         return jsonify({'success': False, 'error': '获取邮件失败'})
+
+
+# ==================== OAuth Token API ====================
+
+@app.route('/api/oauth/auth-url', methods=['GET'])
+@login_required
+def api_get_oauth_auth_url():
+    """生成 OAuth 授权 URL"""
+    import urllib.parse
+
+    base_auth_url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+    params = {
+        "client_id": OAUTH_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": OAUTH_REDIRECT_URI,
+        "response_mode": "query",
+        "scope": " ".join(OAUTH_SCOPES),
+        "state": "12345"
+    }
+    auth_url = f"{base_auth_url}?{urllib.parse.urlencode(params)}"
+
+    return jsonify({
+        'success': True,
+        'auth_url': auth_url,
+        'client_id': OAUTH_CLIENT_ID,
+        'redirect_uri': OAUTH_REDIRECT_URI
+    })
+
+
+@app.route('/api/oauth/exchange-token', methods=['POST'])
+@login_required
+def api_exchange_oauth_token():
+    """使用授权码换取 Refresh Token"""
+    import urllib.parse
+
+    data = request.json
+    redirected_url = data.get('redirected_url', '').strip()
+
+    if not redirected_url:
+        return jsonify({'success': False, 'error': '请提供授权后的完整 URL'})
+
+    # 从 URL 中提取 code
+    try:
+        parsed_url = urllib.parse.urlparse(redirected_url)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        auth_code = query_params['code'][0]
+    except (KeyError, IndexError):
+        return jsonify({'success': False, 'error': '无法从 URL 中提取授权码，请检查 URL 是否正确'})
+
+    # 使用 Code 换取 Token (Public Client 不需要 client_secret)
+    token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    token_data = {
+        "client_id": OAUTH_CLIENT_ID,
+        "code": auth_code,
+        "redirect_uri": OAUTH_REDIRECT_URI,
+        "grant_type": "authorization_code",
+        "scope": " ".join(OAUTH_SCOPES)
+    }
+
+    try:
+        response = requests.post(token_url, data=token_data, timeout=30)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'请求失败: {str(e)}'})
+
+    if response.status_code == 200:
+        tokens = response.json()
+        refresh_token = tokens.get('refresh_token')
+
+        if not refresh_token:
+            return jsonify({'success': False, 'error': '未能获取 Refresh Token'})
+
+        return jsonify({
+            'success': True,
+            'refresh_token': refresh_token,
+            'client_id': OAUTH_CLIENT_ID,
+            'token_type': tokens.get('token_type'),
+            'expires_in': tokens.get('expires_in'),
+            'scope': tokens.get('scope')
+        })
+    else:
+        error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+        error_msg = error_data.get('error_description', response.text)
+        return jsonify({'success': False, 'error': f'获取令牌失败: {error_msg}'})
 
 
 # ==================== 设置 API ====================
