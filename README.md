@@ -24,6 +24,7 @@
 - 🔥 **临时邮箱** - 集成 GPTMail API，一键生成临时邮箱
 - ⚙️ **系统设置** - 支持在线修改登录密码和 GPTMail API Key
 - 🔄 **OAuth2 助手** - 内置 OAuth2 授权流程，快速获取 Refresh Token
+- 🔁 **Token 刷新管理** - 全量刷新所有账号 Token，实时进度展示，防止 90 天过期（⭐ 2026-01-23 新增）
 
 ### 界面布局
 Web 应用采用四栏式布局设计：
@@ -155,6 +156,7 @@ docker-compose down
 - `settings` - 系统设置（登录密码、API Key 等）
 - `groups` - 邮箱分组
 - `accounts` - Outlook 邮箱账号
+- `account_refresh_logs` - 账号刷新记录（⭐ 2026-01-23 新增）
 - `temp_emails` - 临时邮箱
 - `temp_email_messages` - 临时邮箱的邮件
 
@@ -349,6 +351,34 @@ user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXE
 2. **GPTMail API Key** - 设置临时邮箱功能所需的 API Key
 
 设置会保存在数据库中，重启应用后仍然有效。
+
+### 7. Token 刷新管理（⭐ 2026-01-23 新增）
+
+为了防止 Refresh Token 因 90 天不使用而过期，系统提供了全量刷新功能：
+
+#### 功能特性
+- **全量刷新** - 一键测试所有账号的 Token 有效性
+- **实时进度** - 显示当前处理的账号、成功/失败数量
+- **刷新统计** - 显示本次刷新的总数、成功数、失败数
+- **失败重试** - 支持单个或批量重试失败的账号
+- **成功列表** - 查看所有刷新成功的账号
+- **失败列表** - 查看失败原因，支持单独重试
+- **记录管理** - 只保留最近一次全量刷新记录，避免数据冗余
+
+#### 使用方法
+1. 点击顶部导航栏的「全量刷新Token」按钮
+2. 确认刷新提示（会清除之前的记录）
+3. 实时查看刷新进度和统计
+4. 刷新完成后查看结果
+5. 如有失败，可点击「失败列表」查看详情并重试
+
+#### 建议
+- 建议每月至少执行一次全量刷新
+- 及时处理失败的账号，重新获取 Token
+- 定期查看刷新历史，了解账号健康状态
+![全量刷新Token](img/全量刷新token.png)
+![全量刷新Token](img/全量刷新token-失败.png)
+
 
 ## 🌐 生产环境部署
 
@@ -698,8 +728,19 @@ docker logs outlook-mail-reader
 - `group_id` - 所属分组 ID（外键）
 - `remark` - 备注
 - `status` - 账号状态
+- `last_refresh_at` - 最后刷新时间（⭐ 2026-01-23 新增）
 - `created_at` - 创建时间
 - `updated_at` - 更新时间
+
+#### account_refresh_logs 表（⭐ 2026-01-23 新增）
+存储账号刷新记录：
+- `id` - 记录 ID（主键）
+- `account_id` - 账号 ID（外键）
+- `account_email` - 账号邮箱
+- `refresh_type` - 刷新类型（manual/retry/auto）
+- `status` - 刷新状态（success/failed）
+- `error_message` - 错误信息
+- `created_at` - 创建时间
 
 #### temp_emails 表
 存储临时邮箱：
@@ -745,6 +786,16 @@ docker logs outlook-mail-reader
 - `DELETE /api/accounts/<id>` - 删除账号
 - `GET /api/accounts/export` - 导出所有账号
 - `POST /api/accounts/export-selected` - 导出选中分组账号
+
+#### Token 刷新管理（⭐ 2026-01-23 新增）
+- `GET /api/accounts/refresh-all` - 全量刷新所有账号（流式响应）
+- `POST /api/accounts/<id>/refresh` - 刷新单个账号
+- `POST /api/accounts/refresh-failed` - 重试所有失败的账号
+- `POST /api/accounts/<id>/retry-refresh` - 重试单个账号
+- `GET /api/accounts/refresh-logs` - 获取刷新历史
+- `GET /api/accounts/<id>/refresh-logs` - 获取单个账号的刷新历史
+- `GET /api/accounts/refresh-logs/failed` - 获取失败的刷新记录
+- `GET /api/accounts/refresh-stats` - 获取刷新统计信息
 
 #### 邮件操作
 - `GET /api/emails/<email>` - 获取邮件列表
@@ -953,6 +1004,41 @@ SOFTWARE.
 
 - GitHub Issues: [https://github.com/assast/outlookEmail/issues](https://github.com/assast/outlookEmail/issues)
 - Email: 通过 GitHub Issues 联系
+
+---
+
+## 📋 更新日志
+
+### 2026-01-23 - Token 刷新管理功能
+
+#### 新增功能
+- ✨ **全量刷新 Token** - 一键测试所有账号的 Refresh Token 有效性
+- 📊 **实时进度展示** - 使用 Server-Sent Events 实现流式响应，实时显示刷新进度
+- 📈 **刷新统计** - 显示本次刷新的总数、成功数、失败数和上次刷新时间
+- 🔁 **失败重试** - 支持单个账号重试和批量重试所有失败账号
+- ✅ **成功列表** - 查看所有刷新成功的账号记录
+- ❌ **失败列表** - 查看失败原因，支持单独重试
+- 🗄️ **记录管理** - 只保留最近一次全量刷新记录，避免数据冗余
+- 🕐 **时区优化** - 统一使用上海时区（UTC+8），确保时间显示准确
+
+#### 数据库变更
+- 新增 `account_refresh_logs` 表 - 存储刷新记录
+- `accounts` 表新增 `last_refresh_at` 字段 - 记录最后刷新时间
+
+#### API 变更
+- 新增 8 个刷新相关 API 端点
+- 使用流式响应（SSE）实现实时进度推送
+
+#### 技术亮点
+- 使用 EventSource API 实现前端实时进度接收
+- 优化时区处理，避免 UTC 和本地时区的 8 小时偏差
+- 实时同步顶部统计数据和进度条数据
+- 改进邮件内容展示，支持长邮件完整显示
+
+#### 使用建议
+- 建议每月至少执行一次全量刷新，防止 Token 过期
+- 及时处理失败的账号，重新获取 Refresh Token
+- 定期查看刷新历史，了解账号健康状态
 
 ---
 

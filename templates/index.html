@@ -864,16 +864,31 @@
             background-color: #dc3545;
             color: #ffffff;
         }
-        
+
         .btn-danger:hover {
             background-color: #c82333;
         }
-        
+
+        .btn-warning {
+            background-color: #ffc107;
+            color: #1a1a1a;
+        }
+
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
         /* 消息提示 */
         .toast {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
             padding: 14px 24px;
             background-color: #1a1a1a;
             color: #ffffff;
@@ -881,14 +896,15 @@
             font-size: 14px;
             z-index: 2000;
             opacity: 0;
-            transform: translateY(20px);
             transition: all 0.3s;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 300px;
+            text-align: center;
         }
-        
+
         .toast.show {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(-50%) translateY(0);
         }
         
         .toast.success {
@@ -1018,6 +1034,7 @@
             </div>
         </div>
         <div class="navbar-actions">
+            <button class="navbar-btn" onclick="showRefreshModal()">全量刷新Token</button>
             <button class="navbar-btn" onclick="showExportModal()">导出邮箱</button>
             <button class="navbar-btn" onclick="showSettingsModal()">⚙️ 设置</button>
             <button class="navbar-btn" onclick="logout()" style="color: #dc3545;">退出登录</button>
@@ -1284,6 +1301,98 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="hideSettingsModal()">取消</button>
                 <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Token 刷新管理模态框 -->
+    <div class="modal" id="refreshModal">
+        <div class="modal-content" style="width: 800px; max-width: 90vw;">
+            <div class="modal-header">
+                <h3>🔄 Token 刷新管理</h3>
+                <button class="modal-close" onclick="hideRefreshModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 刷新统计 -->
+                <div style="background-color: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #333;">本次刷新结果</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;">
+                        <div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">上次刷新时间</div>
+                            <div style="font-size: 14px; font-weight: 600;" id="lastRefreshTime">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">总计</div>
+                            <div style="font-size: 14px; font-weight: 600;" id="totalRefreshCount">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">成功</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #28a745;" id="successRefreshCount">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">失败</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #dc3545;" id="failedRefreshCount">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <button class="btn btn-primary" onclick="refreshAllAccounts()" id="refreshAllBtn">
+                        🔄 全量刷新
+                    </button>
+                    <button class="btn btn-warning" onclick="retryFailedAccounts()" id="retryFailedBtn">
+                        🔁 重试失败
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadSuccessLogs()">
+                        ✅ 成功列表
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadFailedLogs()">
+                        ❌ 失败列表
+                    </button>
+                </div>
+
+                <!-- 刷新进度 -->
+                <div id="refreshProgress" style="display: none; background-color: #e3f2fd; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #2196f3;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #1976d2;">正在刷新...</div>
+                    <div style="font-size: 13px; line-height: 1.8;" id="refreshProgressText">请稍候</div>
+                </div>
+
+                <!-- 失败列表 -->
+                <div id="failedListContainer" style="display: none;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>失败列表</span>
+                        <button class="btn btn-sm btn-secondary" onclick="hideFailedList()">隐藏</button>
+                    </div>
+                    <div id="failedList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px;">
+                        <!-- 失败列表将通过 JS 动态加载 -->
+                    </div>
+                </div>
+
+                <!-- 成功列表 -->
+                <div id="successListContainer" style="display: none;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>成功列表</span>
+                        <button class="btn btn-sm btn-secondary" onclick="hideSuccessList()">隐藏</button>
+                    </div>
+                    <div id="successList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px;">
+                        <!-- 成功列表将通过 JS 动态加载 -->
+                    </div>
+                </div>
+
+                <!-- 刷新历史 -->
+                <div id="refreshLogsContainer" style="display: none;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>刷新历史</span>
+                        <button class="btn btn-sm btn-secondary" onclick="hideRefreshLogs()">隐藏</button>
+                    </div>
+                    <div id="refreshLogsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px;">
+                        <!-- 刷新历史将通过 JS 动态加载 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideRefreshModal()">关闭</button>
             </div>
         </div>
     </div>
@@ -2735,19 +2844,42 @@
         // 动态调整 iframe 高度
         function adjustIframeHeight(iframe) {
             try {
-                setTimeout(() => {
+                // 多次尝试调整高度，确保内容完全加载
+                const adjustHeight = () => {
                     if (iframe.contentDocument && iframe.contentDocument.body) {
-                        const height = iframe.contentDocument.body.scrollHeight;
+                        const body = iframe.contentDocument.body;
+                        const html = iframe.contentDocument.documentElement;
+                        // 获取实际内容高度（取最大值）
+                        const height = Math.max(
+                            body.scrollHeight,
+                            body.offsetHeight,
+                            html.clientHeight,
+                            html.scrollHeight,
+                            html.offsetHeight
+                        );
+                        // 设置最小高度为 600px，确保长邮件能完整显示
                         iframe.style.height = Math.max(height + 40, 600) + 'px';
                     }
-                }, 100);
-                
-                setTimeout(() => {
-                    if (iframe.contentDocument && iframe.contentDocument.body) {
-                        const height = iframe.contentDocument.body.scrollHeight;
-                        iframe.style.height = Math.max(height + 40, 600) + 'px';
-                    }
-                }, 500);
+                };
+
+                // 立即调整一次
+                adjustHeight();
+                // 100ms 后再调整（等待图片等资源加载）
+                setTimeout(adjustHeight, 100);
+                // 500ms 后再调整（确保所有内容都已加载）
+                setTimeout(adjustHeight, 500);
+                // 1秒后最后调整一次
+                setTimeout(adjustHeight, 1000);
+
+                // 监听 iframe 内容变化
+                if (iframe.contentDocument) {
+                    const observer = new MutationObserver(adjustHeight);
+                    observer.observe(iframe.contentDocument.body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true
+                    });
+                }
             } catch (e) {
                 console.log('Cannot adjust iframe height:', e);
             }
@@ -2828,15 +2960,27 @@
             try {
                 const date = new Date(dateStr);
                 if (isNaN(date.getTime())) return dateStr;
-                
+
                 const now = new Date();
                 const isToday = date.toDateString() === now.toDateString();
-                
+
                 if (isToday) {
-                    return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    return '今天 ' + date.toLocaleTimeString('zh-CN', {
+                        timeZone: 'Asia/Shanghai',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
                 } else {
-                    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) + ' ' +
-                           date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    return date.toLocaleDateString('zh-CN', {
+                        timeZone: 'Asia/Shanghai',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    }) + ' ' + date.toLocaleTimeString('zh-CN', {
+                        timeZone: 'Asia/Shanghai',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
                 }
             } catch (e) {
                 return dateStr;
@@ -3014,7 +3158,433 @@
                 showToast('保存设置失败', 'error');
             }
         }
-        
+
+        // ==================== Token 刷新管理 ====================
+
+        // 显示刷新模态框
+        async function showRefreshModal() {
+            document.getElementById('refreshModal').classList.add('show');
+            // 加载统计数据
+            await loadRefreshStats();
+            // 自动加载失败列表（如果有失败记录）
+            await autoLoadFailedListIfNeeded();
+        }
+
+        // 自动加载失败列表（如果有失败记录）
+        async function autoLoadFailedListIfNeeded() {
+            try {
+                const response = await fetch('/api/accounts/refresh-logs/failed');
+                const data = await response.json();
+
+                if (data.success && data.logs && data.logs.length > 0) {
+                    // 有失败记录，自动显示失败列表
+                    showFailedListFromData(data.logs.map(log => ({
+                        id: log.account_id,
+                        email: log.account_email,
+                        error: log.error_message
+                    })));
+                }
+            } catch (error) {
+                console.error('自动加载失败列表失败:', error);
+            }
+        }
+
+        // 隐藏刷新模态框
+        function hideRefreshModal() {
+            document.getElementById('refreshModal').classList.remove('show');
+            // 不隐藏列表，保留上次的数据
+        }
+
+        // 加载刷新统计
+        async function loadRefreshStats() {
+            try {
+                const response = await fetch('/api/accounts/refresh-stats');
+                const data = await response.json();
+
+                console.log('刷新统计数据:', data);
+
+                if (data.success) {
+                    const stats = data.stats;
+
+                    // 优先使用保存的本地刷新时间
+                    if (window.lastRefreshTime && window.lastRefreshTime instanceof Date) {
+                        document.getElementById('lastRefreshTime').textContent = formatDateTime(window.lastRefreshTime.toISOString());
+                    } else if (stats.last_refresh_time) {
+                        document.getElementById('lastRefreshTime').textContent = formatDateTime(stats.last_refresh_time);
+                    } else {
+                        document.getElementById('lastRefreshTime').textContent = '-';
+                    }
+
+                    document.getElementById('totalRefreshCount').textContent = stats.total;
+                    document.getElementById('successRefreshCount').textContent = stats.success_count;
+                    document.getElementById('failedRefreshCount').textContent = stats.failed_count;
+
+                    console.log('统计数据已更新到页面');
+                }
+            } catch (error) {
+                console.error('加载刷新统计失败:', error);
+            }
+        }
+
+        // 全量刷新所有账号
+        async function refreshAllAccounts() {
+            const btn = document.getElementById('refreshAllBtn');
+            const progress = document.getElementById('refreshProgress');
+            const progressText = document.getElementById('refreshProgressText');
+
+            if (btn.disabled) return;
+
+            if (!confirm('确定要刷新所有账号的 Token 吗？这将清除之前的刷新记录，只保留本次记录。')) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '刷新中...';
+            progress.style.display = 'block';
+            progressText.innerHTML = '正在初始化...';
+
+            try {
+                const eventSource = new EventSource('/api/accounts/refresh-all');
+                let totalCount = 0;
+                let successCount = 0;
+                let failedCount = 0;
+
+                eventSource.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+
+                        if (data.type === 'start') {
+                            totalCount = data.total;
+                            progressText.innerHTML = `总共 <strong>${totalCount}</strong> 个账号，准备开始刷新...`;
+                            // 初始化统计
+                            document.getElementById('totalRefreshCount').textContent = totalCount;
+                            document.getElementById('successRefreshCount').textContent = '0';
+                            document.getElementById('failedRefreshCount').textContent = '0';
+                        } else if (data.type === 'progress') {
+                            successCount = data.success_count;
+                            failedCount = data.failed_count;
+                            // 实时更新统计
+                            document.getElementById('successRefreshCount').textContent = successCount;
+                            document.getElementById('failedRefreshCount').textContent = failedCount;
+                            progressText.innerHTML = `
+                                正在处理: <strong>${data.email}</strong><br>
+                                进度: <strong>${data.current}/${data.total}</strong> |
+                                成功: <strong style="color: #28a745;">${successCount}</strong> |
+                                失败: <strong style="color: #dc3545;">${failedCount}</strong>
+                            `;
+                        } else if (data.type === 'complete') {
+                            eventSource.close();
+                            progress.style.display = 'none';
+                            btn.disabled = false;
+                            btn.textContent = '🔄 全量刷新';
+
+                            // 直接更新统计数据，使用本地时间
+                            const now = new Date();
+                            window.lastRefreshTime = now; // 保存刷新时间
+                            document.getElementById('lastRefreshTime').textContent = '刚刚';
+                            document.getElementById('totalRefreshCount').textContent = data.total;
+                            document.getElementById('successRefreshCount').textContent = data.success_count;
+                            document.getElementById('failedRefreshCount').textContent = data.failed_count;
+
+                            showToast(`刷新完成！成功: ${data.success_count}, 失败: ${data.failed_count}`,
+                                data.failed_count > 0 ? 'warning' : 'success');
+
+                            // 如果有失败的，显示失败列表
+                            if (data.failed_count > 0) {
+                                showFailedListFromData(data.failed_list);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('解析进度数据失败:', e);
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    console.error('EventSource 错误:', error);
+                    eventSource.close();
+                    progress.style.display = 'none';
+                    btn.disabled = false;
+                    btn.textContent = '🔄 全量刷新';
+                    showToast('刷新过程中出现错误', 'error');
+                };
+
+            } catch (error) {
+                progress.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🔄 全量刷新';
+                showToast('刷新请求失败', 'error');
+            }
+        }
+
+        // 重试失败的账号
+        async function retryFailedAccounts() {
+            const btn = document.getElementById('retryFailedBtn');
+            const progress = document.getElementById('refreshProgress');
+            const progressText = document.getElementById('refreshProgressText');
+
+            if (btn.disabled) return;
+
+            btn.disabled = true;
+            btn.textContent = '重试中...';
+            progress.style.display = 'block';
+            progressText.textContent = '正在重试失败的账号...';
+
+            try {
+                const response = await fetch('/api/accounts/refresh-failed', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                progress.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🔁 重试失败';
+
+                if (data.success) {
+                    if (data.total === 0) {
+                        showToast('没有需要重试的失败账号', 'info');
+                    } else {
+                        showToast(`重试完成！成功: ${data.success_count}, 失败: ${data.failed_count}`,
+                            data.failed_count > 0 ? 'warning' : 'success');
+
+                        // 刷新统计
+                        loadRefreshStats();
+
+                        // 如果还有失败的，显示失败列表
+                        if (data.failed_count > 0) {
+                            showFailedListFromData(data.failed_list);
+                        } else {
+                            hideFailedList();
+                        }
+                    }
+                } else {
+                    showToast(data.error || '重试失败', 'error');
+                }
+            } catch (error) {
+                progress.style.display = 'none';
+                btn.disabled = false;
+                btn.textContent = '🔁 重试失败';
+                showToast('重试请求失败', 'error');
+            }
+        }
+
+        // 单个账号重试
+        async function retrySingleAccount(accountId, accountEmail) {
+            try {
+                const response = await fetch(`/api/accounts/${accountId}/retry-refresh`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(`${accountEmail} 刷新成功`, 'success');
+                    loadRefreshStats();
+                    loadFailedLogs();
+                } else {
+                    showToast(`${accountEmail} 刷新失败: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showToast('刷新请求失败', 'error');
+            }
+        }
+
+        // 显示失败列表（从数据）
+        function showFailedListFromData(failedList) {
+            const container = document.getElementById('failedListContainer');
+            const listEl = document.getElementById('failedList');
+
+            // 隐藏其他列表
+            hideSuccessList();
+            hideRefreshLogs();
+
+            if (!failedList || failedList.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            failedList.forEach(item => {
+                html += `
+                    <div style="padding: 12px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(item.email)}</div>
+                            <div style="font-size: 12px; color: #dc3545;">${escapeHtml(item.error || '未知错误')}</div>
+                        </div>
+                        <button class="btn btn-sm btn-primary" onclick="retrySingleAccount(${item.id}, '${escapeHtml(item.email)}')">
+                            重试
+                        </button>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        // 隐藏失败列表
+        function hideFailedList() {
+            document.getElementById('failedListContainer').style.display = 'none';
+        }
+
+        // 加载失败日志
+        async function loadFailedLogs() {
+            try {
+                const response = await fetch('/api/accounts/refresh-logs/failed');
+                const data = await response.json();
+
+                if (data.success) {
+                    showFailedListFromData(data.logs.map(log => ({
+                        id: log.account_id,
+                        email: log.account_email,
+                        error: log.error_message
+                    })));
+                }
+            } catch (error) {
+                showToast('加载失败列表失败', 'error');
+            }
+        }
+
+        // 加载成功列表
+        async function loadSuccessLogs() {
+            const container = document.getElementById('successListContainer');
+            const listEl = document.getElementById('successList');
+
+            // 隐藏其他列表
+            hideFailedList();
+            hideRefreshLogs();
+
+            try {
+                const response = await fetch('/api/accounts/refresh-logs?limit=100');
+                const data = await response.json();
+
+                if (data.success) {
+                    const successLogs = data.logs.filter(log => log.status === 'success');
+
+                    if (successLogs.length === 0) {
+                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无成功记录</div>';
+                    } else {
+                        let html = '';
+                        successLogs.forEach(log => {
+                            const typeText = log.refresh_type === 'manual' ? '手动' :
+                                           log.refresh_type === 'retry' ? '重试' : '自动';
+
+                            html += `
+                                <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                                        <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <span style="font-size: 11px; padding: 2px 6px; background-color: #f0f0f0; border-radius: 3px;">${typeText}</span>
+                                            <span style="font-size: 12px; color: #28a745; font-weight: 600;">成功</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">${formatDateTime(log.created_at)}</div>
+                                </div>
+                            `;
+                        });
+                        listEl.innerHTML = html;
+                    }
+                    container.style.display = 'block';
+                }
+            } catch (error) {
+                showToast('加载成功列表失败', 'error');
+            }
+        }
+
+        // 隐藏成功列表
+        function hideSuccessList() {
+            document.getElementById('successListContainer').style.display = 'none';
+        }
+
+        // 加载刷新历史
+        async function loadRefreshLogs() {
+            const container = document.getElementById('refreshLogsContainer');
+            const listEl = document.getElementById('refreshLogsList');
+
+            try {
+                const response = await fetch('/api/accounts/refresh-logs?limit=50');
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.logs.length === 0) {
+                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无刷新历史</div>';
+                    } else {
+                        let html = '';
+                        data.logs.forEach(log => {
+                            const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
+                            const statusText = log.status === 'success' ? '成功' : '失败';
+                            const typeText = log.refresh_type === 'manual' ? '手动' :
+                                           log.refresh_type === 'retry' ? '重试' : '自动';
+
+                            html += `
+                                <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
+                                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                                        <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <span style="font-size: 11px; padding: 2px 6px; background-color: #f0f0f0; border-radius: 3px;">${typeText}</span>
+                                            <span style="font-size: 12px; color: ${statusColor}; font-weight: 600;">${statusText}</span>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">${formatDateTime(log.created_at)}</div>
+                                    ${log.error_message ? `<div style="font-size: 12px; color: #dc3545; margin-top: 4px;">${escapeHtml(log.error_message)}</div>` : ''}
+                                </div>
+                            `;
+                        });
+                        listEl.innerHTML = html;
+                    }
+                    container.style.display = 'block';
+                }
+            } catch (error) {
+                showToast('加载刷新历史失败', 'error');
+            }
+        }
+
+        // 隐藏刷新历史
+        function hideRefreshLogs() {
+            document.getElementById('refreshLogsContainer').style.display = 'none';
+        }
+
+        // 格式化日期时间
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+
+            let date;
+            if (dateStr instanceof Date) {
+                date = dateStr;
+            } else {
+                // 如果字符串不包含时区信息，假定为 UTC 时间
+                if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+                    dateStr = dateStr + 'Z';
+                }
+                date = new Date(dateStr);
+            }
+
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes}分钟前`;
+            if (hours < 24) return `${hours}小时前`;
+            if (days < 7) return `${days}天前`;
+
+            return date.toLocaleString('zh-CN', {
+                timeZone: 'Asia/Shanghai',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // 键盘快捷键
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
@@ -3023,6 +3593,7 @@
                 hideEditAccountModal();
                 hideExportModal();
                 hideSettingsModal();
+                hideRefreshModal();
             }
         });
     </script>
