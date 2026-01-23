@@ -3509,6 +3509,12 @@
                             showToast(`刷新完成！成功: ${data.success_count}, 失败: ${data.failed_count}`,
                                 data.failed_count > 0 ? 'warning' : 'success');
 
+                            // 如果成功列表是打开的，刷新成功列表
+                            const successContainer = document.getElementById('successListContainer');
+                            if (successContainer.style.display === 'block') {
+                                loadSuccessLogs();
+                            }
+
                             // 如果有失败的，显示失败列表
                             if (data.failed_count > 0) {
                                 showFailedListFromData(data.failed_list);
@@ -3569,6 +3575,12 @@
                         // 刷新统计
                         loadRefreshStats();
 
+                        // 如果成功列表是打开的，刷新成功列表
+                        const successContainer = document.getElementById('successListContainer');
+                        if (successContainer.style.display === 'block') {
+                            loadSuccessLogs();
+                        }
+
                         // 如果还有失败的，显示失败列表
                         if (data.failed_count > 0) {
                             showFailedListFromData(data.failed_list);
@@ -3598,6 +3610,14 @@
                 if (data.success) {
                     showToast(`${accountEmail} 刷新成功`, 'success');
                     loadRefreshStats();
+
+                    // 如果成功列表是打开的，刷新成功列表
+                    const successContainer = document.getElementById('successListContainer');
+                    if (successContainer.style.display === 'block') {
+                        loadSuccessLogs();
+                    }
+
+                    // 刷新失败列表
                     loadFailedLogs();
                 } else {
                     showToast(`${accountEmail} 刷新失败: ${data.error}`, 'error');

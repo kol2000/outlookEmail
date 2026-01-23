@@ -1477,10 +1477,10 @@ def api_get_failed_refresh_logs():
 @app.route('/api/accounts/refresh-stats', methods=['GET'])
 @login_required
 def api_get_refresh_stats():
-    """获取刷新统计信息（统计所有 manual 刷新记录）"""
+    """获取刷新统计信息（统计所有 manual 和 retry 刷新记录）"""
     db = get_db()
 
-    # 由于刷新前会清除旧的 manual 记录，所以直接统计所有 manual 记录即可
+    # 统计 manual 和 retry 类型的记录，这样重试成功的记录也会被统计
     cursor = db.execute('''
         SELECT
             COUNT(*) as total,
@@ -1488,7 +1488,7 @@ def api_get_refresh_stats():
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_count,
             MAX(created_at) as last_refresh_time
         FROM account_refresh_logs
-        WHERE refresh_type = 'manual'
+        WHERE refresh_type IN ('manual', 'retry')
     ''')
 
     stats = cursor.fetchone()
