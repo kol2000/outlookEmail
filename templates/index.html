@@ -566,14 +566,16 @@
             padding: 24px 32px;
             overflow-y: auto;
             background-color: #ffffff;
+            min-height: 0;
         }
-        
+
         .email-detail-body iframe {
             width: 100%;
             min-height: 600px;
             border: none;
             background-color: #ffffff;
             display: block;
+            overflow: visible;
         }
         
         .email-body-text {
@@ -2857,8 +2859,8 @@
                             html.scrollHeight,
                             html.offsetHeight
                         );
-                        // 设置最小高度为 600px，确保长邮件能完整显示
-                        iframe.style.height = Math.max(height + 40, 600) + 'px';
+                        // 设置最小高度为 600px，添加 100px 余量确保长邮件能完整显示
+                        iframe.style.height = Math.max(height + 100, 600) + 'px';
                     }
                 };
 
@@ -2866,10 +2868,14 @@
                 adjustHeight();
                 // 100ms 后再调整（等待图片等资源加载）
                 setTimeout(adjustHeight, 100);
+                // 300ms 后再调整
+                setTimeout(adjustHeight, 300);
                 // 500ms 后再调整（确保所有内容都已加载）
                 setTimeout(adjustHeight, 500);
                 // 1秒后最后调整一次
                 setTimeout(adjustHeight, 1000);
+                // 2秒后再次调整（处理延迟加载的内容）
+                setTimeout(adjustHeight, 2000);
 
                 // 监听 iframe 内容变化
                 if (iframe.contentDocument) {
@@ -2878,6 +2884,13 @@
                         childList: true,
                         subtree: true,
                         attributes: true
+                    });
+
+                    // 监听图片加载完成事件
+                    const images = iframe.contentDocument.querySelectorAll('img');
+                    images.forEach(img => {
+                        img.addEventListener('load', adjustHeight);
+                        img.addEventListener('error', adjustHeight);
                     });
                 }
             } catch (e) {
