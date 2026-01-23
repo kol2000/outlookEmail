@@ -1185,13 +1185,14 @@ def test_refresh_token(client_id: str, refresh_token: str) -> tuple[bool, str]:
     """测试 refresh token 是否有效，返回 (是否成功, 错误信息)"""
     try:
         # 尝试使用 Graph API 获取 access token
+        # 使用与 get_access_token_graph 相同的 scope，确保一致性
         res = requests.post(
             TOKEN_URL_GRAPH,
             data={
                 "client_id": client_id,
                 "grant_type": "refresh_token",
                 "refresh_token": refresh_token,
-                "scope": " ".join(OAUTH_SCOPES)
+                "scope": "https://graph.microsoft.com/.default"
             },
             timeout=30
         )
