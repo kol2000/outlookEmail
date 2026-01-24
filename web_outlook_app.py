@@ -1034,6 +1034,42 @@ def api_get_accounts():
     return jsonify({'success': True, 'accounts': safe_accounts})
 
 
+@app.route('/api/accounts/search', methods=['GET'])
+@login_required
+def api_search_accounts():
+    """全局搜索账号"""
+    query = request.args.get('q', '').strip()
+
+    if not query:
+        return jsonify({'success': True, 'accounts': []})
+
+    db = get_db()
+    cursor = db.execute('''
+        SELECT a.*, g.name as group_name, g.color as group_color
+        FROM accounts a
+        LEFT JOIN groups g ON a.group_id = g.id
+        WHERE a.email LIKE ?
+        ORDER BY a.email
+    ''', (f'%{query}%',))
+
+    safe_accounts = []
+    for row in cursor.fetchall():
+        safe_accounts.append({
+            'id': row['id'],
+            'email': row['email'],
+            'client_id': row['client_id'][:8] + '...' if len(row['client_id']) > 8 else row['client_id'],
+            'group_id': row['group_id'],
+            'group_name': row['group_name'] if row['group_name'] else '默认分组',
+            'group_color': row['group_color'] if row['group_color'] else '#666666',
+            'remark': row['remark'] if row['remark'] else '',
+            'status': row['status'] if row['status'] else 'active',
+            'created_at': row['created_at'] if row['created_at'] else '',
+            'updated_at': row['updated_at'] if row['updated_at'] else ''
+        })
+
+    return jsonify({'success': True, 'accounts': safe_accounts})
+
+
 @app.route('/api/accounts/<int:account_id>', methods=['GET'])
 @login_required
 def api_get_account(account_id):

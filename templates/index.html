@@ -60,12 +60,18 @@
             padding: 6px 16px;
             border-radius: 20px;
             display: none;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        
+
+        .current-account:hover {
+            background-color: #e8e8e8;
+        }
+
         .current-account.show {
             display: block;
         }
-        
+
         .current-account strong {
             color: #1a1a1a;
             font-weight: 500;
@@ -255,10 +261,35 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .account-panel-title .group-color {
             width: 12px;
             height: 12px;
+        }
+
+        .search-container {
+            padding: 8px 16px;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: #1a1a1a;
+        }
+
+        .account-number {
+            color: #666;
+            font-weight: 500;
+            margin-right: 4px;
         }
         
         .account-list {
@@ -1117,7 +1148,7 @@
             Outlook 邮件
         </div>
         <div class="navbar-center">
-            <div class="current-account" id="currentAccount">
+            <div class="current-account" id="currentAccount" onclick="copyCurrentEmail()" title="点击复制邮箱地址">
                 当前邮箱：<strong id="currentAccountEmail"></strong>
             </div>
         </div>
@@ -1149,6 +1180,13 @@
                     <span class="group-color" id="currentGroupColor" style="background-color: #666"></span>
                     <span id="currentGroupName">选择分组</span>
                 </div>
+            </div>
+            <div class="search-container">
+                <input type="text"
+                       id="globalSearch"
+                       class="search-input"
+                       placeholder="搜索邮箱地址..."
+                       autocomplete="off">
             </div>
             <div class="account-list" id="accountList">
                 <div class="empty-state">
@@ -1552,6 +1590,15 @@
             loadGroups();
             initColorPicker();
             initEmailListScroll();
+
+            // 绑定搜索框事件
+            const searchInput = document.getElementById('globalSearch');
+            if (searchInput) {
+                const debouncedSearch = debounce((e) => {
+                    searchAccounts(e.target.value);
+                }, 300);
+                searchInput.addEventListener('input', debouncedSearch);
+            }
         });
         
         // 初始化颜色选择器
@@ -1775,7 +1822,13 @@
         // 选择分组
         async function selectGroup(groupId) {
             currentGroupId = groupId;
-            
+
+            // 清空搜索框
+            const searchInput = document.getElementById('globalSearch');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
             // 检查是否是临时邮箱分组
             const group = groups.find(g => g.id === groupId);
             isTempEmailGroup = group && group.name === '临时邮箱';
@@ -1863,11 +1916,11 @@
                 return;
             }
             
-            container.innerHTML = accounts.map(acc => `
+            container.innerHTML = accounts.map((acc, index) => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      onclick="selectAccount('${acc.email}')">
                     <div class="account-email" title="${acc.email}">
-                        ${acc.email}
+                        <span class="account-number">${index + 1}.</span> ${acc.email}
                         ${acc.status === 'inactive' ? '<span class="account-status-tag">已停用</span>' : ''}
                     </div>
                     <div class="account-actions">
@@ -1879,7 +1932,44 @@
                 </div>
             `).join('');
         }
-        
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 全局搜索函数
+        async function searchAccounts(query) {
+            const container = document.getElementById('accountList');
+            const titleElement = document.getElementById('currentGroupName');
+
+            if (!query.trim()) {
+                loadAccountsByGroup(currentGroupId);
+                return;
+            }
+
+            container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
+
+            try {
+                const response = await fetch(`/api/accounts/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    titleElement.textContent = `搜索结果 (${data.accounts.length})`;
+                    renderAccountList(data.accounts);
+                } else {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败</div></div>';
+                }
+            } catch (error) {
+                console.error('搜索失败:', error);
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>';
+            }
+        }
+
         // 更新分组下拉选择框
         function updateGroupSelects() {
             const selects = ['importGroupSelect', 'editGroupSelect'];
@@ -3157,6 +3247,15 @@
                 document.body.removeChild(textarea);
                 showToast('邮箱地址已复制', 'success');
             });
+        }
+
+        // 复制当前邮箱
+        function copyCurrentEmail() {
+            const emailElement = document.getElementById('currentAccountEmail');
+            if (emailElement && emailElement.textContent) {
+                const email = emailElement.textContent.replace(' (临时)', '').trim();
+                copyEmail(email);
+            }
         }
         
         // 退出登录
