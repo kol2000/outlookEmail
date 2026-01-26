@@ -1501,7 +1501,28 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- 导出密码确认模态框 -->
+    <div class="modal" id="exportVerifyModal" onclick="if(event.target === this) hideExportVerifyModal()">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <h3>🔐 安全验证</h3>
+                <button class="modal-close" onclick="hideExportVerifyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">请输入登录密码以确认导出操作</label>
+                    <input type="password" class="form-input" id="exportVerifyPassword" placeholder="输入登录密码">
+                    <div class="form-hint" style="color: #dc3545;">导出文件包含敏感信息（Refresh Token），请妥善保管</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideExportVerifyModal()">取消</button>
+                <button class="btn btn-primary" onclick="confirmExportVerify()">确认导出</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 设置模态框 -->
     <div class="modal" id="settingsModal" onclick="if(event.target === this) hideSettingsModal()">
         <div class="modal-content" style="width: 480px;">
@@ -3302,24 +3323,77 @@ ${details}
                 cb.checked = selectAll;
             });
         }
-        
+
+        // 存储待导出的分组ID
+        let pendingExportGroupIds = [];
+
         // 导出选中的分组
         async function exportSelectedGroups() {
             const checkboxes = document.querySelectorAll('.export-group-checkbox:checked');
             const groupIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-            
+
             if (groupIds.length === 0) {
                 showToast('请选择要导出的分组', 'error');
                 return;
             }
-            
+
+            // 保存待导出的分组ID
+            pendingExportGroupIds = groupIds;
+
+            // 显示密码确认对话框
+            hideExportModal();
+            showExportVerifyModal();
+        }
+
+        // 显示导出密码确认对话框
+        function showExportVerifyModal() {
+            document.getElementById('exportVerifyModal').classList.add('show');
+            document.getElementById('exportVerifyPassword').value = '';
+            document.getElementById('exportVerifyPassword').focus();
+        }
+
+        // 隐藏导出密码确认对话框
+        function hideExportVerifyModal() {
+            document.getElementById('exportVerifyModal').classList.remove('show');
+            document.getElementById('exportVerifyPassword').value = '';
+        }
+
+        // 确认导出验证
+        async function confirmExportVerify() {
+            const password = document.getElementById('exportVerifyPassword').value;
+
+            if (!password) {
+                showToast('请输入密码', 'error');
+                return;
+            }
+
             try {
+                // 获取验证token
+                const verifyResponse = await fetch('/api/export/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const verifyData = await verifyResponse.json();
+
+                if (!verifyData.success) {
+                    showToast(verifyData.error || '密码错误', 'error');
+                    return;
+                }
+
+                const verifyToken = verifyData.verify_token;
+
+                // 执行导出
                 const response = await fetch('/api/accounts/export-selected', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ group_ids: groupIds })
+                    body: JSON.stringify({
+                        group_ids: pendingExportGroupIds,
+                        verify_token: verifyToken
+                    })
                 });
-                
+
                 if (response.ok) {
                     // 获取文件名
                     const contentDisposition = response.headers.get('Content-Disposition');
@@ -3330,7 +3404,7 @@ ${details}
                             filename = decodeURIComponent(match[1]);
                         }
                     }
-                    
+
                     // 下载文件
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -3341,9 +3415,9 @@ ${details}
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
-                    
+
                     showToast('导出成功', 'success');
-                    hideExportModal();
+                    hideExportVerifyModal();
                 } else {
                     const data = await response.json();
                     handleApiError(data, '导出失败');
