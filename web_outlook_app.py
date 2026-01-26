@@ -721,10 +721,11 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
 
     try:
         # 根据文件夹类型选择 API 端点
+        # 使用 Well-known folder names，这些是 Microsoft Graph API 的标准文件夹名称
         folder_map = {
             'inbox': 'inbox',
-            'junkemail': 'junkemail',
-            'deleteditems': 'deleteditems',
+            'junkemail': 'junkemail',  # 垃圾邮件的标准名称
+            'deleteditems': 'deleteditems',  # 已删除邮件的标准名称
             'trash': 'deleteditems'  # 垃圾箱的别名
         }
         folder_name = folder_map.get(folder.lower(), 'inbox')
@@ -876,24 +877,61 @@ def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: st
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
         # 根据文件夹类型选择 IMAP 文件夹
+        # 尝试多种可能的文件夹名称
         folder_map = {
-            'inbox': '"INBOX"',
-            'junkemail': '"Junk Email"',
-            'deleteditems': '"Deleted Items"',
-            'trash': '"Deleted Items"'  # 垃圾箱的别名
+            'inbox': ['"INBOX"', 'INBOX'],
+            'junkemail': ['"Junk"', '"Junk Email"', 'Junk', '"垃圾邮件"'],
+            'deleteditems': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"'],
+            'trash': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"']
         }
-        imap_folder = folder_map.get(folder.lower(), '"INBOX"')
+        possible_folders = folder_map.get(folder.lower(), ['"INBOX"'])
 
-        status, _ = connection.select(imap_folder)
-        if status != 'OK':
+        # 尝试选择文件夹
+        selected_folder = None
+        last_error = None
+        for imap_folder in possible_folders:
+            try:
+                status, response = connection.select(imap_folder, readonly=True)
+                if status == 'OK':
+                    selected_folder = imap_folder
+                    break
+                else:
+                    last_error = f"select {imap_folder} status={status}"
+            except Exception as e:
+                last_error = f"select {imap_folder} error={str(e)}"
+                continue
+
+        if not selected_folder:
+            # 如果所有尝试都失败，列出所有可用文件夹以便调试
+            try:
+                status, folder_list = connection.list()
+                available_folders = []
+                if status == 'OK' and folder_list:
+                    for folder_item in folder_list:
+                        if isinstance(folder_item, bytes):
+                            available_folders.append(folder_item.decode('utf-8', errors='ignore'))
+                        else:
+                            available_folders.append(str(folder_item))
+                
+                error_details = {
+                    "last_error": last_error,
+                    "tried_folders": possible_folders,
+                    "available_folders": available_folders[:10]  # 只返回前10个
+                }
+            except Exception:
+                error_details = {
+                    "last_error": last_error,
+                    "tried_folders": possible_folders
+                }
+
             return {
                 "success": False,
                 "error": build_error_payload(
                     "EMAIL_FETCH_FAILED",
-                    "获取邮件失败，请检查账号配置",
+                    f"无法访问文件夹，请检查账号配置",
                     "IMAPSelectError",
                     500,
-                    f"select status={status}"
+                    error_details
                 )
             }
 
