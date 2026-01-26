@@ -1172,4 +1172,10 @@ SOFTWARE.
 
 ---
 
-**⭐ 如果这个项目对你有帮助，请给个 Star！**
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=assast/outlookEmail&type=Date)](https://star-history.com/#assast/outlookEmail&Date)
+
+---
+
+**⭐ 如果这个项目对你有帮助，请给个 Star 支持一下！你的 Star 是我持续更新的动力！** ⭐
