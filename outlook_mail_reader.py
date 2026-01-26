@@ -17,13 +17,13 @@ import requests
 
 # ==================== 配置参数 ====================
 # 邮箱账号
-EMAIL = "MollyPennington8418@outlook.com"
+EMAIL = ""
 # 邮箱密码（通常不需要，OAuth2 认证时使用 refresh_token）
-PASSWORD = "hwqennm1840830"
+PASSWORD = ""
 # OAuth2 refresh_token
-CLIENT_ID = "dbc8e03a-b00c-46bd-ae65-b683e7707cb0"
+CLIENT_ID = ""
 # OAuth2 client_id
-REFRESH_TOKEN= "M.C559_BAY.0.U.-CkGXiZtXP*c*fcSzidxyNCv1dRjtpWa1kSa6WeTuRQ5jBOMK6PGrs5IjySqXFSyy7YzDOyzx075GTnalJP4P3SQpKvQS4gL4L88ffUZJhiV4gjARF66e8JLRNB8rbhIQ7vX84HsX!psNA5*mh*14vBJ!7u9q7OqjTEXr3Jj!Zr0BF3t6dh6GQhBqx7cA66NAIC6IMgI73radRFmO53m3aUwgK3xGCsua10Ag7um3bfuNH39FpoY8zZfBlPWlXFA6vKWNPl48LNRANxk3sPvM4TQjkc1YFJTxlOI023qHupmA74K4XGH3HsIi!BJe10NkMzxWRVK0myek0LG10*HGYLcqbakcsIpHYPS17os6lVHY97Orayz70KiZ6xxlWFkHkLUV7m3kt9g!ClXi7F0w0r0$"
+REFRESH_TOKEN= ""
 # 代理地址（可选，格式: host:port 或 http://host:port）
 PROXY = None  # 例如: "127.0.0.1:7890"
 # ================================================

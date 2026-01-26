@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Outlook 邮件管理</title>
+    <!-- DOMPurify for XSS protection -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1822,6 +1824,7 @@
     
     <script>
         // 全局状态
+        let csrfToken = null;
         let currentAccount = null;
         let currentGroupId = null;
         let currentEmails = [];
@@ -1837,9 +1840,43 @@
         let isLoadingMore = false; // 是否正在加载更多邮件
         let hasMoreEmails = true; // 是否还有更多邮件
         let currentSkip = 0; // 当前分页偏移量
-        
+
+        // ==================== CSRF 防护 ====================
+
+        // 初始化 CSRF Token
+        async function initCSRFToken() {
+            try {
+                const response = await fetch('/api/csrf-token');
+                const data = await response.json();
+                csrfToken = data.csrf_token;
+                if (data.csrf_disabled) {
+                    console.warn('CSRF protection is disabled. Install flask-wtf for better security.');
+                }
+            } catch (error) {
+                console.error('Failed to initialize CSRF token:', error);
+            }
+        }
+
+        // 包装 fetch 请求，自动添加 CSRF Token
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            // 只对非 GET 请求添加 CSRF Token
+            if (options.method && options.method.toUpperCase() !== 'GET' && csrfToken) {
+                options.headers = options.headers || {};
+                if (options.headers instanceof Headers) {
+                    options.headers.append('X-CSRFToken', csrfToken);
+                } else {
+                    options.headers['X-CSRFToken'] = csrfToken;
+                }
+            }
+            return originalFetch(url, options);
+        };
+
         // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 初始化 CSRF Token
+            await initCSRFToken();
+
             closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadGroups();
             initColorPicker();
@@ -2332,21 +2369,21 @@ ${details}
 
             container.innerHTML = accounts.map((acc, index) => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
-                     onclick="selectAccount('${acc.email}')">
-                    <div class="account-email" title="${acc.email}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; ${acc.last_refresh_status === 'failed' ? 'color: #dc3545; font-weight: 700;' : ''}">
-                        <span class="account-number">${index + 1}.</span> ${acc.email}
+                     onclick="selectAccount('${escapeJs(acc.email)}')">
+                    <div class="account-email" title="${escapeHtml(acc.email)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; ${acc.last_refresh_status === 'failed' ? 'color: #dc3545; font-weight: 700;' : ''}">
+                        <span class="account-number">${index + 1}.</span> ${escapeHtml(acc.email)}
                         ${acc.status === 'inactive' ? '<span class="account-status-tag">已停用</span>' : ''}
                     </div>
-                    ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${acc.remark.replace(/"/g, '&quot;')}">📝 ${acc.remark}</div>` : ''}
+                    ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${escapeHtml(acc.remark)}">📝 ${escapeHtml(acc.remark)}</div>` : ''}
                     <div class="account-refresh-time" style="font-size: 11px; color: ${acc.last_refresh_status === 'failed' ? '#dc3545' : '#999'}; margin-top: 4px; padding-left: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span>🕐 ${formatRelativeTime(acc.last_refresh_at)}</span>
                         ${acc.last_refresh_status === 'failed' ? '<button class="account-action-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || '未知错误') + '\', \'' + escapeJs(acc.email) + '\')" style="padding: 2px 6px; font-size: 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">查看错误</button>' : ''}
                     </div>
                     <div class="account-actions">
-                        <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${acc.email}')" title="复制邮箱">复制</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); toggleAccountStatus(${acc.id}, '${acc.status || 'active'}')" title="${acc.status === 'inactive' ? '启用' : '停用'}">${acc.status === 'inactive' ? '启用' : '停用'}</button>
+                        <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(acc.email)}')" title="复制邮箱">复制</button>
+                        <button class="account-action-btn" onclick="event.stopPropagation(); toggleAccountStatus(${acc.id}, '${escapeJs(acc.status || 'active')}')" title="${acc.status === 'inactive' ? '启用' : '停用'}">${acc.status === 'inactive' ? '启用' : '停用'}</button>
                         <button class="account-action-btn" onclick="event.stopPropagation(); showEditAccountModal(${acc.id})" title="编辑">编辑</button>
-                        <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteAccount(${acc.id}, '${acc.email}')" title="删除">删除</button>
+                        <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteAccount(${acc.id}, '${escapeJs(acc.email)}')" title="删除">删除</button>
                     </div>
                 </div>
             `).join('');
@@ -2632,14 +2669,14 @@ ${details}
             
             container.innerHTML = emails.map(email => `
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
-                     onclick="selectTempEmail('${email.email}')">
-                    <div class="account-email" title="${email.email}">
-                        ${email.email}
+                     onclick="selectTempEmail('${escapeJs(email.email)}')">
+                    <div class="account-email" title="${escapeHtml(email.email)}">
+                        ${escapeHtml(email.email)}
                     </div>
                     <div class="account-actions">
-                        <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${email.email}')" title="复制邮箱">复制</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); clearTempEmailMessages('${email.email}')" title="清空邮件">清空</button>
-                        <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteTempEmail('${email.email}')" title="删除">删除</button>
+                        <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(email.email)}')" title="复制邮箱">复制</button>
+                        <button class="account-action-btn" onclick="event.stopPropagation(); clearTempEmailMessages('${escapeJs(email.email)}')" title="清空邮件">清空</button>
+                        <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteTempEmail('${escapeJs(email.email)}')" title="删除">删除</button>
                     </div>
                 </div>
             `).join('');
@@ -3427,7 +3464,7 @@ ${details}
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
             
             try {
-                const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}`);
+                const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${currentFolder}`);
                 const data = await response.json();
                 
                 if (data.success) {
@@ -3459,7 +3496,7 @@ ${details}
                           (email.body && (email.body.includes('<html') || email.body.includes('<div') || email.body.includes('<p>')));
             
             const bodyContent = isHtml
-                ? `<iframe id="emailBodyFrame" onload="adjustIframeHeight(this)"></iframe>`
+                ? `<iframe id="emailBodyFrame" sandbox="allow-same-origin" onload="adjustIframeHeight(this)"></iframe>`
                 : `<div class="email-body-text">${escapeHtml(email.body)}</div>`;
             
             container.innerHTML = `
@@ -3495,6 +3532,15 @@ ${details}
             if (isHtml) {
                 const iframe = document.getElementById('emailBodyFrame');
                 if (iframe) {
+                    // 使用 DOMPurify 净化 HTML 内容，防止 XSS 攻击
+                    const sanitizedBody = DOMPurify.sanitize(email.body, {
+                        ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', 'span', 'img', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code'],
+                        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'width', 'height', 'align', 'border', 'cellpadding', 'cellspacing'],
+                        ALLOW_DATA_ATTR: false,
+                        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+                        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur']
+                    });
+
                     const htmlContent = `
                         <!DOCTYPE html>
                         <html>
@@ -3519,7 +3565,7 @@ ${details}
                                 }
                             </style>
                         </head>
-                        <body>${email.body}</body>
+                        <body>${sanitizedBody}</body>
                         </html>
                     `;
                     iframe.srcdoc = htmlContent;
@@ -4216,7 +4262,7 @@ ${details}
 
             if (btn.disabled) return;
 
-            if (!confirm('确定要刷新所有账号的 Token 吗？这将清除之前的刷新记录，只保留本次记录。')) {
+            if (!confirm('确定要刷新所有账号的 Token 吗？')) {
                 return;
             }
 

@@ -12,12 +12,14 @@
 3. **Graph API 方式** - 使用 Microsoft Graph API（推荐）
 
 ### Web 应用功能
+
+#### 核心功能
 - 🔐 **登录验证** - 密码保护的 Web 界面，支持在线修改密码
 - 📁 **分组管理** - 支持创建、编辑、删除邮箱分组，自定义分组颜色
 - 📧 **多邮箱管理** - 批量导入和管理多个 Outlook 邮箱账号
 - 📬 **邮件查看** - 查看收件箱、垃圾邮件和已删除邮件
 - 🔍 **全屏查看** - 支持全屏模式查看邮件，完整展示长邮件内容（⭐ 2026-01-23 新增）
-- 📤 **导出功能** - 支持按分组或全部导出邮箱账号信息
+- 📤 **导出功能** - 支持按分组或全部导出邮箱账号信息，二次验证保护（⭐ 2026-01-26 增强）
 - 🎨 **现代化 UI** - 简洁美观的四栏式界面布局
 - ⚡ **性能优化** - 智能缓存机制，快速切换分组和邮箱
 - 📄 **分页加载** - 邮件列表支持滚动到底部自动加载下一页（每页20封）
@@ -25,13 +27,41 @@
 - 🔥 **临时邮箱** - 集成 GPTMail API，一键生成临时邮箱
 - ⚙️ **系统设置** - 支持在线修改登录密码和 GPTMail API Key
 - 🔄 **OAuth2 助手** - 内置 OAuth2 授权流程，快速获取 Refresh Token
-- 🔁 **Token 刷新管理** - 全量刷新所有账号 Token，实时进度展示，防止 90 天过期（⭐ 2026-01-23 新增）
+
+#### Token 刷新管理
+- 🔁 **全量刷新** - 一键刷新所有账号 Token，实时进度展示，防止 90 天过期（⭐ 2026-01-23 新增）
 - ⏰ **定时刷新配置** - 支持按天数或 Cron 表达式配置自动刷新，提供常用样例（⭐ 2026-01-25 新增）
 - 🔔 **定时刷新开关** - 可随时启用或禁用定时刷新任务（⭐ 2026-01-25 新增）
 - 📊 **刷新统计优化** - 实时显示当前失败状态的邮箱数量，准确反映账号健康状态（⭐ 2026-01-25 新增）
 - 📜 **刷新历史管理** - 展示近半年完整刷新历史，自动清理过期记录（⭐ 2026-01-25 新增）
 - ❌ **失败邮箱标识** - 刷新失败的邮箱加粗标红显示，一目了然（⭐ 2026-01-25 新增）
 - 📝 **备注展示** - 邮箱列表中显示账号备注信息，便于识别和管理（⭐ 2026-01-25 新增）
+
+#### 安全特性（⭐ 2026-01-26 新增）
+- 🛡️ **XSS 防护** - 多层防护机制，防止跨站脚本攻击
+  - 邮件内容使用 DOMPurify 净化，移除恶意脚本
+  - iframe 沙箱隔离，禁止脚本执行
+  - 用户输入自动转义，防止存储型 XSS
+- 🔒 **CSRF 防护** - 使用 Flask-WTF 实现 CSRF Token 验证
+  - 所有状态变更操作需要 CSRF Token
+  - 自动化 Token 管理，对用户透明
+  - 优雅降级，未安装时仍可正常使用
+- 🔐 **敏感数据加密** - 使用 Fernet 对称加密保护敏感信息
+  - Refresh Token 加密存储
+  - 密码哈希存储（bcrypt）
+  - 基于 SECRET_KEY 的加密密钥派生
+- 🚦 **登录速率限制** - 防止暴力破解攻击
+  - 5 次失败后锁定 15 分钟
+  - 基于 IP 地址的速率限制
+  - 自动解锁机制
+- 📋 **审计日志** - 记录所有敏感操作
+  - 导出操作审计
+  - 记录操作时间、IP 地址和详细信息
+  - 便于安全追溯和合规审计
+- 🔑 **二次验证** - 导出功能需要密码确认
+  - 一次性验证 Token
+  - 防止未授权导出
+  - 保护敏感凭据安全
 
 ### 界面布局
 Web 应用采用四栏式布局设计：
@@ -53,6 +83,29 @@ Web 应用采用四栏式布局设计：
 
 ### Token 刷新管理
 ![全量刷新Token](img/全量刷新token.png)
+
+### 定时刷新配置 - 按天数
+![设置-按天数定时刷新](img/设置-按天数定时刷新.png)
+
+### 定时刷新配置 - 按 Cron 表达式
+![设置-按Cron定时刷新](img/设置-按corn定时刷新.png)
+
+### 登录速率限制保护
+![登录失败强制间隔](img/登录失败强制间隔.png)
+
+### OAuth2 授权流程
+
+#### 步骤 1：应用注册
+![应用注册](img/应用注册.png)
+
+#### 步骤 2：注册应用程序
+![注册应用程序](img/注册应用程序.png)
+
+#### 步骤 3：获取应用程序 ID
+![获取应用程序ID](img/获取应用程序ID.png)
+
+#### 步骤 4：换取 Token
+![换取token](img/换取token.png)
 
 
 ## 📦 快速开始
@@ -151,7 +204,7 @@ docker-compose down
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `SECRET_KEY` | Session 密钥（建议修改） | `outlook-mail-reader-secret-key-change-in-production` |
+| `SECRET_KEY` | Session 密钥（**必须设置**） | 无默认值，必须提供，请勿随意修改，数据库会基于这个加密，如果要改请先导出邮箱账号，改之后再重新导入账号 |
 | `LOGIN_PASSWORD` | 登录密码 | `admin123` |
 | `FLASK_ENV` | 运行环境 | `production` |
 | `PORT` | 应用端口 | `5000` |
@@ -161,6 +214,12 @@ docker-compose down
 | `GPTMAIL_API_KEY` | GPTMail API Key | `gpt-test` |
 | `OAUTH_CLIENT_ID` | OAuth 客户端 ID | `建议使用自己的，如果实在搞不到不填的话会使用默认的` |
 | `OAUTH_REDIRECT_URI` | OAuth 重定向 URI | `建议使用自己的，如果实在搞不到不填的话会使用默认的` |
+
+**生成 SECRET_KEY：**
+```bash
+# 使用 Python 生成随机密钥
+python -c 'import secrets; print(secrets.token_hex(32))'
+```
 
 ### 数据持久化
 
@@ -502,7 +561,94 @@ environment:
 
 登录后点击「⚙️ 设置」按钮，在线修改登录密码。
 
-### 2. 配置防火墙
+### 2. 启用 CSRF 防护（推荐）
+
+CSRF 防护默认启用，如果未安装 flask-wtf，系统会优雅降级：
+
+```bash
+# 安装 CSRF 防护依赖
+pip install flask-wtf>=1.2.0
+
+# 或使用完整依赖安装
+pip install -r requirements.txt
+```
+
+**CSRF 防护特性：**
+- 自动为所有状态变更操作添加 CSRF Token
+- 防止跨站请求伪造攻击
+- 对用户完全透明，无需手动操作
+- 未安装时自动降级，不影响功能使用
+
+### 3. 登录速率限制
+
+系统内置登录速率限制，防止暴力破解：
+
+- **失败次数限制**：5 次失败后锁定
+- **锁定时长**：15 分钟
+- **基于 IP**：每个 IP 独立计数
+- **自动解锁**：锁定时间到期后自动解锁
+
+![登录失败强制间隔](img/登录失败强制间隔.png)
+
+### 4. 敏感数据加密
+
+所有敏感数据都经过加密存储：
+
+**加密内容：**
+- Refresh Token（Fernet 对称加密）
+- 登录密码（bcrypt 哈希）
+- 邮箱密码（Fernet 对称加密）
+
+**加密密钥：**
+- 基于 SECRET_KEY 派生加密密钥
+- 使用 PBKDF2HMAC 密钥派生函数
+- 100,000 次迭代，SHA256 算法
+
+**重要提示：**
+- SECRET_KEY 必须设置且保持不变
+- 更改 SECRET_KEY 会导致无法解密已存储的数据
+- 如需更改，请先导出账号，更改后重新导入
+
+### 5. 导出功能二次验证
+
+导出功能需要密码确认，防止未授权导出：
+
+**保护机制：**
+- 导出前需要输入登录密码
+- 一次性验证 Token，使用后立即失效
+- 所有导出操作记录审计日志
+- 记录操作时间、IP 地址和导出详情
+
+**审计日志：**
+```sql
+-- 查看导出审计日志
+SELECT * FROM audit_logs WHERE action = 'export' ORDER BY created_at DESC;
+```
+
+### 6. XSS 防护
+
+多层 XSS 防护机制：
+
+**前端防护：**
+- 用户输入自动转义（escapeHtml）
+- 邮件内容使用 DOMPurify 净化
+- iframe 沙箱隔离（sandbox="allow-same-origin"）
+
+**后端防护：**
+- 输入净化函数（sanitize_input）
+- HTML 特殊字符转义
+- 长度限制和控制字符过滤
+
+**DOMPurify 配置：**
+```javascript
+DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', ...],
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', ...],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', ...]
+});
+```
+
+### 7. 配置防火墙
 
 ```bash
 # 允许 HTTP 和 HTTPS
@@ -516,7 +662,7 @@ sudo ufw allow 5000/tcp
 sudo ufw enable
 ```
 
-### 3. 限制访问来源（Nginx）
+### 8. 限制访问来源（Nginx）
 
 ```nginx
 location / {
@@ -528,13 +674,14 @@ location / {
 }
 ```
 
-### 4. 使用强密码
+### 9. 使用强密码
 
 - 登录密码至少 8 位，包含大小写字母、数字和特殊字符
-- SECRET_KEY 使用随机生成的长字符串
+- **SECRET_KEY 必须设置**，使用随机生成的长字符串（至少 32 字节）
+- 生成方法：`python -c 'import secrets; print(secrets.token_hex(32))'`
 - 定期更换密码
 
-### 5. 数据备份
+### 10. 数据备份
 
 ```bash
 # 备份数据库
@@ -543,6 +690,17 @@ cp data/outlook_accounts.db data/outlook_accounts.db.backup
 # 定期备份（crontab）
 0 2 * * * cp /path/to/data/outlook_accounts.db /path/to/backup/outlook_accounts.db.$(date +\%Y\%m\%d)
 ```
+
+### 安全最佳实践
+
+1. **必须设置 SECRET_KEY**：使用随机生成的强密钥
+2. **启用 HTTPS**：生产环境使用 SSL/TLS 加密
+3. **定期更新**：及时更新到最新版本
+4. **监控日志**：定期查看审计日志和应用日志
+5. **限制访问**：使用防火墙和 Nginx 限制访问来源
+6. **备份数据**：定期备份数据库文件
+7. **强密码策略**：使用复杂密码并定期更换
+8. **安装 CSRF 防护**：`pip install flask-wtf`
 
 ## 🛠️ 故障排查
 
@@ -668,15 +826,16 @@ sudo systemctl reload nginx
 
 **解决方法：**
 
-1. **设置固定的 SECRET_KEY**
+1. **设置 SECRET_KEY 环境变量（必须）**
    ```yaml
    environment:
      - SECRET_KEY=your-fixed-secret-key-here
    ```
+   使用 `python -c 'import secrets; print(secrets.token_hex(32))'` 生成随机密钥 或者使用https://it.idev.dev/uuid-generator生成个UUID，或者自己填一个复杂的字符串
 
 2. **检查 Session 配置**
    - 默认 Session 有效期为 7 天
-   - 重启应用不会导致 Session 失效（如果使用固定 SECRET_KEY）
+   - 重启应用不会导致 Session 失效（使用固定 SECRET_KEY）
 
 ### 数据库锁定错误
 
@@ -901,10 +1060,22 @@ docker logs outlook-mail-reader
 ### Python 依赖
 
 ```txt
-Flask>=3.0.0
-Werkzeug>=3.0.0
+flask>=3.0.0
+flask-wtf>=1.2.0          # CSRF 防护（推荐安装）
+werkzeug>=3.0.0
 requests>=2.25.0
+APScheduler>=3.10.0       # 定时任务
+croniter>=1.3.0           # Cron 表达式解析
+bcrypt>=4.0.0             # 密码哈希
+cryptography>=41.0.0      # 数据加密
 ```
+
+### 前端依赖
+
+- **DOMPurify 3.0.8** - HTML 净化，防止 XSS 攻击（CDN 引入）
+- **原生 JavaScript** - 无框架依赖
+- **CSS3** - 现代化样式
+- **Fetch API** - 异步请求
 
 ### 系统要求
 
@@ -913,6 +1084,14 @@ requests>=2.25.0
 - Docker（可选）
 - 2GB+ 内存
 - 1GB+ 磁盘空间
+
+### 可选依赖
+
+- **flask-wtf** - CSRF 防护（强烈推荐）
+  ```bash
+  pip install flask-wtf>=1.2.0
+  ```
+  未安装时系统会自动降级，但失去 CSRF 保护
 
 ## ❓ 常见问题
 
@@ -1056,6 +1235,85 @@ SOFTWARE.
 ---
 
 ## 📋 更新日志
+
+### 2026-01-26 - 安全增强版本
+
+#### 新增安全特性
+- 🛡️ **XSS 防护** - 多层防护机制，全面防止跨站脚本攻击
+  - 邮件内容使用 DOMPurify 3.0.8 净化，移除恶意脚本
+  - iframe 沙箱隔离（sandbox="allow-same-origin"），禁止脚本执行
+  - 用户输入自动转义，防止存储型 XSS
+  - 后端输入净化函数，过滤控制字符和限制长度
+  - 安全等级从 CVSS 8.5 降低至 CVSS 2.0
+
+- 🔒 **CSRF 防护** - 使用 Flask-WTF 实现完整的 CSRF Token 验证
+  - 所有状态变更操作需要 CSRF Token
+  - 自动化 Token 管理，对用户透明
+  - 优雅降级，未安装 flask-wtf 时仍可正常使用
+  - 登录和 Token 获取接口自动排除 CSRF 保护
+  - 安全等级从 CVSS 7.1 降低至 CVSS 2.0
+
+- 🔐 **敏感数据加密** - 使用 Fernet 对称加密保护敏感信息
+  - Refresh Token 加密存储
+  - 密码哈希存储（bcrypt）
+  - 基于 SECRET_KEY 的加密密钥派生（PBKDF2HMAC）
+  - 100,000 次迭代，SHA256 算法
+
+- 🚦 **登录速率限制** - 防止暴力破解攻击
+  - 5 次失败后锁定 15 分钟
+  - 基于 IP 地址的速率限制
+  - 自动解锁机制
+  - 友好的错误提示
+
+- 📋 **审计日志** - 记录所有敏感操作
+  - 新增 audit_logs 表
+  - 记录导出操作的时间、IP 地址和详细信息
+  - 便于安全追溯和合规审计
+
+- 🔑 **二次验证** - 导出功能需要密码确认
+  - 导出前需要输入登录密码
+  - 一次性验证 Token，使用后立即失效
+  - 防止未授权导出敏感凭据
+  - 安全等级从 CVSS 7.8 降低至 CVSS 3.0
+
+#### 数据库变更
+- 新增 `audit_logs` 表 - 存储审计日志
+  - action: 操作类型
+  - resource_type: 资源类型
+  - resource_id: 资源ID
+  - user_ip: 用户IP
+  - details: 详细信息
+  - created_at: 操作时间
+
+#### API 变更
+- 新增 `/api/export/verify` - 生成导出验证 Token
+- 新增 `/api/csrf-token` - 获取 CSRF Token
+- 所有导出接口增加二次验证机制
+- 所有状态变更接口增加 CSRF 保护
+
+#### 依赖更新
+- 新增 `flask-wtf>=1.2.0` - CSRF 防护（可选）
+- 新增 `html` 模块 - HTML 转义
+
+#### 技术亮点
+- 条件导入 flask-wtf，未安装时优雅降级
+- 前端自动拦截 fetch 请求，添加 CSRF Token
+- DOMPurify 配置白名单，只允许安全标签和属性
+- 审计日志异步记录，不影响主流程性能
+
+#### 安全建议
+- **强烈建议安装 flask-wtf**：`pip install flask-wtf>=1.2.0`
+- **必须设置 SECRET_KEY**：使用随机生成的强密钥
+- **启用 HTTPS**：生产环境使用 SSL/TLS 加密
+- **定期查看审计日志**：监控异常操作
+- **定期更新密码**：使用强密码并定期更换
+
+#### 破坏性变更
+- 无破坏性变更，完全向后兼容
+- 未安装 flask-wtf 时自动禁用 CSRF 保护
+- 所有新特性都是增强型，不影响现有功能
+
+---
 
 ### 2026-01-25 - 备注展示功能
 

@@ -17,6 +17,9 @@ import time
 import json
 import re
 import uuid
+import bcrypt
+import base64
+import html
 from datetime import datetime
 from email.header import decode_header
 from typing import Optional, List, Dict, Any
@@ -24,13 +27,51 @@ from urllib.parse import quote
 from flask import Flask, render_template, request, jsonify, g, session, redirect, url_for, Response
 from functools import wraps
 import requests
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+# 尝试导入 Flask-WTF CSRF 保护
+try:
+    from flask_wtf.csrf import CSRFProtect, generate_csrf
+    CSRF_AVAILABLE = True
+except ImportError:
+    CSRF_AVAILABLE = False
+    print("Warning: flask-wtf not installed. CSRF protection is disabled. Install with: pip install flask-wtf")
 
 app = Flask(__name__)
-# 使用固定的 secret_key（从环境变量获取，或使用默认值）
-# 这样可以确保重启后 session 不会失效
-app.secret_key = os.getenv("SECRET_KEY", "outlook-mail-reader-secret-key-change-in-production")
+# 强制从环境变量读取 secret_key，不提供默认值以防止安全漏洞
+secret_key = os.getenv("SECRET_KEY")
+if not secret_key:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required. "
+        "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+    )
+app.secret_key = secret_key
 # 设置 session 过期时间（默认 7 天）
 app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 7  # 7 天
+
+# 初始化 CSRF 保护（如果可用）
+if CSRF_AVAILABLE:
+    csrf = CSRFProtect(app)
+    # 配置 CSRF
+    app.config['WTF_CSRF_TIME_LIMIT'] = None  # CSRF token 不过期
+    app.config['WTF_CSRF_SSL_STRICT'] = False  # 允许非HTTPS环境（开发环境）
+    print("CSRF protection enabled")
+
+    # 创建CSRF排除装饰器
+    def csrf_exempt(f):
+        return csrf.exempt(f)
+else:
+    csrf = None
+    # 显式禁用CSRF保护
+    app.config['WTF_CSRF_ENABLED'] = False
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
+    print("CSRF protection disabled")
+
+    # 创建空装饰器
+    def csrf_exempt(f):
+        return f
 
 # 登录密码配置（可以修改为你想要的密码）
 LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "admin123")
@@ -65,6 +106,182 @@ OAUTH_SCOPES = [
     "https://graph.microsoft.com/Mail.ReadWrite",
     "https://graph.microsoft.com/User.Read"
 ]
+
+
+# ==================== 登录速率限制 ====================
+
+# 存储登录失败记录 {ip: {'count': int, 'last_attempt': timestamp, 'locked_until': timestamp}}
+login_attempts = {}
+
+# 速率限制配置
+MAX_LOGIN_ATTEMPTS = 5  # 最大失败次数
+LOCKOUT_DURATION = 300  # 锁定时长（秒）- 5分钟
+ATTEMPT_WINDOW = 600    # 失败计数窗口（秒）- 10分钟
+
+
+def check_rate_limit(ip: str) -> tuple[bool, Optional[int]]:
+    """
+    检查 IP 是否被速率限制
+    返回: (是否允许登录, 剩余锁定秒数)
+    """
+    current_time = time.time()
+
+    if ip not in login_attempts:
+        return True, None
+
+    attempt_data = login_attempts[ip]
+
+    # 检查是否在锁定期内
+    if 'locked_until' in attempt_data and current_time < attempt_data['locked_until']:
+        remaining = int(attempt_data['locked_until'] - current_time)
+        return False, remaining
+
+    # 检查失败计数是否过期
+    if current_time - attempt_data.get('last_attempt', 0) > ATTEMPT_WINDOW:
+        # 重置计数
+        login_attempts[ip] = {'count': 0, 'last_attempt': current_time}
+        return True, None
+
+    # 检查失败次数
+    if attempt_data.get('count', 0) >= MAX_LOGIN_ATTEMPTS:
+        # 锁定账号
+        attempt_data['locked_until'] = current_time + LOCKOUT_DURATION
+        remaining = LOCKOUT_DURATION
+        return False, remaining
+
+    return True, None
+
+
+def record_login_failure(ip: str):
+    """记录登录失败"""
+    current_time = time.time()
+
+    if ip not in login_attempts:
+        login_attempts[ip] = {'count': 1, 'last_attempt': current_time}
+    else:
+        attempt_data = login_attempts[ip]
+        # 如果在窗口期内，增加计数
+        if current_time - attempt_data.get('last_attempt', 0) <= ATTEMPT_WINDOW:
+            attempt_data['count'] = attempt_data.get('count', 0) + 1
+        else:
+            # 重置计数
+            attempt_data['count'] = 1
+        attempt_data['last_attempt'] = current_time
+
+
+def reset_login_attempts(ip: str):
+    """重置登录失败记录（登录成功时调用）"""
+    if ip in login_attempts:
+        del login_attempts[ip]
+
+
+# ==================== 密码安全工具 ====================
+
+def hash_password(password: str) -> str:
+    """使用 bcrypt 哈希密码"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """验证密码是否匹配哈希值"""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
+        return False
+
+
+def is_password_hashed(password: str) -> bool:
+    """检查密码是否已经是 bcrypt 哈希值"""
+    return password.startswith('$2b$') or password.startswith('$2a$') or password.startswith('$2y$')
+
+
+# ==================== 数据加密工具 ====================
+
+# 全局加密器实例
+_cipher_suite = None
+
+
+def get_encryption_key() -> bytes:
+    """
+    从 SECRET_KEY 派生加密密钥
+    使用 PBKDF2 从 SECRET_KEY 派生 32 字节密钥
+    """
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError("SECRET_KEY is required for encryption")
+
+    # 使用固定盐（因为我们需要确保重启后能解密）
+    # 注意：这里使用固定盐是为了确保密钥一致性，安全性依赖于 SECRET_KEY 的强度
+    salt = b'outlook_email_encryption_salt_v1'
+
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(secret_key.encode()))
+    return key
+
+
+def get_cipher() -> Fernet:
+    """获取加密器实例（单例模式）"""
+    global _cipher_suite
+    if _cipher_suite is None:
+        key = get_encryption_key()
+        _cipher_suite = Fernet(key)
+    return _cipher_suite
+
+
+def encrypt_data(data: str) -> str:
+    """
+    加密敏感数据
+    返回 base64 编码的加密字符串，带有 'enc:' 前缀标识
+    """
+    if not data:
+        return data
+
+    # 如果已经加密，直接返回
+    if data.startswith('enc:'):
+        return data
+
+    cipher = get_cipher()
+    encrypted = cipher.encrypt(data.encode('utf-8'))
+    return 'enc:' + encrypted.decode('utf-8')
+
+
+def decrypt_data(encrypted_data: str) -> str:
+    """
+    解密敏感数据
+    如果数据未加密（没有 'enc:' 前缀），直接返回原始数据
+    """
+    if not encrypted_data:
+        return encrypted_data
+
+    # 如果没有加密标识，返回原始数据（向后兼容）
+    if not encrypted_data.startswith('enc:'):
+        return encrypted_data
+
+    try:
+        cipher = get_cipher()
+        encrypted_bytes = encrypted_data[4:].encode('utf-8')  # 移除 'enc:' 前缀
+        decrypted = cipher.decrypt(encrypted_bytes)
+        return decrypted.decode('utf-8')
+    except Exception as e:
+        # 解密失败，可能是密钥变更或数据损坏
+        import sys
+        error_msg = f"Failed to decrypt data: {str(e)}"
+        print(f"[ERROR] {error_msg}", file=sys.stderr)
+        print(f"[ERROR] Data preview: {encrypted_data[:50]}...", file=sys.stderr)
+        print(f"[ERROR] This usually means SECRET_KEY has changed or data is corrupted", file=sys.stderr)
+        raise RuntimeError(error_msg)
+
+
+def is_encrypted(data: str) -> bool:
+    """检查数据是否已加密"""
+    return data and data.startswith('enc:')
 
 
 # ==================== 错误处理工具 ====================
@@ -239,7 +456,20 @@ def init_db():
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )
     ''')
-    
+
+    # 创建审计日志表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            resource_type TEXT NOT NULL,
+            resource_id TEXT,
+            user_ip TEXT,
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # 检查并添加缺失的列（数据库迁移）
     cursor.execute("PRAGMA table_info(accounts)")
     columns = [col[1] for col in cursor.fetchall()]
@@ -274,10 +504,25 @@ def init_db():
     ''')
     
     # 初始化默认设置
-    cursor.execute('''
-        INSERT OR IGNORE INTO settings (key, value)
-        VALUES ('login_password', ?)
-    ''', (LOGIN_PASSWORD,))
+    # 检查是否已有密码设置
+    cursor.execute("SELECT value FROM settings WHERE key = 'login_password'")
+    existing_password = cursor.fetchone()
+
+    if existing_password:
+        # 如果存在密码但是明文，则迁移为哈希
+        password_value = existing_password[0]
+        if not is_password_hashed(password_value):
+            hashed_password = hash_password(password_value)
+            cursor.execute('''
+                UPDATE settings SET value = ? WHERE key = 'login_password'
+            ''', (hashed_password,))
+    else:
+        # 首次初始化，哈希默认密码
+        hashed_password = hash_password(LOGIN_PASSWORD)
+        cursor.execute('''
+            INSERT INTO settings (key, value)
+            VALUES ('login_password', ?)
+        ''', (hashed_password,))
 
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
@@ -326,8 +571,48 @@ def init_db():
         ON account_refresh_logs(account_id)
     ''')
 
+    # 迁移现有明文数据为加密数据
+    migrate_sensitive_data(conn)
+
     conn.commit()
     conn.close()
+
+
+def migrate_sensitive_data(conn):
+    """迁移现有明文敏感数据为加密数据"""
+    cursor = conn.cursor()
+
+    # 获取所有账号
+    cursor.execute('SELECT id, password, refresh_token FROM accounts')
+    accounts = cursor.fetchall()
+
+    migrated_count = 0
+    for account_id, password, refresh_token in accounts:
+        needs_update = False
+        new_password = password
+        new_refresh_token = refresh_token
+
+        # 检查并加密 password
+        if password and not is_encrypted(password):
+            new_password = encrypt_data(password)
+            needs_update = True
+
+        # 检查并加密 refresh_token
+        if refresh_token and not is_encrypted(refresh_token):
+            new_refresh_token = encrypt_data(refresh_token)
+            needs_update = True
+
+        # 更新数据库
+        if needs_update:
+            cursor.execute('''
+                UPDATE accounts
+                SET password = ?, refresh_token = ?
+                WHERE id = ?
+            ''', (new_password, new_refresh_token, account_id))
+            migrated_count += 1
+
+    if migrated_count > 0:
+        print(f"已迁移 {migrated_count} 个账号的敏感数据为加密存储")
 
 
 # ==================== 应用初始化 ====================
@@ -482,21 +767,36 @@ def load_accounts(group_id: int = None) -> List[Dict]:
     db = get_db()
     if group_id:
         cursor = db.execute('''
-            SELECT a.*, g.name as group_name, g.color as group_color 
-            FROM accounts a 
-            LEFT JOIN groups g ON a.group_id = g.id 
+            SELECT a.*, g.name as group_name, g.color as group_color
+            FROM accounts a
+            LEFT JOIN groups g ON a.group_id = g.id
             WHERE a.group_id = ?
             ORDER BY a.created_at DESC
         ''', (group_id,))
     else:
         cursor = db.execute('''
-            SELECT a.*, g.name as group_name, g.color as group_color 
-            FROM accounts a 
-            LEFT JOIN groups g ON a.group_id = g.id 
+            SELECT a.*, g.name as group_name, g.color as group_color
+            FROM accounts a
+            LEFT JOIN groups g ON a.group_id = g.id
             ORDER BY a.created_at DESC
         ''')
     rows = cursor.fetchall()
-    return [dict(row) for row in rows]
+    accounts = []
+    for row in rows:
+        account = dict(row)
+        # 解密敏感字段
+        if account.get('password'):
+            try:
+                account['password'] = decrypt_data(account['password'])
+            except Exception:
+                pass  # 解密失败保持原值
+        if account.get('refresh_token'):
+            try:
+                account['refresh_token'] = decrypt_data(account['refresh_token'])
+            except Exception:
+                pass  # 解密失败保持原值
+        accounts.append(account)
+    return accounts
 
 
 def get_account_by_email(email_addr: str) -> Optional[Dict]:
@@ -504,48 +804,84 @@ def get_account_by_email(email_addr: str) -> Optional[Dict]:
     db = get_db()
     cursor = db.execute('SELECT * FROM accounts WHERE email = ?', (email_addr,))
     row = cursor.fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    account = dict(row)
+    # 解密敏感字段
+    if account.get('password'):
+        try:
+            account['password'] = decrypt_data(account['password'])
+        except Exception:
+            pass
+    if account.get('refresh_token'):
+        try:
+            account['refresh_token'] = decrypt_data(account['refresh_token'])
+        except Exception:
+            pass
+    return account
 
 
 def get_account_by_id(account_id: int) -> Optional[Dict]:
     """根据 ID 获取账号"""
     db = get_db()
     cursor = db.execute('''
-        SELECT a.*, g.name as group_name, g.color as group_color 
-        FROM accounts a 
-        LEFT JOIN groups g ON a.group_id = g.id 
+        SELECT a.*, g.name as group_name, g.color as group_color
+        FROM accounts a
+        LEFT JOIN groups g ON a.group_id = g.id
         WHERE a.id = ?
     ''', (account_id,))
     row = cursor.fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    account = dict(row)
+    # 解密敏感字段
+    if account.get('password'):
+        try:
+            account['password'] = decrypt_data(account['password'])
+        except Exception:
+            pass
+    if account.get('refresh_token'):
+        try:
+            account['refresh_token'] = decrypt_data(account['refresh_token'])
+        except Exception:
+            pass
+    return account
 
 
-def add_account(email_addr: str, password: str, client_id: str, refresh_token: str, 
+def add_account(email_addr: str, password: str, client_id: str, refresh_token: str,
                 group_id: int = 1, remark: str = '') -> bool:
     """添加邮箱账号"""
     db = get_db()
     try:
+        # 加密敏感字段
+        encrypted_password = encrypt_data(password) if password else password
+        encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
+
         db.execute('''
             INSERT INTO accounts (email, password, client_id, refresh_token, group_id, remark)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (email_addr, password, client_id, refresh_token, group_id, remark))
+        ''', (email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark))
         db.commit()
         return True
     except sqlite3.IntegrityError:
         return False
 
 
-def update_account(account_id: int, email_addr: str, password: str, client_id: str, 
+def update_account(account_id: int, email_addr: str, password: str, client_id: str,
                    refresh_token: str, group_id: int, remark: str, status: str) -> bool:
     """更新邮箱账号"""
     db = get_db()
     try:
+        # 加密敏感字段
+        encrypted_password = encrypt_data(password) if password else password
+        encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
+
         db.execute('''
-            UPDATE accounts 
-            SET email = ?, password = ?, client_id = ?, refresh_token = ?, 
+            UPDATE accounts
+            SET email = ?, password = ?, client_id = ?, refresh_token = ?,
                 group_id = ?, remark = ?, status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        ''', (email_addr, password, client_id, refresh_token, group_id, remark, status, account_id))
+        ''', (email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status, account_id))
         db.commit()
         return True
     except Exception:
@@ -575,6 +911,49 @@ def delete_account_by_email(email_addr: str) -> bool:
 
 
 # ==================== 工具函数 ====================
+
+def sanitize_input(text: str, max_length: int = 500) -> str:
+    """
+    净化用户输入，防止XSS攻击
+    - 转义HTML特殊字符
+    - 限制长度
+    - 移除控制字符
+    """
+    if not text:
+        return ""
+
+    # 限制长度
+    text = text[:max_length]
+
+    # 移除控制字符（保留换行和制表符）
+    text = ''.join(char for char in text if char.isprintable() or char in '\n\t')
+
+    # 转义HTML特殊字符
+    text = html.escape(text, quote=True)
+
+    return text
+
+
+def log_audit(action: str, resource_type: str, resource_id: str = None, details: str = None):
+    """
+    记录审计日志
+    :param action: 操作类型（如 'export', 'delete', 'update'）
+    :param resource_type: 资源类型（如 'account', 'group'）
+    :param resource_id: 资源ID
+    :param details: 详细信息
+    """
+    try:
+        db = get_db()
+        user_ip = request.remote_addr if request else 'unknown'
+        db.execute('''
+            INSERT INTO audit_logs (action, resource_type, resource_id, user_ip, details)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (action, resource_type, resource_id, user_ip, details))
+        db.commit()
+    except Exception:
+        # 审计日志失败不应影响主流程
+        pass
+
 
 def decode_header_value(header_value: str) -> str:
     """解码邮件头字段"""
@@ -863,7 +1242,12 @@ def get_access_token_imap(client_id: str, refresh_token: str) -> Optional[str]:
 
 
 def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20) -> Dict[str, Any]:
-    """使用 IMAP 获取邮件列表（支持分页和文件夹选择）"""
+    """使用 IMAP 获取邮件列表（支持分页和文件夹选择）- 默认使用新版服务器"""
+    return get_emails_imap_with_server(account, client_id, refresh_token, folder, skip, top, IMAP_SERVER_NEW)
+
+
+def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20, server: str = IMAP_SERVER_NEW) -> Dict[str, Any]:
+    """使用 IMAP 获取邮件列表（支持分页、文件夹选择和服务器选择）"""
     token_result = get_access_token_imap_result(client_id, refresh_token)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
@@ -872,7 +1256,7 @@ def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: st
 
     connection = None
     try:
-        connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT)
+        connection = imaplib.IMAP4_SSL(server, IMAP_PORT)
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
@@ -999,26 +1383,48 @@ def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: st
                 pass
 
 
-def get_email_detail_imap(account: str, client_id: str, refresh_token: str, message_id: str) -> Optional[Dict]:
+def get_email_detail_imap(account: str, client_id: str, refresh_token: str, message_id: str, folder: str = 'inbox') -> Optional[Dict]:
     """使用 IMAP 获取邮件详情"""
     access_token = get_access_token_imap(client_id, refresh_token)
     if not access_token:
         return None
-    
+
     connection = None
     try:
         connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT)
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
-        connection.select('"INBOX"')
-        
+
+        # 根据文件夹类型选择 IMAP 文件夹
+        folder_map = {
+            'inbox': ['"INBOX"', 'INBOX'],
+            'junkemail': ['"Junk"', '"Junk Email"', 'Junk', '"垃圾邮件"'],
+            'deleteditems': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"'],
+            'trash': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"']
+        }
+        possible_folders = folder_map.get(folder.lower(), ['"INBOX"'])
+
+        # 尝试选择文件夹
+        selected_folder = None
+        for imap_folder in possible_folders:
+            try:
+                status, response = connection.select(imap_folder, readonly=True)
+                if status == 'OK':
+                    selected_folder = imap_folder
+                    break
+            except Exception:
+                continue
+
+        if not selected_folder:
+            return None
+
         status, msg_data = connection.fetch(message_id.encode() if isinstance(message_id, str) else message_id, '(RFC822)')
         if status != 'OK' or not msg_data or not msg_data[0]:
             return None
-        
+
         raw_email = msg_data[0][1]
         msg = email.message_from_bytes(raw_email)
-        
+
         return {
             'id': message_id,
             'subject': decode_header_value(msg.get("Subject", "无主题")),
@@ -1055,22 +1461,47 @@ def login_required(f):
 # ==================== Flask 路由 ====================
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf_exempt  # 登录接口排除CSRF保护（用户未登录时无法获取token）
 def login():
     """登录页面"""
     if request.method == 'POST':
-        data = request.json if request.is_json else request.form
-        password = data.get('password', '')
-        
-        # 从数据库获取密码，如果没有则使用默认密码
-        correct_password = get_login_password()
-        
-        if password == correct_password:
-            session['logged_in'] = True
-            session.permanent = True
-            return jsonify({'success': True, 'message': '登录成功'})
-        else:
-            return jsonify({'success': False, 'error': '密码错误'})
-    
+        try:
+            # 获取客户端 IP
+            client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+            if client_ip:
+                client_ip = client_ip.split(',')[0].strip()
+
+            # 检查速率限制
+            allowed, remaining_time = check_rate_limit(client_ip)
+            if not allowed:
+                return jsonify({
+                    'success': False,
+                    'error': f'登录失败次数过多，请在 {remaining_time} 秒后重试'
+                }), 429
+
+            data = request.json if request.is_json else request.form
+            password = data.get('password', '')
+
+            # 从数据库获取密码哈希
+            stored_password = get_login_password()
+
+            # 验证密码
+            if verify_password(password, stored_password):
+                # 登录成功，重置失败记录
+                reset_login_attempts(client_ip)
+                session['logged_in'] = True
+                session.permanent = True
+                return jsonify({'success': True, 'message': '登录成功'})
+            else:
+                # 登录失败，记录失败次数
+                record_login_failure(client_ip)
+                return jsonify({'success': False, 'error': '密码错误'})
+        except Exception as e:
+            print(f"Login error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'error': f'登录处理失败: {str(e)}'}), 500
+
     # GET 请求返回登录页面
     return render_template('login.html')
 
@@ -1087,6 +1518,17 @@ def logout():
 def index():
     """主页"""
     return render_template('index.html')
+
+
+@app.route('/api/csrf-token', methods=['GET'])
+@csrf_exempt  # CSRF token获取接口排除CSRF保护
+def get_csrf_token():
+    """获取CSRF Token"""
+    if CSRF_AVAILABLE:
+        token = generate_csrf()
+        return jsonify({'csrf_token': token})
+    else:
+        return jsonify({'csrf_token': None, 'csrf_disabled': True})
 
 
 # ==================== 分组 API ====================
@@ -1122,13 +1564,13 @@ def api_get_group(group_id):
 def api_add_group():
     """添加分组"""
     data = request.json
-    name = data.get('name', '').strip()
-    description = data.get('description', '')
+    name = sanitize_input(data.get('name', '').strip(), max_length=100)
+    description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
-    
+
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
-    
+
     group_id = add_group(name, description, color)
     if group_id:
         return jsonify({'success': True, 'message': '分组创建成功', 'group_id': group_id})
@@ -1141,13 +1583,13 @@ def api_add_group():
 def api_update_group(group_id):
     """更新分组"""
     data = request.json
-    name = data.get('name', '').strip()
-    description = data.get('description', '')
+    name = sanitize_input(data.get('name', '').strip(), max_length=100)
+    description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
-    
+
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
-    
+
     if update_group(group_id, name, description, color):
         return jsonify({'success': True, 'message': '分组更新成功'})
     else:
@@ -1170,36 +1612,40 @@ def api_delete_group(group_id):
 @app.route('/api/groups/<int:group_id>/export')
 @login_required
 def api_export_group(group_id):
-    """导出分组下的所有邮箱账号为 TXT 文件"""
+    """导出分组下的所有邮箱账号为 TXT 文件（需要二次验证）"""
+    # 检查二次验证token
+    verify_token = request.args.get('verify_token')
+    if not verify_token or not session.get('export_verify_token') or verify_token != session.get('export_verify_token'):
+        return jsonify({'success': False, 'error': '需要二次验证', 'need_verify': True})
+
+    # 清除验证token（一次性使用）
+    session.pop('export_verify_token', None)
+
     group = get_group_by_id(group_id)
     if not group:
         return jsonify({'success': False, 'error': '分组不存在'})
-    
-    # 获取该分组下的所有账号（完整信息）
-    db = get_db()
-    cursor = db.execute('''
-        SELECT email, password, client_id, refresh_token
-        FROM accounts
-        WHERE group_id = ?
-        ORDER BY created_at DESC
-    ''', (group_id,))
-    accounts = cursor.fetchall()
-    
+
+    # 使用 load_accounts 获取该分组下的所有账号（自动解密）
+    accounts = load_accounts(group_id)
+
     if not accounts:
         return jsonify({'success': False, 'error': '该分组下没有邮箱账号'})
-    
+
+    # 记录审计日志
+    log_audit('export', 'group', str(group_id), f"导出分组 '{group['name']}' 的 {len(accounts)} 个账号")
+
     # 生成导出内容（格式：email----password----client_id----refresh_token）
     lines = []
     for acc in accounts:
-        line = f"{acc['email']}----{acc['password'] or ''}----{acc['client_id']}----{acc['refresh_token']}"
+        line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
         lines.append(line)
-    
+
     content = '\n'.join(lines)
-    
+
     # 生成文件名（使用 URL 编码处理中文）
     filename = f"{group['name']}_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     encoded_filename = quote(filename)
-    
+
     # 返回文件下载响应
     return Response(
         content,
@@ -1213,31 +1659,36 @@ def api_export_group(group_id):
 @app.route('/api/accounts/export')
 @login_required
 def api_export_all_accounts():
-    """导出所有邮箱账号为 TXT 文件"""
-    # 获取所有账号（完整信息）
-    db = get_db()
-    cursor = db.execute('''
-        SELECT email, password, client_id, refresh_token
-        FROM accounts
-        ORDER BY created_at DESC
-    ''')
-    accounts = cursor.fetchall()
-    
+    """导出所有邮箱账号为 TXT 文件（需要二次验证）"""
+    # 检查二次验证token
+    verify_token = request.args.get('verify_token')
+    if not verify_token or not session.get('export_verify_token') or verify_token != session.get('export_verify_token'):
+        return jsonify({'success': False, 'error': '需要二次验证', 'need_verify': True})
+
+    # 清除验证token（一次性使用）
+    session.pop('export_verify_token', None)
+
+    # 使用 load_accounts 获取所有账号（自动解密）
+    accounts = load_accounts()
+
     if not accounts:
         return jsonify({'success': False, 'error': '没有邮箱账号'})
-    
+
+    # 记录审计日志
+    log_audit('export', 'all_accounts', None, f"导出所有账号，共 {len(accounts)} 个")
+
     # 生成导出内容（格式：email----password----client_id----refresh_token）
     lines = []
     for acc in accounts:
-        line = f"{acc['email']}----{acc['password'] or ''}----{acc['client_id']}----{acc['refresh_token']}"
+        line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
         lines.append(line)
-    
+
     content = '\n'.join(lines)
-    
+
     # 生成文件名（使用 URL 编码处理中文）
     filename = f"all_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     encoded_filename = quote(filename)
-    
+
     # 返回文件下载响应
     return Response(
         content,
@@ -1251,39 +1702,45 @@ def api_export_all_accounts():
 @app.route('/api/accounts/export-selected', methods=['POST'])
 @login_required
 def api_export_selected_accounts():
-    """导出选中分组的邮箱账号为 TXT 文件"""
+    """导出选中分组的邮箱账号为 TXT 文件（需要二次验证）"""
     data = request.json
     group_ids = data.get('group_ids', [])
-    
+    verify_token = data.get('verify_token')
+
+    # 检查二次验证token
+    if not verify_token or not session.get('export_verify_token') or verify_token != session.get('export_verify_token'):
+        return jsonify({'success': False, 'error': '需要二次验证', 'need_verify': True})
+
+    # 清除验证token（一次性使用）
+    session.pop('export_verify_token', None)
+
     if not group_ids:
         return jsonify({'success': False, 'error': '请选择要导出的分组'})
-    
-    # 获取选中分组下的所有账号
-    db = get_db()
-    placeholders = ','.join(['?' for _ in group_ids])
-    cursor = db.execute(f'''
-        SELECT email, password, client_id, refresh_token
-        FROM accounts
-        WHERE group_id IN ({placeholders})
-        ORDER BY group_id, created_at DESC
-    ''', group_ids)
-    accounts = cursor.fetchall()
-    
-    if not accounts:
+
+    # 获取选中分组下的所有账号（使用 load_accounts 自动解密）
+    all_accounts = []
+    for group_id in group_ids:
+        accounts = load_accounts(group_id)
+        all_accounts.extend(accounts)
+
+    if not all_accounts:
         return jsonify({'success': False, 'error': '选中的分组下没有邮箱账号'})
-    
+
+    # 记录审计日志
+    log_audit('export', 'selected_groups', ','.join(map(str, group_ids)), f"导出选中分组的 {len(all_accounts)} 个账号")
+
     # 生成导出内容
     lines = []
-    for acc in accounts:
-        line = f"{acc['email']}----{acc['password'] or ''}----{acc['client_id']}----{acc['refresh_token']}"
+    for acc in all_accounts:
+        line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
         lines.append(line)
-    
+
     content = '\n'.join(lines)
-    
+
     # 生成文件名
     filename = f"selected_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
     encoded_filename = quote(filename)
-    
+
     # 返回文件下载响应
     return Response(
         content,
@@ -1292,6 +1749,32 @@ def api_export_selected_accounts():
             'Content-Disposition': f"attachment; filename*=UTF-8''{encoded_filename}"
         }
     )
+
+
+@app.route('/api/export/verify', methods=['POST'])
+@login_required
+def api_generate_export_verify_token():
+    """生成导出验证token（二次验证）"""
+    data = request.json
+    password = data.get('password', '')
+
+    # 验证密码
+    db = get_db()
+    cursor = db.execute("SELECT value FROM settings WHERE key = 'login_password'")
+    result = cursor.fetchone()
+
+    if not result:
+        return jsonify({'success': False, 'error': '系统配置错误'})
+
+    stored_password = result[0]
+    if not verify_password(password, stored_password):
+        return jsonify({'success': False, 'error': '密码错误'})
+
+    # 生成一次性验证token
+    verify_token = secrets.token_urlsafe(32)
+    session['export_verify_token'] = verify_token
+
+    return jsonify({'success': True, 'verify_token': verify_token})
 
 
 # ==================== 邮箱账号 API ====================
@@ -1436,23 +1919,23 @@ def api_add_account():
 def api_update_account(account_id):
     """更新账号"""
     data = request.json
-    
+
     # 检查是否只更新状态
     if 'status' in data and len(data) == 1:
         # 只更新状态
         return api_update_account_status(account_id, data['status'])
-    
+
     email_addr = data.get('email', '')
     password = data.get('password', '')
     client_id = data.get('client_id', '')
     refresh_token = data.get('refresh_token', '')
     group_id = data.get('group_id', 1)
-    remark = data.get('remark', '')
+    remark = sanitize_input(data.get('remark', ''), max_length=200)
     status = data.get('status', 'active')
-    
+
     if not email_addr or not client_id or not refresh_token:
         return jsonify({'success': False, 'error': '邮箱、Client ID 和 Refresh Token 不能为空'})
-    
+
     if update_account(account_id, email_addr, password, client_id, refresh_token, group_id, remark, status):
         return jsonify({'success': True, 'message': '账号更新成功'})
     else:
@@ -1567,7 +2050,22 @@ def api_refresh_account(account_id):
     account_id = account['id']
     account_email = account['email']
     client_id = account['client_id']
-    refresh_token = account['refresh_token']
+    encrypted_refresh_token = account['refresh_token']
+
+    # 解密 refresh_token
+    try:
+        refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+    except Exception as e:
+        error_msg = f"解密 token 失败: {str(e)}"
+        log_refresh_result(account_id, account_email, 'manual', 'failed', error_msg)
+        error_payload = build_error_payload(
+            "TOKEN_DECRYPT_FAILED",
+            "Token 解密失败",
+            "DecryptionError",
+            500,
+            error_msg
+        )
+        return jsonify({'success': False, 'error': error_payload})
 
     # 测试 refresh token
     success, error_msg = test_refresh_token(client_id, refresh_token)
@@ -1628,7 +2126,29 @@ def api_refresh_all_accounts():
                 account_id = account['id']
                 account_email = account['email']
                 client_id = account['client_id']
-                refresh_token = account['refresh_token']
+                encrypted_refresh_token = account['refresh_token']
+
+                # 解密 refresh_token
+                try:
+                    refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+                except Exception as e:
+                    # 解密失败，记录错误
+                    failed_count += 1
+                    error_msg = f"解密 token 失败: {str(e)}"
+                    failed_list.append({
+                        'id': account_id,
+                        'email': account_email,
+                        'error': error_msg
+                    })
+                    try:
+                        conn.execute('''
+                            INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (account_id, account_email, 'manual', 'failed', error_msg))
+                        conn.commit()
+                    except Exception:
+                        pass
+                    continue
 
                 # 发送当前处理的账号信息
                 yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'email': account_email, 'success_count': success_count, 'failed_count': failed_count})}\n\n"
@@ -1714,7 +2234,22 @@ def api_refresh_failed_accounts():
         account_id = account['id']
         account_email = account['email']
         client_id = account['client_id']
-        refresh_token = account['refresh_token']
+        encrypted_refresh_token = account['refresh_token']
+
+        # 解密 refresh_token
+        try:
+            refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+        except Exception as e:
+            # 解密失败，记录错误
+            failed_count += 1
+            error_msg = f"解密 token 失败: {str(e)}"
+            failed_list.append({
+                'id': account_id,
+                'email': account_email,
+                'error': error_msg
+            })
+            log_refresh_result(account_id, account_email, 'retry', 'failed', error_msg)
+            continue
 
         # 测试 refresh token
         success, error_msg = test_refresh_token(client_id, refresh_token)
@@ -1807,7 +2342,29 @@ def api_trigger_scheduled_refresh():
                 account_id = account['id']
                 account_email = account['email']
                 client_id = account['client_id']
-                refresh_token = account['refresh_token']
+                encrypted_refresh_token = account['refresh_token']
+
+                # 解密 refresh_token
+                try:
+                    refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+                except Exception as e:
+                    # 解密失败，记录错误
+                    failed_count += 1
+                    error_msg = f"解密 token 失败: {str(e)}"
+                    failed_list.append({
+                        'id': account_id,
+                        'email': account_email,
+                        'error': error_msg
+                    })
+                    try:
+                        conn.execute('''
+                            INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
+                            VALUES (?, ?, ?, ?, ?)
+                        ''', (account_id, account_email, 'scheduled', 'failed', error_msg))
+                        conn.commit()
+                    except Exception:
+                        pass
+                    continue
 
                 yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'email': account_email, 'success_count': success_count, 'failed_count': failed_count})}\n\n"
 
@@ -2014,52 +2571,55 @@ def api_get_emails(email_addr):
         )
         return jsonify({'success': False, 'error': error_payload})
 
-    method = request.args.get('method', 'graph')
     folder = request.args.get('folder', 'inbox')  # inbox, junkemail, deleteditems
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
 
-    graph_error = None
-    if method == 'graph':
-        # 每次只查询20封邮件
-        graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top)
-        if graph_result.get("success"):
-            emails = graph_result.get("emails", [])
-            # 更新刷新时间
-            db = get_db()
-            db.execute('''
-                UPDATE accounts
-                SET last_refresh_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                WHERE email = ?
-            ''', (email_addr,))
-            db.commit()
+    # 收集所有错误信息
+    all_errors = {}
 
-            # 格式化 Graph API 返回的数据
-            formatted = []
-            for e in emails:
-                formatted.append({
-                    'id': e.get('id'),
-                    'subject': e.get('subject', '无主题'),
-                    'from': e.get('from', {}).get('emailAddress', {}).get('address', '未知'),
-                    'date': e.get('receivedDateTime', ''),
-                    'is_read': e.get('isRead', False),
-                    'has_attachments': e.get('hasAttachments', False),
-                    'body_preview': e.get('bodyPreview', '')
-                })
+    # 1. 尝试 Graph API
+    graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top)
+    if graph_result.get("success"):
+        emails = graph_result.get("emails", [])
+        # 更新刷新时间
+        db = get_db()
+        db.execute('''
+            UPDATE accounts
+            SET last_refresh_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE email = ?
+        ''', (email_addr,))
+        db.commit()
 
-            return jsonify({
-                'success': True,
-                'emails': formatted,
-                'method': 'Graph API',
-                'has_more': len(formatted) >= top
+        # 格式化 Graph API 返回的数据
+        formatted = []
+        for e in emails:
+            formatted.append({
+                'id': e.get('id'),
+                'subject': e.get('subject', '无主题'),
+                'from': e.get('from', {}).get('emailAddress', {}).get('address', '未知'),
+                'date': e.get('receivedDateTime', ''),
+                'is_read': e.get('isRead', False),
+                'has_attachments': e.get('hasAttachments', False),
+                'body_preview': e.get('bodyPreview', '')
             })
 
-        graph_error = graph_result.get("error")
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'method': 'Graph API',
+            'has_more': len(formatted) >= top
+        })
+    else:
+        all_errors["graph"] = graph_result.get("error")
 
-    # 如果 Graph API 失败，尝试 IMAP
-    imap_result = get_emails_imap(account['email'], account['client_id'], account['refresh_token'], folder, skip, top)
-    if imap_result.get("success"):
-        emails = imap_result.get("emails", [])
+    # 2. 尝试新版 IMAP (outlook.live.com)
+    imap_new_result = get_emails_imap_with_server(
+        account['email'], account['client_id'], account['refresh_token'],
+        folder, skip, top, IMAP_SERVER_NEW
+    )
+    if imap_new_result.get("success"):
+        emails = imap_new_result.get("emails", [])
         # 更新刷新时间
         db = get_db()
         db.execute('''
@@ -2072,23 +2632,44 @@ def api_get_emails(email_addr):
         return jsonify({
             'success': True,
             'emails': emails,
-            'method': 'IMAP',
+            'method': 'IMAP (新版)',
             'has_more': len(emails) >= top
         })
+    else:
+        all_errors["imap_new"] = imap_new_result.get("error")
 
-    imap_error = imap_result.get("error")
-    combined_details = {}
-    if graph_error:
-        combined_details["graph"] = graph_error
-    if imap_error:
-        combined_details["imap"] = imap_error
-    details = combined_details or imap_error or graph_error or "未知错误"
+    # 3. 尝试旧版 IMAP (outlook.office365.com)
+    imap_old_result = get_emails_imap_with_server(
+        account['email'], account['client_id'], account['refresh_token'],
+        folder, skip, top, IMAP_SERVER_OLD
+    )
+    if imap_old_result.get("success"):
+        emails = imap_old_result.get("emails", [])
+        # 更新刷新时间
+        db = get_db()
+        db.execute('''
+            UPDATE accounts
+            SET last_refresh_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE email = ?
+        ''', (email_addr,))
+        db.commit()
+
+        return jsonify({
+            'success': True,
+            'emails': emails,
+            'method': 'IMAP (旧版)',
+            'has_more': len(emails) >= top
+        })
+    else:
+        all_errors["imap_old"] = imap_old_result.get("error")
+
+    # 所有方式都失败，返回所有错误信息
     error_payload = build_error_payload(
         "EMAIL_FETCH_FAILED",
-        "获取邮件失败，请检查账号配置",
+        "获取邮件失败，所有方式均失败，请检查账号配置",
         "EmailFetchError",
         502,
-        details
+        all_errors
     )
     return jsonify({'success': False, 'error': error_payload})
 
@@ -2098,12 +2679,13 @@ def api_get_emails(email_addr):
 def api_get_email_detail(email_addr, message_id):
     """获取邮件详情"""
     account = get_account_by_email(email_addr)
-    
+
     if not account:
         return jsonify({'success': False, 'error': '账号不存在'})
-    
+
     method = request.args.get('method', 'graph')
-    
+    folder = request.args.get('folder', 'inbox')
+
     if method == 'graph':
         detail = get_email_detail_graph(account['client_id'], account['refresh_token'], message_id)
         if detail:
@@ -2120,12 +2702,12 @@ def api_get_email_detail(email_addr, message_id):
                     'body_type': detail.get('body', {}).get('contentType', 'text')
                 }
             })
-    
+
     # 如果 Graph API 失败，尝试 IMAP
-    detail = get_email_detail_imap(account['email'], account['client_id'], account['refresh_token'], message_id)
+    detail = get_email_detail_imap(account['email'], account['client_id'], account['refresh_token'], message_id, folder)
     if detail:
         return jsonify({'success': True, 'email': detail})
-    
+
     return jsonify({'success': False, 'error': '获取邮件详情失败'})
 
 
@@ -2633,12 +3215,15 @@ def api_update_settings():
     if 'login_password' in data:
         new_password = data['login_password'].strip()
         if new_password:
-            if len(new_password) < 4:
-                errors.append('密码长度至少为 4 位')
-            elif set_setting('login_password', new_password):
-                updated.append('登录密码')
+            if len(new_password) < 8:
+                errors.append('密码长度至少为 8 位')
             else:
-                errors.append('更新登录密码失败')
+                # 哈希新密码
+                hashed_password = hash_password(new_password)
+                if set_setting('login_password', hashed_password):
+                    updated.append('登录密码')
+                else:
+                    errors.append('更新登录密码失败')
 
     # 更新 GPTMail API Key
     if 'gptmail_api_key' in data:
@@ -2903,6 +3488,24 @@ def trigger_refresh_internal():
 
     finally:
         conn.close()
+
+
+# ==================== 错误处理 ====================
+
+@app.errorhandler(400)
+def bad_request(error):
+    """处理400错误"""
+    print(f"400 Bad Request: {error}")
+    return jsonify({'success': False, 'error': '请求格式错误'}), 400
+
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """处理未捕获的异常"""
+    print(f"Unhandled exception: {error}")
+    import traceback
+    traceback.print_exc()
+    return jsonify({'success': False, 'error': str(error)}), 500
 
 
 # ==================== 主程序 ====================
