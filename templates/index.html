@@ -1097,11 +1097,13 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             min-width: 300px;
             text-align: center;
+            pointer-events: none;
         }
 
         .toast.show {
             opacity: 1;
             transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
         }
         
         .toast.success {
@@ -1224,6 +1226,7 @@
                 <polyline points="22,6 12,13 2,6"></polyline>
             </svg>
             Outlook 邮件
+            <a href="https://github.com/assast/outlookEmail" target="_blank" style="font-size: 14px; font-weight: 500; color: #0078d4; margin-left: 12px; text-decoration: none;">⭐️ 如果觉得有帮助请帮忙点个 Star</a>
         </div>
         <div class="navbar-center">
             <div class="current-account" id="currentAccount" onclick="copyCurrentEmail()" title="点击复制邮箱地址">
@@ -1794,6 +1797,7 @@
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadGroups();
             initColorPicker();
             initEmailListScroll();
@@ -1838,10 +1842,10 @@
         // 加载更多邮件
         async function loadMoreEmails() {
             if (isLoadingMore || !hasMoreEmails) return;
-            
+
             isLoadingMore = true;
             currentSkip += 20; // 每页20封
-            
+
             // 在列表底部显示加载状态
             const emailList = document.getElementById('emailList');
             const loadingDiv = document.createElement('div');
@@ -1849,25 +1853,33 @@
             loadingDiv.id = 'loadingMore';
             loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
             emailList.appendChild(loadingDiv);
-            
+
+            // 禁用按钮
+            const refreshBtn = document.querySelector('.refresh-btn');
+            const folderTabs = document.querySelectorAll('.folder-tab');
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+            }
+            folderTabs.forEach(tab => tab.disabled = true);
+
             try {
                 const response = await fetch(
                     `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${currentSkip}&top=20`
                 );
                 const data = await response.json();
-                
+
                 if (data.success && data.emails.length > 0) {
                     // 追加新邮件到列表
                     currentEmails = currentEmails.concat(data.emails);
                     hasMoreEmails = data.has_more;
-                    
+
                     // 移除加载状态
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) loadingEl.remove();
-                    
+
                     // 重新渲染邮件列表
                     renderEmailList(currentEmails);
-                    
+
                     // 更新邮件数量
                     document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
                 } else {
@@ -1884,6 +1896,11 @@
                 showToast('加载失败', 'error');
             } finally {
                 isLoadingMore = false;
+                // 启用按钮
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                }
+                folderTabs.forEach(tab => tab.disabled = false);
             }
         }
         
@@ -2627,6 +2644,13 @@
         async function loadTempEmailMessages(email) {
             const container = document.getElementById('emailList');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+
+            // 禁用按钮
+            const refreshBtn = document.querySelector('.refresh-btn');
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '获取中...';
+            }
             
             try {
                 const response = await fetch(`/api/temp-emails/${encodeURIComponent(email)}/messages`);
@@ -2660,6 +2684,12 @@
                         <div class="empty-state-text">网络错误，请重试</div>
                     </div>
                 `;
+            } finally {
+                // 启用按钮
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = '获取邮件';
+                }
             }
         }
         
@@ -3120,6 +3150,15 @@
         // 加载邮件列表
         async function loadEmails(email) {
             const container = document.getElementById('emailList');
+
+            // 禁用按钮
+            const refreshBtn = document.querySelector('.refresh-btn');
+            const folderTabs = document.querySelectorAll('.folder-tab');
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '获取中...';
+            }
+            folderTabs.forEach(tab => tab.disabled = true);
             
             // 重置分页状态
             currentSkip = 0;
@@ -3162,6 +3201,13 @@
                         <div class="empty-state-text">网络错误，请重试</div>
                     </div>
                 `;
+            } finally {
+                // 启用按钮
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = '获取邮件';
+                }
+                folderTabs.forEach(tab => tab.disabled = false);
             }
         }
         
@@ -3929,10 +3975,18 @@
             const modal = document.getElementById('refreshModal');
             modal.classList.remove('show');
 
-            // 确保进度条被隐藏
+            // 确保所有内容都被隐藏，防止残留
             const progress = document.getElementById('refreshProgress');
             if (progress) {
                 progress.style.display = 'none';
+            }
+            const failedList = document.getElementById('failedListContainer');
+            if (failedList) {
+                failedList.style.display = 'none';
+            }
+            const logsContainer = document.getElementById('refreshLogsContainer');
+            if (logsContainer) {
+                logsContainer.style.display = 'none';
             }
 
             // 重置按钮状态
@@ -4157,7 +4211,6 @@
             const listEl = document.getElementById('failedList');
 
             // 隐藏其他列表
-            hideSuccessList();
             hideRefreshLogs();
 
             if (!failedList || failedList.length === 0) {
@@ -4316,6 +4369,19 @@
             });
         }
 
+        // 统一关闭所有模态框的函数 (修复 bug：防止模态框意外残留)
+        function closeAllModals() {
+            hideAddGroupModal();
+            hideAddAccountModal();
+            hideEditAccountModal();
+            hideExportModal();
+            hideSettingsModal();
+            hideRefreshModal();
+            hideRefreshErrorModal();
+            hideGetRefreshTokenModal();
+            closeFullscreenEmail();
+        }
+
         // HTML 转义
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -4332,6 +4398,8 @@
                 hideExportModal();
                 hideSettingsModal();
                 hideRefreshModal();
+                hideRefreshErrorModal(); // 修复：确保刷新失败提示模态框也能被 Escape 键关闭
+                hideGetRefreshTokenModal(); // 修复：确保获取 Refresh Token 模态框也能被 Escape 键关闭
                 closeFullscreenEmail();
             }
         });
