@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,14 +13,14 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: #ffffff;
             color: #1a1a1a;
             line-height: 1.5;
         }
-        
+
         /* 顶部导航栏 */
         .navbar {
             height: 56px;
@@ -34,7 +35,7 @@
             right: 0;
             z-index: 100;
         }
-        
+
         .navbar-brand {
             font-size: 18px;
             font-weight: 600;
@@ -43,18 +44,18 @@
             align-items: center;
             gap: 8px;
         }
-        
+
         .navbar-brand svg {
             width: 24px;
             height: 24px;
         }
-        
+
         .navbar-center {
             flex: 1;
             display: flex;
             justify-content: center;
         }
-        
+
         .current-account {
             font-size: 14px;
             color: #666;
@@ -78,12 +79,12 @@
             color: #1a1a1a;
             font-weight: 500;
         }
-        
+
         .navbar-actions {
             display: flex;
             gap: 12px;
         }
-        
+
         .navbar-btn {
             background: none;
             border: 1px solid #e5e5e5;
@@ -94,7 +95,7 @@
             border-radius: 6px;
             transition: all 0.15s;
         }
-        
+
         .navbar-btn:hover {
             background-color: #f5f5f5;
             border-color: #ccc;
@@ -128,14 +129,14 @@
             width: 16px;
             height: 16px;
         }
-        
+
         /* 主容器 */
         .main-container {
             display: flex;
             margin-top: 56px;
             height: calc(100vh - 56px);
         }
-        
+
         /* 分组面板 */
         .group-panel {
             width: 200px;
@@ -145,7 +146,7 @@
             flex-direction: column;
             flex-shrink: 0;
         }
-        
+
         .panel-header {
             padding: 0 16px;
             height: 52px;
@@ -154,13 +155,13 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .panel-title {
             font-size: 14px;
             font-weight: 600;
             color: #1a1a1a;
         }
-        
+
         .panel-action-btn {
             background: none;
             border: none;
@@ -171,46 +172,46 @@
             border-radius: 4px;
             line-height: 1;
         }
-        
+
         .panel-action-btn:hover {
             background-color: #e5e5e5;
         }
-        
+
         .group-list {
             flex: 1;
             overflow-y: auto;
         }
-        
+
         .group-item {
             padding: 10px 16px;
             cursor: pointer;
             transition: background-color 0.15s;
             border-left: 3px solid transparent;
         }
-        
+
         .group-item:hover {
             background-color: #f0f0f0;
         }
-        
+
         .group-item.active {
             background-color: #e8e8e8;
             border-left-color: #1a1a1a;
         }
-        
+
         .group-row-1 {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 6px;
         }
-        
+
         .group-color {
             width: 10px;
             height: 10px;
             border-radius: 3px;
             flex-shrink: 0;
         }
-        
+
         .group-name {
             font-size: 14px;
             font-weight: 500;
@@ -220,14 +221,14 @@
             white-space: nowrap;
             flex: 1;
         }
-        
+
         .group-row-2 {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding-left: 20px;
         }
-        
+
         .group-count {
             font-size: 12px;
             color: #999;
@@ -235,22 +236,22 @@
             padding: 2px 8px;
             border-radius: 10px;
         }
-        
+
         .group-item.active .group-count {
             background-color: #d8d8d8;
         }
-        
+
         .group-actions {
             display: flex;
             gap: 4px;
             opacity: 0;
             transition: opacity 0.15s;
         }
-        
+
         .group-item:hover .group-actions {
             opacity: 1;
         }
-        
+
         .group-action-btn {
             background: none;
             border: none;
@@ -260,12 +261,12 @@
             font-size: 12px;
             border-radius: 4px;
         }
-        
+
         .group-action-btn:hover {
             background-color: #e0e0e0;
             color: #666;
         }
-        
+
         /* 邮箱账号面板 */
         .account-panel {
             width: 260px;
@@ -275,7 +276,7 @@
             flex-direction: column;
             flex-shrink: 0;
         }
-        
+
         .account-panel-header {
             padding: 0 16px;
             height: 52px;
@@ -283,7 +284,7 @@
             display: flex;
             align-items: center;
         }
-        
+
         .account-panel-title {
             font-size: 14px;
             font-weight: 600;
@@ -333,17 +334,17 @@
             color: #ffffff !important;
             border-color: #1a1a1a !important;
         }
-        
+
         .account-list {
             flex: 1;
             overflow-y: auto;
         }
-        
+
         .account-panel-footer {
             padding: 16px;
             border-top: 1px solid #e5e5e5;
         }
-        
+
         .add-account-btn {
             width: 100%;
             padding: 10px 16px;
@@ -356,11 +357,11 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        
+
         .add-account-btn:hover {
             background-color: #333;
         }
-        
+
         .account-item {
             padding: 10px 16px;
             cursor: pointer;
@@ -368,20 +369,20 @@
             border-left: 3px solid transparent;
             border-bottom: 1px solid #f5f5f5;
         }
-        
+
         .account-item:hover {
             background-color: #f5f5f5;
         }
-        
+
         .account-item.active {
             background-color: #f0f0f0;
             border-left-color: #1a1a1a;
         }
-        
+
         .account-item.inactive {
             opacity: 0.6;
         }
-        
+
         .account-item.inactive .account-email {
             text-decoration: line-through;
             color: #999;
@@ -397,7 +398,7 @@
             text-overflow: ellipsis;
             max-width: 300px;
         }
-        
+
         .account-email {
             font-size: 13px;
             color: #1a1a1a;
@@ -406,7 +407,7 @@
             white-space: nowrap;
             margin-bottom: 6px;
         }
-        
+
         .account-status-tag {
             font-size: 10px;
             padding: 1px 6px;
@@ -415,18 +416,18 @@
             background-color: #f0f0f0;
             color: #999;
         }
-        
+
         .account-actions {
             display: flex;
             gap: 8px;
             opacity: 0;
             transition: opacity 0.15s;
         }
-        
+
         .account-item:hover .account-actions {
             opacity: 1;
         }
-        
+
         .account-action-btn {
             background: none;
             border: none;
@@ -439,22 +440,22 @@
             align-items: center;
             gap: 2px;
         }
-        
+
         .account-action-btn:hover {
             color: #1a1a1a;
         }
-        
+
         .account-action-btn.delete:hover {
             color: #dc3545;
         }
-        
+
         /* 内容区域 */
         .content-area {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
-        
+
         /* 邮件列表面板 */
         .email-list-panel {
             width: 380px;
@@ -464,31 +465,31 @@
             flex-direction: column;
             flex-shrink: 0;
         }
-        
+
         .email-list-panel.hidden {
             display: none;
         }
-        
+
         /* 邮件列表头部 */
         .email-list-header {
             padding: 16px 20px;
             border-bottom: 1px solid #e5e5e5;
             background-color: #ffffff;
         }
-        
+
         .email-list-header h2 {
             font-size: 16px;
             font-weight: 600;
             color: #1a1a1a;
         }
-        
+
         .email-count {
             font-size: 13px;
             color: #999;
             font-weight: 400;
             margin-left: 8px;
         }
-        
+
         .refresh-btn {
             background: none;
             border: 1px solid #e5e5e5;
@@ -499,36 +500,36 @@
             border-radius: 6px;
             transition: all 0.15s;
         }
-        
+
         .refresh-btn:hover {
             background-color: #f5f5f5;
             border-color: #ccc;
         }
-        
+
         .email-list {
             flex: 1;
             overflow-y: auto;
         }
-        
+
         .email-item {
             padding: 16px 20px;
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
             transition: background-color 0.15s;
         }
-        
+
         .email-item:hover {
             background-color: #fafafa;
         }
-        
+
         .email-item.active {
             background-color: #f5f5f5;
         }
-        
+
         .email-item.unread .email-subject {
             font-weight: 600;
         }
-        
+
         .email-from {
             font-size: 14px;
             font-weight: 500;
@@ -538,7 +539,7 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        
+
         .email-subject {
             font-size: 14px;
             color: #1a1a1a;
@@ -547,7 +548,7 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        
+
         .email-preview {
             font-size: 13px;
             color: #999;
@@ -555,13 +556,13 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        
+
         .email-date {
             font-size: 12px;
             color: #999;
             margin-top: 8px;
         }
-        
+
         /* 邮件详情面板 */
         .email-detail-panel {
             flex: 1;
@@ -570,7 +571,7 @@
             flex-direction: column;
             min-width: 0;
         }
-        
+
         .email-detail-toolbar {
             padding: 12px 24px;
             border-bottom: 1px solid #e5e5e5;
@@ -579,7 +580,7 @@
             gap: 12px;
             background-color: #fafafa;
         }
-        
+
         .back-btn {
             display: none;
             background: none;
@@ -591,11 +592,11 @@
             border-radius: 6px;
             transition: all 0.15s;
         }
-        
+
         .back-btn:hover {
             background-color: #f0f0f0;
         }
-        
+
         .toggle-list-btn {
             background: none;
             border: 1px solid #e5e5e5;
@@ -606,16 +607,16 @@
             border-radius: 6px;
             transition: all 0.15s;
         }
-        
+
         .toggle-list-btn:hover {
             background-color: #f0f0f0;
         }
-        
+
         .email-detail-header {
             padding: 24px 32px;
             border-bottom: 1px solid #e5e5e5;
         }
-        
+
         .email-detail-subject {
             font-size: 24px;
             font-weight: 600;
@@ -623,28 +624,28 @@
             margin-bottom: 16px;
             line-height: 1.3;
         }
-        
+
         .email-detail-meta {
             font-size: 14px;
             color: #666;
             line-height: 1.8;
         }
-        
+
         .email-detail-meta-row {
             display: flex;
             margin-bottom: 4px;
         }
-        
+
         .email-detail-meta-label {
             color: #999;
             width: 60px;
             flex-shrink: 0;
         }
-        
+
         .email-detail-meta-value {
             color: #1a1a1a;
         }
-        
+
         .email-detail-body {
             flex: 1;
             padding: 24px 32px;
@@ -661,7 +662,7 @@
             display: block;
             overflow: visible;
         }
-        
+
         .email-body-text {
             white-space: pre-wrap;
             font-size: 15px;
@@ -763,18 +764,18 @@
             color: #999;
             padding: 40px;
         }
-        
+
         .empty-state-icon {
             font-size: 48px;
             margin-bottom: 16px;
             opacity: 0.5;
         }
-        
+
         .empty-state-text {
             font-size: 15px;
             text-align: center;
         }
-        
+
         /* 加载状态 */
         .loading {
             display: flex;
@@ -783,7 +784,7 @@
             height: 100%;
             padding: 40px;
         }
-        
+
         .loading-spinner {
             width: 32px;
             height: 32px;
@@ -792,20 +793,22 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        
+
         .loading-small {
             padding: 20px;
         }
-        
+
         .loading-small .loading-spinner {
             width: 20px;
             height: 20px;
         }
-        
+
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
-        
+
         /* 模态框 */
         .modal {
             display: none;
@@ -814,16 +817,16 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.4);
+            background-color: rgba(0, 0, 0, 0.4);
             z-index: 1000;
             align-items: center;
             justify-content: center;
         }
-        
+
         .modal.show {
             display: flex;
         }
-        
+
         .modal-content {
             background-color: #ffffff;
             border-radius: 12px;
@@ -831,7 +834,7 @@
             max-width: 90%;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
             position: relative;
             z-index: 1001;
         }
@@ -891,7 +894,7 @@
             margin-top: 2px;
         }
 
-        
+
         .modal-header {
             padding: 20px 24px;
             border-bottom: 1px solid #e5e5e5;
@@ -902,13 +905,13 @@
             top: 0;
             background-color: #ffffff;
         }
-        
+
         .modal-header h3 {
             font-size: 18px;
             font-weight: 600;
             color: #1a1a1a;
         }
-        
+
         .modal-close {
             background: none;
             border: none;
@@ -920,20 +923,20 @@
             border-radius: 4px;
             transition: all 0.15s;
         }
-        
+
         .modal-close:hover {
             background-color: #f0f0f0;
             color: #666;
         }
-        
+
         .modal-body {
             padding: 24px;
         }
-        
+
         .form-group {
             margin-bottom: 20px;
         }
-        
+
         .form-label {
             display: block;
             font-size: 14px;
@@ -941,7 +944,7 @@
             color: #333;
             margin-bottom: 8px;
         }
-        
+
         .form-input {
             width: 100%;
             padding: 10px 14px;
@@ -950,12 +953,12 @@
             font-size: 14px;
             transition: border-color 0.15s;
         }
-        
+
         .form-input:focus {
             outline: none;
             border-color: #1a1a1a;
         }
-        
+
         .form-textarea {
             width: 100%;
             height: 120px;
@@ -967,12 +970,12 @@
             resize: vertical;
             transition: border-color 0.15s;
         }
-        
+
         .form-textarea:focus {
             outline: none;
             border-color: #1a1a1a;
         }
-        
+
         .form-select {
             width: 100%;
             padding: 10px 14px;
@@ -982,25 +985,25 @@
             background-color: #ffffff;
             cursor: pointer;
         }
-        
+
         .form-select:focus {
             outline: none;
             border-color: #1a1a1a;
         }
-        
+
         .form-hint {
             font-size: 12px;
             color: #999;
             margin-top: 6px;
         }
-        
+
         .color-picker-group {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
             margin-bottom: 12px;
         }
-        
+
         .color-option {
             width: 32px;
             height: 32px;
@@ -1009,22 +1012,22 @@
             border: 2px solid transparent;
             transition: all 0.15s;
         }
-        
+
         .color-option:hover {
             transform: scale(1.1);
         }
-        
+
         .color-option.selected {
             border-color: #1a1a1a;
         }
-        
+
         .custom-color-row {
             display: flex;
             align-items: center;
             gap: 12px;
             margin-top: 8px;
         }
-        
+
         .custom-color-input {
             width: 60px;
             height: 36px;
@@ -1033,12 +1036,12 @@
             border-radius: 6px;
             cursor: pointer;
         }
-        
+
         .custom-color-label {
             font-size: 13px;
             color: #666;
         }
-        
+
         .custom-color-hex {
             width: 80px;
             padding: 8px 10px;
@@ -1047,7 +1050,7 @@
             font-size: 13px;
             font-family: monospace;
         }
-        
+
         .modal-footer {
             padding: 16px 24px;
             border-top: 1px solid #e5e5e5;
@@ -1058,7 +1061,7 @@
             bottom: 0;
             background-color: #ffffff;
         }
-        
+
         .btn {
             padding: 10px 20px;
             border: none;
@@ -1068,26 +1071,26 @@
             font-weight: 500;
             transition: all 0.15s;
         }
-        
+
         .btn-primary {
             background-color: #1a1a1a;
             color: #ffffff;
         }
-        
+
         .btn-primary:hover {
             background-color: #333;
         }
-        
+
         .btn-secondary {
             background-color: #f5f5f5;
             color: #1a1a1a;
             border: 1px solid #e5e5e5;
         }
-        
+
         .btn-secondary:hover {
             background-color: #e5e5e5;
         }
-        
+
         .btn-danger {
             background-color: #dc3545;
             color: #ffffff;
@@ -1125,7 +1128,7 @@
             z-index: 2000;
             opacity: 0;
             transition: all 0.3s;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             min-width: 300px;
             text-align: center;
             pointer-events: none;
@@ -1136,15 +1139,15 @@
             transform: translateX(-50%) translateY(0);
             pointer-events: auto;
         }
-        
+
         .toast.success {
             background-color: #1a1a1a;
         }
-        
+
         .toast.error {
             background-color: #dc3545;
         }
-        
+
         /* 方法标签 */
         .method-tag {
             font-size: 11px;
@@ -1155,7 +1158,7 @@
             margin-left: 8px;
             font-weight: 500;
         }
-        
+
         /* 文件夹切换标签 */
         .folder-tabs {
             display: inline-flex;
@@ -1164,7 +1167,7 @@
             padding: 4px;
             border-radius: 8px;
         }
-        
+
         .folder-tab {
             padding: 8px 16px;
             border: none;
@@ -1177,48 +1180,49 @@
             font-weight: 500;
             white-space: nowrap;
         }
-        
+
         .folder-tab:hover {
             background-color: #e5e5e5;
             color: #333;
         }
-        
+
         .folder-tab.active {
             background-color: #1a1a1a;
             color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        
+
         /* 响应式 */
         @media (max-width: 1200px) {
             .group-panel {
                 width: 180px;
             }
-            
+
             .account-panel {
                 width: 220px;
             }
-            
+
             .email-list-panel {
                 width: 320px;
             }
         }
-        
+
         @media (max-width: 1024px) {
             .group-panel {
                 width: 160px;
             }
-            
+
             .account-panel {
                 width: 200px;
             }
-            
+
             .email-list-panel {
                 width: 280px;
             }
         }
-        
+
         @media (max-width: 768px) {
+
             .group-panel,
             .account-panel {
                 position: fixed;
@@ -1228,26 +1232,27 @@
                 z-index: 50;
                 transition: left 0.3s;
             }
-            
+
             .group-panel.show,
             .account-panel.show {
                 left: 0;
             }
-            
+
             .email-list-panel {
                 width: 100%;
             }
-            
+
             .email-list-panel.hidden {
                 display: none;
             }
-            
+
             .back-btn {
                 display: block;
             }
         }
     </style>
 </head>
+
 <body>
     <!-- 顶部导航栏 -->
     <nav class="navbar">
@@ -1257,9 +1262,11 @@
                 <polyline points="22,6 12,13 2,6"></polyline>
             </svg>
             Outlook 邮件
-            <a href="https://github.com/assast/outlookEmail" target="_blank" class="github-star-btn" style="margin-left: 16px;">
+            <a href="https://github.com/assast/outlookEmail" target="_blank" class="github-star-btn"
+                style="margin-left: 16px;">
                 <svg viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/>
+                    <path
+                        d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z" />
                 </svg>
                 Star on GitHub
             </a>
@@ -1276,7 +1283,7 @@
             <button class="navbar-btn" onclick="logout()" style="color: #dc3545;">退出登录</button>
         </div>
     </nav>
-    
+
     <!-- 主容器 -->
     <div class="main-container">
         <!-- 分组面板 -->
@@ -1289,7 +1296,7 @@
                 <!-- 分组列表将通过 JS 动态加载 -->
             </div>
         </div>
-        
+
         <!-- 邮箱账号面板 -->
         <div class="account-panel" id="accountPanel">
             <div class="account-panel-header">
@@ -1299,21 +1306,18 @@
                 </div>
             </div>
             <div class="search-container">
-                <input type="text"
-                       id="globalSearch"
-                       class="search-input"
-                       placeholder="搜索邮箱地址..."
-                       autocomplete="off">
+                <input type="text" id="globalSearch" class="search-input" placeholder="搜索邮箱地址..." autocomplete="off">
             </div>
-            <div class="sort-control" style="padding: 8px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 8px; background-color: #fafafa;">
+            <div class="sort-control"
+                style="padding: 8px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 8px; background-color: #fafafa;">
                 <label style="font-size: 12px; color: #666; font-weight: 500;">排序：</label>
                 <div style="display: flex; gap: 4px;">
                     <button class="sort-btn active" data-sort="refresh_time" onclick="sortAccounts('refresh_time')"
-                            style="padding: 4px 10px; font-size: 12px; background-color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 4px; color: #ffffff; cursor: pointer; transition: all 0.15s;">
+                        style="padding: 4px 10px; font-size: 12px; background-color: #1a1a1a; border: 1px solid #1a1a1a; border-radius: 4px; color: #ffffff; cursor: pointer; transition: all 0.15s;">
                         🕐 刷新时间
                     </button>
                     <button class="sort-btn" data-sort="email" onclick="sortAccounts('email')"
-                            style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
+                        style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
                         📧 邮箱名
                     </button>
                 </div>
@@ -1328,13 +1332,14 @@
                 <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
             </div>
         </div>
-        
+
         <!-- 内容区域 -->
         <div class="content-area">
             <!-- 邮件列表面板 -->
             <div class="email-list-panel" id="emailListPanel">
                 <div class="email-list-header">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <div
+                        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <div class="folder-tabs" id="folderTabs" style="display: none;">
                             <button class="folder-tab active" data-folder="inbox" onclick="switchFolder('inbox')">
                                 📨 收件箱
@@ -1360,7 +1365,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 邮件详情面板 -->
             <div class="email-detail-panel">
                 <div class="email-detail-toolbar" id="emailDetailToolbar" style="display:none;">
@@ -1369,6 +1374,11 @@
                         <span id="toggleListText">隐藏列表</span>
                     </button>
                     <button class="fullscreen-btn" onclick="openFullscreenEmail()">🔍 全屏查看</button>
+                    <label
+                        style="display: flex; align-items: center; gap: 6px; font-size: 13px; margin-left: 12px; cursor: pointer;">
+                        <input type="checkbox" id="trustEmailCheckbox" onchange="toggleTrustMode(this)">
+                        <span style="user-select: none;">信任此邮件</span>
+                    </label>
                 </div>
                 <div id="emailDetail">
                     <div class="empty-state">
@@ -1379,7 +1389,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 添加分组模态框 -->
     <div class="modal" id="addGroupModal" onclick="if(event.target === this) hideAddGroupModal()">
         <div class="modal-content">
@@ -1417,9 +1427,11 @@
                         <div class="color-option" style="background-color: #6b69d6" data-color="#6b69d6"></div>
                     </div>
                     <div class="custom-color-row">
-                        <input type="color" class="custom-color-input" id="customColorInput" value="#1a1a1a" onchange="selectCustomColor(this.value)">
+                        <input type="color" class="custom-color-input" id="customColorInput" value="#1a1a1a"
+                            onchange="selectCustomColor(this.value)">
                         <span class="custom-color-label">自定义颜色</span>
-                        <input type="text" class="custom-color-hex" id="customColorHex" placeholder="#000000" maxlength="7" onchange="selectCustomColorHex(this.value)">
+                        <input type="text" class="custom-color-hex" id="customColorHex" placeholder="#000000"
+                            maxlength="7" onchange="selectCustomColorHex(this.value)">
                     </div>
                 </div>
             </div>
@@ -1429,7 +1441,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 添加账号模态框 -->
     <div class="modal" id="addAccountModal" onclick="if(event.target === this) hideAddAccountModal()">
         <div class="modal-content">
@@ -1446,7 +1458,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">账号信息</label>
-                    <textarea class="form-textarea" id="accountInput" placeholder="邮箱----密码----client_id----refresh_token"></textarea>
+                    <textarea class="form-textarea" id="accountInput"
+                        placeholder="邮箱----密码----client_id----refresh_token"></textarea>
                     <div class="form-hint">格式：邮箱----密码----client_id----refresh_token，支持批量导入（每行一个）</div>
                 </div>
             </div>
@@ -1456,7 +1469,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 编辑账号模态框 -->
     <div class="modal" id="editAccountModal" onclick="if(event.target === this) hideEditAccountModal()">
         <div class="modal-content">
@@ -1507,7 +1520,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 导出邮箱模态框 -->
     <div class="modal" id="exportModal" onclick="if(event.target === this) hideExportModal()">
         <div class="modal-content" style="width: 500px;">
@@ -1518,7 +1531,8 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">选择要导出的分组</label>
-                    <div id="exportGroupList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px;">
+                    <div id="exportGroupList"
+                        style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px;">
                         <!-- 分组列表将通过 JS 动态加载 -->
                     </div>
                     <div class="form-hint" style="margin-top: 8px;">
@@ -1573,7 +1587,8 @@
                 <div class="form-group">
                     <label class="form-label">GPTMail API Key</label>
                     <input type="text" class="form-input" id="settingsApiKey" placeholder="输入 GPTMail API Key">
-                    <div class="form-hint">用于临时邮箱功能，可从 <a href="https://mail.chatgpt.org.uk/api" target="_blank" style="color: #0078d4;">gptmail.io</a> 获取</div>
+                    <div class="form-hint">用于临时邮箱功能，可从 <a href="https://mail.chatgpt.org.uk/api" target="_blank"
+                            style="color: #0078d4;">gptmail.io</a> 获取</div>
                 </div>
 
                 <div style="border-top: 1px solid #e5e5e5; margin: 24px 0; padding-top: 24px;">
@@ -1591,11 +1606,13 @@
                         <label class="form-label">刷新策略</label>
                         <div style="display: flex; gap: 16px; margin-bottom: 12px;">
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                                <input type="radio" name="refreshStrategy" value="days" checked onchange="toggleRefreshStrategy()">
+                                <input type="radio" name="refreshStrategy" value="days" checked
+                                    onchange="toggleRefreshStrategy()">
                                 <span>按天数</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                                <input type="radio" name="refreshStrategy" value="cron" onchange="toggleRefreshStrategy()">
+                                <input type="radio" name="refreshStrategy" value="cron"
+                                    onchange="toggleRefreshStrategy()">
                                 <span>Cron 表达式</span>
                             </label>
                         </div>
@@ -1608,9 +1625,8 @@
                                 <span style="font-size: 12px; color: #999; font-weight: 400;">（每隔 X 天自动刷新所有账号）</span>
                             </label>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <input type="number" class="form-input" id="refreshIntervalDays"
-                                       min="1" max="90" value="30" placeholder="30"
-                                       style="max-width: 120px;">
+                                <input type="number" class="form-input" id="refreshIntervalDays" min="1" max="90"
+                                    value="30" placeholder="30" style="max-width: 120px;">
                                 <span style="font-size: 14px; color: #666; font-weight: 500;">天</span>
                             </div>
                             <div class="form-hint">建议设置为 30 天，防止 Token 因 90 天不使用而过期</div>
@@ -1620,18 +1636,25 @@
                     <div id="cronStrategyContainer" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Cron 表达式</label>
-                            <input type="text" class="form-input" id="refreshCron" placeholder="0 2 * * *" value="0 2 * * *">
+                            <input type="text" class="form-input" id="refreshCron" placeholder="0 2 * * *"
+                                value="0 2 * * *">
                             <div class="form-hint">格式：分 时 日 月 星期（例如：0 2 * * * 表示每天凌晨 2:00）</div>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label">常用样例</label>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
-                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * *')">每天凌晨 2:00</button>
-                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * 1')">每周一凌晨 2:00</button>
-                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 1 * *')">每月 1 号凌晨 2:00</button>
-                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 */3 * *')">每 3 天凌晨 2:00</button>
-                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 */12 * * *')">每 12 小时</button>
+                            <div
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * *')">每天凌晨
+                                    2:00</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * 1')">每周一凌晨
+                                    2:00</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 1 * *')">每月 1
+                                    号凌晨 2:00</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 */3 * *')">每 3
+                                    天凌晨 2:00</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 */12 * * *')">每
+                                    12 小时</button>
                             </div>
                         </div>
 
@@ -1647,9 +1670,8 @@
                             <span style="font-size: 12px; color: #999; font-weight: 400;">（每个邮箱刷新之间的等待时间）</span>
                         </label>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="number" class="form-input" id="refreshDelaySeconds"
-                                   min="0" max="60" value="5" placeholder="5"
-                                   style="max-width: 120px;">
+                            <input type="number" class="form-input" id="refreshDelaySeconds" min="0" max="60" value="5"
+                                placeholder="5" style="max-width: 120px;">
                             <span style="font-size: 14px; color: #666; font-weight: 500;">秒</span>
                         </div>
                         <div class="form-hint">建议设置为 5-10 秒，避免频繁请求触发 API 限流</div>
@@ -1672,45 +1694,58 @@
             </div>
             <div class="modal-body">
                 <!-- 刷新统计 -->
-                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                    <div style="font-size: 15px; font-weight: 600; margin-bottom: 16px; color: #333; display: flex; align-items: center; gap: 8px;">
+                <div
+                    style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <div
+                        style="font-size: 15px; font-weight: 600; margin-bottom: 16px; color: #333; display: flex; align-items: center; gap: 8px;">
                         <span>📊</span>
                         <span>刷新统计</span>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
-                        <div style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                        <div
+                            style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                            <div
+                                style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                 <span>🕐</span>
                                 <span>上次全量刷新</span>
                             </div>
                             <div style="font-size: 13px; font-weight: 600; color: #333;" id="lastRefreshTime">-</div>
                         </div>
-                        <div style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                        <div
+                            style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                            <div
+                                style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                 <span>📝</span>
                                 <span>总邮箱数</span>
                             </div>
                             <div style="font-size: 18px; font-weight: 700; color: #333;" id="totalRefreshCount">0</div>
                         </div>
-                        <div style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                        <div
+                            style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                            <div
+                                style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                 <span>✅</span>
                                 <span>成功邮箱</span>
                             </div>
-                            <div style="font-size: 18px; font-weight: 700; color: #28a745;" id="successRefreshCount">0</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #28a745;" id="successRefreshCount">0
+                            </div>
                         </div>
-                        <div style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                            <div style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                        <div
+                            style="background-color: white; padding: 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+                            <div
+                                style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                 <span>❌</span>
                                 <span>失败邮箱</span>
                             </div>
-                            <div style="font-size: 18px; font-weight: 700; color: #dc3545;" id="failedRefreshCount">0</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #dc3545;" id="failedRefreshCount">0
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 操作按钮 -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px;">
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px;">
                     <button class="btn btn-primary" onclick="refreshAllAccounts()" id="refreshAllBtn">
                         🔄 全量刷新
                     </button>
@@ -1726,32 +1761,37 @@
                 </div>
 
                 <!-- 刷新进度 -->
-                <div id="refreshProgress" style="display: none; background-color: #e3f2fd; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #2196f3;">
+                <div id="refreshProgress"
+                    style="display: none; background-color: #e3f2fd; padding: 16px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #2196f3;">
                     <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #1976d2;">正在刷新...</div>
                     <div style="font-size: 13px; line-height: 1.8;" id="refreshProgressText">请稍候</div>
                 </div>
 
                 <!-- 失败邮箱列表 -->
                 <div id="failedListContainer" style="display: none;">
-                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div
+                        style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
                         <span>当前失败状态的邮箱</span>
                         <button class="btn btn-sm btn-secondary" onclick="hideFailedList()">隐藏</button>
                     </div>
-                    <div id="failedList" style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px;">
+                    <div id="failedList"
+                        style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px;">
                         <!-- 失败列表将通过 JS 动态加载 -->
                     </div>
                 </div>
 
                 <!-- 刷新历史 -->
                 <div id="refreshLogsContainer" style="display: none;">
-                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #f8f9fa; border-radius: 6px;">
+                    <div
+                        style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #f8f9fa; border-radius: 6px;">
                         <span style="display: flex; align-items: center; gap: 6px;">
                             <span>📋</span>
                             <span>全量刷新历史</span>
                         </span>
                         <button class="btn btn-sm btn-secondary" onclick="hideRefreshLogs()">隐藏</button>
                     </div>
-                    <div id="refreshLogsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;">
+                    <div id="refreshLogsList"
+                        style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;">
                         <!-- 刷新历史将通过 JS 动态加载 -->
                     </div>
                 </div>
@@ -1771,12 +1811,14 @@
             </div>
             <div class="modal-body" style="padding-top: 16px;">
                 <div style="font-size: 14px; color: #dc3545; font-weight: 600; margin-bottom: 8px;">错误信息 (用户友好)</div>
-                <div class="error-message-box" id="errorModalUserMessage" style="background-color: #fff0f0; border: 1px solid #dc3545; color: #333; font-weight: 500;"></div>
+                <div class="error-message-box" id="errorModalUserMessage"
+                    style="background-color: #fff0f0; border: 1px solid #dc3545; color: #333; font-weight: 500;"></div>
 
                 <div style="margin-top: 20px;">
                     <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 8px;">
                         技术详情
-                        <button class="btn btn-sm btn-secondary" id="toggleTraceBtn" onclick="toggleStackTrace()" style="margin-left: 10px;">
+                        <button class="btn btn-sm btn-secondary" id="toggleTraceBtn" onclick="toggleStackTrace()"
+                            style="margin-left: 10px;">
                             显示堆栈/细节
                         </button>
                         <button class="btn btn-sm btn-secondary" onclick="copyErrorDetails()" style="margin-left: 8px;">
@@ -1784,8 +1826,10 @@
                         </button>
                     </div>
 
-                    <div class="error-message-box" id="errorModalDetailsContainer" style="height: 150px; display: none; padding: 0;">
-                        <pre id="errorModalDetails" style="margin: 0; padding: 12px; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #666;"></pre>
+                    <div class="error-message-box" id="errorModalDetailsContainer"
+                        style="height: 150px; display: none; padding: 0;">
+                        <pre id="errorModalDetails"
+                            style="margin: 0; padding: 12px; white-space: pre-wrap; word-break: break-all; font-size: 12px; color: #666;"></pre>
                     </div>
                 </div>
 
@@ -1845,22 +1889,28 @@
                 <div class="form-group">
                     <label class="form-label">步骤 1: 访问授权链接</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                        <input type="text" class="form-input" id="authUrlInput" readonly style="flex: 1; font-size: 12px; font-family: monospace;">
-                        <button class="btn btn-secondary" onclick="copyAuthUrl()" style="white-space: nowrap;">📋 复制</button>
-                        <button class="btn btn-primary" onclick="openAuthUrl()" style="white-space: nowrap;">🔗 打开</button>
+                        <input type="text" class="form-input" id="authUrlInput" readonly
+                            style="flex: 1; font-size: 12px; font-family: monospace;">
+                        <button class="btn btn-secondary" onclick="copyAuthUrl()" style="white-space: nowrap;">📋
+                            复制</button>
+                        <button class="btn btn-primary" onclick="openAuthUrl()" style="white-space: nowrap;">🔗
+                            打开</button>
                     </div>
                     <div class="form-hint">点击"打开"按钮在浏览器中授权，或点击"复制"后手动粘贴到浏览器</div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">步骤 2: 粘贴授权后的完整 URL</label>
-                    <textarea class="form-textarea" id="redirectUrlInput" placeholder="授权成功后，浏览器会跳转到一个空白页，请复制地址栏中的完整 URL 并粘贴到这里" style="height: 80px; font-size: 12px; font-family: monospace;"></textarea>
+                    <textarea class="form-textarea" id="redirectUrlInput"
+                        placeholder="授权成功后，浏览器会跳转到一个空白页，请复制地址栏中的完整 URL 并粘贴到这里"
+                        style="height: 80px; font-size: 12px; font-family: monospace;"></textarea>
                     <div class="form-hint">URL 格式类似：http://localhost:8080/?code=xxxxx&state=12345</div>
                 </div>
 
                 <div class="form-group" id="refreshTokenResult" style="display: none;">
                     <label class="form-label">✅ 账号信息（已获取成功）</label>
-                    <textarea class="form-textarea" id="refreshTokenOutput" readonly style="height: 100px; font-size: 12px; font-family: monospace; background-color: #f0f9ff; border-color: #0078d4;"></textarea>
+                    <textarea class="form-textarea" id="refreshTokenOutput" readonly
+                        style="height: 100px; font-size: 12px; font-family: monospace; background-color: #f0f9ff; border-color: #0078d4;"></textarea>
                     <div class="form-hint" style="color: #0078d4;">
                         <strong>格式说明：</strong>邮箱----密码----client_id----refresh_token<br>
                         请将"your@outlook.com"和"yourpassword"替换为您的实际邮箱和密码，然后复制整行内容到"导入邮箱"中使用
@@ -1876,7 +1926,7 @@
 
     <!-- 消息提示 -->
     <div class="toast" id="toast"></div>
-    
+
     <script>
         // 全局状态
         let csrfToken = null;
@@ -1896,6 +1946,11 @@
         let hasMoreEmails = true; // 是否还有更多邮件
         let currentSkip = 0; // 当前分页偏移量
 
+        // 缓存与信任模式
+        let emailListCache = {}; // 结构: { "account_folder": { emails: [], hasMore: bool, skip: int, method: str, count: int } }
+        let currentEmailDetail = null; // 当前查看的邮件详细数据
+        let isTrustedMode = false; // 是否处于信任模式（不过滤 HTML）
+
         // ==================== CSRF 防护 ====================
 
         // 初始化 CSRF Token
@@ -1914,7 +1969,7 @@
 
         // 包装 fetch 请求，自动添加 CSRF Token
         const originalFetch = window.fetch;
-        window.fetch = function(url, options = {}) {
+        window.fetch = function (url, options = {}) {
             // 只对非 GET 请求添加 CSRF Token
             if (options.method && options.method.toUpperCase() !== 'GET' && csrfToken) {
                 options.headers = options.headers || {};
@@ -1928,7 +1983,7 @@
         };
 
         // 初始化
-        document.addEventListener('DOMContentLoaded', async function() {
+        document.addEventListener('DOMContentLoaded', async function () {
             // 初始化 CSRF Token
             await initCSRFToken();
 
@@ -1946,11 +2001,11 @@
                 searchInput.addEventListener('input', debouncedSearch);
             }
         });
-        
+
         // 初始化颜色选择器
         function initColorPicker() {
             document.querySelectorAll('.color-option').forEach(option => {
-                option.addEventListener('click', function() {
+                option.addEventListener('click', function () {
                     document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
                     this.classList.add('selected');
                     selectedColor = this.dataset.color;
@@ -1960,11 +2015,11 @@
                 });
             });
         }
-        
+
         // 初始化邮件列表滚动监听
         function initEmailListScroll() {
             const emailList = document.getElementById('emailList');
-            emailList.addEventListener('scroll', function() {
+            emailList.addEventListener('scroll', function () {
                 // 检查是否滚动到底部
                 if (emailList.scrollHeight - emailList.scrollTop <= emailList.clientHeight + 50) {
                     if (!isLoadingMore && hasMoreEmails && currentAccount && !isTempEmailGroup) {
@@ -1973,7 +2028,7 @@
                 }
             });
         }
-        
+
         // 加载更多邮件
         async function loadMoreEmails() {
             if (isLoadingMore || !hasMoreEmails) return;
@@ -2017,6 +2072,16 @@
 
                     // 更新邮件数量
                     document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
+
+                    // 更新缓存
+                    if (currentAccount && !isTempEmailGroup) {
+                        const cacheKey = `${currentAccount}_${currentFolder}`;
+                        if (emailListCache[cacheKey]) {
+                            emailListCache[cacheKey].emails = currentEmails;
+                            emailListCache[cacheKey].has_more = hasMoreEmails;
+                            emailListCache[cacheKey].skip = currentSkip;
+                        }
+                    }
                 } else {
                     hasMoreEmails = false;
                     // 显示"没有更多邮件"
@@ -2038,34 +2103,53 @@
                 folderTabs.forEach(tab => tab.disabled = false);
             }
         }
-        
+
         // 切换文件夹（不触发查询）
         function switchFolder(folder) {
             if (currentFolder === folder) return;
-            
+
             currentFolder = folder;
-            
+
             // 更新按钮状态
             document.querySelectorAll('.folder-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.folder === folder);
             });
-            
-            // 清空邮件列表，显示提示
-            document.getElementById('emailList').innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">📬</div>
-                    <div class="empty-state-text">点击"获取邮件"按钮获取${folder === 'inbox' ? '收件箱' : '垃圾邮件'}</div>
-                </div>
-            `;
-            document.getElementById('emailCount').textContent = '';
-            document.getElementById('methodTag').style.display = 'none';
-            
-            // 重置分页状态
-            currentEmails = [];
-            currentSkip = 0;
-            hasMoreEmails = true;
+
+            const cacheKey = `${currentAccount}_${folder}`;
+
+            // 检查是否有缓存
+            if (emailListCache[cacheKey]) {
+                const cache = emailListCache[cacheKey];
+                currentEmails = cache.emails;
+                hasMoreEmails = cache.has_more;
+                currentSkip = cache.skip;
+                currentMethod = cache.method || 'graph';
+
+                // 恢复 UI
+                const methodTag = document.getElementById('methodTag');
+                methodTag.textContent = currentMethod;
+                methodTag.style.display = 'inline';
+                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
+
+                renderEmailList(currentEmails);
+            } else {
+                // 清空邮件列表，显示提示
+                document.getElementById('emailList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📬</div>
+                        <div class="empty-state-text">点击"获取邮件"按钮获取${folder === 'inbox' ? '收件箱' : '垃圾邮件'}</div>
+                    </div>
+                `;
+                document.getElementById('emailCount').textContent = '';
+                document.getElementById('methodTag').style.display = 'none';
+
+                // 重置分页状态
+                currentEmails = [];
+                currentSkip = 0;
+                hasMoreEmails = true;
+            }
         }
-        
+
         // 选择自定义颜色（颜色选择器）
         function selectCustomColor(color) {
             selectedColor = color;
@@ -2073,7 +2157,7 @@
             // 取消预设颜色的选中状态
             document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
         }
-        
+
         // 选择自定义颜色（十六进制输入）
         function selectCustomColorHex(value) {
             // 验证十六进制颜色格式
@@ -2087,7 +2171,7 @@
                 showToast('请输入有效的十六进制颜色（如 #FF5500）', 'error');
             }
         }
-        
+
         // 显示消息提示
         function showToast(message, type = 'info', errorDetail = null) {
             const toast = document.getElementById('toast');
@@ -2105,7 +2189,7 @@
                 detailLink.style.color = '#ffdddd';
                 detailLink.style.textDecoration = 'underline';
                 detailLink.style.marginLeft = '8px';
-                detailLink.onclick = function(e) {
+                detailLink.onclick = function (e) {
                     e.stopPropagation();
                     showErrorDetailModal(errorDetail);
                 };
@@ -2130,7 +2214,7 @@
             document.getElementById('refreshErrorModal').classList.add('show');
             document.getElementById('refreshErrorEmail').textContent = `账号：${accountEmail || '未知'}`;
             document.getElementById('refreshErrorMessage').textContent = errorMessage;
-            document.getElementById('editAccountFromErrorBtn').onclick = function() {
+            document.getElementById('editAccountFromErrorBtn').onclick = function () {
                 hideRefreshErrorModal();
                 showEditAccountModal(accountId);
             };
@@ -2244,30 +2328,30 @@ ${details}
             if (!str) return '';
             return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
         }
-        
+
         // ==================== 分组相关 ====================
-        
+
         // 加载分组列表
         async function loadGroups() {
             const container = document.getElementById('groupList');
             container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 const response = await fetch('/api/groups');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     groups = data.groups;
-                    
+
                     // 找到临时邮箱分组
                     const tempGroup = groups.find(g => g.name === '临时邮箱');
                     if (tempGroup) {
                         tempEmailGroupId = tempGroup.id;
                     }
-                    
+
                     renderGroupList(data.groups);
                     updateGroupSelects();
-                    
+
                     // 如果之前选中了分组，保持选中状态并刷新邮箱列表
                     if (currentGroupId) {
                         const group = groups.find(g => g.id === currentGroupId);
@@ -2286,11 +2370,11 @@ ${details}
                 showToast('加载分组失败', 'error');
             }
         }
-        
+
         // 渲染分组列表
         function renderGroupList(groups) {
             const container = document.getElementById('groupList');
-            
+
             if (groups.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state" style="padding: 40px 20px;">
@@ -2299,12 +2383,12 @@ ${details}
                 `;
                 return;
             }
-            
+
             container.innerHTML = groups.map(group => {
                 const isSystem = group.is_system === 1 || group.name === '临时邮箱';
                 const isTempGroup = group.name === '临时邮箱';
                 const isDefault = group.id === 1;
-                
+
                 return `
                     <div class="group-item ${currentGroupId === group.id ? 'active' : ''} ${isTempGroup ? 'temp-email-group' : ''}"
                          data-group-id="${group.id}"
@@ -2324,7 +2408,7 @@ ${details}
                 `;
             }).join('');
         }
-        
+
         // 选择分组
         async function selectGroup(groupId) {
             currentGroupId = groupId;
@@ -2338,27 +2422,27 @@ ${details}
             // 检查是否是临时邮箱分组
             const group = groups.find(g => g.id === groupId);
             isTempEmailGroup = group && group.name === '临时邮箱';
-            
+
             // 更新分组列表 UI
             document.querySelectorAll('.group-item').forEach(item => {
                 item.classList.toggle('active', parseInt(item.dataset.groupId) === groupId);
             });
-            
+
             // 更新邮箱面板标题
             if (group) {
                 document.getElementById('currentGroupName').textContent = group.name;
                 document.getElementById('currentGroupColor').style.backgroundColor = group.color || '#666';
-                
+
                 // 更新导入邮箱时的默认分组
                 const importSelect = document.getElementById('importGroupSelect');
                 if (importSelect) {
                     importSelect.value = groupId;
                 }
             }
-            
+
             // 更新底部按钮
             updateAccountPanelFooter();
-            
+
             // 加载该分组的邮箱
             if (isTempEmailGroup) {
                 await loadTempEmails();
@@ -2366,7 +2450,7 @@ ${details}
                 await loadAccountsByGroup(groupId);
             }
         }
-        
+
         // 更新账号面板底部按钮
         function updateAccountPanelFooter() {
             const footer = document.querySelector('.account-panel-footer');
@@ -2381,23 +2465,23 @@ ${details}
                 `;
             }
         }
-        
+
         // 加载分组下的账号
         async function loadAccountsByGroup(groupId, forceRefresh = false) {
             const container = document.getElementById('accountList');
-            
+
             // 如果有缓存且不强制刷新，直接使用缓存
             if (!forceRefresh && accountsCache[groupId]) {
                 renderAccountList(accountsCache[groupId]);
                 return;
             }
-            
+
             container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 const response = await fetch(`/api/accounts?group_id=${groupId}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // 缓存数据
                     accountsCache[groupId] = data.accounts;
@@ -2407,7 +2491,7 @@ ${details}
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
             }
         }
-        
+
         // 渲染邮箱列表
         function renderAccountList(accounts) {
             const container = document.getElementById('accountList');
@@ -2501,7 +2585,7 @@ ${details}
         // 防抖函数
         function debounce(func, wait) {
             let timeout;
-            return function(...args) {
+            return function (...args) {
                 clearTimeout(timeout);
                 timeout = setTimeout(() => func.apply(this, args), wait);
             };
@@ -2543,11 +2627,11 @@ ${details}
                 if (select) {
                     const currentValue = select.value;
                     // 过滤掉临时邮箱分组（导入邮箱时不能选择临时邮箱分组）
-                    const filteredGroups = selectId === 'importGroupSelect' 
+                    const filteredGroups = selectId === 'importGroupSelect'
                         ? groups.filter(g => g.name !== '临时邮箱')
                         : groups;
-                    
-                    select.innerHTML = filteredGroups.map(g => 
+
+                    select.innerHTML = filteredGroups.map(g =>
                         `<option value="${g.id}">${escapeHtml(g.name)}</option>`
                     ).join('');
                     // 恢复之前的选择
@@ -2559,7 +2643,7 @@ ${details}
                 }
             });
         }
-        
+
         // 显示添加分组模态框
         function showAddGroupModal() {
             editingGroupId = null;
@@ -2574,25 +2658,25 @@ ${details}
             document.getElementById('customColorHex').value = selectedColor;
             document.getElementById('addGroupModal').classList.add('show');
         }
-        
+
         // 隐藏添加分组模态框
         function hideAddGroupModal() {
             document.getElementById('addGroupModal').classList.remove('show');
         }
-        
+
         // 编辑分组
         async function editGroup(groupId) {
             try {
                 const response = await fetch(`/api/groups/${groupId}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     editingGroupId = groupId;
                     document.getElementById('groupModalTitle').textContent = '编辑分组';
                     document.getElementById('groupName').value = data.group.name;
                     document.getElementById('groupDescription').value = data.group.description || '';
                     selectedColor = data.group.color || '#1a1a1a';
-                    
+
                     // 检查是否是预设颜色
                     let isPresetColor = false;
                     document.querySelectorAll('.color-option').forEach(o => {
@@ -2603,40 +2687,40 @@ ${details}
                             o.classList.remove('selected');
                         }
                     });
-                    
+
                     // 更新自定义颜色输入框
                     document.getElementById('customColorInput').value = selectedColor;
                     document.getElementById('customColorHex').value = selectedColor;
-                    
+
                     document.getElementById('addGroupModal').classList.add('show');
                 }
             } catch (error) {
                 showToast('加载分组信息失败', 'error');
             }
         }
-        
+
         // 保存分组
         async function saveGroup() {
             const name = document.getElementById('groupName').value.trim();
             const description = document.getElementById('groupDescription').value.trim();
-            
+
             if (!name) {
                 showToast('请输入分组名称', 'error');
                 return;
             }
-            
+
             try {
                 const url = editingGroupId ? `/api/groups/${editingGroupId}` : '/api/groups';
                 const method = editingGroupId ? 'PUT' : 'POST';
-                
+
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, description, color: selectedColor })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast(data.message, 'success');
                     hideAddGroupModal();
@@ -2648,17 +2732,17 @@ ${details}
                 showToast('保存失败', 'error');
             }
         }
-        
+
         // 删除分组
         async function deleteGroup(groupId) {
             if (!confirm('确定要删除该分组吗？分组下的邮箱将移至默认分组。')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/groups/${groupId}`, { method: 'DELETE' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast(data.message, 'success');
                     // 清除缓存
@@ -2675,28 +2759,28 @@ ${details}
                 showToast('删除失败', 'error');
             }
         }
-        
+
         // ==================== 临时邮箱相关 ====================
-        
+
         // 加载临时邮箱列表
         async function loadTempEmails(forceRefresh = false) {
             const container = document.getElementById('accountList');
-            
+
             if (!forceRefresh && accountsCache['temp']) {
                 renderTempEmailList(accountsCache['temp']);
                 return;
             }
-            
+
             container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 const response = await fetch('/api/temp-emails');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     accountsCache['temp'] = data.emails;
                     renderTempEmailList(data.emails);
-                    
+
                     const group = groups.find(g => g.name === '临时邮箱');
                     if (group) {
                         group.account_count = data.emails.length;
@@ -2707,11 +2791,11 @@ ${details}
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
             }
         }
-        
+
         // 渲染临时邮箱列表
         function renderTempEmailList(emails) {
             const container = document.getElementById('accountList');
-            
+
             if (emails.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -2721,7 +2805,7 @@ ${details}
                 `;
                 return;
             }
-            
+
             container.innerHTML = emails.map(email => `
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
                      onclick="selectTempEmail('${escapeJs(email.email)}')">
@@ -2736,7 +2820,7 @@ ${details}
                 </div>
             `).join('');
         }
-        
+
         // 生成临时邮箱
         async function generateTempEmail() {
             // 获取按钮并显示加载状态
@@ -2746,16 +2830,16 @@ ${details}
             btn.textContent = '⏳ 生成中...';
             btn.style.opacity = '0.7';
             btn.style.cursor = 'not-allowed';
-            
+
             try {
                 const response = await fetch('/api/temp-emails/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({})
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast(`临时邮箱已生成: ${data.email}`, 'success');
                     delete accountsCache['temp'];
@@ -2774,15 +2858,15 @@ ${details}
                 btn.style.cursor = 'pointer';
             }
         }
-        
+
         // 选择临时邮箱
         function selectTempEmail(email) {
             currentAccount = email;
             isTempEmailGroup = true;
-            
+
             document.getElementById('currentAccount').classList.add('show');
             document.getElementById('currentAccountEmail').textContent = email + ' (临时)';
-            
+
             document.querySelectorAll('.account-item').forEach(item => {
                 item.classList.remove('active');
                 const emailEl = item.querySelector('.account-email');
@@ -2790,20 +2874,20 @@ ${details}
                     item.classList.add('active');
                 }
             });
-            
+
             // 隐藏文件夹切换按钮（临时邮箱不支持文件夹）
             const folderTabs = document.getElementById('folderTabs');
             if (folderTabs) {
                 folderTabs.style.display = 'none';
             }
-            
+
             document.getElementById('emailList').innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📬</div>
                     <div class="empty-state-text">点击"获取邮件"按钮获取邮件</div>
                 </div>
             `;
-            
+
             document.getElementById('emailDetail').innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
@@ -2814,23 +2898,23 @@ ${details}
             document.getElementById('emailCount').textContent = '';
             document.getElementById('methodTag').style.display = 'none';
         }
-        
+
         // 清空临时邮箱的所有邮件
         async function clearTempEmailMessages(email) {
             if (!confirm(`确定要清空临时邮箱 ${email} 的所有邮件吗？`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/temp-emails/${encodeURIComponent(email)}/clear`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast('邮件已清空', 'success');
-                    
+
                     // 如果当前选中的就是这个邮箱，清空邮件列表
                     if (currentAccount === email) {
                         currentEmails = [];
@@ -2856,24 +2940,24 @@ ${details}
                 showToast('清空失败', 'error');
             }
         }
-        
+
         // 删除临时邮箱
         async function deleteTempEmail(email) {
             if (!confirm(`确定要删除临时邮箱 ${email} 吗？\n该邮箱的所有邮件也将被删除。`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/temp-emails/${encodeURIComponent(email)}`, {
                     method: 'DELETE'
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast('临时邮箱已删除', 'success');
                     delete accountsCache['temp'];
-                    
+
                     if (currentAccount === email) {
                         currentAccount = null;
                         document.getElementById('currentAccount').classList.remove('show');
@@ -2890,7 +2974,7 @@ ${details}
                             </div>
                         `;
                     }
-                    
+
                     loadTempEmails(true);
                     loadGroups();
                 } else {
@@ -2900,7 +2984,7 @@ ${details}
                 showToast('删除失败', 'error');
             }
         }
-        
+
         // 加载临时邮箱的邮件
         async function loadTempEmailMessages(email) {
             const container = document.getElementById('emailList');
@@ -2912,23 +2996,23 @@ ${details}
                 refreshBtn.disabled = true;
                 refreshBtn.textContent = '获取中...';
             }
-            
+
             try {
                 const response = await fetch(`/api/temp-emails/${encodeURIComponent(email)}/messages`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     currentEmails = data.emails;
                     currentMethod = 'gptmail';
-                    
+
                     const methodTag = document.getElementById('methodTag');
                     methodTag.textContent = 'GPTMail';
                     methodTag.style.display = 'inline';
                     methodTag.style.backgroundColor = '#00bcf2';
                     methodTag.style.color = 'white';
-                    
+
                     document.getElementById('emailCount').textContent = `(${data.count})`;
-                    
+
                     renderEmailList(data.emails);
                 } else {
                     handleApiError(data, '加载临时邮件失败');
@@ -2954,22 +3038,22 @@ ${details}
                 }
             }
         }
-        
+
         // 获取临时邮件详情
         async function getTempEmailDetail(messageId, index) {
             document.querySelectorAll('.email-item').forEach((item, i) => {
                 item.classList.toggle('active', i === index);
             });
-            
+
             document.getElementById('emailDetailToolbar').style.display = 'flex';
-            
+
             const container = document.getElementById('emailDetail');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 const response = await fetch(`/api/temp-emails/${encodeURIComponent(currentAccount)}/messages/${encodeURIComponent(messageId)}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     renderEmailDetail(data.email);
                 } else {
@@ -2990,18 +3074,18 @@ ${details}
                 `;
             }
         }
-        
+
         // ==================== 账号相关 ====================
-        
+
         // 选择账号
         function selectAccount(email) {
             currentAccount = email;
             isTempEmailGroup = false;
             currentFolder = 'inbox'; // 重置为收件箱
-            
+
             document.getElementById('currentAccount').classList.add('show');
             document.getElementById('currentAccountEmail').textContent = email;
-            
+
             document.querySelectorAll('.account-item').forEach(item => {
                 item.classList.remove('active');
                 const emailEl = item.querySelector('.account-email');
@@ -3009,7 +3093,7 @@ ${details}
                     item.classList.add('active');
                 }
             });
-            
+
             // 显示文件夹切换按钮
             const folderTabs = document.getElementById('folderTabs');
             if (folderTabs) {
@@ -3019,14 +3103,36 @@ ${details}
                     tab.classList.toggle('active', tab.dataset.folder === 'inbox');
                 });
             }
-            
-            document.getElementById('emailList').innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">📬</div>
-                    <div class="empty-state-text">点击"获取邮件"按钮获取邮件</div>
-                </div>
-            `;
-            
+
+            const cacheKey = `${email}_inbox`;
+
+            // 检查缓存
+            if (emailListCache[cacheKey]) {
+                const cache = emailListCache[cacheKey];
+                currentEmails = cache.emails;
+                hasMoreEmails = cache.has_more;
+                currentSkip = cache.skip;
+                currentMethod = cache.method || 'graph';
+
+                // 恢复 UI
+                const methodTag = document.getElementById('methodTag');
+                methodTag.textContent = currentMethod;
+                methodTag.style.display = 'inline';
+                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
+
+                renderEmailList(currentEmails);
+            } else {
+                document.getElementById('emailList').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📬</div>
+                        <div class="empty-state-text">点击"获取邮件"按钮获取邮件</div>
+                    </div>
+                `;
+                document.getElementById('emailCount').textContent = '';
+                document.getElementById('methodTag').style.display = 'none';
+                currentEmails = [];
+            }
+
             document.getElementById('emailDetail').innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
@@ -3034,10 +3140,8 @@ ${details}
                 </div>
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
-            document.getElementById('emailCount').textContent = '';
-            document.getElementById('methodTag').style.display = 'none';
         }
-        
+
         // 显示添加账号模态框
         function showAddAccountModal() {
             document.getElementById('accountInput').value = '';
@@ -3047,41 +3151,41 @@ ${details}
             }
             document.getElementById('addAccountModal').classList.add('show');
         }
-        
+
         // 隐藏添加账号模态框
         function hideAddAccountModal() {
             document.getElementById('addAccountModal').classList.remove('show');
         }
-        
+
         // 添加账号
         async function addAccount() {
             const input = document.getElementById('accountInput').value.trim();
             const groupId = parseInt(document.getElementById('importGroupSelect').value);
-            
+
             if (!input) {
                 showToast('请输入账号信息', 'error');
                 return;
             }
-            
+
             try {
                 const response = await fetch('/api/accounts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ account_string: input, group_id: groupId })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast(data.message, 'success');
                     hideAddAccountModal();
-                    
+
                     // 清除该分组的缓存
                     delete accountsCache[groupId];
-                    
+
                     // 刷新分组列表（更新数量）
                     loadGroups();
-                    
+
                     // 如果当前选中的就是这个分组，刷新邮箱列表
                     if (currentGroupId === groupId) {
                         loadAccountsByGroup(groupId, true);
@@ -3093,13 +3197,13 @@ ${details}
                 showToast('添加失败', 'error');
             }
         }
-        
+
         // 显示编辑账号模态框
         async function showEditAccountModal(accountId) {
             try {
                 const response = await fetch(`/api/accounts/${accountId}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     const acc = data.account;
                     document.getElementById('editAccountId').value = acc.id;
@@ -3116,18 +3220,18 @@ ${details}
                 showToast('加载账号信息失败', 'error');
             }
         }
-        
+
         // 隐藏编辑账号模态框
         function hideEditAccountModal() {
             document.getElementById('editAccountModal').classList.remove('show');
         }
-        
+
         // 更新账号
         async function updateAccount() {
             const accountId = document.getElementById('editAccountId').value;
             const oldGroupId = currentGroupId;
             const newGroupId = parseInt(document.getElementById('editGroupSelect').value);
-            
+
             const data = {
                 email: document.getElementById('editEmail').value.trim(),
                 password: document.getElementById('editPassword').value,
@@ -3137,34 +3241,34 @@ ${details}
                 remark: document.getElementById('editRemark').value.trim(),
                 status: document.getElementById('editStatus').value
             };
-            
+
             if (!data.email || !data.client_id || !data.refresh_token) {
                 showToast('邮箱、Client ID 和 Refresh Token 不能为空', 'error');
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     showToast(result.message, 'success');
                     hideEditAccountModal();
-                    
+
                     // 清除相关分组的缓存
                     delete accountsCache[oldGroupId];
                     if (oldGroupId !== newGroupId) {
                         delete accountsCache[newGroupId];
                     }
-                    
+
                     // 刷新分组列表
                     loadGroups();
-                    
+
                     // 刷新当前分组的邮箱列表
                     if (currentGroupId) {
                         loadAccountsByGroup(currentGroupId, true);
@@ -3176,28 +3280,28 @@ ${details}
                 showToast('更新失败', 'error');
             }
         }
-        
+
         // 删除当前编辑的账号
         async function deleteCurrentAccount() {
             const accountId = document.getElementById('editAccountId').value;
             const email = document.getElementById('editEmail').value;
             const groupId = parseInt(document.getElementById('editGroupSelect').value);
-            
+
             if (!confirm(`确定要删除账号 ${email} 吗？`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, { method: 'DELETE' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast('删除成功', 'success');
                     hideEditAccountModal();
-                    
+
                     // 清除缓存
                     delete accountsCache[groupId];
-                    
+
                     if (currentAccount === email) {
                         currentAccount = null;
                         document.getElementById('currentAccount').classList.remove('show');
@@ -3214,10 +3318,10 @@ ${details}
                             </div>
                         `;
                     }
-                    
+
                     // 刷新分组列表
                     loadGroups();
-                    
+
                     // 刷新当前分组的邮箱列表
                     if (currentGroupId) {
                         loadAccountsByGroup(currentGroupId, true);
@@ -3227,24 +3331,24 @@ ${details}
                 showToast('删除失败', 'error');
             }
         }
-        
+
         // 切换账号状态（启用/停用）
         async function toggleAccountStatus(accountId, currentStatus) {
             const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
             const action = newStatus === 'inactive' ? '停用' : '启用';
-            
+
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast(`${action}成功`, 'success');
-                    
+
                     // 清除当前分组的缓存
                     if (currentGroupId) {
                         delete accountsCache[currentGroupId];
@@ -3257,25 +3361,25 @@ ${details}
                 showToast(`${action}失败`, 'error');
             }
         }
-        
+
         // 删除账号（快捷方式）
         async function deleteAccount(accountId, email) {
             if (!confirm(`确定要删除账号 ${email} 吗？`)) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, { method: 'DELETE' });
                 const data = await response.json();
-                
+
                 if (data.success) {
                     showToast('删除成功', 'success');
-                    
+
                     // 清除当前分组的缓存
                     if (currentGroupId) {
                         delete accountsCache[currentGroupId];
                     }
-                    
+
                     if (currentAccount === email) {
                         currentAccount = null;
                         document.getElementById('currentAccount').classList.remove('show');
@@ -3292,10 +3396,10 @@ ${details}
                             </div>
                         `;
                     }
-                    
+
                     // 刷新分组列表
                     loadGroups();
-                    
+
                     // 刷新当前分组的邮箱列表
                     if (currentGroupId) {
                         loadAccountsByGroup(currentGroupId, true);
@@ -3307,23 +3411,23 @@ ${details}
                 showToast('删除失败', 'error');
             }
         }
-        
+
         // 显示导出邮箱模态框
         async function showExportModal() {
             document.getElementById('exportModal').classList.add('show');
             await loadExportGroupList();
         }
-        
+
         // 隐藏导出邮箱模态框
         function hideExportModal() {
             document.getElementById('exportModal').classList.remove('show');
         }
-        
+
         // 加载导出分组列表
         async function loadExportGroupList() {
             const container = document.getElementById('exportGroupList');
             container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 // 使用已加载的分组数据
                 if (groups.length === 0) {
@@ -3345,11 +3449,11 @@ ${details}
             } catch (error) {
                 container.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">加载失败</div>';
             }
-            
+
             // 重置全选复选框
             document.getElementById('selectAllGroups').checked = false;
         }
-        
+
         // 全选/取消全选分组
         function toggleSelectAllGroups() {
             const selectAll = document.getElementById('selectAllGroups').checked;
@@ -3460,12 +3564,31 @@ ${details}
                 showToast('导出失败', 'error');
             }
         }
-        
+
         // ==================== 邮件相关 ====================
-        
+
         // 加载邮件列表
-        async function loadEmails(email) {
+        async function loadEmails(email, forceRefresh = false) {
             const container = document.getElementById('emailList');
+
+            // 检查缓存
+            const cacheKey = `${email}_${currentFolder}`;
+            if (!forceRefresh && emailListCache[cacheKey]) {
+                const cache = emailListCache[cacheKey];
+                currentEmails = cache.emails;
+                hasMoreEmails = cache.has_more;
+                currentSkip = cache.skip;
+                currentMethod = cache.method || 'graph';
+
+                // 恢复 UI
+                const methodTag = document.getElementById('methodTag');
+                methodTag.textContent = currentMethod;
+                methodTag.style.display = 'inline';
+                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
+
+                renderEmailList(currentEmails);
+                return;
+            }
 
             // 禁用按钮
             const refreshBtn = document.querySelector('.refresh-btn');
@@ -3475,24 +3598,32 @@ ${details}
                 refreshBtn.textContent = '获取中...';
             }
             folderTabs.forEach(tab => tab.disabled = true);
-            
+
             // 重置分页状态
             currentSkip = 0;
             hasMoreEmails = true;
-            
+
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 // 每次只查询20封邮件
                 const response = await fetch(
                     `/api/emails/${encodeURIComponent(email)}?method=${currentMethod}&folder=${currentFolder}&skip=0&top=20`
                 );
                 const data = await response.json();
-                
+
                 if (data.success) {
                     currentEmails = data.emails;
                     currentMethod = data.method === 'Graph API' ? 'graph' : 'imap';
                     hasMoreEmails = data.has_more;
+
+                    // 保存到缓存
+                    emailListCache[cacheKey] = {
+                        emails: currentEmails,
+                        has_more: hasMoreEmails,
+                        skip: currentSkip,
+                        method: currentMethod
+                    };
 
                     // 显示使用的方法和邮件数量
                     const methodTag = document.getElementById('methodTag');
@@ -3528,11 +3659,11 @@ ${details}
                 folderTabs.forEach(tab => tab.disabled = false);
             }
         }
-        
+
         // 渲染邮件列表
         function renderEmailList(emails) {
             const container = document.getElementById('emailList');
-            
+
             if (emails.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -3542,10 +3673,10 @@ ${details}
                 `;
                 return;
             }
-            
+
             // 根据是否是临时邮箱选择不同的点击处理函数
             const clickHandler = isTempEmailGroup ? 'getTempEmailDetail' : 'selectEmail';
-            
+
             container.innerHTML = emails.map((email, index) => `
                 <div class="email-item ${email.is_read === false ? 'unread' : ''}"
                      onclick="${clickHandler}('${email.id}', ${index})">
@@ -3556,26 +3687,33 @@ ${details}
                 </div>
             `).join('');
         }
-        
+
         // 选择邮件
         async function selectEmail(messageId, index) {
             // 更新 UI
             document.querySelectorAll('.email-item').forEach((item, i) => {
                 item.classList.toggle('active', i === index);
             });
-            
+
+            // 这里不重置 currentEmailDetail，等到 fetch 成功后再设置
+
+            // 重置信任模式
+            document.getElementById('trustEmailCheckbox').checked = false;
+            isTrustedMode = false;
+
             // 显示工具栏
             document.getElementById('emailDetailToolbar').style.display = 'flex';
-            
+
             // 加载邮件详情
             const container = document.getElementById('emailDetail');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
-            
+
             try {
                 const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${currentFolder}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
+                    currentEmailDetail = data.email;
                     renderEmailDetail(data.email);
                 } else {
                     handleApiError(data, '加载邮件详情失败');
@@ -3595,18 +3733,18 @@ ${details}
                 `;
             }
         }
-        
+
         // 渲染邮件详情
         function renderEmailDetail(email) {
             const container = document.getElementById('emailDetail');
-            
-            const isHtml = email.body_type === 'html' || 
-                          (email.body && (email.body.includes('<html') || email.body.includes('<div') || email.body.includes('<p>')));
-            
+
+            const isHtml = email.body_type === 'html' ||
+                (email.body && (email.body.includes('<html') || email.body.includes('<div') || email.body.includes('<p>')));
+
             const bodyContent = isHtml
                 ? `<iframe id="emailBodyFrame" sandbox="allow-same-origin" onload="adjustIframeHeight(this)"></iframe>`
                 : `<div class="email-body-text">${escapeHtml(email.body)}</div>`;
-            
+
             container.innerHTML = `
                 <div class="email-detail-header">
                     <div class="email-detail-subject">${escapeHtml(email.subject || '无主题')}</div>
@@ -3635,19 +3773,24 @@ ${details}
                     ${bodyContent}
                 </div>
             `;
-            
+
             // 如果是 HTML 内容，设置 iframe 内容
             if (isHtml) {
                 const iframe = document.getElementById('emailBodyFrame');
                 if (iframe) {
-                    // 使用 DOMPurify 净化 HTML 内容，防止 XSS 攻击
-                    const sanitizedBody = DOMPurify.sanitize(email.body, {
-                        ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', 'span', 'img', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code'],
-                        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'width', 'height', 'align', 'border', 'cellpadding', 'cellspacing'],
-                        ALLOW_DATA_ATTR: false,
-                        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
-                        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur']
-                    });
+                    let sanitizedBody;
+                    if (isTrustedMode) {
+                        sanitizedBody = email.body; // 信任模式：不过滤
+                    } else {
+                        // 使用 DOMPurify 净化 HTML 内容，防止 XSS 攻击
+                        sanitizedBody = DOMPurify.sanitize(email.body, {
+                            ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', 'span', 'img', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code'],
+                            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'width', 'height', 'align', 'border', 'cellpadding', 'cellspacing'],
+                            ALLOW_DATA_ATTR: false,
+                            FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+                            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur']
+                        });
+                    }
 
                     const htmlContent = `
                         <!DOCTYPE html>
@@ -3680,7 +3823,7 @@ ${details}
                 }
             }
         }
-        
+
         // 动态调整 iframe 高度
         function adjustIframeHeight(iframe) {
             try {
@@ -3735,7 +3878,7 @@ ${details}
                 console.log('Cannot adjust iframe height:', e);
             }
         }
-        
+
         // 切换邮件列表显示
         function toggleEmailList() {
             const panel = document.getElementById('emailListPanel');
@@ -3800,7 +3943,7 @@ ${details}
                     content.appendChild(newIframe);
 
                     // 调整 iframe 高度
-                    newIframe.onload = function() {
+                    newIframe.onload = function () {
                         adjustFullscreenIframeHeight(newIframe);
                     };
                 } else if (textContent) {
@@ -3812,6 +3955,25 @@ ${details}
                 // 显示模态框
                 modal.classList.add('show');
                 document.body.style.overflow = 'hidden';
+            }
+        }
+
+        // 切换信任模式
+        function toggleTrustMode(checkbox) {
+            if (checkbox.checked) {
+                if (confirm('⚠️ 警告：启用信任模式将直接显示邮件原始内容，不进行任何安全过滤。\n\n这可能包含恶意脚本或不安全的内容。您确定要继续吗？')) {
+                    isTrustedMode = true;
+                    if (currentEmailDetail) {
+                        renderEmailDetail(currentEmailDetail);
+                    }
+                } else {
+                    checkbox.checked = false;
+                }
+            } else {
+                isTrustedMode = false;
+                if (currentEmailDetail) {
+                    renderEmailDetail(currentEmailDetail);
+                }
             }
         }
 
@@ -3880,20 +4042,23 @@ ${details}
             isListVisible = true;
             document.getElementById('toggleListText').textContent = '隐藏列表';
         }
-        
+
         // 刷新邮件
         function refreshEmails() {
             if (currentAccount) {
                 if (isTempEmailGroup) {
                     loadTempEmailMessages(currentAccount);
                 } else {
-                    loadEmails(currentAccount);
+                    // 清除当前缓存并强制刷新
+                    const cacheKey = `${currentAccount}_${currentFolder}`;
+                    delete emailListCache[cacheKey];
+                    loadEmails(currentAccount, true);
                 }
             } else {
                 showToast('请先选择一个邮箱账号', 'error');
             }
         }
-        
+
         // 复制邮箱地址
         function copyEmail(email) {
             navigator.clipboard.writeText(email).then(() => {
@@ -3918,16 +4083,16 @@ ${details}
                 copyEmail(email);
             }
         }
-        
+
         // 退出登录
         function logout() {
             if (confirm('确定要退出登录吗？')) {
                 window.location.href = '/logout';
             }
         }
-        
+
         // ==================== 工具函数 ====================
-        
+
         // HTML 转义
         function escapeHtml(text) {
             if (!text) return '';
@@ -3935,7 +4100,7 @@ ${details}
             div.textContent = text;
             return div.innerHTML;
         }
-        
+
         // 格式化日期
         function formatDate(dateStr) {
             if (!dateStr) return '';
@@ -4081,14 +4246,14 @@ ${details}
             document.getElementById('settingsModal').classList.add('show');
             await loadSettings();
         }
-        
+
         // 隐藏设置模态框
         function hideSettingsModal() {
             document.getElementById('settingsModal').classList.remove('show');
             // 清空密码输入框
             document.getElementById('settingsPassword').value = '';
         }
-        
+
         // 加载设置
         async function loadSettings() {
             try {
@@ -4175,7 +4340,7 @@ ${details}
                 `;
             }
         }
-        
+
         // 保存设置
         async function saveSettings() {
             const password = document.getElementById('settingsPassword').value;
@@ -4385,7 +4550,7 @@ ${details}
                 let successCount = 0;
                 let failedCount = 0;
 
-                eventSource.onmessage = function(event) {
+                eventSource.onmessage = function (event) {
                     try {
                         const data = JSON.parse(event.data);
 
@@ -4443,7 +4608,7 @@ ${details}
                     }
                 };
 
-                eventSource.onerror = function(error) {
+                eventSource.onerror = function (error) {
                     console.error('EventSource 错误:', error);
                     eventSource.close();
                     progress.style.display = 'none';
@@ -4529,7 +4694,7 @@ ${details}
                     handleApiError(data, `${accountEmail} 刷新失败`);
                 }
             } catch (error) {
-                handleApiError({ success: false, error: { message: '刷新请求失败', details: error.message, code: 'NETWORK_ERROR', type: 'Frontend' }});
+                handleApiError({ success: false, error: { message: '刷新请求失败', details: error.message, code: 'NETWORK_ERROR', type: 'Frontend' } });
             }
         }
 
@@ -4719,7 +4884,7 @@ ${details}
         }
 
         // 键盘快捷键
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 hideAddGroupModal();
                 hideAddAccountModal();
@@ -4746,4 +4911,5 @@ ${details}
         </div>
     </div>
 </body>
+
 </html>
