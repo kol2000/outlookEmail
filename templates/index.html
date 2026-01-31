@@ -1351,6 +1351,11 @@
                         style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
                         📧 邮箱名
                     </button>
+                    <div style="width: 1px; height: 16px; background: #e5e5e5; margin: 0 4px;"></div>
+                    <select id="tagFilter" onchange="filterAccountsByTag(this.value)"
+                        style="padding: 4px; font-size: 12px; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; outline: none; background: white;">
+                        <option value="">全部标签</option>
+                    </select>
                 </div>
             </div>
             <div class="account-list" id="accountList">
@@ -2080,6 +2085,10 @@
 
             closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadGroups();
+            if (typeof loadTags === 'function') {
+                loadTags();
+            }
+            initColorPicker();
             initColorPicker();
             initEmailListScroll();
 
@@ -2667,14 +2676,27 @@ ${details}
 
             // 重新加载并排序账号列表
             if (accountsCache[currentGroupId]) {
-                const sortedAccounts = applySorting([...accountsCache[currentGroupId]]);
+                const sortedAccounts = applyFiltersAndSort(accountsCache[currentGroupId]);
                 renderAccountList(sortedAccounts);
             }
         }
 
-        // 应用排序
-        function applySorting(accounts) {
-            return accounts.sort((a, b) => {
+        // 应用筛选和排序
+        function applyFiltersAndSort(accounts) {
+            let result = [...accounts];
+
+            // 1. Tag 筛选
+            const tagFilter = document.getElementById('tagFilter');
+            const selectedTagId = tagFilter ? tagFilter.value : '';
+            if (selectedTagId) {
+                result = result.filter(acc => {
+                    if (!acc.tags) return false;
+                    return acc.tags.some(t => t.id === parseInt(selectedTagId));
+                });
+            }
+
+            // 2. 排序
+            return result.sort((a, b) => {
                 if (currentSortBy === 'refresh_time') {
                     const timeA = a.last_refresh_at ? new Date(a.last_refresh_at) : new Date(0);
                     const timeB = b.last_refresh_at ? new Date(b.last_refresh_at) : new Date(0);
@@ -2687,6 +2709,14 @@ ${details}
                         : emailB.localeCompare(emailA);
                 }
             });
+        }
+
+        // Tag Filter Change Handler
+        function filterAccountsByTag(tagId) {
+            if (accountsCache[currentGroupId]) {
+                const filteredAccounts = applyFiltersAndSort(accountsCache[currentGroupId]);
+                renderAccountList(filteredAccounts);
+            }
         }
 
         // 防抖函数
@@ -5028,9 +5058,28 @@ ${details}
                 if (data.success) {
                     allTags = data.tags;
                     renderTagList();
+                    updateTagFilter();  // Update Filter Dropdown
                 }
             } catch (error) {
                 showToast('加载标签失败', 'error');
+            }
+        }
+
+        // 更新标签筛选下拉框
+        function updateTagFilter() {
+            const filterEl = document.getElementById('tagFilter');
+            if (!filterEl) return;
+
+            const currentValue = filterEl.value;
+            let html = '<option value="">全部标签</option>';
+            allTags.forEach(tag => {
+                html += `<option value="${tag.id}">${escapeHtml(tag.name)}</option>`;
+            });
+            filterEl.innerHTML = html;
+
+            // 尝试保持选中
+            if (currentValue && allTags.find(t => t.id == currentValue)) {
+                filterEl.value = currentValue;
             }
         }
 
