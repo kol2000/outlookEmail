@@ -470,6 +470,28 @@ def init_db():
         )
     ''')
 
+    # 创建标签表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            color TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 创建账号标签关联表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS account_tags (
+            account_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (account_id, tag_id),
+            FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+        )
+    ''')
+
     # 检查并添加缺失的列（数据库迁移）
     cursor.execute("PRAGMA table_info(accounts)")
     columns = [col[1] for col in cursor.fetchall()]
@@ -795,8 +817,81 @@ def load_accounts(group_id: int = None) -> List[Dict]:
                 account['refresh_token'] = decrypt_data(account['refresh_token'])
             except Exception:
                 pass  # 解密失败保持原值
+        
+        # 加载账号标签
+        account['tags'] = get_account_tags(account['id'])
         accounts.append(account)
     return accounts
+
+
+# ==================== 标签管理 ====================
+
+def get_tags() -> List[Dict]:
+    """获取所有标签"""
+    db = get_db()
+    cursor = db.execute('SELECT * FROM tags ORDER BY created_at DESC')
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def add_tag(name: str, color: str) -> Optional[int]:
+    """添加标签"""
+    db = get_db()
+    try:
+        cursor = db.execute(
+            'INSERT INTO tags (name, color) VALUES (?, ?)',
+            (name, color)
+        )
+        db.commit()
+        return cursor.lastrowid
+    except sqlite3.IntegrityError:
+        return None
+
+
+def delete_tag(tag_id: int) -> bool:
+    """删除标签"""
+    db = get_db()
+    cursor = db.execute('DELETE FROM tags WHERE id = ?', (tag_id,))
+    db.commit()
+    return cursor.rowcount > 0
+
+
+def get_account_tags(account_id: int) -> List[Dict]:
+    """获取账号的标签"""
+    db = get_db()
+    cursor = db.execute('''
+        SELECT t.*
+        FROM tags t
+        JOIN account_tags at ON t.id = at.tag_id
+        WHERE at.account_id = ?
+        ORDER BY t.created_at DESC
+    ''', (account_id,))
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def add_account_tag(account_id: int, tag_id: int) -> bool:
+    """给账号添加标签"""
+    db = get_db()
+    try:
+        db.execute(
+            'INSERT OR IGNORE INTO account_tags (account_id, tag_id) VALUES (?, ?)',
+            (account_id, tag_id)
+        )
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def remove_account_tag(account_id: int, tag_id: int) -> bool:
+    """移除账号标签"""
+    db = get_db()
+    db.execute(
+        'DELETE FROM account_tags WHERE account_id = ? AND tag_id = ?',
+        (account_id, tag_id)
+    )
+    db.commit()
+    return True
+
 
 
 def get_account_by_email(email_addr: str) -> Optional[Dict]:
@@ -1815,9 +1910,72 @@ def api_get_accounts():
             'last_refresh_status': last_refresh_log['status'] if last_refresh_log else None,
             'last_refresh_error': last_refresh_log['error_message'] if last_refresh_log else None,
             'created_at': acc.get('created_at', ''),
-            'updated_at': acc.get('updated_at', '')
+            'updated_at': acc.get('updated_at', ''),
+            'tags': acc.get('tags', [])
         })
     return jsonify({'success': True, 'accounts': safe_accounts})
+
+
+# ==================== 标签 API ====================
+
+@app.route('/api/tags', methods=['GET'])
+@login_required
+def api_get_tags():
+    """获取所有标签"""
+    return jsonify({'success': True, 'tags': get_tags()})
+
+
+@app.route('/api/tags', methods=['POST'])
+@login_required
+def api_add_tag():
+    """添加标签"""
+    data = request.json
+    name = sanitize_input(data.get('name', '').strip(), max_length=50)
+    color = data.get('color', '#1a1a1a')
+
+    if not name:
+        return jsonify({'success': False, 'error': '标签名称不能为空'})
+
+    tag_id = add_tag(name, color)
+    if tag_id:
+        return jsonify({'success': True, 'tag': {'id': tag_id, 'name': name, 'color': color}})
+    else:
+        return jsonify({'success': False, 'error': '标签名称已存在'})
+
+
+@app.route('/api/tags/<int:tag_id>', methods=['DELETE'])
+@login_required
+def api_delete_tag(tag_id):
+    """删除标签"""
+    if delete_tag(tag_id):
+        return jsonify({'success': True, 'message': '标签已删除'})
+    else:
+        return jsonify({'success': False, 'error': '删除失败'})
+
+
+@app.route('/api/accounts/tags', methods=['POST'])
+@login_required
+def api_batch_manage_tags():
+    """批量管理账号标签"""
+    data = request.json
+    account_ids = data.get('account_ids', [])
+    tag_id = data.get('tag_id')
+    action = data.get('action')  # add, remove
+
+    if not account_ids or not tag_id or not action:
+        return jsonify({'success': False, 'error': '参数不完整'})
+
+    count = 0
+    for acc_id in account_ids:
+        if action == 'add':
+            if add_account_tag(acc_id, tag_id):
+                count += 1
+        elif action == 'remove':
+            if remove_account_tag(acc_id, tag_id):
+                count += 1
+
+    return jsonify({'success': True, 'message': f'成功处理 {count} 个账号'})
+
 
 
 @app.route('/api/accounts/search', methods=['GET'])
@@ -1830,27 +1988,49 @@ def api_search_accounts():
         return jsonify({'success': True, 'accounts': []})
 
     db = get_db()
+    # 支持搜索邮箱、备注和标签
     cursor = db.execute('''
-        SELECT a.*, g.name as group_name, g.color as group_color
+        SELECT DISTINCT a.*, g.name as group_name, g.color as group_color
         FROM accounts a
         LEFT JOIN groups g ON a.group_id = g.id
-        WHERE a.email LIKE ?
-        ORDER BY a.email
-    ''', (f'%{query}%',))
+        LEFT JOIN account_tags at ON a.id = at.account_id
+        LEFT JOIN tags t ON at.tag_id = t.id
+        WHERE a.email LIKE ? OR a.remark LIKE ? OR t.name LIKE ?
+        ORDER BY a.created_at DESC
+    ''', (f'%{query}%', f'%{query}%', f'%{query}%'))
 
+    rows = cursor.fetchall()
     safe_accounts = []
-    for row in cursor.fetchall():
+    for row in rows:
+        acc = dict(row)
+        # 加载账号标签
+        acc['tags'] = get_account_tags(acc['id'])
+        
+        # 查询该账号最后一次刷新记录
+        refresh_cursor = db.execute('''
+            SELECT status, error_message, created_at
+            FROM account_refresh_logs
+            WHERE account_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''', (acc['id'],))
+        last_refresh_log = refresh_cursor.fetchone()
+
         safe_accounts.append({
-            'id': row['id'],
-            'email': row['email'],
-            'client_id': row['client_id'][:8] + '...' if len(row['client_id']) > 8 else row['client_id'],
-            'group_id': row['group_id'],
-            'group_name': row['group_name'] if row['group_name'] else '默认分组',
-            'group_color': row['group_color'] if row['group_color'] else '#666666',
-            'remark': row['remark'] if row['remark'] else '',
-            'status': row['status'] if row['status'] else 'active',
-            'created_at': row['created_at'] if row['created_at'] else '',
-            'updated_at': row['updated_at'] if row['updated_at'] else ''
+            'id': acc['id'],
+            'email': acc['email'],
+            'client_id': acc['client_id'][:8] + '...' if len(acc['client_id']) > 8 else acc['client_id'],
+            'group_id': acc['group_id'],
+            'group_name': acc['group_name'] if acc['group_name'] else '默认分组',
+            'group_color': acc['group_color'] if acc['group_color'] else '#666666',
+            'remark': acc['remark'] if acc['remark'] else '',
+            'status': acc['status'] if acc['status'] else 'active',
+            'created_at': acc['created_at'] if acc['created_at'] else '',
+            'updated_at': acc['updated_at'] if acc['updated_at'] else '',
+            'tags': acc['tags'],
+            'last_refresh_at': acc.get('last_refresh_at', ''),
+            'last_refresh_status': last_refresh_log['status'] if last_refresh_log else None,
+            'last_refresh_error': last_refresh_log['error_message'] if last_refresh_log else None
         })
 
     return jsonify({'success': True, 'accounts': safe_accounts})

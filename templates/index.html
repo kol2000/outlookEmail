@@ -417,6 +417,26 @@
             color: #999;
         }
 
+        .tag-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-right: 4px;
+            margin-top: 2px;
+            color: white;
+            line-height: 1.4;
+        }
+
+        .account-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
         .account-actions {
             display: flex;
             gap: 8px;
@@ -1304,6 +1324,17 @@
                     <span class="group-color" id="currentGroupColor" style="background-color: #666"></span>
                     <span id="currentGroupName">选择分组</span>
                 </div>
+                <div style="margin-left: auto;">
+                    <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
+                        🏷️
+                    </button>
+                    <button class="panel-action-btn" onclick="showAddAccountModal()" title="导入账号">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="search-container">
                 <input type="text" id="globalSearch" class="search-input" placeholder="搜索邮箱地址..." autocomplete="off">
@@ -1327,6 +1358,14 @@
                     <div class="empty-state-icon">📁</div>
                     <div class="empty-state-text">请从左侧选择一个分组</div>
                 </div>
+            </div>
+            <!-- 批量操作栏 -->
+            <div id="batchActionBar"
+                style="display: none; padding: 8px 16px; border-top: 1px solid #e5e5e5; background: #f8f9fa; gap: 8px; align-items: center;">
+                <span id="selectedCount" style="font-size: 12px; color: #666;">已选 0 项</span>
+                <div style="flex: 1;"></div>
+                <button class="btn btn-sm btn-secondary" onclick="showBatchTagModal('add')">打标签</button>
+                <button class="btn btn-sm btn-secondary" onclick="showBatchTagModal('remove')">去标签</button>
             </div>
             <div class="account-panel-footer">
                 <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
@@ -1503,7 +1542,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">备注</label>
-                    <input type="text" class="form-input" id="editRemark" placeholder="可选">
+                    <textarea class="form-textarea" id="editRemark" placeholder="可选" rows="3"></textarea>
                 </div>
                 <div class="form-group">
                     <label class="form-label">状态</label>
@@ -1636,6 +1675,7 @@
                     <div id="cronStrategyContainer" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Cron 表达式</label>
+
                             <input type="text" class="form-input" id="refreshCron" placeholder="0 2 * * *"
                                 value="0 2 * * *">
                             <div class="form-hint">格式：分 时 日 月 星期（例如：0 2 * * * 表示每天凌晨 2:00）</div>
@@ -1802,6 +1842,57 @@
         </div>
     </div>
 
+    <!-- 标签管理模态框 -->
+    <div class="modal" id="tagManagementModal" onclick="if(event.target === this) hideTagManagementModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏷️ 标签管理</h3>
+                <button class="modal-close" onclick="hideTagManagementModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">新建标签</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" class="form-input" id="newTagName" placeholder="标签名称" style="flex: 1;">
+                        <input type="color" class="form-control form-control-color" id="newTagColor" value="#563d7c"
+                            title="选择颜色" style="width: 50px; padding: 0;">
+                        <button class="btn btn-primary" onclick="createTag()">添加</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">已有标签</label>
+                    <div id="tagList"
+                        style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+                        <!-- 标签列表动态加载 -->
+                        <div style="text-align: center; color: #999; padding: 20px;">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量打标模态框 -->
+    <div class="modal" id="batchTagModal" onclick="if(event.target === this) hideBatchTagModal()">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <h3 id="batchTagTitle">批量打标</h3>
+                <button class="modal-close" onclick="hideBatchTagModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">选择标签</label>
+                    <select class="form-select" id="batchTagSelect">
+                        <option value="">请选择标签...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideBatchTagModal()">取消</button>
+                <button class="btn btn-primary" onclick="confirmBatchTag()">确定</button>
+            </div>
+        </div>
+    </div>
     <!-- Error 详情模态框 -->
     <div class="modal" id="errorDetailModal" onclick="if(event.target === this) hideErrorDetailModal()">
         <div class="modal-content" style="width: 700px; max-width: 90vw;">
@@ -2509,14 +2600,30 @@ ${details}
             container.innerHTML = accounts.map((acc, index) => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      onclick="selectAccount('${escapeJs(acc.email)}')">
-                    <div class="account-email" title="${escapeHtml(acc.email)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; ${acc.last_refresh_status === 'failed' ? 'color: #dc3545; font-weight: 700;' : ''}">
-                        <span class="account-number">${index + 1}.</span> ${escapeHtml(acc.email)}
-                        ${acc.status === 'inactive' ? '<span class="account-status-tag">已停用</span>' : ''}
-                    </div>
-                    ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${escapeHtml(acc.remark)}">📝 ${escapeHtml(acc.remark)}</div>` : ''}
-                    <div class="account-refresh-time" style="font-size: 11px; color: ${acc.last_refresh_status === 'failed' ? '#dc3545' : '#999'}; margin-top: 4px; padding-left: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <span>🕐 ${formatRelativeTime(acc.last_refresh_at)}</span>
-                        ${acc.last_refresh_status === 'failed' ? '<button class="account-action-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || '未知错误') + '\', \'' + escapeJs(acc.email) + '\')" style="padding: 2px 6px; font-size: 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">查看错误</button>' : ''}
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <input type="checkbox" class="account-select-checkbox" value="${acc.id}" 
+                               onclick="event.stopPropagation(); updateBatchActionBar()"
+                               style="margin-top: 6px; cursor: pointer;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="account-email" title="${escapeHtml(acc.email)}" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; ${acc.last_refresh_status === 'failed' ? 'color: #dc3545; font-weight: 700;' : ''}">
+                                <span class="account-number">${index + 1}.</span> ${escapeHtml(acc.email)}
+                                ${acc.status === 'inactive' ? '<span class="account-status-tag">已停用</span>' : ''}
+                            </div>
+                            ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${escapeHtml(acc.remark)}">📝 ${escapeHtml(acc.remark)}</div>` : ''}
+                            
+                            <div class="account-tags">
+                                ${(acc.tags || []).map(tag => `
+                                    <span class="tag-badge" style="background-color: ${tag.color}">
+                                        ${escapeHtml(tag.name)}
+                                    </span>
+                                `).join('')}
+                            </div>
+                            
+                            <div class="account-refresh-time" style="font-size: 11px; color: ${acc.last_refresh_status === 'failed' ? '#dc3545' : '#999'}; margin-top: 4px; padding-left: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span>🕐 ${formatRelativeTime(acc.last_refresh_at)}</span>
+                                ${acc.last_refresh_status === 'failed' ? '<button class="account-action-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || '未知错误') + '\', \'' + escapeJs(acc.email) + '\')" style="padding: 2px 6px; font-size: 10px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">查看错误</button>' : ''}
+                            </div>
+                        </div>
                     </div>
                     <div class="account-actions">
                         <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(acc.email)}')" title="复制邮箱">复制</button>
@@ -4898,6 +5005,208 @@ ${details}
                 closeFullscreenEmail();
             }
         });
+        // ==================== 标签管理 ====================
+
+        let allTags = [];
+
+        // 显示标签管理模态框
+        async function showTagManagementModal() {
+            document.getElementById('tagManagementModal').classList.add('show');
+            await loadTags();
+        }
+
+        // 隐藏标签管理模态框
+        function hideTagManagementModal() {
+            document.getElementById('tagManagementModal').classList.remove('show');
+        }
+
+        // 加载标签列表
+        async function loadTags() {
+            try {
+                const response = await fetch('/api/tags');
+                const data = await response.json();
+                if (data.success) {
+                    allTags = data.tags;
+                    renderTagList();
+                }
+            } catch (error) {
+                showToast('加载标签失败', 'error');
+            }
+        }
+
+        // 渲染标签列表
+        function renderTagList() {
+            const listEl = document.getElementById('tagList');
+            if (!allTags.length) {
+                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">暂无标签</div>';
+                return;
+            }
+
+            let html = '';
+            allTags.forEach(tag => {
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="tag-badge" style="background-color: ${tag.color};">${escapeHtml(tag.name)}</span>
+                        </div>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTag(${tag.id})">删除</button>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // 创建标签
+        async function createTag() {
+            const nameInput = document.getElementById('newTagName');
+            const colorInput = document.getElementById('newTagColor');
+            const name = nameInput.value.trim();
+            const color = colorInput.value;
+
+            if (!name) {
+                showToast('请输入标签名称', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, color })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    nameInput.value = '';
+                    showToast('标签创建成功', 'success');
+                    await loadTags();
+                    // 刷新账号列表以重新加载标签（如果是在查看列表时添加标签，可能不需要立即刷新列表，但为了保持一致性可以刷新）
+                    // 但通常添加标签不影响当前列表显示，除非是给账号打标
+                } else {
+                    showToast(data.error || '创建失败', 'error');
+                }
+            } catch (error) {
+                showToast('创建标签失败', 'error');
+            }
+        }
+
+        // 删除标签
+        async function deleteTag(id) {
+            if (!confirm('确定要删除这个标签吗？')) return;
+
+            try {
+                const response = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('标签已删除', 'success');
+                    await loadTags();
+                    // 刷新账号列表以更新标签显示
+                    if (currentGroupId) {
+                        loadAccountsByGroup(currentGroupId, true);
+                    }
+                } else {
+                    showToast(data.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                showToast('删除标签失败', 'error');
+            }
+        }
+
+        // ==================== 批量操作 ====================
+
+        // 更新批量操作栏状态
+        function updateBatchActionBar() {
+            const checked = document.querySelectorAll('.account-select-checkbox:checked');
+            const bar = document.getElementById('batchActionBar');
+            const countSpan = document.getElementById('selectedCount');
+
+            if (checked.length > 0) {
+                bar.style.display = 'flex';
+                countSpan.textContent = `已选 ${checked.length} 项`;
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        let batchActionType = ''; // 'add' or 'remove'
+
+        // 显示批量打标模态框
+        async function showBatchTagModal(type) {
+            batchActionType = type;
+            document.getElementById('batchTagTitle').textContent = type === 'add' ? '批量添加标签' : '批量移除标签';
+            document.getElementById('batchTagModal').classList.add('show');
+
+            // 加载标签选项
+            await loadTagsForSelect();
+        }
+
+        function hideBatchTagModal() {
+            document.getElementById('batchTagModal').classList.remove('show');
+        }
+
+        // 加载标签到下拉框
+        async function loadTagsForSelect() {
+            const select = document.getElementById('batchTagSelect');
+            select.innerHTML = '<option value="">加载中...</option>';
+
+            try {
+                const response = await fetch('/api/tags');
+                const data = await response.json();
+                if (data.success) {
+                    let html = '<option value="">请选择标签...</option>';
+                    data.tags.forEach(tag => {
+                        html += `<option value="${tag.id}">${escapeHtml(tag.name)}</option>`;
+                    });
+                    select.innerHTML = html;
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">加载失败</option>';
+            }
+        }
+
+        // 确认批量打标
+        async function confirmBatchTag() {
+            const tagId = document.getElementById('batchTagSelect').value;
+            if (!tagId) {
+                showToast('请选择标签', 'error');
+                return;
+            }
+
+            const checked = document.querySelectorAll('.account-select-checkbox:checked');
+            const accountIds = Array.from(checked).map(cb => parseInt(cb.value));
+
+            if (accountIds.length === 0) return;
+
+            try {
+                const response = await fetch('/api/accounts/tags', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_ids: accountIds,
+                        tag_id: parseInt(tagId),
+                        action: batchActionType
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    hideBatchTagModal();
+                    // 刷新列表
+                    if (currentGroupId) {
+                        loadAccountsByGroup(currentGroupId, true);
+                    }
+                    // 隐藏操作栏
+                    document.querySelectorAll('.account-select-checkbox').forEach(cb => cb.checked = false);
+                    updateBatchActionBar();
+                } else {
+                    showToast(data.error || '操作失败', 'error');
+                }
+            } catch (error) {
+                showToast('请求失败', 'error');
+            }
+        }
     </script>
 
     <!-- 全屏查看邮件模态框 -->
