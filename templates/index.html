@@ -1524,6 +1524,12 @@
                             maxlength="7" onchange="selectCustomColorHex(this.value)">
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">代理设置</label>
+                    <input type="text" class="form-input" id="groupProxyUrl"
+                        placeholder="http://host:port 或 socks5://user:pass@host:port">
+                    <div class="form-hint">可选，设置后该分组下所有邮箱获取邮件时走此代理（支持 HTTP/SOCKS5）</div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="hideAddGroupModal()">取消</button>
@@ -2013,6 +2019,23 @@
         </div>
     </div>
 
+    <!-- 邮件获取失败详情模态框 -->
+    <div class="modal" id="emailFetchErrorModal" onclick="if(event.target === this) hideEmailFetchErrorModal()">
+        <div class="modal-content" style="width: 700px; max-width: 90vw;">
+            <div class="modal-header" style="background-color: #fef0f0; border-bottom-color: #dc3545;">
+                <h3 style="color: #dc3545;">❌ 获取邮件失败</h3>
+                <button class="modal-close" onclick="hideEmailFetchErrorModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 16px;">
+                <div style="color: #666; margin-bottom: 16px;">所有获取方式均失败，以下是各方式的失败原因：</div>
+                <div id="emailFetchErrorContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideEmailFetchErrorModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 刷新失败提示模态框 -->
     <div class="modal" id="refreshErrorModal" onclick="if(event.target === this) hideRefreshErrorModal()">
         <div class="modal-content">
@@ -2418,6 +2441,77 @@
         // 隐藏统一错误详情模态框
         function hideErrorDetailModal() {
             document.getElementById('errorDetailModal').classList.remove('show');
+        }
+
+        // 邮件获取失败详情弹框
+        function showEmailFetchErrorModal(details) {
+            if (!details) return;
+
+            const methodNames = {
+                'graph': 'Graph API',
+                'imap_new': 'IMAP（新服务器）',
+                'imap_old': 'IMAP（旧服务器）'
+            };
+
+            function translateError(err) {
+                if (!err) return '未知错误';
+                // err 可能是 string 或 object
+                if (typeof err === 'string') return err;
+
+                const code = err.code || '';
+                const details = typeof err.details === 'string' ? err.details : JSON.stringify(err.details || '');
+                const msg = err.message || '';
+
+                // 翻译常见错误
+                if (code === 'GRAPH_TOKEN_EXCEPTION' && details.includes('ProxyError')) {
+                    return '代理连接失败：无法连接到代理服务器，请检查代理地址是否正确以及代理是否在运行';
+                }
+                if (code === 'GRAPH_TOKEN_FAILED' || code === 'IMAP_TOKEN_FAILED') {
+                    if (details.includes('invalid_grant')) {
+                        return 'Token 已失效或权限不足：请重新授权登录或更换 refresh_token';
+                    }
+                    if (details.includes('invalid_client')) {
+                        return 'Client ID 无效：请检查 client_id 配置是否正确';
+                    }
+                    return `令牌获取失败：${msg}`;
+                }
+                if (code === 'EMAIL_FETCH_FAILED') {
+                    return `获取邮件失败：${msg}`;
+                }
+                if (code === 'IMAP_CONNECTION_FAILED') {
+                    return 'IMAP 连接失败：无法连接到邮件服务器';
+                }
+                return msg || details || '未知错误';
+            }
+
+            let html = '';
+            const methods = ['graph', 'imap_new', 'imap_old'];
+            methods.forEach(method => {
+                const err = details[method];
+                if (err !== undefined) {
+                    const name = methodNames[method] || method;
+                    const reason = translateError(err);
+                    const codeText = (err && typeof err === 'object') ? (err.code || '-') : '-';
+                    html += `
+                        <div style="background: #fff5f5; border: 1px solid #fde2e2; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
+                            <div style="font-weight: 600; color: #dc3545; margin-bottom: 6px; font-size: 14px;">${name}</div>
+                            <div style="color: #333; font-size: 13px; line-height: 1.6;">${reason}</div>
+                            <div style="color: #999; font-size: 12px; margin-top: 4px;">错误代码: ${codeText}</div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (!html) {
+                html = '<div style="color:#666;">无详细错误信息</div>';
+            }
+
+            document.getElementById('emailFetchErrorContent').innerHTML = html;
+            document.getElementById('emailFetchErrorModal').classList.add('show');
+        }
+
+        function hideEmailFetchErrorModal() {
+            document.getElementById('emailFetchErrorModal').classList.remove('show');
         }
 
         // 切换堆栈信息的显示/隐藏
@@ -2865,6 +2959,7 @@ ${details}
             });
             document.getElementById('customColorInput').value = selectedColor;
             document.getElementById('customColorHex').value = selectedColor;
+            document.getElementById('groupProxyUrl').value = '';
             document.getElementById('addGroupModal').classList.add('show');
         }
 
@@ -2901,6 +2996,9 @@ ${details}
                     document.getElementById('customColorInput').value = selectedColor;
                     document.getElementById('customColorHex').value = selectedColor;
 
+                    // 填充代理设置
+                    document.getElementById('groupProxyUrl').value = data.group.proxy_url || '';
+
                     document.getElementById('addGroupModal').classList.add('show');
                 }
             } catch (error) {
@@ -2925,7 +3023,12 @@ ${details}
                 const response = await fetch(url, {
                     method: method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, description, color: selectedColor })
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        color: selectedColor,
+                        proxy_url: document.getElementById('groupProxyUrl').value.trim()
+                    })
                 });
 
                 const data = await response.json();
@@ -3847,14 +3950,19 @@ ${details}
 
                     renderEmailList(data.emails);
                 } else {
-                    // 使用 handleApiError 处理错误
-                    handleApiError(data, '获取邮件失败');
+                    // 显示详细的多方法失败弹框
+                    if (data.details) {
+                        showEmailFetchErrorModal(data.details);
+                    } else {
+                        handleApiError(data, '获取邮件失败');
+                    }
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">⚠️</div>
-                            <div class="empty-state-text">${data.error && data.error.message ? data.error.message : '加载失败'}</div>
+                            <div class="empty-state-text">获取邮件失败，<a href="javascript:void(0)" onclick="showEmailFetchErrorModal(window._lastFetchErrorDetails)" style="color:#409eff;text-decoration:underline;">点击查看详情</a></div>
                         </div>
                     `;
+                    window._lastFetchErrorDetails = data.details || {};
                 }
             } catch (error) {
                 container.innerHTML = `

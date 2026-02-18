@@ -527,6 +527,8 @@ def init_db():
     group_columns = [col[1] for col in cursor.fetchall()]
     if 'is_system' not in group_columns:
         cursor.execute('ALTER TABLE groups ADD COLUMN is_system INTEGER DEFAULT 0')
+    if 'proxy_url' not in group_columns:
+        cursor.execute('ALTER TABLE groups ADD COLUMN proxy_url TEXT')
     
     # 创建默认分组
     cursor.execute('''
@@ -746,28 +748,28 @@ def get_group_by_id(group_id: int) -> Optional[Dict]:
     return dict(row) if row else None
 
 
-def add_group(name: str, description: str = '', color: str = '#1a1a1a') -> Optional[int]:
+def add_group(name: str, description: str = '', color: str = '#1a1a1a', proxy_url: str = '') -> Optional[int]:
     """添加分组"""
     db = get_db()
     try:
         cursor = db.execute('''
-            INSERT INTO groups (name, description, color)
-            VALUES (?, ?, ?)
-        ''', (name, description, color))
+            INSERT INTO groups (name, description, color, proxy_url)
+            VALUES (?, ?, ?, ?)
+        ''', (name, description, color, proxy_url or ''))
         db.commit()
         return cursor.lastrowid
     except sqlite3.IntegrityError:
         return None
 
 
-def update_group(group_id: int, name: str, description: str, color: str) -> bool:
+def update_group(group_id: int, name: str, description: str, color: str, proxy_url: str = '') -> bool:
     """更新分组"""
     db = get_db()
     try:
         db.execute('''
-            UPDATE groups SET name = ?, description = ?, color = ?
+            UPDATE groups SET name = ?, description = ?, color = ?, proxy_url = ?
             WHERE id = ?
-        ''', (name, description, color, group_id))
+        ''', (name, description, color, proxy_url or '', group_id))
         db.commit()
         return True
     except Exception:
@@ -1137,9 +1139,18 @@ def parse_account_string(account_str: str) -> Optional[Dict]:
 
 # ==================== Graph API 方式 ====================
 
-def get_access_token_graph_result(client_id: str, refresh_token: str) -> Dict[str, Any]:
+
+def build_proxies(proxy_url: str) -> Optional[Dict[str, str]]:
+    """构建 requests 的 proxies 参数"""
+    if not proxy_url:
+        return None
+    return {"http": proxy_url, "https": proxy_url}
+
+
+def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url: str = None) -> Dict[str, Any]:
     """获取 Graph API access_token（包含错误详情）"""
     try:
+        proxies = build_proxies(proxy_url)
         res = requests.post(
             TOKEN_URL_GRAPH,
             data={
@@ -1148,7 +1159,8 @@ def get_access_token_graph_result(client_id: str, refresh_token: str) -> Dict[st
                 "refresh_token": refresh_token,
                 "scope": "https://graph.microsoft.com/.default"
             },
-            timeout=30
+            timeout=30,
+            proxies=proxies
         )
 
         if res.status_code != 200:
@@ -1192,17 +1204,17 @@ def get_access_token_graph_result(client_id: str, refresh_token: str) -> Dict[st
         }
 
 
-def get_access_token_graph(client_id: str, refresh_token: str) -> Optional[str]:
+def get_access_token_graph(client_id: str, refresh_token: str, proxy_url: str = None) -> Optional[str]:
     """获取 Graph API access_token"""
-    result = get_access_token_graph_result(client_id, refresh_token)
+    result = get_access_token_graph_result(client_id, refresh_token, proxy_url)
     if result.get("success"):
         return result.get("access_token")
     return None
 
 
-def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20) -> Dict[str, Any]:
+def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20, proxy_url: str = None) -> Dict[str, Any]:
     """使用 Graph API 获取邮件列表（支持分页和文件夹选择）"""
-    token_result = get_access_token_graph_result(client_id, refresh_token)
+    token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
 
@@ -1231,7 +1243,8 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
             "Prefer": "outlook.body-content-type='text'"
         }
 
-        res = requests.get(url, headers=headers, params=params, timeout=30)
+        proxies = build_proxies(proxy_url)
+        res = requests.get(url, headers=headers, params=params, timeout=30, proxies=proxies)
 
         if res.status_code != 200:
             details = get_response_details(res)
@@ -1260,9 +1273,9 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
         }
 
 
-def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str) -> Optional[Dict]:
+def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None) -> Optional[Dict]:
     """使用 Graph API 获取邮件详情"""
-    access_token = get_access_token_graph(client_id, refresh_token)
+    access_token = get_access_token_graph(client_id, refresh_token, proxy_url)
     if not access_token:
         return None
     
@@ -1276,7 +1289,8 @@ def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str) 
             "Prefer": "outlook.body-content-type='html'"
         }
         
-        res = requests.get(url, headers=headers, params=params, timeout=30)
+        proxies = build_proxies(proxy_url)
+        res = requests.get(url, headers=headers, params=params, timeout=30, proxies=proxies)
         
         if res.status_code != 200:
             return None
@@ -1678,11 +1692,12 @@ def api_add_group():
     name = sanitize_input(data.get('name', '').strip(), max_length=100)
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
+    proxy_url = data.get('proxy_url', '').strip()
 
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
 
-    group_id = add_group(name, description, color)
+    group_id = add_group(name, description, color, proxy_url)
     if group_id:
         return jsonify({'success': True, 'message': '分组创建成功', 'group_id': group_id})
     else:
@@ -1697,11 +1712,12 @@ def api_update_group(group_id):
     name = sanitize_input(data.get('name', '').strip(), max_length=100)
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
+    proxy_url = data.get('proxy_url', '').strip()
 
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
 
-    if update_group(group_id, name, description, color):
+    if update_group(group_id, name, description, color, proxy_url):
         return jsonify({'success': True, 'message': '分组更新成功'})
     else:
         return jsonify({'success': False, 'error': '更新失败'})
@@ -2285,11 +2301,12 @@ def log_refresh_result(account_id: int, account_email: str, refresh_type: str, s
         return False
 
 
-def test_refresh_token(client_id: str, refresh_token: str) -> tuple[bool, str]:
+def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None) -> tuple[bool, str]:
     """测试 refresh token 是否有效，返回 (是否成功, 错误信息)"""
     try:
         # 尝试使用 Graph API 获取 access token
         # 使用与 get_access_token_graph 相同的 scope，确保一致性
+        proxies = build_proxies(proxy_url)
         res = requests.post(
             TOKEN_URL_GRAPH,
             data={
@@ -2298,7 +2315,8 @@ def test_refresh_token(client_id: str, refresh_token: str) -> tuple[bool, str]:
                 "refresh_token": refresh_token,
                 "scope": "https://graph.microsoft.com/.default"
             },
-            timeout=30
+            timeout=30,
+            proxies=proxies
         )
 
         if res.status_code == 200:
@@ -2316,7 +2334,7 @@ def test_refresh_token(client_id: str, refresh_token: str) -> tuple[bool, str]:
 def api_refresh_account(account_id):
     """刷新单个账号的 token"""
     db = get_db()
-    cursor = db.execute('SELECT id, email, client_id, refresh_token FROM accounts WHERE id = ?', (account_id,))
+    cursor = db.execute('SELECT id, email, client_id, refresh_token, group_id FROM accounts WHERE id = ?', (account_id,))
     account = cursor.fetchone()
 
     if not account:
@@ -2334,6 +2352,13 @@ def api_refresh_account(account_id):
     client_id = account['client_id']
     encrypted_refresh_token = account['refresh_token']
 
+    # 获取分组代理设置
+    proxy_url = ''
+    if account['group_id']:
+        group = get_group_by_id(account['group_id'])
+        if group:
+            proxy_url = group.get('proxy_url', '') or ''
+
     # 解密 refresh_token
     try:
         refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
@@ -2350,7 +2375,7 @@ def api_refresh_account(account_id):
         return jsonify({'success': False, 'error': error_payload})
 
     # 测试 refresh token
-    success, error_msg = test_refresh_token(client_id, refresh_token)
+    success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
 
     # 记录刷新结果
     log_refresh_result(account_id, account_email, 'manual', 'success' if success else 'failed', error_msg)
@@ -2393,7 +2418,7 @@ def api_refresh_all_accounts():
             except Exception as e:
                 print(f"清理旧记录失败: {str(e)}")
 
-            cursor = conn.execute("SELECT id, email, client_id, refresh_token FROM accounts WHERE status = 'active'")
+            cursor = conn.execute("SELECT id, email, client_id, refresh_token, group_id FROM accounts WHERE status = 'active'")
             accounts = cursor.fetchall()
 
             total = len(accounts)
@@ -2435,8 +2460,17 @@ def api_refresh_all_accounts():
                 # 发送当前处理的账号信息
                 yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'email': account_email, 'success_count': success_count, 'failed_count': failed_count})}\n\n"
 
+                # 获取分组代理设置
+                proxy_url = ''
+                group_id = account['group_id']
+                if group_id:
+                    group_cursor = conn.execute('SELECT proxy_url FROM groups WHERE id = ?', (group_id,))
+                    group_row = group_cursor.fetchone()
+                    if group_row:
+                        proxy_url = group_row['proxy_url'] or ''
+
                 # 测试 refresh token
-                success, error_msg = test_refresh_token(client_id, refresh_token)
+                success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
 
                 # 记录刷新结果（使用当前连接）
                 try:
@@ -2610,7 +2644,7 @@ def api_trigger_scheduled_refresh():
             except Exception as e:
                 print(f"清理旧记录失败: {str(e)}")
 
-            cursor = conn.execute("SELECT id, email, client_id, refresh_token FROM accounts WHERE status = 'active'")
+            cursor = conn.execute("SELECT id, email, client_id, refresh_token, group_id FROM accounts WHERE status = 'active'")
             accounts = cursor.fetchall()
 
             total = len(accounts)
@@ -2650,7 +2684,16 @@ def api_trigger_scheduled_refresh():
 
                 yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'email': account_email, 'success_count': success_count, 'failed_count': failed_count})}\n\n"
 
-                success, error_msg = test_refresh_token(client_id, refresh_token)
+                # 获取分组代理设置
+                proxy_url = ''
+                group_id = account['group_id']
+                if group_id:
+                    group_cursor = conn.execute('SELECT proxy_url FROM groups WHERE id = ?', (group_id,))
+                    group_row = group_cursor.fetchone()
+                    if group_row:
+                        proxy_url = group_row['proxy_url'] or ''
+
+                success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
 
                 try:
                     conn.execute('''
@@ -2841,9 +2884,9 @@ def api_get_refresh_stats():
 
 # ==================== Email Deletion Helpers ====================
 
-def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[str]) -> Dict[str, Any]:
+def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[str], proxy_url: str = None) -> Dict[str, Any]:
     """通过 Graph API 批量删除邮件（永久删除）"""
-    access_token = get_access_token_graph(client_id, refresh_token)
+    access_token = get_access_token_graph(client_id, refresh_token, proxy_url)
     if not access_token:
         return {"success": False, "error": "获取 Access Token 失败"}
 
@@ -2875,11 +2918,13 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
             })
         
         try:
+            proxies = build_proxies(proxy_url)
             response = requests.post(
                 "https://graph.microsoft.com/v1.0/$batch",
                 headers=headers,
                 json={"requests": batch_requests},
-                timeout=30
+                timeout=30,
+                proxies=proxies
             )
             
             if response.status_code == 200:
@@ -2953,11 +2998,18 @@ def api_get_emails(email_addr):
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
 
+    # 获取分组代理设置
+    proxy_url = ''
+    if account.get('group_id'):
+        group = get_group_by_id(account['group_id'])
+        if group:
+            proxy_url = group.get('proxy_url', '') or ''
+
     # 收集所有错误信息
     all_errors = {}
 
     # 1. 尝试 Graph API
-    graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top)
+    graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top, proxy_url)
     if graph_result.get("success"):
         emails = graph_result.get("emails", [])
         # 更新刷新时间
@@ -2989,7 +3041,16 @@ def api_get_emails(email_addr):
             'has_more': len(formatted) >= top
         })
     else:
-        all_errors["graph"] = graph_result.get("error")
+        graph_error = graph_result.get("error")
+        all_errors["graph"] = graph_error
+
+        # 如果是代理错误，不再回退 IMAP
+        if isinstance(graph_error, dict) and graph_error.get('type') in ('ProxyError', 'ConnectionError'):
+            return jsonify({
+                'success': False,
+                'error': '代理连接失败，请检查分组代理设置',
+                'details': all_errors
+            })
 
     imap_new_result = get_emails_imap_with_server(
         account['email'], account['client_id'], account['refresh_token'],
@@ -3041,12 +3102,34 @@ def api_delete_emails():
     if not account:
         return jsonify({'success': False, 'error': '账号不存在'})
 
+    # 获取分组代理设置
+    proxy_url = ''
+    if account.get('group_id'):
+        group = get_group_by_id(account['group_id'])
+        if group:
+            proxy_url = group.get('proxy_url', '') or ''
+
     # 1. 优先尝试 Graph API
-    graph_res = delete_emails_graph(account['client_id'], account['refresh_token'], message_ids)
+    graph_res = delete_emails_graph(account['client_id'], account['refresh_token'], message_ids, proxy_url)
     if graph_res['success']:
         return jsonify(graph_res)
+
+    # 如果是代理错误，不再回退 IMAP
+    graph_error = graph_res.get('error', '')
+    if isinstance(graph_error, str) and 'ProxyError' in graph_error:
+        return jsonify(graph_res)
     
-    # 2. 如果 Graph API 失败，目前暂不支持 IMAP 自动回退
+    # 2. 尝试 IMAP 回退（新服务器）
+    imap_res = delete_emails_imap(account['email'], account['client_id'], account['refresh_token'], message_ids, IMAP_SERVER_NEW)
+    if imap_res['success']:
+        return jsonify(imap_res)
+
+    # 3. 尝试 IMAP 回退（旧服务器）
+    imap_old_res = delete_emails_imap(account['email'], account['client_id'], account['refresh_token'], message_ids, IMAP_SERVER_OLD)
+    if imap_old_res['success']:
+        return jsonify(imap_old_res)
+
+    # 所有方式均失败，返回 Graph API 的错误
     return jsonify(graph_res)
 
 
@@ -3064,7 +3147,14 @@ def api_get_email_detail(email_addr, message_id):
     folder = request.args.get('folder', 'inbox')
 
     if method == 'graph':
-        detail = get_email_detail_graph(account['client_id'], account['refresh_token'], message_id)
+        # 获取分组代理设置
+        proxy_url = ''
+        if account.get('group_id'):
+            group = get_group_by_id(account['group_id'])
+            if group:
+                proxy_url = group.get('proxy_url', '') or ''
+
+        detail = get_email_detail_graph(account['client_id'], account['refresh_token'], message_id, proxy_url)
         if detail:
             return jsonify({
                 'success': True,
@@ -3826,7 +3916,7 @@ def trigger_refresh_internal():
         conn.execute("DELETE FROM account_refresh_logs WHERE created_at < datetime('now', '-6 months')")
         conn.commit()
 
-        cursor = conn.execute("SELECT id, email, client_id, refresh_token FROM accounts WHERE status = 'active'")
+        cursor = conn.execute("SELECT id, email, client_id, refresh_token, group_id FROM accounts WHERE status = 'active'")
         accounts = cursor.fetchall()
 
         total = len(accounts)
@@ -3839,7 +3929,16 @@ def trigger_refresh_internal():
             client_id = account['client_id']
             refresh_token = account['refresh_token']
 
-            success, error_msg = test_refresh_token(client_id, refresh_token)
+            # 获取分组代理设置
+            proxy_url = ''
+            group_id = account['group_id']
+            if group_id:
+                group_cursor = conn.execute('SELECT proxy_url FROM groups WHERE id = ?', (group_id,))
+                group_row = group_cursor.fetchone()
+                if group_row:
+                    proxy_url = group_row['proxy_url'] or ''
+
+            success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
 
             conn.execute('''
                 INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
