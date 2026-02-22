@@ -24,7 +24,7 @@ from datetime import datetime
 from email.header import decode_header
 from typing import Optional, List, Dict, Any
 from urllib.parse import quote
-from flask import Flask, render_template, request, jsonify, g, session, redirect, url_for, Response
+from flask import Flask, render_template, request, jsonify, g, session, redirect, url_for, Response, make_response
 from functools import wraps
 import requests
 from cryptography.fernet import Fernet
@@ -1636,6 +1636,19 @@ def logout():
     """退出登录"""
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """返回内联 SVG favicon，避免 500 错误"""
+    svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+        <rect width="100" height="100" rx="20" fill="#1a1a1a"/>
+        <text x="50" y="55" font-size="60" text-anchor="middle" dominant-baseline="middle">📧</text>
+    </svg>'''
+    response = make_response(svg)
+    response.headers['Content-Type'] = 'image/svg+xml'
+    response.headers['Cache-Control'] = 'public, max-age=31536000'
+    return response
 
 
 @app.route('/')
