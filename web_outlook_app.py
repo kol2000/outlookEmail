@@ -1837,20 +1837,45 @@ def api_export_group(group_id):
     if not group:
         return jsonify({'success': False, 'error': '分组不存在'})
 
-    # 使用 load_accounts 获取该分组下的所有账号（自动解密）
-    accounts = load_accounts(group_id)
-
-    if not accounts:
-        return jsonify({'success': False, 'error': '该分组下没有邮箱账号'})
-
-    # 记录审计日志
-    log_audit('export', 'group', str(group_id), f"导出分组 '{group['name']}' 的 {len(accounts)} 个账号")
-
-    # 生成导出内容（格式：email----password----client_id----refresh_token）
     lines = []
-    for acc in accounts:
-        line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
-        lines.append(line)
+    is_temp_group = group['name'] == '临时邮箱'
+
+    if is_temp_group:
+        # 临时邮箱分组从 temp_emails 表获取数据
+        temp_emails = load_temp_emails()
+        if not temp_emails:
+            return jsonify({'success': False, 'error': '该分组下没有临时邮箱'})
+
+        lines.append(group['name'])
+
+        # 按渠道分组
+        gptmail_list = [te for te in temp_emails if te.get('provider', 'gptmail') == 'gptmail']
+        duckmail_list = [te for te in temp_emails if te.get('provider') == 'duckmail']
+
+        if gptmail_list:
+            lines.append('[gptmail]')
+            for te in gptmail_list:
+                lines.append(te['email'])
+
+        if duckmail_list:
+            lines.append('[duckmail]')
+            for te in duckmail_list:
+                duckmail_password = decrypt_data(te.get('duckmail_password', '')) if te.get('duckmail_password') else ''
+                lines.append(f"{te['email']}----{duckmail_password}")
+
+        log_audit('export', 'group', str(group_id), f"导出临时邮箱分组的 {len(temp_emails)} 个临时邮箱")
+    else:
+        # 普通分组从 accounts 表获取数据
+        accounts = load_accounts(group_id)
+        if not accounts:
+            return jsonify({'success': False, 'error': '该分组下没有邮箱账号'})
+
+        lines.append(group['name'])
+        log_audit('export', 'group', str(group_id), f"导出分组 '{group['name']}' 的 {len(accounts)} 个账号")
+
+        for acc in accounts:
+            line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
+            lines.append(line)
 
     content = '\n'.join(lines)
 
@@ -1952,25 +1977,51 @@ def api_export_selected_accounts():
     if not group_ids:
         return jsonify({'success': False, 'error': '请选择要导出的分组'})
 
-    # 获取选中分组下的所有账号（使用 load_accounts 自动解密）
-    all_accounts = []
+    # 获取选中分组下的所有账号
+    all_lines = []
+    total_count = 0
     for group_id in group_ids:
-        accounts = load_accounts(group_id)
-        all_accounts.extend(accounts)
+        group = get_group_by_id(group_id)
+        if not group:
+            continue
 
-    if not all_accounts:
+        if group['name'] == '临时邮箱':
+            # 临时邮箱分组从 temp_emails 表获取数据
+            temp_emails = load_temp_emails()
+            if temp_emails:
+                all_lines.append(group['name'])
+
+                gptmail_list = [te for te in temp_emails if te.get('provider', 'gptmail') == 'gptmail']
+                duckmail_list = [te for te in temp_emails if te.get('provider') == 'duckmail']
+
+                if gptmail_list:
+                    all_lines.append('[gptmail]')
+                    for te in gptmail_list:
+                        all_lines.append(te['email'])
+                        total_count += 1
+
+                if duckmail_list:
+                    all_lines.append('[duckmail]')
+                    for te in duckmail_list:
+                        duckmail_password = decrypt_data(te.get('duckmail_password', '')) if te.get('duckmail_password') else ''
+                        all_lines.append(f"{te['email']}----{duckmail_password}")
+                        total_count += 1
+        else:
+            accounts = load_accounts(group_id)
+            if accounts:
+                all_lines.append(group['name'])
+                for acc in accounts:
+                    line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
+                    all_lines.append(line)
+                    total_count += 1
+
+    if total_count == 0:
         return jsonify({'success': False, 'error': '选中的分组下没有邮箱账号'})
 
     # 记录审计日志
-    log_audit('export', 'selected_groups', ','.join(map(str, group_ids)), f"导出选中分组的 {len(all_accounts)} 个账号")
+    log_audit('export', 'selected_groups', ','.join(map(str, group_ids)), f"导出选中分组的 {total_count} 个账号")
 
-    # 生成导出内容
-    lines = []
-    for acc in all_accounts:
-        line = f"{acc['email']}----{acc.get('password', '')}----{acc['client_id']}----{acc['refresh_token']}"
-        lines.append(line)
-
-    content = '\n'.join(lines)
+    content = '\n'.join(all_lines)
 
     # 生成文件名
     filename = f"selected_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -3606,6 +3657,109 @@ def api_get_temp_emails():
     return jsonify({'success': True, 'emails': emails})
 
 
+@app.route('/api/temp-emails/import', methods=['POST'])
+@login_required
+def api_import_temp_emails():
+    """导入临时邮箱（根据渠道使用不同格式）"""
+    data = request.json
+    import_text = data.get('account_string', '').strip()
+    provider = data.get('provider', 'gptmail')
+
+    if not import_text:
+        return jsonify({'success': False, 'error': '请输入要导入的临时邮箱'})
+
+    lines = import_text.strip().split('\n')
+    added = 0
+    updated = 0
+    skipped = 0
+    token_errors = []
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        try:
+            if provider == 'duckmail':
+                # DuckMail 格式：邮箱----密码
+                parts = line.split('----')
+                if len(parts) >= 2:
+                    email_addr = parts[0].strip()
+                    duckmail_password = parts[1].strip()
+
+                    if email_addr and duckmail_password:
+                        # 检查是否已存在，如果存在则更新密码
+                        existing = get_temp_email_by_address(email_addr)
+                        if existing:
+                            # 更新密码和 provider
+                            db = get_db()
+                            db.execute('UPDATE temp_emails SET duckmail_password = ?, provider = ? WHERE email = ?',
+                                       (encrypt_data(duckmail_password), 'duckmail', email_addr))
+                            db.commit()
+                            updated += 1
+                        else:
+                            if not add_temp_email(
+                                email_addr, provider='duckmail',
+                                duckmail_token=None,
+                                duckmail_account_id=None,
+                                duckmail_password=duckmail_password
+                            ):
+                                skipped += 1
+                                continue
+                            added += 1
+
+                        # 尝试获取 Token（非阻塞，失败不影响导入）
+                        try:
+                            token_result = duckmail_get_token(email_addr, duckmail_password)
+                            if token_result and token_result.get('token'):
+                                db = get_db()
+                                db.execute('UPDATE temp_emails SET duckmail_token = ? WHERE email = ?',
+                                           (encrypt_data(token_result['token']), email_addr))
+                                db.commit()
+                            else:
+                                token_errors.append(email_addr)
+                        except Exception:
+                            token_errors.append(email_addr)
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+            else:
+                # GPTMail 格式：每行一个邮箱地址
+                email_addr = line.strip()
+                if email_addr and '@' in email_addr:
+                    existing = get_temp_email_by_address(email_addr)
+                    if existing:
+                        updated += 1
+                    elif add_temp_email(email_addr, provider='gptmail'):
+                        added += 1
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+        except Exception:
+            skipped += 1
+
+    total = added + updated
+    if total > 0:
+        log_audit('import', 'temp_emails', None, f"导入 {added} 个新临时邮箱，更新 {updated} 个已有邮箱")
+        msg = ''
+        if added > 0:
+            msg += f'新增 {added} 个临时邮箱'
+        if updated > 0:
+            msg += ('，' if msg else '') + f'更新 {updated} 个已有邮箱'
+        if skipped > 0:
+            msg += f'，跳过 {skipped} 个（格式错误）'
+        if token_errors:
+            msg += f'，{len(token_errors)} 个邮箱 Token 获取失败（不影响使用，获取邮件时会自动重试）'
+        return jsonify({
+            'success': True,
+            'message': msg
+        })
+    else:
+        return jsonify({'success': False, 'error': '没有新的临时邮箱被导入（可能格式错误）'})
+
+
 @app.route('/api/duckmail/domains', methods=['GET'])
 @login_required
 def api_get_duckmail_domains():
@@ -3640,6 +3794,11 @@ def api_generate_temp_email():
             return jsonify({'success': False, 'error': '密码至少 6 个字符'})
 
         email_addr = f"{username}@{domain}"
+
+        # 检查本地数据库是否已存在
+        existing = get_temp_email_by_address(email_addr)
+        if existing:
+            return jsonify({'success': False, 'error': '邮箱已存在'})
 
         # 1. 创建账户
         account_result = duckmail_create_account(email_addr, password)
@@ -3711,7 +3870,10 @@ def api_get_temp_email_messages(email_addr):
         # DuckMail: 使用 Bearer Token 获取邮件
         token = get_duckmail_token_for_email(email_addr)
         if not token:
-            return jsonify({'success': False, 'error': 'DuckMail Token 无效，请尝试刷新'})
+            # Token 获取失败，尝试用密码刷新
+            token = duckmail_refresh_token(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 获取失败，请检查密码是否正确或 DuckMail 服务是否可用'})
 
         messages = duckmail_get_messages(token)
         if messages is None:

@@ -1569,11 +1569,22 @@
                         <!-- 分组选项将通过 JS 动态加载 -->
                     </select>
                 </div>
+                <div class="form-group" id="importChannelGroup" style="display: none;">
+                    <label class="form-label">选择渠道</label>
+                    <select class="form-select" id="importChannelSelect" onchange="updateImportHint()">
+                        <option value="gptmail">GPTMail</option>
+                        <option value="duckmail">DuckMail</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label class="form-label">账号信息</label>
                     <textarea class="form-textarea" id="accountInput"
                         placeholder="邮箱----密码----client_id----refresh_token"></textarea>
-                    <div class="form-hint">格式：邮箱----密码----client_id----refresh_token，支持批量导入（每行一个）</div>
+                    <div class="form-hint" id="importFormatHint">格式：邮箱----密码----client_id----refresh_token，支持批量导入（每行一个）
+                    </div>
+                    <div id="importFormatExample"
+                        style="display: none; margin-top: 8px; padding: 10px 14px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #666; font-family: monospace; white-space: pre-line; border: 1px solid #e9ecef;">
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2789,7 +2800,8 @@ ${details}
             const footer = document.querySelector('.account-panel-footer');
             if (isTempEmailGroup) {
                 footer.innerHTML = `
-                    <button class="add-account-btn" onclick="generateTempEmail()">+ 生成临时邮箱</button>
+                    <button class="add-account-btn" onclick="generateTempEmail()" style="margin-bottom: 8px;">+ 生成临时邮箱</button>
+                    <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
                 `;
                 // 显示渠道筛选、隐藏排序和标签
                 document.getElementById('tempEmailProviderFilter').style.display = 'flex';
@@ -3048,8 +3060,8 @@ ${details}
                 const select = document.getElementById(selectId);
                 if (select) {
                     const currentValue = select.value;
-                    // 过滤掉临时邮箱分组（导入邮箱时不能选择临时邮箱分组）
-                    const filteredGroups = selectId === 'importGroupSelect'
+                    // editGroupSelect 过滤掉临时邮箱分组（不能移动到临时邮箱分组）
+                    const filteredGroups = selectId === 'editGroupSelect'
                         ? groups.filter(g => g.name !== '临时邮箱')
                         : groups;
 
@@ -3064,6 +3076,56 @@ ${details}
                     }
                 }
             });
+
+            // 绑定导入分组切换事件，动态更新提示
+            const importSelect = document.getElementById('importGroupSelect');
+            if (importSelect) {
+                importSelect.onchange = function () {
+                    updateImportHint();
+                };
+            }
+        }
+
+        // 更新导入提示文本和渠道选择器
+        function updateImportHint() {
+            const importSelect = document.getElementById('importGroupSelect');
+            const hintEl = document.getElementById('importFormatHint');
+            const inputEl = document.getElementById('accountInput');
+            const channelGroup = document.getElementById('importChannelGroup');
+            const channelSelect = document.getElementById('importChannelSelect');
+            const exampleEl = document.getElementById('importFormatExample');
+            if (!importSelect || !hintEl || !inputEl) return;
+
+            const selectedGroup = groups.find(g => g.id === parseInt(importSelect.value));
+            const isTempGroup = selectedGroup && selectedGroup.name === '临时邮箱';
+
+            if (isTempGroup) {
+                // 显示渠道选择器
+                if (channelGroup) channelGroup.style.display = '';
+
+                const channel = channelSelect ? channelSelect.value : 'gptmail';
+                if (channel === 'duckmail') {
+                    hintEl.textContent = '格式：邮箱----密码，每行一个';
+                    inputEl.placeholder = '邮箱----密码';
+                    if (exampleEl) {
+                        exampleEl.style.display = '';
+                        exampleEl.textContent = '示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2';
+                    }
+                } else {
+                    hintEl.textContent = '格式：每行一个邮箱地址';
+                    inputEl.placeholder = '每行一个邮箱地址';
+                    if (exampleEl) {
+                        exampleEl.style.display = '';
+                        exampleEl.textContent = '示例：\nuser1@gptmail.com\nuser2@gptmail.com';
+                    }
+                }
+            } else {
+                // 隐藏渠道选择器
+                if (channelGroup) channelGroup.style.display = 'none';
+                if (exampleEl) exampleEl.style.display = 'none';
+                hintEl.textContent = '格式：邮箱----密码----client_id----refresh_token，支持批量导入（每行一个）';
+                inputEl.placeholder = '邮箱----密码----client_id----refresh_token';
+            }
         }
 
         // 显示添加分组模态框
@@ -3727,6 +3789,7 @@ ${details}
             if (currentGroupId) {
                 document.getElementById('importGroupSelect').value = currentGroupId;
             }
+            updateImportHint();
             document.getElementById('addAccountModal').classList.add('show');
         }
 
@@ -3745,12 +3808,27 @@ ${details}
                 return;
             }
 
+            // 检查是否是临时邮箱分组
+            const selectedGroup = groups.find(g => g.id === groupId);
+            const isTempGroup = selectedGroup && selectedGroup.name === '临时邮箱';
+
             try {
-                const response = await fetch('/api/accounts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_string: input, group_id: groupId })
-                });
+                let response;
+                if (isTempGroup) {
+                    // 临时邮箱导入使用专用 API，传入选中的渠道
+                    const provider = document.getElementById('importChannelSelect').value || 'gptmail';
+                    response = await fetch('/api/temp-emails/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ account_string: input, provider: provider })
+                    });
+                } else {
+                    response = await fetch('/api/accounts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ account_string: input, group_id: groupId })
+                    });
+                }
 
                 const data = await response.json();
 
@@ -3762,17 +3840,19 @@ ${details}
                     delete accountsCache[groupId];
 
                     // 刷新分组列表（更新数量）
-                    loadGroups();
+                    await loadGroups();
 
-                    // 如果当前选中的就是这个分组，刷新邮箱列表
-                    if (currentGroupId === groupId) {
-                        loadAccountsByGroup(groupId, true);
+                    // 刷新邮箱列表
+                    if (isTempGroup) {
+                        await loadTempEmails(true);
+                    } else {
+                        await loadAccountsByGroup(groupId, true);
                     }
                 } else {
-                    handleApiError(data, '导入邮箱失败');
+                    handleApiError(data, '导入失败');
                 }
             } catch (error) {
-                showToast('添加失败', 'error');
+                showToast('导入失败', 'error');
             }
         }
 
