@@ -1,5 +1,27 @@
 # 📋 更新日志
 
+## 2026-02-24 - DuckMail 临时邮箱集成
+
+### 新增功能
+- 🦆 **DuckMail 临时邮箱** - 新增 DuckMail 作为第二个临时邮箱提供商，支持与 GPTMail 双服务商切换
+  - 支持自定义 DuckMail 实例地址，默认使用官方 `https://api.duckmail.sbs`
+  - 支持可选的 API Key（dk_ 前缀）用于获取私有域名
+  - 创建邮箱时可选择域名、自定义用户名和密码
+  - 邮件保存 3 天，账号不自动删除
+- 🔄 **提供商切换** - 生成临时邮箱时可在 GPTMail 和 DuckMail 之间切换
+- 🏷️ **提供商标识** - 临时邮箱列表显示 GPTMail/DuckMail 提供商标签
+
+### 数据库变更
+- `temp_emails` 表新增 `provider`、`duckmail_token`、`duckmail_account_id`、`duckmail_password` 字段
+
+### API 变更
+- 新增 `GET /api/duckmail/domains` - 获取 DuckMail 可用域名
+- `POST /api/temp-emails/generate` - 新增 `provider` 参数，DuckMail 模式需传 `domain`、`username`、`password`
+- `GET /api/settings` - 返回 `duckmail_base_url`、`duckmail_api_key` 字段
+- `PUT /api/settings` - 支持 `duckmail_base_url`、`duckmail_api_key` 字段更新
+
+---
+
 ## 2026-02-23 - 对外 API 支持
 
 ### 新增功能

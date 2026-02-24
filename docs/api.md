@@ -146,18 +146,24 @@ curl -H "X-API-Key: your-api-key" \
 | GET | `/api/email/<email>/<message_id>` | 获取邮件详情 |
 | POST | `/api/emails/delete` | 批量删除邮件 |
 
-### 临时邮箱
+### 临时邮箱（支持 GPTMail + DuckMail 双提供商）
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
 | GET | `/api/temp-emails` | 获取所有临时邮箱 |
-| POST | `/api/temp-emails/generate` | 生成临时邮箱 |
+| POST | `/api/temp-emails/generate` | 生成临时邮箱（支持 provider 切换） |
 | DELETE | `/api/temp-emails/<email>` | 删除临时邮箱 |
 | GET | `/api/temp-emails/<email>/messages` | 获取临时邮箱邮件 |
 | GET | `/api/temp-emails/<email>/messages/<id>` | 获取临时邮件详情 |
 | DELETE | `/api/temp-emails/<email>/messages/<id>` | 删除临时邮件 |
 | DELETE | `/api/temp-emails/<email>/clear` | 清空临时邮箱 |
 | POST | `/api/temp-emails/<email>/refresh` | 刷新临时邮箱 |
+| GET | `/api/duckmail/domains` | 获取 DuckMail 可用域名 |
+
+> [!NOTE]
+> `POST /api/temp-emails/generate` 支持 `provider` 参数：
+> - `gptmail`（默认）：一键生成，无需额外参数
+> - `duckmail`：需传 `domain`、`username`、`password`
 
 ### OAuth2 助手
 

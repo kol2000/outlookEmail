@@ -105,6 +105,10 @@ DATABASE = os.getenv("DATABASE_PATH", "data/outlook_accounts.db")
 GPTMAIL_BASE_URL = os.getenv("GPTMAIL_BASE_URL", "https://mail.chatgpt.org.uk")
 GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # 测试 API Key，可以修改为正式 Key
 
+# DuckMail API 配置
+DUCKMAIL_BASE_URL = os.getenv("DUCKMAIL_BASE_URL", "https://api.duckmail.sbs")
+DUCKMAIL_API_KEY = os.getenv("DUCKMAIL_API_KEY", "")  # 可选，dk_ 前缀，用于私有域名
+
 # 临时邮箱分组 ID（系统保留）
 TEMP_EMAIL_GROUP_ID = -1
 
@@ -529,6 +533,18 @@ def init_db():
         cursor.execute('ALTER TABLE groups ADD COLUMN is_system INTEGER DEFAULT 0')
     if 'proxy_url' not in group_columns:
         cursor.execute('ALTER TABLE groups ADD COLUMN proxy_url TEXT')
+
+    # 检查 temp_emails 表是否有 DuckMail 相关列
+    cursor.execute("PRAGMA table_info(temp_emails)")
+    temp_columns = [col[1] for col in cursor.fetchall()]
+    if 'provider' not in temp_columns:
+        cursor.execute("ALTER TABLE temp_emails ADD COLUMN provider TEXT DEFAULT 'gptmail'")
+    if 'duckmail_token' not in temp_columns:
+        cursor.execute('ALTER TABLE temp_emails ADD COLUMN duckmail_token TEXT')
+    if 'duckmail_account_id' not in temp_columns:
+        cursor.execute('ALTER TABLE temp_emails ADD COLUMN duckmail_account_id TEXT')
+    if 'duckmail_password' not in temp_columns:
+        cursor.execute('ALTER TABLE temp_emails ADD COLUMN duckmail_password TEXT')
     
     # 创建默认分组
     cursor.execute('''
@@ -567,6 +583,17 @@ def init_db():
         INSERT OR IGNORE INTO settings (key, value)
         VALUES ('gptmail_api_key', ?)
     ''', (GPTMAIL_API_KEY,))
+
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('duckmail_base_url', ?)
+    ''', (DUCKMAIL_BASE_URL,))
+
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('duckmail_api_key', ?)
+    ''', (DUCKMAIL_API_KEY,))
+
 
     # 初始化刷新配置
     cursor.execute('''
@@ -673,6 +700,7 @@ def init_app():
     print("Outlook 邮件 Web 应用已初始化")
     print(f"数据库文件: {DATABASE}")
     print(f"GPTMail API: {GPTMAIL_BASE_URL}")
+    print(f"DuckMail API: {DUCKMAIL_BASE_URL}")
     print("=" * 60)
 
 
@@ -727,6 +755,18 @@ def get_gptmail_api_key() -> str:
 def get_external_api_key() -> str:
     """获取对外 API Key（从数据库读取，明文存储）"""
     return get_setting('external_api_key', '')
+
+
+def get_duckmail_base_url() -> str:
+    """获取 DuckMail API 基础 URL（优先从数据库读取）"""
+    url = get_setting('duckmail_base_url')
+    return url if url else DUCKMAIL_BASE_URL
+
+
+def get_duckmail_api_key() -> str:
+    """获取 DuckMail API Key（优先从数据库读取）"""
+    api_key = get_setting('duckmail_api_key')
+    return api_key if api_key else DUCKMAIL_API_KEY
 
 
 # ==================== 分组操作 ====================
@@ -3295,6 +3335,145 @@ def clear_temp_emails_from_api(email_addr: str) -> bool:
     return result and result.get('success', False)
 
 
+# ==================== DuckMail 临时邮箱 API ====================
+
+def duckmail_request(method: str, endpoint: str, token: str = None,
+                     json_data: dict = None, params: dict = None) -> Optional[Dict]:
+    """发送 DuckMail API 请求"""
+    try:
+        base_url = get_duckmail_base_url().rstrip('/')
+        url = f"{base_url}{endpoint}"
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        if method.upper() == 'GET':
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+        elif method.upper() == 'POST':
+            response = requests.post(url, headers=headers, json=json_data, timeout=30)
+        elif method.upper() == 'PATCH':
+            response = requests.patch(url, headers=headers, json=json_data, timeout=30)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(url, headers=headers, params=params, timeout=30)
+        else:
+            return None
+
+        if response.status_code == 204:
+            return {'success': True}
+        elif response.status_code in (200, 201):
+            return response.json()
+        else:
+            try:
+                err = response.json()
+                return {'success': False, 'error': err.get('message', f'API 请求失败: {response.status_code}')}
+            except Exception:
+                return {'success': False, 'error': f'API 请求失败: {response.status_code}'}
+    except Exception as e:
+        return {'success': False, 'error': f'请求异常: {str(e)}'}
+
+
+def duckmail_get_domains() -> tuple:
+    """获取 DuckMail 可用域名列表，返回 (domains_list, error_msg)"""
+    api_key = get_duckmail_api_key()
+    token = api_key if api_key else None
+    result = duckmail_request('GET', '/domains', token=token)
+    if result and 'hydra:member' in result:
+        domains = [d for d in result['hydra:member'] if d.get('isVerified', False)]
+        return domains, None
+    error = result.get('error', '获取域名失败') if result else '无法连接 DuckMail API'
+    return [], error
+
+
+def duckmail_create_account(address: str, password: str) -> Optional[Dict]:
+    """创建 DuckMail 邮箱账户，返回账户信息"""
+    api_key = get_duckmail_api_key()
+    token = api_key if api_key else None
+    result = duckmail_request('POST', '/accounts', token=token,
+                              json_data={'address': address, 'password': password})
+    if result and result.get('id'):
+        return result
+    return result  # 返回错误信息
+
+
+def duckmail_get_token(address: str, password: str) -> Optional[Dict]:
+    """获取 DuckMail Bearer Token"""
+    result = duckmail_request('POST', '/token',
+                              json_data={'address': address, 'password': password})
+    if result and result.get('token'):
+        return result
+    return result
+
+
+def duckmail_get_messages(token: str, page: int = 1) -> Optional[List[Dict]]:
+    """获取 DuckMail 邮件列表"""
+    result = duckmail_request('GET', '/messages', token=token, params={'page': page})
+    if result and 'hydra:member' in result:
+        return result['hydra:member']
+    return None
+
+
+def duckmail_get_message_detail(token: str, message_id: str) -> Optional[Dict]:
+    """获取 DuckMail 邮件详情（含 body）"""
+    result = duckmail_request('GET', f'/messages/{message_id}', token=token)
+    if result and result.get('id'):
+        return result
+    return None
+
+
+def duckmail_delete_message(token: str, message_id: str) -> bool:
+    """删除 DuckMail 邮件"""
+    result = duckmail_request('DELETE', f'/messages/{message_id}', token=token)
+    return result is not None and result.get('success', False)
+
+
+def duckmail_delete_account(token: str, account_id: str) -> bool:
+    """删除 DuckMail 账户"""
+    result = duckmail_request('DELETE', f'/accounts/{account_id}', token=token)
+    return result is not None and result.get('success', False)
+
+
+def duckmail_refresh_token(email_addr: str) -> Optional[str]:
+    """刷新 DuckMail Token（使用存储的密码重新获取）"""
+    temp_email = get_temp_email_by_address(email_addr)
+    if not temp_email or temp_email.get('provider') != 'duckmail':
+        return None
+
+    password = temp_email.get('duckmail_password', '')
+    if password:
+        password = decrypt_data(password)
+
+    if not password:
+        return None
+
+    result = duckmail_get_token(email_addr, password)
+    if result and result.get('token'):
+        new_token = result['token']
+        # 更新数据库中的 Token
+        db = get_db()
+        db.execute('UPDATE temp_emails SET duckmail_token = ? WHERE email = ?',
+                   (encrypt_data(new_token), email_addr))
+        db.commit()
+        return new_token
+    return None
+
+
+def get_duckmail_token_for_email(email_addr: str) -> Optional[str]:
+    """获取临时邮箱的 DuckMail Token，过期则自动刷新"""
+    temp_email = get_temp_email_by_address(email_addr)
+    if not temp_email or temp_email.get('provider') != 'duckmail':
+        return None
+
+    token = temp_email.get('duckmail_token', '')
+    if token:
+        token = decrypt_data(token)
+
+    if not token:
+        # Token 不存在，尝试刷新
+        token = duckmail_refresh_token(email_addr)
+
+    return token
+
+
 # ==================== 临时邮箱数据库操作 ====================
 
 def get_temp_email_group_id() -> int:
@@ -3321,11 +3500,18 @@ def get_temp_email_by_address(email_addr: str) -> Optional[Dict]:
     return dict(row) if row else None
 
 
-def add_temp_email(email_addr: str) -> bool:
+def add_temp_email(email_addr: str, provider: str = 'gptmail',
+                   duckmail_token: str = None, duckmail_account_id: str = None,
+                   duckmail_password: str = None) -> bool:
     """添加临时邮箱"""
     db = get_db()
     try:
-        db.execute('INSERT INTO temp_emails (email) VALUES (?)', (email_addr,))
+        db.execute('''INSERT INTO temp_emails (email, provider, duckmail_token, duckmail_account_id, duckmail_password)
+                      VALUES (?, ?, ?, ?, ?)''',
+                   (email_addr, provider,
+                    encrypt_data(duckmail_token) if duckmail_token else None,
+                    duckmail_account_id,
+                    encrypt_data(duckmail_password) if duckmail_password else None))
         db.commit()
         return True
     except sqlite3.IntegrityError:
@@ -3420,29 +3606,94 @@ def api_get_temp_emails():
     return jsonify({'success': True, 'emails': emails})
 
 
+@app.route('/api/duckmail/domains', methods=['GET'])
+@login_required
+def api_get_duckmail_domains():
+    """获取 DuckMail 可用域名列表"""
+    domains, error = duckmail_get_domains()
+    if error:
+        return jsonify({'success': False, 'error': error, 'domains': []})
+    return jsonify({
+        'success': True,
+        'domains': [{'id': d.get('id'), 'domain': d.get('domain')} for d in domains]
+    })
+
+
 @app.route('/api/temp-emails/generate', methods=['POST'])
 @login_required
 def api_generate_temp_email():
-    """生成新的临时邮箱"""
+    """生成新的临时邮箱（支持 GPTMail 和 DuckMail）"""
     data = request.json or {}
-    prefix = data.get('prefix')
-    domain = data.get('domain')
-    
-    email_addr = generate_temp_email(prefix, domain)
-    
-    if email_addr:
-        if add_temp_email(email_addr):
-            return jsonify({'success': True, 'email': email_addr, 'message': '临时邮箱创建成功'})
+    provider = data.get('provider', 'gptmail')
+
+    if provider == 'duckmail':
+        # DuckMail: 需要 domain、username、password
+        domain = data.get('domain', '')
+        username = data.get('username', '')
+        password = data.get('password', '')
+
+        if not domain or not username:
+            return jsonify({'success': False, 'error': '请输入用户名和域名'})
+        if len(username) < 3:
+            return jsonify({'success': False, 'error': '用户名至少 3 个字符'})
+        if not password or len(password) < 6:
+            return jsonify({'success': False, 'error': '密码至少 6 个字符'})
+
+        email_addr = f"{username}@{domain}"
+
+        # 1. 创建账户
+        account_result = duckmail_create_account(email_addr, password)
+        if not account_result or not account_result.get('id'):
+            error_msg = account_result.get('error', '创建 DuckMail 账户失败') if account_result else '创建 DuckMail 账户失败'
+            return jsonify({'success': False, 'error': error_msg})
+
+        account_id = account_result['id']
+
+        # 2. 获取 Token
+        token_result = duckmail_get_token(email_addr, password)
+        if not token_result or not token_result.get('token'):
+            error_msg = token_result.get('error', '获取 DuckMail Token 失败') if token_result else '获取 DuckMail Token 失败'
+            return jsonify({'success': False, 'error': error_msg})
+
+        token = token_result['token']
+
+        # 3. 保存到数据库
+        if add_temp_email(email_addr, provider='duckmail',
+                         duckmail_token=token,
+                         duckmail_account_id=account_id,
+                         duckmail_password=password):
+            return jsonify({'success': True, 'email': email_addr, 'message': 'DuckMail 临时邮箱创建成功'})
         else:
             return jsonify({'success': False, 'error': '邮箱已存在'})
     else:
-        return jsonify({'success': False, 'error': '生成临时邮箱失败，请稍后重试'})
+        # GPTMail: 保持原有逻辑
+        prefix = data.get('prefix')
+        domain = data.get('domain')
+
+        email_addr = generate_temp_email(prefix, domain)
+
+        if email_addr:
+            if add_temp_email(email_addr, provider='gptmail'):
+                return jsonify({'success': True, 'email': email_addr, 'message': '临时邮箱创建成功'})
+            else:
+                return jsonify({'success': False, 'error': '邮箱已存在'})
+        else:
+            return jsonify({'success': False, 'error': '生成临时邮箱失败，请稍后重试'})
 
 
 @app.route('/api/temp-emails/<path:email_addr>', methods=['DELETE'])
 @login_required
 def api_delete_temp_email(email_addr):
     """删除临时邮箱"""
+    temp_email = get_temp_email_by_address(email_addr)
+
+    # DuckMail: 额外调用删除账户 API
+    if temp_email and temp_email.get('provider') == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        account_id = temp_email.get('duckmail_account_id', '')
+        if token and account_id:
+            duckmail_delete_account(token, account_id)
+
     if delete_temp_email(email_addr):
         return jsonify({'success': True, 'message': '临时邮箱已删除'})
     else:
@@ -3453,68 +3704,198 @@ def api_delete_temp_email(email_addr):
 @login_required
 def api_get_temp_email_messages(email_addr):
     """获取临时邮箱的邮件列表"""
-    api_messages = get_temp_emails_from_api(email_addr)
-    
-    if api_messages:
-        save_temp_email_messages(email_addr, api_messages)
-    
-    messages = get_temp_email_messages(email_addr)
-    
-    formatted = []
-    for msg in messages:
-        formatted.append({
-            'id': msg.get('message_id'),
-            'from': msg.get('from_address', '未知'),
-            'subject': msg.get('subject', '无主题'),
-            'body_preview': (msg.get('content', '') or '')[:200],
-            'date': msg.get('created_at', ''),
-            'timestamp': msg.get('timestamp', 0),
-            'has_html': msg.get('has_html', 0)
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        # DuckMail: 使用 Bearer Token 获取邮件
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 无效，请尝试刷新'})
+
+        messages = duckmail_get_messages(token)
+        if messages is None:
+            # Token 可能过期，尝试刷新
+            token = duckmail_refresh_token(email_addr)
+            if token:
+                messages = duckmail_get_messages(token)
+
+        if messages is None:
+            return jsonify({'success': False, 'error': '获取 DuckMail 邮件失败'})
+
+        # 转换为统一格式并保存到数据库
+        unified_messages = []
+        for msg in messages:
+            from_info = msg.get('from', {})
+            from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+            unified_messages.append({
+                'id': msg.get('id', ''),
+                'from_address': from_addr,
+                'subject': msg.get('subject', '无主题'),
+                'content': msg.get('text', ''),
+                'html_content': msg.get('html', [''])[0] if isinstance(msg.get('html'), list) else (msg.get('html', '') or ''),
+                'has_html': bool(msg.get('html')),
+                'timestamp': int(datetime.fromisoformat(msg['createdAt'].replace('Z', '+00:00')).timestamp()) if msg.get('createdAt') else 0
+            })
+        save_temp_email_messages(email_addr, unified_messages)
+
+        formatted = []
+        for msg in unified_messages:
+            formatted.append({
+                'id': msg.get('id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('timestamp', 0),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': 1 if msg.get('has_html') else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'method': 'DuckMail'
         })
-    
-    return jsonify({
-        'success': True,
-        'emails': formatted,
-        'count': len(formatted),
-        'method': 'GPTMail'
-    })
+    else:
+        # GPTMail: 保持原有逻辑
+        api_messages = get_temp_emails_from_api(email_addr)
+
+        if api_messages:
+            save_temp_email_messages(email_addr, api_messages)
+
+        messages = get_temp_email_messages(email_addr)
+
+        formatted = []
+        for msg in messages:
+            formatted.append({
+                'id': msg.get('message_id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('created_at', ''),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': msg.get('has_html', 0)
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'method': 'GPTMail'
+        })
 
 
 @app.route('/api/temp-emails/<path:email_addr>/messages/<path:message_id>', methods=['GET'])
 @login_required
 def api_get_temp_email_message_detail(email_addr, message_id):
     """获取临时邮件详情"""
-    msg = get_temp_email_message_by_id(message_id)
-    
-    if not msg:
-        api_msg = get_temp_email_detail_from_api(message_id)
-        if api_msg:
-            save_temp_email_messages(email_addr, [api_msg])
-            msg = get_temp_email_message_by_id(message_id)
-    
-    if msg:
-        return jsonify({
-            'success': True,
-            'email': {
-                'id': msg.get('message_id'),
-                'from': msg.get('from_address', '未知'),
-                'to': email_addr,
-                'subject': msg.get('subject', '无主题'),
-                'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
-                'body_type': 'html' if msg.get('has_html') else 'text',
-                'date': msg.get('created_at', ''),
-                'timestamp': msg.get('timestamp', 0)
-            }
-        })
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        # 先检查本地缓存
+        msg = get_temp_email_message_by_id(message_id)
+
+        # 如果有 HTML 内容直接返回本地缓存
+        if msg and msg.get('has_html') and msg.get('html_content'):
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'to': email_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
+                    'body_type': 'html' if msg.get('has_html') else 'text',
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0)
+                }
+            })
+
+        # 从 DuckMail API 获取详情（含 body）
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 无效'})
+
+        detail = duckmail_get_message_detail(token, message_id)
+        if detail:
+            from_info = detail.get('from', {})
+            from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+            html_content = detail.get('html', [''])[0] if isinstance(detail.get('html'), list) else (detail.get('html', '') or '')
+            text_content = detail.get('text', '')
+
+            # 更新本地缓存
+            save_temp_email_messages(email_addr, [{
+                'id': detail.get('id', ''),
+                'from_address': from_addr,
+                'subject': detail.get('subject', '无主题'),
+                'content': text_content,
+                'html_content': html_content,
+                'has_html': bool(html_content),
+                'timestamp': int(datetime.fromisoformat(detail['createdAt'].replace('Z', '+00:00')).timestamp()) if detail.get('createdAt') else 0
+            }])
+
+            body = html_content if html_content else text_content
+            body_type = 'html' if html_content else 'text'
+
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': detail.get('id'),
+                    'from': from_addr,
+                    'to': email_addr,
+                    'subject': detail.get('subject', '无主题'),
+                    'body': body,
+                    'body_type': body_type,
+                    'date': detail.get('createdAt', ''),
+                    'timestamp': int(datetime.fromisoformat(detail['createdAt'].replace('Z', '+00:00')).timestamp()) if detail.get('createdAt') else 0
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': '获取邮件详情失败'})
     else:
-        return jsonify({'success': False, 'error': '邮件不存在'})
+        # GPTMail: 保持原有逻辑
+        msg = get_temp_email_message_by_id(message_id)
+
+        if not msg:
+            api_msg = get_temp_email_detail_from_api(message_id)
+            if api_msg:
+                save_temp_email_messages(email_addr, [api_msg])
+                msg = get_temp_email_message_by_id(message_id)
+
+        if msg:
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'to': email_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
+                    'body_type': 'html' if msg.get('has_html') else 'text',
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0)
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': '邮件不存在'})
 
 
 @app.route('/api/temp-emails/<path:email_addr>/messages/<path:message_id>', methods=['DELETE'])
 @login_required
 def api_delete_temp_email_message(email_addr, message_id):
     """删除临时邮件"""
-    delete_temp_email_from_api(message_id)
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        if token:
+            duckmail_delete_message(token, message_id)
+    else:
+        delete_temp_email_from_api(message_id)
+
     if delete_temp_email_message(message_id):
         return jsonify({'success': True, 'message': '邮件已删除'})
     else:
@@ -3525,7 +3906,20 @@ def api_delete_temp_email_message(email_addr, message_id):
 @login_required
 def api_clear_temp_email_messages(email_addr):
     """清空临时邮箱的所有邮件"""
-    clear_temp_emails_from_api(email_addr)
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        # DuckMail: 逐条删除所有邮件
+        token = get_duckmail_token_for_email(email_addr)
+        if token:
+            messages = duckmail_get_messages(token)
+            if messages:
+                for msg in messages:
+                    duckmail_delete_message(token, msg.get('id', ''))
+    else:
+        clear_temp_emails_from_api(email_addr)
+
     db = get_db()
     try:
         db.execute('DELETE FROM temp_email_messages WHERE email_address = ?', (email_addr,))
@@ -3539,33 +3933,87 @@ def api_clear_temp_email_messages(email_addr):
 @login_required
 def api_refresh_temp_email_messages(email_addr):
     """刷新临时邮箱的邮件"""
-    api_messages = get_temp_emails_from_api(email_addr)
-    
-    if api_messages is not None:
-        saved = save_temp_email_messages(email_addr, api_messages)
-        messages = get_temp_email_messages(email_addr)
-        
-        formatted = []
-        for msg in messages:
-            formatted.append({
-                'id': msg.get('message_id'),
-                'from': msg.get('from_address', '未知'),
-                'subject': msg.get('subject', '无主题'),
-                'body_preview': (msg.get('content', '') or '')[:200],
-                'date': msg.get('created_at', ''),
-                'timestamp': msg.get('timestamp', 0),
-                'has_html': msg.get('has_html', 0)
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 无效，请尝试重新创建邮箱'})
+
+        messages = duckmail_get_messages(token)
+        if messages is None:
+            # Token 可能过期，尝试刷新
+            token = duckmail_refresh_token(email_addr)
+            if token:
+                messages = duckmail_get_messages(token)
+
+        if messages is not None:
+            unified_messages = []
+            for msg in messages:
+                from_info = msg.get('from', {})
+                from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+                unified_messages.append({
+                    'id': msg.get('id', ''),
+                    'from_address': from_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'content': msg.get('text', ''),
+                    'html_content': msg.get('html', [''])[0] if isinstance(msg.get('html'), list) else (msg.get('html', '') or ''),
+                    'has_html': bool(msg.get('html')),
+                    'timestamp': int(datetime.fromisoformat(msg['createdAt'].replace('Z', '+00:00')).timestamp()) if msg.get('createdAt') else 0
+                })
+            saved = save_temp_email_messages(email_addr, unified_messages)
+
+            formatted = []
+            for msg in unified_messages:
+                formatted.append({
+                    'id': msg.get('id'),
+                    'from': msg.get('from_address', '未知'),
+                    'subject': msg.get('subject', '无主题'),
+                    'body_preview': (msg.get('content', '') or '')[:200],
+                    'date': msg.get('timestamp', 0),
+                    'timestamp': msg.get('timestamp', 0),
+                    'has_html': 1 if msg.get('has_html') else 0
+                })
+
+            return jsonify({
+                'success': True,
+                'emails': formatted,
+                'count': len(formatted),
+                'new_count': saved,
+                'method': 'DuckMail'
             })
-        
-        return jsonify({
-            'success': True,
-            'emails': formatted,
-            'count': len(formatted),
-            'new_count': saved,
-            'method': 'GPTMail'
-        })
+        else:
+            return jsonify({'success': False, 'error': '获取 DuckMail 邮件失败'})
     else:
-        return jsonify({'success': False, 'error': '获取邮件失败'})
+        # GPTMail: 保持原有逻辑
+        api_messages = get_temp_emails_from_api(email_addr)
+
+        if api_messages is not None:
+            saved = save_temp_email_messages(email_addr, api_messages)
+            messages = get_temp_email_messages(email_addr)
+
+            formatted = []
+            for msg in messages:
+                formatted.append({
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'subject': msg.get('subject', '无主题'),
+                    'body_preview': (msg.get('content', '') or '')[:200],
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0),
+                    'has_html': msg.get('has_html', 0)
+                })
+
+            return jsonify({
+                'success': True,
+                'emails': formatted,
+                'count': len(formatted),
+                'new_count': saved,
+                'method': 'GPTMail'
+            })
+        else:
+            return jsonify({'success': False, 'error': '获取邮件失败'})
 
 
 # ==================== OAuth Token API ====================
@@ -3708,6 +4156,9 @@ def api_get_settings():
             settings['login_password_masked'] = '*' * len(pwd)
     # 返回解密后的对外 API Key
     settings['external_api_key'] = get_external_api_key()
+    # 返回 DuckMail 设置
+    settings['duckmail_base_url'] = get_duckmail_base_url()
+    settings['duckmail_api_key'] = get_duckmail_api_key()
     return jsonify({'success': True, 'settings': settings})
 
 
@@ -3818,6 +4269,21 @@ def api_update_settings():
         else:
             if set_setting('external_api_key', ''):
                 updated.append('对外 API Key（已清空）')
+
+    # 更新 DuckMail 设置
+    if 'duckmail_base_url' in data:
+        new_url = data['duckmail_base_url'].strip()
+        if set_setting('duckmail_base_url', new_url):
+            updated.append('DuckMail API 地址')
+        else:
+            errors.append('更新 DuckMail API 地址失败')
+
+    if 'duckmail_api_key' in data:
+        new_dk_key = data['duckmail_api_key'].strip()
+        if set_setting('duckmail_api_key', new_dk_key):
+            updated.append('DuckMail API Key')
+        else:
+            errors.append('更新 DuckMail API Key 失败')
 
     if errors:
         return jsonify({'success': False, 'error': '；'.join(errors)})

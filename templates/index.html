@@ -1370,6 +1370,22 @@
             <div class="search-container">
                 <input type="text" id="globalSearch" class="search-input" placeholder="搜索邮箱地址..." autocomplete="off">
             </div>
+            <!-- 临时邮箱渠道筛选 -->
+            <div id="tempEmailProviderFilter"
+                style="padding: 8px 16px; border-bottom: 1px solid #e5e5e5; display: none; align-items: center; gap: 8px; background-color: #fafafa;">
+                <div style="display: flex; gap: 4px;">
+                    <button class="provider-filter-btn" data-provider="gptmail"
+                        onclick="filterTempEmailByProvider('gptmail')"
+                        style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
+                        GPTMail
+                    </button>
+                    <button class="provider-filter-btn" data-provider="duckmail"
+                        onclick="filterTempEmailByProvider('duckmail')"
+                        style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
+                        DuckMail
+                    </button>
+                </div>
+            </div>
             <div class="sort-control"
                 style="padding: 8px 16px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; gap: 8px; background-color: #fafafa;">
                 <label style="font-size: 12px; color: #666; font-weight: 500;">排序：</label>
@@ -1699,6 +1715,23 @@
                     <div class="form-hint">用于对外 API
                         认证，调用方式：<code>GET /api/external/emails?email=xxx&folder=inbox</code>，Header:
                         <code>X-API-Key: your-key</code>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #e5e5e5; margin: 24px 0; padding-top: 24px;">
+                    <h4 style="font-size: 15px; font-weight: 600; margin-bottom: 16px;">DuckMail 临时邮箱设置</h4>
+
+                    <div class="form-group">
+                        <label class="form-label">DuckMail API 地址</label>
+                        <input type="text" class="form-input" id="settingsDuckmailBaseUrl"
+                            placeholder="https://api.duckmail.sbs">
+                        <div class="form-hint">自部署 DuckMail 实例的 API 地址，默认使用官方地址</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">DuckMail API Key（可选）</label>
+                        <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="dk_ 前缀的 API Key">
+                        <div class="form-hint">可选，用于获取私有域名。可从 <a href="https://domain.duckmail.sbs" target="_blank"
+                                style="color: #0078d4;">domain.duckmail.sbs</a> 获取</div>
                     </div>
                 </div>
 
@@ -2629,16 +2662,29 @@ ${details}
                     renderGroupList(data.groups);
                     updateGroupSelects();
 
-                    // 如果之前选中了分组，保持选中状态并刷新邮箱列表
+                    // 获取本地缓存的分组 ID（如果有的话）
+                    if (!currentGroupId) {
+                        const savedGroupId = localStorage.getItem('outlook_last_group_id');
+                        if (savedGroupId) {
+                            currentGroupId = parseInt(savedGroupId);
+                        } else if (groups.length > 0) {
+                            // 如果没有缓存，默认选中"临时邮箱"或者首个分组
+                            const tempMatch = groups.find(g => g.name === '临时邮箱');
+                            currentGroupId = tempMatch ? tempMatch.id : groups[0].id;
+                        }
+                    }
+
+                    // 如果有了选中的分组，高亮分组并刷新邮箱面板
                     if (currentGroupId) {
-                        const group = groups.find(g => g.id === currentGroupId);
+                        let group = groups.find(g => g.id === currentGroupId);
+                        // 兜底：如果缓存的组已经被删了，回退到第一个组
+                        if (!group && groups.length > 0) {
+                            currentGroupId = groups[0].id;
+                            group = groups[0];
+                        }
+
                         if (group) {
-                            // 刷新当前分组的邮箱列表
-                            if (currentGroupId === tempEmailGroupId) {
-                                loadTempEmails(true);
-                            } else {
-                                loadAccountsByGroup(currentGroupId, true);
-                            }
+                            selectGroup(currentGroupId);
                         }
                     }
                 }
@@ -2689,6 +2735,7 @@ ${details}
         // 选择分组
         async function selectGroup(groupId) {
             currentGroupId = groupId;
+            localStorage.setItem('outlook_last_group_id', groupId);
 
             // 清空搜索框
             const searchInput = document.getElementById('globalSearch');
@@ -2716,7 +2763,16 @@ ${details}
                     importSelect.value = groupId;
                 }
             }
-
+            // 临时邮箱：先应用上次保存的筛选渠道，再更新面板（按钮样式依赖 filter 值）
+            if (isTempEmailGroup) {
+                // 读取缓存，如果没有或者无效（被设为all），则给默认值 gptmail 
+                let storedFilter = localStorage.getItem('outlook_temp_email_filter');
+                if (!storedFilter || storedFilter === 'all') {
+                    storedFilter = 'gptmail';
+                }
+                window.tempEmailProviderFilter = storedFilter;
+                localStorage.setItem('outlook_temp_email_filter', storedFilter);
+            }
             // 更新底部按钮
             updateAccountPanelFooter();
 
@@ -2735,11 +2791,59 @@ ${details}
                 footer.innerHTML = `
                     <button class="add-account-btn" onclick="generateTempEmail()">+ 生成临时邮箱</button>
                 `;
+                // 显示渠道筛选、隐藏排序和标签
+                document.getElementById('tempEmailProviderFilter').style.display = 'flex';
+                document.querySelector('.sort-control').style.display = 'none';
+                document.getElementById('tagFilterContainer').style.display = 'none';
+                // 同步筛选按钮样式
+                const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
+                document.querySelectorAll('.provider-filter-btn').forEach(btn => {
+                    if (btn.dataset.provider === currentFilter) {
+                        btn.style.backgroundColor = '#1a1a1a';
+                        btn.style.borderColor = '#1a1a1a';
+                        btn.style.color = '#ffffff';
+                    } else {
+                        btn.style.backgroundColor = '#ffffff';
+                        btn.style.borderColor = '#e5e5e5';
+                        btn.style.color = '#666';
+                    }
+                });
             } else {
                 footer.innerHTML = `
                     <button class="add-account-btn" onclick="showGetRefreshTokenModal()" style="background-color: #0078d4; margin-bottom: 8px;">🔑 获取 Refresh Token</button>
                     <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
                 `;
+                // 隐藏渠道筛选、显示排序、恢复标签筛选
+                document.getElementById('tempEmailProviderFilter').style.display = 'none';
+                document.querySelector('.sort-control').style.display = 'flex';
+                updateTagFilter();
+            }
+        }
+
+        // 筛选临时邮箱渠道（点击已激活的按钮取消筛选）
+        function filterTempEmailByProvider(provider) {
+            // 点击已激活的按钮取消筛选（显示全部）
+            if (localStorage.getItem('outlook_temp_email_filter') === provider) {
+                localStorage.setItem('outlook_temp_email_filter', 'all');
+            } else {
+                localStorage.setItem('outlook_temp_email_filter', provider);
+            }
+
+            // 更新按钮样式
+            const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
+            document.querySelectorAll('.provider-filter-btn').forEach(btn => {
+                if (btn.dataset.provider === currentFilter) {
+                    btn.style.backgroundColor = '#1a1a1a';
+                    btn.style.borderColor = '#1a1a1a';
+                    btn.style.color = '#ffffff';
+                } else {
+                    btn.style.backgroundColor = '#ffffff';
+                    btn.style.borderColor = '#e5e5e5';
+                    btn.style.color = '#666';
+                }
+            });
+            if (accountsCache['temp']) {
+                renderTempEmailList(accountsCache['temp']);
             }
         }
 
@@ -3077,6 +3181,7 @@ ${details}
                     // 如果删除的是当前选中的分组，切换到默认分组
                     if (currentGroupId === groupId) {
                         currentGroupId = 1;
+                        localStorage.setItem('outlook_last_group_id', 1);
                     }
                     loadGroups();
                 } else {
@@ -3123,23 +3228,30 @@ ${details}
         function renderTempEmailList(emails) {
             const container = document.getElementById('accountList');
 
-            if (emails.length === 0) {
+            // 渠道筛选
+            const filter = localStorage.getItem('outlook_temp_email_filter') || 'all';
+            const filtered = filter === 'all' ? emails : emails.filter(e => e.provider === filter);
+
+            if (filtered.length === 0) {
+                const hint = filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${filter === 'duckmail' ? 'DuckMail' : 'GPTMail'} 邮箱`;
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚡</div>
-                        <div class="empty-state-text">暂无临时邮箱<br>点击下方按钮生成</div>
+                        <div class="empty-state-text">${hint}</div>
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = emails.map(email => `
+            container.innerHTML = filtered.map(email => `
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
                      onclick="selectTempEmail('${escapeJs(email.email)}')">
-                    <div class="account-email" title="${escapeHtml(email.email)}">
-                        ${escapeHtml(email.email)}
+                    <div style="flex: 1; min-width: 0; overflow: hidden;">
+                        <div class="account-email" title="${escapeHtml(email.email)}" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${escapeHtml(email.email)}
+                        </div>
                     </div>
-                    <div class="account-actions">
+                    <div class="account-actions" style="flex-shrink: 0;">
                         <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(email.email)}')" title="复制邮箱">复制</button>
                         <button class="account-action-btn" onclick="event.stopPropagation(); clearTempEmailMessages('${escapeJs(email.email)}')" title="清空邮件">清空</button>
                         <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteTempEmail('${escapeJs(email.email)}')" title="删除">删除</button>
@@ -3148,27 +3260,169 @@ ${details}
             `).join('');
         }
 
-        // 生成临时邮箱
+        // 生成临时邮箱（显示提供商选择弹窗）
         async function generateTempEmail() {
-            // 获取按钮并显示加载状态
-            const btn = document.querySelector('.account-panel-footer .add-account-btn');
+            // 显示提供商选择弹窗
+            showTempEmailProviderModal();
+        }
+
+        // 显示提供商选择弹窗
+        function showTempEmailProviderModal() {
+            // 动态创建弹窗
+            let modal = document.getElementById('tempEmailProviderModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'tempEmailProviderModal';
+                modal.className = 'modal';
+                modal.onclick = function (e) { if (e.target === modal) modal.classList.remove('show'); };
+                modal.innerHTML = `
+                    <div class="modal-content" style="width: 460px;">
+                        <div class="modal-header">
+                            <h3>⚡ 生成临时邮箱</h3>
+                            <button class="modal-close" onclick="document.getElementById('tempEmailProviderModal').classList.remove('show')">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label class="form-label">选择提供商</label>
+                                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 10px 16px; border: 2px solid #e5e5e5; border-radius: 8px; flex: 1; transition: all 0.2s;" id="providerLabelGptmail">
+                                        <input type="radio" name="tempEmailProvider" value="gptmail" checked onchange="toggleTempEmailProvider('gptmail')">
+                                        <span style="font-weight: 600;">GPTMail</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 10px 16px; border: 2px solid #e5e5e5; border-radius: 8px; flex: 1; transition: all 0.2s;" id="providerLabelDuckmail">
+                                        <input type="radio" name="tempEmailProvider" value="duckmail" onchange="toggleTempEmailProvider('duckmail')">
+                                        <span style="font-weight: 600;">DuckMail</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="gptmailFields">
+                                <div class="form-hint" style="margin-bottom: 12px;">点击下方按钮即可一键生成 GPTMail 临时邮箱</div>
+                            </div>
+                            <div id="duckmailFields" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">域名</label>
+                                    <select class="form-input" id="duckmailDomain" style="width: 100%;">
+                                        <option value="">加载中...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">用户名</label>
+                                    <input type="text" class="form-input" id="duckmailUsername" placeholder="至少 3 个字符">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">密码</label>
+                                    <input type="password" class="form-input" id="duckmailPassword" placeholder="至少 6 个字符">
+                                    <div class="form-hint">用于登录邮箱，请牢记密码。邮件保存 3 天，账号不会自动删除</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="document.getElementById('tempEmailProviderModal').classList.remove('show')">取消</button>
+                            <button class="btn btn-primary" id="createTempEmailBtn" onclick="doGenerateTempEmail()">✨ 创建邮箱</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            // 重置表单，使用上次保存的渠道
+            const defaultProvider = localStorage.getItem('outlook_temp_email_generate') || 'gptmail';
+            const radio = modal.querySelector(`input[value="${defaultProvider}"]`);
+            if (radio) radio.checked = true;
+            toggleTempEmailProvider(defaultProvider);
+            modal.classList.add('show');
+        }
+
+        // 切换提供商显示
+        function toggleTempEmailProvider(provider) {
+            // 记录用户选择
+            localStorage.setItem('outlook_temp_email_generate', provider);
+
+            const gptmailFields = document.getElementById('gptmailFields');
+            const duckmailFields = document.getElementById('duckmailFields');
+            const labelGpt = document.getElementById('providerLabelGptmail');
+            const labelDuck = document.getElementById('providerLabelDuckmail');
+
+            if (provider === 'duckmail') {
+                gptmailFields.style.display = 'none';
+                duckmailFields.style.display = 'block';
+                labelGpt.style.borderColor = '#e5e5e5';
+                labelGpt.style.backgroundColor = 'transparent';
+                labelDuck.style.borderColor = '#1a1a1a';
+                labelDuck.style.backgroundColor = '#f8f8f8';
+                // 加载 DuckMail 域名
+                loadDuckmailDomains();
+            } else {
+                gptmailFields.style.display = 'block';
+                duckmailFields.style.display = 'none';
+                labelGpt.style.borderColor = '#1a1a1a';
+                labelGpt.style.backgroundColor = '#f8f8f8';
+                labelDuck.style.borderColor = '#e5e5e5';
+                labelDuck.style.backgroundColor = 'transparent';
+            }
+        }
+
+        // 加载 DuckMail 域名列表
+        async function loadDuckmailDomains() {
+            const select = document.getElementById('duckmailDomain');
+            select.innerHTML = '<option value="">加载中...</option>';
+            try {
+                const response = await fetch('/api/duckmail/domains');
+                const data = await response.json();
+                if (data.success && data.domains && data.domains.length > 0) {
+                    select.innerHTML = data.domains.map(d =>
+                        `<option value="${escapeHtml(d.domain)}">${escapeHtml(d.domain)}</option>`
+                    ).join('');
+                } else if (data.error) {
+                    select.innerHTML = `<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
+                } else {
+                    select.innerHTML = '<option value="">无可用域名</option>';
+                }
+            } catch (error) {
+                select.innerHTML = `<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
+            }
+        }
+
+        // 执行创建临时邮箱
+        async function doGenerateTempEmail() {
+            const provider = document.querySelector('input[name="tempEmailProvider"]:checked').value;
+            const btn = document.getElementById('createTempEmailBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '⏳ 生成中...';
-            btn.style.opacity = '0.7';
-            btn.style.cursor = 'not-allowed';
+            btn.textContent = '⏳ 创建中...';
 
             try {
+                let body = { provider };
+
+                if (provider === 'duckmail') {
+                    body.domain = document.getElementById('duckmailDomain').value;
+                    body.username = document.getElementById('duckmailUsername').value.trim();
+                    body.password = document.getElementById('duckmailPassword').value;
+
+                    if (!body.domain) {
+                        showToast('请选择域名', 'error');
+                        return;
+                    }
+                    if (!body.username || body.username.length < 3) {
+                        showToast('用户名至少 3 个字符', 'error');
+                        return;
+                    }
+                    if (!body.password || body.password.length < 6) {
+                        showToast('密码至少 6 个字符', 'error');
+                        return;
+                    }
+                }
+
                 const response = await fetch('/api/temp-emails/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
+                    body: JSON.stringify(body)
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
                     showToast(`临时邮箱已生成: ${data.email}`, 'success');
+                    document.getElementById('tempEmailProviderModal').classList.remove('show');
                     delete accountsCache['temp'];
                     loadTempEmails(true);
                     loadGroups();
@@ -3178,11 +3432,8 @@ ${details}
             } catch (error) {
                 showToast('生成临时邮箱失败', 'error');
             } finally {
-                // 恢复按钮状态
                 btn.disabled = false;
                 btn.textContent = originalText;
-                btn.style.opacity = '1';
-                btn.style.cursor = 'pointer';
             }
         }
 
@@ -3330,12 +3581,12 @@ ${details}
 
                 if (data.success) {
                     currentEmails = data.emails;
-                    currentMethod = 'gptmail';
+                    currentMethod = data.method === 'DuckMail' ? 'duckmail' : 'gptmail';
 
                     const methodTag = document.getElementById('methodTag');
-                    methodTag.textContent = 'GPTMail';
+                    methodTag.textContent = data.method || 'GPTMail';
                     methodTag.style.display = 'inline';
-                    methodTag.style.backgroundColor = '#00bcf2';
+                    methodTag.style.backgroundColor = data.method === 'DuckMail' ? '#ff9800' : '#00bcf2';
                     methodTag.style.color = 'white';
 
                     document.getElementById('emailCount').textContent = `(${data.count})`;
@@ -4719,6 +4970,10 @@ ${details}
                     // 密码不显示，只显示 API Key
                     document.getElementById('settingsApiKey').value = data.settings.gptmail_api_key || '';
                     document.getElementById('settingsExternalApiKey').value = data.settings.external_api_key || '';
+                    // DuckMail 设置
+                    document.getElementById('settingsDuckmailBaseUrl').value = data.settings.duckmail_base_url || '';
+                    document.getElementById('settingsDuckmailApiKey').value = data.settings.duckmail_api_key || '';
+
                     // 密码框留空
                     document.getElementById('settingsPassword').value = '';
 
@@ -4820,6 +5075,10 @@ ${details}
 
             // 对外 API Key
             settings.external_api_key = externalApiKey;
+
+            // DuckMail 设置
+            settings.duckmail_base_url = document.getElementById('settingsDuckmailBaseUrl').value.trim();
+            settings.duckmail_api_key = document.getElementById('settingsDuckmailApiKey').value.trim();
 
             // 刷新配置
             const days = parseInt(refreshDays);
