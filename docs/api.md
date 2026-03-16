@@ -92,92 +92,204 @@ curl -H "X-API-Key: your-api-key" \
 
 ## 内部 API（需登录认证）
 
-以下 API 需要通过 Web 界面登录后使用。
+以下 API 需要通过 Web 界面登录后使用。所有的接口请求必须携带有效的 Session Cookie，以验证登录状态。
+所有响应统一返回 JSON 格式：成功时包含 `"success": true`，失败时包含 `"success": false` 及 `"error"` 字段。
 
-### 认证相关
-
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/login` | 登录页面 |
-| POST | `/login` | 登录验证 |
-| GET | `/logout` | 退出登录 |
+---
 
 ### 分组管理
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/groups` | 获取所有分组 |
-| GET | `/api/groups/<id>` | 获取单个分组 |
-| POST | `/api/groups` | 创建分组 |
-| PUT | `/api/groups/<id>` | 更新分组 |
-| DELETE | `/api/groups/<id>` | 删除分组 |
-| GET | `/api/groups/<id>/export` | 导出分组账号 |
+#### 获取所有分组
+- **接口**: `GET /api/groups`
+- **响应示例**:
+```json
+{
+  "success": true,
+  "groups": [
+    {
+      "id": 1,
+      "name": "默认分组",
+      "description": "未分组的邮箱",
+      "color": "#666666",
+      "is_system": 0,
+      "proxy_url": "http://127.0.0.1:7890",
+      "account_count": 5
+    }
+  ]
+}
+```
+
+#### 获取单个分组
+- **接口**: `GET /api/groups/<id>`
+- **响应示例**: 包含单个 `group` 对象，格式同上。
+
+#### 创建分组
+- **接口**: `POST /api/groups`
+- **请求 Body (JSON)**:
+  - `name` (string, 必填): 分组名称
+  - `description` (string, 可选): 分组描述
+  - `color` (string, 可选): 颜色十六进制值，默认 `#1a1a1a`
+  - `proxy_url` (string, 可选): 代理地址，例如 `http://127.0.0.1:7890`
+- **响应示例**:
+```json
+{
+  "success": true,
+  "message": "分组创建成功",
+  "group_id": 2
+}
+```
+
+#### 更新分组 / 删除分组
+- **接口 (更新)**: `PUT /api/groups/<id>` (参数与创建相同)
+- **接口 (删除)**: `DELETE /api/groups/<id>`
+
+---
 
 ### 账号管理
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/accounts` | 获取所有账号 |
-| GET | `/api/accounts/<id>` | 获取单个账号 |
-| POST | `/api/accounts` | 添加账号 |
-| PUT | `/api/accounts/<id>` | 更新账号 |
-| DELETE | `/api/accounts/<id>` | 删除账号 |
-| GET | `/api/accounts/export` | 导出所有账号 |
-| POST | `/api/accounts/export-selected` | 导出选中分组账号 |
+#### 获取账号列表
+- **接口**: `GET /api/accounts`
+- **查询参数**:
+  - `group_id` (int, 可选): 若提供则只返回该分组下的账号
+- **响应示例**:
+```json
+{
+  "success": true,
+  "accounts": [
+    {
+      "id": 1,
+      "email": "user@outlook.com",
+      "client_id": "xxxxxxxx...",
+      "group_id": 1,
+      "group_name": "默认分组",
+      "status": "active",
+      "last_refresh_at": "2023-10-01 12:00:00",
+      "last_refresh_status": "success",
+      "remark": "个人邮箱"
+    }
+  ]
+}
+```
+
+#### 搜索账号
+- **接口**: `GET /api/accounts/search`
+- **查询参数**:
+  - `q` (string, 必填): 搜索关键词，支持匹配邮箱、备注、标签。
+
+#### 添加账号
+- **接口**: `POST /api/accounts`
+- **请求 Body (JSON)**:
+  - `account_string` (string, 必填): 批量账号字符串，支持多行，每行格式为 `邮箱----密码----ClientID----RefreshToken`
+  - `group_id` (int, 可选): 默认值为 1
+- **响应示例**:
+```json
+{
+  "success": true,
+  "message": "成功添加 1 个账号"
+}
+```
+
+#### 更新账号 / 删除账号
+- **接口 (更新)**: `PUT /api/accounts/<id>`
+  - 请求 Body 参数 (JSON): `email`, `client_id`, `refresh_token`, `password`, `group_id`, `remark`, `status`
+  - 或仅更新状态时传递 `status`
+- **接口 (删除)**: `DELETE /api/accounts/<id>`
+- **接口 (邮箱删除)**: `DELETE /api/accounts/email/<email_addr>`
+
+---
 
 ### Token 刷新管理
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/accounts/refresh-all` | 全量刷新所有账号（流式响应） |
-| POST | `/api/accounts/<id>/refresh` | 刷新单个账号 |
-| POST | `/api/accounts/refresh-failed` | 重试所有失败的账号 |
-| POST | `/api/accounts/<id>/retry-refresh` | 重试单个账号 |
-| GET | `/api/accounts/refresh-logs` | 获取刷新历史 |
-| GET | `/api/accounts/<id>/refresh-logs` | 获取单个账号的刷新历史 |
-| GET | `/api/accounts/refresh-logs/failed` | 获取失败的刷新记录 |
-| GET | `/api/accounts/refresh-stats` | 获取刷新统计信息 |
+#### 触发单个账号刷新
+- **接口**: `POST /api/accounts/<id>/refresh`
+- **响应示例**: `{"success": true, "message": "Token 刷新成功"}`
+
+#### 触发全部账号刷新 (SSE 流数据)
+- **接口**: `GET /api/accounts/refresh-all`
+- **说明**: 该接口返回 Server-Sent Events (SSE) 流，客户端可用于实时追踪刷新进度。
+
+#### 失败账号重试 / 日志获取
+- **重试单账号**: `POST /api/accounts/<id>/retry-refresh`
+- **重试所有失败**: `POST /api/accounts/refresh-failed`
+- **获取所有日志**: `GET /api/accounts/refresh-logs`
+- **获取失败日志**: `GET /api/accounts/refresh-logs/failed`
+
+---
 
 ### 邮件操作
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/emails/<email>` | 获取邮件列表 |
-| GET | `/api/email/<email>/<message_id>` | 获取邮件详情 |
-| POST | `/api/emails/delete` | 批量删除邮件 |
+#### 获取邮件列表
+- **接口**: `GET /api/emails/<email>`
+- **查询参数**:
+  - `folder` (string, 可选): 接收文件夹，常用 `inbox`（收件箱）或 `junkemail`（垃圾邮件）。默认 `inbox`。
+  - `skip` (int, 可选): 分页跳过数量，默认 `0`
+  - `top` (int, 可选): 本次返回最大邮件数量，默认 `20`
+- **响应说明**: 与对外 API 响应格式完全一致。
 
-### 临时邮箱（支持 GPTMail + DuckMail 双提供商）
+#### 获取邮件详情
+- **接口**: `GET /api/email/<email>/<message_id>`
+- **响应示例**:
+```json
+{
+  "success": true,
+  "email": {
+    "id": "AAMk...",
+    "subject": "邮件主题",
+    "from": "sender@example.com",
+    "to": "user@outlook.com",
+    "date": "2026-02-23T15:30:00Z",
+    "body": "<html>...</html>",
+    "body_type": "html"
+  }
+}
+```
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/temp-emails` | 获取所有临时邮箱 |
-| POST | `/api/temp-emails/generate` | 生成临时邮箱（支持 provider 切换） |
-| DELETE | `/api/temp-emails/<email>` | 删除临时邮箱 |
-| GET | `/api/temp-emails/<email>/messages` | 获取临时邮箱邮件 |
-| GET | `/api/temp-emails/<email>/messages/<id>` | 获取临时邮件详情 |
-| DELETE | `/api/temp-emails/<email>/messages/<id>` | 删除临时邮件 |
-| DELETE | `/api/temp-emails/<email>/clear` | 清空临时邮箱 |
-| POST | `/api/temp-emails/<email>/refresh` | 刷新临时邮箱 |
-| GET | `/api/duckmail/domains` | 获取 DuckMail 可用域名 |
+#### 批量删除邮件
+- **接口**: `POST /api/emails/delete`
+- **请求 Body (JSON)**:
+  - `email` (string, 必填): 对应邮箱地址
+  - `ids` (array<string>, 必填): 要删除的邮件 ID (`message_id`) 列表
+- **响应示例**:
+```json
+{
+  "success": true,
+  "message": "成功删除 1 封邮件",
+  "method": "Graph API"
+}
+```
 
-> [!NOTE]
-> `POST /api/temp-emails/generate` 支持 `provider` 参数：
-> - `gptmail`（默认）：一键生成，无需额外参数
-> - `duckmail`：需传 `domain`、`username`、`password`
+---
 
-### OAuth2 助手
+### 临时邮箱（支持 GPTMail 和 DuckMail）
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/oauth/auth-url` | 生成授权 URL |
-| POST | `/api/oauth/exchange-token` | 换取 Refresh Token |
+#### 获取 / 导入 / 清空 临时邮箱
+- **获取所有**: `GET /api/temp-emails`
+- **导入邮箱**: `POST /api/temp-emails/import` (Body: `account_string`, `provider`)
+- **清空某邮箱**: `DELETE /api/temp-emails/<email>/clear`
+- **删除邮箱**: `DELETE /api/temp-emails/<email>`
 
-### 系统设置
+#### 生成临时邮箱
+- **接口**: `POST /api/temp-emails/generate`
+- **请求 Body (JSON)**:
+  - `provider` (string): 填 `gptmail` 或 `duckmail`。默认 `gptmail`。
+  - 若为 `gptmail`: 可选 `prefix` 和 `domain`
+  - 若为 `duckmail`: 必填 `domain`、`username` 和 `password`
+- **响应示例**: `{"success": true, "email": "user@domain.com", "message": "临时邮箱创建成功"}`
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/settings` | 获取所有设置 |
-| PUT | `/api/settings` | 更新设置 |
+#### 获取临时邮件及详情
+- **获取列表**: `GET /api/temp-emails/<email>/messages`
+- **获取详情**: `GET /api/temp-emails/<email>/messages/<message_id>`
+- **删除邮件**: `DELETE /api/temp-emails/<email>/messages/<message_id>`
+
+---
+
+### 标签与系统设置
+
+- **获取标签**: `GET /api/tags`
+- **添加标签**: `POST /api/tags`
+- **管理多账号标签**: `POST /api/accounts/tags` (Body: `account_ids`, `tag_id`, `action`)
+- **获取设置**: `GET /api/settings`
+- **修改设置**: `PUT /api/settings`
 
 ---
 
