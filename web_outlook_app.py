@@ -17,6 +17,7 @@ import time
 import json
 import re
 import uuid
+import threading
 import bcrypt
 import base64
 import html
@@ -60,6 +61,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+scheduler_instance = None
+scheduler_lock = threading.Lock()
 
 
 # 初始化 CSRF 保护（如果可用）
@@ -4558,77 +4561,95 @@ def api_external_get_emails():
 
 def init_scheduler():
     """初始化定时任务调度器"""
-    try:
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from apscheduler.triggers.cron import CronTrigger
-        import atexit
+    global scheduler_instance
 
-        scheduler = BackgroundScheduler()
+    with scheduler_lock:
+        if scheduler_instance is not None:
+            return scheduler_instance
 
-        with app.app_context():
-            enable_scheduled = get_setting('enable_scheduled_refresh', 'true').lower() == 'true'
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from apscheduler.triggers.cron import CronTrigger
+            import atexit
 
-            if not enable_scheduled:
-                print("✓ 定时刷新已禁用")
-                return None
+            scheduler = BackgroundScheduler()
 
-            use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
+            with app.app_context():
+                enable_scheduled = get_setting('enable_scheduled_refresh', 'true').lower() == 'true'
 
-            if use_cron:
-                cron_expr = get_setting('refresh_cron', '0 2 * * *')
-                try:
-                    from croniter import croniter
-                    from datetime import datetime
-                    croniter(cron_expr, datetime.now())
+                if not enable_scheduled:
+                    print("✓ 定时刷新已禁用")
+                    return None
 
-                    parts = cron_expr.split()
-                    if len(parts) == 5:
-                        minute, hour, day, month, day_of_week = parts
-                        trigger = CronTrigger(
-                            minute=minute,
-                            hour=hour,
-                            day=day,
-                            month=month,
-                            day_of_week=day_of_week
-                        )
-                        scheduler.add_job(
-                            func=scheduled_refresh_task,
-                            trigger=trigger,
-                            id='token_refresh',
-                            name='Token 定时刷新',
-                            replace_existing=True
-                        )
-                        scheduler.start()
-                        print(f"✓ 定时任务已启动：Cron 表达式 '{cron_expr}'")
-                        atexit.register(lambda: scheduler.shutdown())
-                        return scheduler
-                    else:
-                        print(f"⚠ Cron 表达式格式错误，回退到默认配置")
-                except Exception as e:
-                    print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
+                use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
 
-            refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
-            scheduler.add_job(
-                func=scheduled_refresh_task,
-                trigger=CronTrigger(hour=2, minute=0),
-                id='token_refresh',
-                name='Token 定时刷新',
-                replace_existing=True
-            )
+                if use_cron:
+                    cron_expr = get_setting('refresh_cron', '0 2 * * *')
+                    try:
+                        from croniter import croniter
+                        from datetime import datetime
+                        croniter(cron_expr, datetime.now())
 
-            scheduler.start()
-            print(f"✓ 定时任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
+                        parts = cron_expr.split()
+                        if len(parts) == 5:
+                            minute, hour, day, month, day_of_week = parts
+                            trigger = CronTrigger(
+                                minute=minute,
+                                hour=hour,
+                                day=day,
+                                month=month,
+                                day_of_week=day_of_week
+                            )
+                            scheduler.add_job(
+                                func=scheduled_refresh_task,
+                                trigger=trigger,
+                                id='token_refresh',
+                                name='Token 定时刷新',
+                                replace_existing=True
+                            )
+                            scheduler.start()
+                            scheduler_instance = scheduler
+                            print(f"✓ 定时任务已启动：Cron 表达式 '{cron_expr}'")
+                            atexit.register(lambda: scheduler.shutdown())
+                            return scheduler_instance
+                        else:
+                            print(f"⚠ Cron 表达式格式错误，回退到默认配置")
+                    except Exception as e:
+                        print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
 
-        atexit.register(lambda: scheduler.shutdown())
+                refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
+                scheduler.add_job(
+                    func=scheduled_refresh_task,
+                    trigger=CronTrigger(hour=2, minute=0),
+                    id='token_refresh',
+                    name='Token 定时刷新',
+                    replace_existing=True
+                )
 
-        return scheduler
-    except ImportError:
-        print("⚠ APScheduler 未安装，定时任务功能不可用")
-        print("  安装命令：pip install APScheduler>=3.10.0")
+                scheduler.start()
+                scheduler_instance = scheduler
+                print(f"✓ 定时任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
+
+            atexit.register(lambda: scheduler.shutdown())
+
+            return scheduler_instance
+        except ImportError:
+            print("⚠ APScheduler 未安装，定时任务功能不可用")
+            print("  安装命令：pip install APScheduler>=3.10.0")
+            return None
+        except Exception as e:
+            print(f"⚠ 定时任务初始化失败：{str(e)}")
+            return None
+
+
+def ensure_scheduler_started():
+    """确保调度器已启动（兼容 gunicorn / docker compose）"""
+    if os.getenv('WERKZEUG_RUN_MAIN') == 'false':
         return None
-    except Exception as e:
-        print(f"⚠ 定时任务初始化失败：{str(e)}")
-        return None
+    return init_scheduler()
+
+
+ensure_scheduler_started()
 
 
 def scheduled_refresh_task():
@@ -4706,7 +4727,19 @@ def trigger_refresh_internal():
             account_id = account['id']
             account_email = account['email']
             client_id = account['client_id']
-            refresh_token = account['refresh_token']
+            encrypted_refresh_token = account['refresh_token']
+
+            try:
+                refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+            except Exception as e:
+                failed_count += 1
+                error_msg = f"解密 token 失败: {str(e)}"
+                conn.execute('''
+                    INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (account_id, account_email, 'scheduled', 'failed', error_msg))
+                conn.commit()
+                continue
 
             # 获取分组代理设置
             proxy_url = ''
@@ -4777,6 +4810,8 @@ if __name__ == '__main__':
     print(f"访问地址: http://{host}:{port}")
     print(f"运行模式: {'开发' if debug else '生产'}")
     print("=" * 60)
+
+    app.run(debug=debug, host=host, port=port)
 
     # 初始化定时任务
     scheduler = init_scheduler()

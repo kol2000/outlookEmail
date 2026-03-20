@@ -77,12 +77,18 @@ services:
 # 启动服务
 docker-compose up -d
 
-# 查看日志
+# 查看定时任务启动日志（应出现“定时任务已启动”）
 docker-compose logs -f
 
 # 停止服务
 docker-compose down
 ```
+
+## 定时刷新说明
+
+- 应用在 `python web_outlook_app.py`、Docker、Docker Compose、Gunicorn 单 worker 模式下都会自动初始化定时任务。
+- 如需确认定时任务是否已启动，可执行 `docker-compose logs -f`，日志中应出现“定时任务已启动”。
+- 若使用 Cron 模式，请确认已在系统设置中开启 `use_cron_schedule`，并填写正确的 5 段 Cron 表达式。
 
 ## 环境变量配置
 
