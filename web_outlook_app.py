@@ -120,7 +120,7 @@ TEMP_EMAIL_GROUP_ID = -1
 export_verify_tokens = {}
 
 # OAuth 配置
-OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "24d9a0ed-8787-4584-883c-2fd79308940a")
+OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "6daa9f56-5e67-4cb6-ae52-ef89ef912d36")
 OAUTH_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8080")
 OAUTH_SCOPES = [
     "offline_access",
@@ -4649,9 +4649,6 @@ def ensure_scheduler_started():
     return init_scheduler()
 
 
-ensure_scheduler_started()
-
-
 def scheduled_refresh_task():
     """定时刷新任务（由调度器调用）"""
     from datetime import datetime, timedelta
@@ -4699,6 +4696,9 @@ def scheduled_refresh_task():
 
     except Exception as e:
         print(f"[定时任务] 执行失败：{str(e)}")
+
+
+ensure_scheduler_started()
 
 
 def trigger_refresh_internal():
