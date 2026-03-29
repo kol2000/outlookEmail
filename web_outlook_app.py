@@ -413,6 +413,7 @@ def init_db():
             name TEXT UNIQUE NOT NULL,
             description TEXT,
             color TEXT DEFAULT '#1a1a1a',
+            sort_order INTEGER DEFAULT 0,
             is_system INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -532,6 +533,8 @@ def init_db():
     # 检查 groups 表是否有 is_system 列
     cursor.execute("PRAGMA table_info(groups)")
     group_columns = [col[1] for col in cursor.fetchall()]
+    if 'sort_order' not in group_columns:
+        cursor.execute('ALTER TABLE groups ADD COLUMN sort_order INTEGER DEFAULT 0')
     if 'is_system' not in group_columns:
         cursor.execute('ALTER TABLE groups ADD COLUMN is_system INTEGER DEFAULT 0')
     if 'proxy_url' not in group_columns:
@@ -560,6 +563,20 @@ def init_db():
         INSERT OR IGNORE INTO groups (name, description, color, is_system)
         VALUES ('临时邮箱', 'GPTMail 临时邮箱服务', '#00bcf2', 1)
     ''')
+
+    # 初始化分组排序值，保留已有顺序并确保临时邮箱固定在最前
+    cursor.execute('SELECT id, name, sort_order FROM groups ORDER BY id')
+    group_rows = cursor.fetchall()
+    next_sort_order = 1
+    for group_id, group_name, sort_order in group_rows:
+        target_sort_order = 0 if group_name == '临时邮箱' else next_sort_order
+        if group_name != '临时邮箱':
+            next_sort_order += 1
+        if sort_order != target_sort_order:
+            cursor.execute(
+                'UPDATE groups SET sort_order = ? WHERE id = ?',
+                (target_sort_order, group_id)
+            )
     
     # 初始化默认设置
     # 检查是否已有密码设置
@@ -777,11 +794,11 @@ def get_duckmail_api_key() -> str:
 def load_groups() -> List[Dict]:
     """加载所有分组（临时邮箱分组排在最前面）"""
     db = get_db()
-    # 使用 CASE 语句让临时邮箱分组排在最前面
     cursor = db.execute('''
         SELECT * FROM groups
         ORDER BY
             CASE WHEN name = '临时邮箱' THEN 0 ELSE 1 END,
+            sort_order,
             id
     ''')
     rows = cursor.fetchall()
@@ -800,10 +817,14 @@ def add_group(name: str, description: str = '', color: str = '#1a1a1a', proxy_ur
     """添加分组"""
     db = get_db()
     try:
+        cursor = db.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM groups WHERE name != '临时邮箱'"
+        )
+        next_order = cursor.fetchone()['next_order']
         cursor = db.execute('''
-            INSERT INTO groups (name, description, color, proxy_url)
-            VALUES (?, ?, ?, ?)
-        ''', (name, description, color, proxy_url or ''))
+            INSERT INTO groups (name, description, color, proxy_url, sort_order)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (name, description, color, proxy_url or '', next_order))
         db.commit()
         return cursor.lastrowid
     except sqlite3.IntegrityError:
@@ -845,6 +866,30 @@ def get_group_account_count(group_id: int) -> int:
     cursor = db.execute('SELECT COUNT(*) as count FROM accounts WHERE group_id = ?', (group_id,))
     row = cursor.fetchone()
     return row['count'] if row else 0
+
+
+def reorder_groups(group_ids: List[int]) -> bool:
+    """重新排序分组，临时邮箱分组固定在最前面"""
+    db = get_db()
+    try:
+        cursor = db.execute('SELECT id, name FROM groups')
+        groups = [dict(row) for row in cursor.fetchall()]
+        movable_ids = [group['id'] for group in groups if group['name'] != '临时邮箱']
+
+        if set(group_ids) != set(movable_ids):
+            return False
+
+        for index, group_id in enumerate(group_ids, start=1):
+            db.execute('UPDATE groups SET sort_order = ? WHERE id = ?', (index, group_id))
+
+        temp_group = next((group for group in groups if group['name'] == '临时邮箱'), None)
+        if temp_group:
+            db.execute('UPDATE groups SET sort_order = 0 WHERE id = ?', (temp_group['id'],))
+
+        db.commit()
+        return True
+    except Exception:
+        return False
 
 
 # ==================== 邮箱账号操作 ====================
@@ -1816,6 +1861,22 @@ def api_delete_group(group_id):
         return jsonify({'success': True, 'message': '分组已删除，邮箱已移至默认分组'})
     else:
         return jsonify({'success': False, 'error': '删除失败'})
+
+
+@app.route('/api/groups/reorder', methods=['PUT'])
+@login_required
+def api_reorder_groups():
+    """重新排序分组"""
+    data = request.json or {}
+    group_ids = data.get('group_ids', [])
+
+    if not isinstance(group_ids, list) or not all(isinstance(group_id, int) for group_id in group_ids):
+        return jsonify({'success': False, 'error': '分组排序参数无效'})
+
+    if reorder_groups(group_ids):
+        return jsonify({'success': True, 'message': '分组排序已更新'})
+    else:
+        return jsonify({'success': False, 'error': '分组排序失败'})
 
 
 @app.route('/api/groups/<int:group_id>/export')

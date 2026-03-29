@@ -190,6 +190,23 @@
             border-left: 3px solid transparent;
         }
 
+        .group-item.draggable {
+            cursor: grab;
+        }
+
+        .group-item.dragging {
+            opacity: 0.45;
+            cursor: grabbing;
+        }
+
+        .group-item.drag-over-top {
+            box-shadow: inset 0 3px 0 #1a1a1a;
+        }
+
+        .group-item.drag-over-bottom {
+            box-shadow: inset 0 -3px 0 #1a1a1a;
+        }
+
         .group-item:hover {
             background-color: #f0f0f0;
         }
@@ -266,6 +283,11 @@
         .group-action-btn:hover {
             background-color: #e0e0e0;
             color: #666;
+        }
+
+        .group-action-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         /* 邮箱账号面板 */
@@ -2722,10 +2744,18 @@ ${details}
                 const isSystem = group.is_system === 1 || group.name === '临时邮箱';
                 const isTempGroup = group.name === '临时邮箱';
                 const isDefault = group.id === 1;
+                const isDragging = draggingGroupId === group.id;
+                const dragOverTop = dragOverGroupId === group.id && dragOverPosition === 'top';
+                const dragOverBottom = dragOverGroupId === group.id && dragOverPosition === 'bottom';
 
                 return `
-                    <div class="group-item ${currentGroupId === group.id ? 'active' : ''} ${isTempGroup ? 'temp-email-group' : ''}"
+                    <div class="group-item ${currentGroupId === group.id ? 'active' : ''} ${isTempGroup ? 'temp-email-group' : ''} ${!isTempGroup ? 'draggable' : ''} ${isDragging ? 'dragging' : ''} ${dragOverTop ? 'drag-over-top' : ''} ${dragOverBottom ? 'drag-over-bottom' : ''}"
                          data-group-id="${group.id}"
+                         ${!isTempGroup ? `draggable="true"
+                         ondragstart="handleGroupDragStart(event, ${group.id})"
+                         ondragover="handleGroupDragOver(event, ${group.id})"
+                         ondrop="handleGroupDrop(event, ${group.id})"
+                         ondragend="handleGroupDragEnd()"` : ''}
                          onclick="selectGroup(${group.id})">
                         <div class="group-row-1">
                             <div class="group-color" style="background-color: ${group.color || '#666'}"></div>
@@ -2743,8 +2773,119 @@ ${details}
             }).join('');
         }
 
+        function clearGroupDragState() {
+            draggingGroupId = null;
+            dragOverGroupId = null;
+            dragOverPosition = null;
+        }
+
+        function getMovableGroups() {
+            return groups.filter(group => group.name !== '临时邮箱');
+        }
+
+        function handleGroupDragStart(event, groupId) {
+            draggingGroupId = groupId;
+            dragOverGroupId = null;
+            dragOverPosition = null;
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', String(groupId));
+            }
+            renderGroupList(groups);
+        }
+
+        function handleGroupDragOver(event, groupId) {
+            if (draggingGroupId === null || draggingGroupId === groupId) {
+                return;
+            }
+
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            const offsetY = event.clientY - rect.top;
+            dragOverGroupId = groupId;
+            dragOverPosition = offsetY < rect.height / 2 ? 'top' : 'bottom';
+            renderGroupList(groups);
+        }
+
+        function handleGroupDragEnd() {
+            suppressGroupClickUntil = Date.now() + 250;
+            clearGroupDragState();
+            renderGroupList(groups);
+        }
+
+        async function handleGroupDrop(event, targetGroupId) {
+            event.preventDefault();
+
+            if (draggingGroupId === null || draggingGroupId === targetGroupId) {
+                clearGroupDragState();
+                renderGroupList(groups);
+                return;
+            }
+
+            const movableGroups = getMovableGroups();
+            const sourceIndex = movableGroups.findIndex(group => group.id === draggingGroupId);
+            const targetIndex = movableGroups.findIndex(group => group.id === targetGroupId);
+
+            if (sourceIndex === -1 || targetIndex === -1) {
+                clearGroupDragState();
+                renderGroupList(groups);
+                return;
+            }
+
+            const reorderedGroups = [...movableGroups];
+            const [movedGroup] = reorderedGroups.splice(sourceIndex, 1);
+            let insertIndex = targetIndex;
+
+            if (dragOverPosition === 'bottom' && sourceIndex > targetIndex) {
+                insertIndex = targetIndex + 1;
+            }
+            if (dragOverPosition === 'top' && sourceIndex < targetIndex) {
+                insertIndex = targetIndex - 1;
+            }
+            if (dragOverPosition === 'bottom' && sourceIndex < targetIndex) {
+                insertIndex = targetIndex;
+            }
+            if (dragOverPosition === 'top' && sourceIndex > targetIndex) {
+                insertIndex = targetIndex;
+            }
+
+            reorderedGroups.splice(insertIndex, 0, movedGroup);
+
+            suppressGroupClickUntil = Date.now() + 250;
+            clearGroupDragState();
+            await persistGroupOrder(reorderedGroups);
+        }
+
+        async function persistGroupOrder(reorderedGroups) {
+            try {
+                const response = await fetch('/api/groups/reorder', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_ids: reorderedGroups.map(group => group.id)
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    await loadGroups();
+                } else {
+                    handleApiError(data, '更新分组排序失败');
+                    renderGroupList(groups);
+                }
+            } catch (error) {
+                showToast('更新分组排序失败', 'error');
+                renderGroupList(groups);
+            }
+        }
+
         // 选择分组
         async function selectGroup(groupId) {
+            if (Date.now() < suppressGroupClickUntil) {
+                return;
+            }
+
             currentGroupId = groupId;
             localStorage.setItem('outlook_last_group_id', groupId);
 
@@ -2940,6 +3081,10 @@ ${details}
         // 排序相关变量
         let currentSortBy = 'refresh_time';
         let currentSortOrder = 'asc';
+        let draggingGroupId = null;
+        let dragOverGroupId = null;
+        let dragOverPosition = null;
+        let suppressGroupClickUntil = 0;
 
         // 排序账号列表
         function sortAccounts(sortBy) {
