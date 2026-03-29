@@ -192,19 +192,20 @@
 
         .group-item.draggable {
             cursor: grab;
+            touch-action: pan-y;
         }
 
         .group-item.dragging {
             opacity: 0.45;
             cursor: grabbing;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
         }
 
-        .group-item.drag-over-top {
-            box-shadow: inset 0 3px 0 #1a1a1a;
-        }
-
-        .group-item.drag-over-bottom {
-            box-shadow: inset 0 -3px 0 #1a1a1a;
+        .group-placeholder {
+            margin: 6px 12px;
+            border: 2px dashed #1a1a1a;
+            border-radius: 10px;
+            background-color: rgba(26, 26, 26, 0.05);
         }
 
         .group-item:hover {
@@ -1536,6 +1537,11 @@
                     <input type="text" class="form-input" id="groupDescription" placeholder="可选">
                 </div>
                 <div class="form-group">
+                    <label class="form-label">排序位置</label>
+                    <select class="form-select" id="groupSortPosition"></select>
+                    <div class="form-hint">临时邮箱固定在最前，其他分组从第 1 位开始排序。</div>
+                </div>
+                <div class="form-group">
                     <label class="form-label">分组颜色</label>
                     <div class="color-picker-group" id="colorPicker">
                         <div class="color-option selected" style="background-color: #1a1a1a" data-color="#1a1a1a"></div>
@@ -2263,6 +2269,9 @@
             initColorPicker();
             initColorPicker();
             initEmailListScroll();
+            window.addEventListener('pointermove', handleGlobalGroupPointerMove, { passive: false });
+            window.addEventListener('pointerup', handleGlobalGroupPointerUp);
+            window.addEventListener('pointercancel', handleGlobalGroupPointerUp);
 
             // 绑定搜索框事件
             const searchInput = document.getElementById('globalSearch');
@@ -2694,6 +2703,10 @@ ${details}
 
                     renderGroupList(data.groups);
                     updateGroupSelects();
+                    if (document.getElementById('addGroupModal').classList.contains('show')) {
+                        const currentSortValue = parseInt(document.getElementById('groupSortPosition')?.value || '');
+                        updateGroupSortPositionOptions(editingGroupId, Number.isNaN(currentSortValue) ? null : currentSortValue);
+                    }
 
                     // 获取本地缓存的分组 ID（如果有的话）
                     if (!currentGroupId) {
@@ -2744,19 +2757,13 @@ ${details}
                 const isSystem = group.is_system === 1 || group.name === '临时邮箱';
                 const isTempGroup = group.name === '临时邮箱';
                 const isDefault = group.id === 1;
-                const isDragging = draggingGroupId === group.id;
-                const dragOverTop = dragOverGroupId === group.id && dragOverPosition === 'top';
-                const dragOverBottom = dragOverGroupId === group.id && dragOverPosition === 'bottom';
+                const isDragging = groupDragState.isDragging && groupDragState.groupId === group.id;
 
                 return `
-                    <div class="group-item ${currentGroupId === group.id ? 'active' : ''} ${isTempGroup ? 'temp-email-group' : ''} ${!isTempGroup ? 'draggable' : ''} ${isDragging ? 'dragging' : ''} ${dragOverTop ? 'drag-over-top' : ''} ${dragOverBottom ? 'drag-over-bottom' : ''}"
+                    <div class="group-item ${currentGroupId === group.id ? 'active' : ''} ${isTempGroup ? 'temp-email-group' : ''} ${!isTempGroup ? 'draggable' : ''} ${isDragging ? 'dragging' : ''}"
                          data-group-id="${group.id}"
-                         ${!isTempGroup ? `draggable="true"
-                         ondragstart="handleGroupDragStart(event, ${group.id})"
-                         ondragover="handleGroupDragOver(event, ${group.id})"
-                         ondrop="handleGroupDrop(event, ${group.id})"
-                         ondragend="handleGroupDragEnd()"` : ''}
-                         onclick="selectGroup(${group.id})">
+                         ${!isTempGroup ? `onpointerdown="handleGroupPointerDown(event, ${group.id})"` : ''}
+                         onclick="handleGroupClick(event, ${group.id})">
                         <div class="group-row-1">
                             <div class="group-color" style="background-color: ${group.color || '#666'}"></div>
                             <span class="group-name">${escapeHtml(group.name)}${isTempGroup ? ' ⚡' : ''}</span>
@@ -2773,96 +2780,242 @@ ${details}
             }).join('');
         }
 
-        function clearGroupDragState() {
-            draggingGroupId = null;
-            dragOverGroupId = null;
-            dragOverPosition = null;
-        }
-
         function getMovableGroups() {
             return groups.filter(group => group.name !== '临时邮箱');
         }
 
-        function handleGroupDragStart(event, groupId) {
-            draggingGroupId = groupId;
-            dragOverGroupId = null;
-            dragOverPosition = null;
-            if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', String(groupId));
-            }
-            renderGroupList(groups);
+        function reorderGroupData(orderIds) {
+            const tempGroups = groups.filter(group => group.name === '临时邮箱');
+            const movableMap = new Map(getMovableGroups().map(group => [group.id, group]));
+            groups = [...tempGroups, ...orderIds.map(id => movableMap.get(id)).filter(Boolean)];
         }
 
-        function handleGroupDragOver(event, groupId) {
-            if (draggingGroupId === null || draggingGroupId === groupId) {
+        function getGroupSortPositionCount(editingId = null) {
+            const movableGroups = groups.filter(group => group.name !== '临时邮箱' && group.id !== editingId);
+            return movableGroups.length + 1;
+        }
+
+        function updateGroupSortPositionOptions(editingId = null, selectedPosition = null) {
+            const select = document.getElementById('groupSortPosition');
+            if (!select) {
+                return;
+            }
+
+            const optionCount = getGroupSortPositionCount(editingId);
+            let html = '';
+            for (let position = 1; position <= optionCount; position += 1) {
+                let label = `第 ${position} 位`;
+                if (position === 1) {
+                    label += '（最前）';
+                } else if (position === optionCount) {
+                    label += '（最后）';
+                }
+                html += `<option value="${position}">${label}</option>`;
+            }
+            select.innerHTML = html;
+            select.value = String(selectedPosition || optionCount);
+        }
+
+        function handleGroupClick(event, groupId) {
+            if (Date.now() < suppressGroupClickUntil || groupDragState.isDragging) {
+                event.preventDefault();
+                return;
+            }
+            selectGroup(groupId);
+        }
+
+        function resetGroupDragState() {
+            if (groupDragState.pressTimer) {
+                clearTimeout(groupDragState.pressTimer);
+            }
+
+            if (groupDragState.placeholderEl && groupDragState.placeholderEl.parentNode) {
+                groupDragState.placeholderEl.parentNode.removeChild(groupDragState.placeholderEl);
+            }
+
+            if (groupDragState.sourceEl) {
+                groupDragState.sourceEl.classList.remove('dragging');
+                groupDragState.sourceEl.style.position = '';
+                groupDragState.sourceEl.style.left = '';
+                groupDragState.sourceEl.style.top = '';
+                groupDragState.sourceEl.style.width = '';
+                groupDragState.sourceEl.style.zIndex = '';
+                groupDragState.sourceEl.style.pointerEvents = '';
+            }
+
+            document.body.style.userSelect = '';
+            groupDragState = createGroupDragState();
+        }
+
+        function moveGroupPlaceholder(clientY) {
+            const container = document.getElementById('groupList');
+            const sourceEl = groupDragState.sourceEl;
+            const placeholderEl = groupDragState.placeholderEl;
+            if (!container || !sourceEl || !placeholderEl) {
+                return;
+            }
+
+            const movableItems = Array.from(container.querySelectorAll('.group-item.draggable'))
+                .filter(item => item !== sourceEl);
+
+            const nextItem = movableItems.find(item => {
+                const rect = item.getBoundingClientRect();
+                return clientY < rect.top + (rect.height / 2);
+            });
+
+            if (nextItem) {
+                container.insertBefore(placeholderEl, nextItem);
+            } else {
+                container.appendChild(placeholderEl);
+            }
+        }
+
+        function autoScrollGroupList(clientY) {
+            const container = document.getElementById('groupList');
+            if (!container) {
+                return;
+            }
+
+            const rect = container.getBoundingClientRect();
+            const edgeSize = 40;
+            if (clientY < rect.top + edgeSize) {
+                container.scrollTop -= 12;
+            } else if (clientY > rect.bottom - edgeSize) {
+                container.scrollTop += 12;
+            }
+        }
+
+        function startGroupDrag(clientX, clientY) {
+            const sourceEl = groupDragState.sourceEl;
+            if (!sourceEl || groupDragState.isDragging) {
+                return;
+            }
+
+            const rect = sourceEl.getBoundingClientRect();
+            const placeholderEl = document.createElement('div');
+            placeholderEl.className = 'group-placeholder';
+            placeholderEl.style.height = `${rect.height}px`;
+
+            sourceEl.parentNode.insertBefore(placeholderEl, sourceEl.nextSibling);
+            sourceEl.classList.add('dragging');
+            sourceEl.style.position = 'fixed';
+            sourceEl.style.left = `${rect.left}px`;
+            sourceEl.style.top = `${rect.top}px`;
+            sourceEl.style.width = `${rect.width}px`;
+            sourceEl.style.zIndex = '1200';
+            sourceEl.style.pointerEvents = 'none';
+
+            groupDragState.isDragging = true;
+            groupDragState.placeholderEl = placeholderEl;
+            groupDragState.offsetY = clientY - rect.top;
+            groupDragState.fixedLeft = rect.left;
+            suppressGroupClickUntil = Date.now() + 400;
+            document.body.style.userSelect = 'none';
+
+            moveGroupPlaceholder(clientY);
+        }
+
+        function handleGroupPointerDown(event, groupId) {
+            if (event.button !== undefined && event.button !== 0) {
+                return;
+            }
+            if (event.target.closest('.group-action-btn')) {
+                return;
+            }
+
+            const sourceEl = event.currentTarget;
+            groupDragState = createGroupDragState();
+            groupDragState.groupId = groupId;
+            groupDragState.pointerId = event.pointerId;
+            groupDragState.pointerType = event.pointerType || 'mouse';
+            groupDragState.sourceEl = sourceEl;
+            groupDragState.startX = event.clientX;
+            groupDragState.startY = event.clientY;
+
+            if (groupDragState.pointerType === 'touch') {
+                groupDragState.pressTimer = window.setTimeout(() => {
+                    startGroupDrag(groupDragState.startX, groupDragState.startY);
+                }, 280);
+            }
+        }
+
+        function handleGlobalGroupPointerMove(event) {
+            if (!groupDragState.sourceEl || event.pointerId !== groupDragState.pointerId) {
+                return;
+            }
+
+            const deltaX = event.clientX - groupDragState.startX;
+            const deltaY = event.clientY - groupDragState.startY;
+            const distance = Math.hypot(deltaX, deltaY);
+
+            if (!groupDragState.isDragging) {
+                if (groupDragState.pointerType === 'touch') {
+                    if (distance > 8) {
+                        resetGroupDragState();
+                    }
+                    return;
+                }
+
+                if (distance > 4) {
+                    startGroupDrag(event.clientX, event.clientY);
+                }
                 return;
             }
 
             event.preventDefault();
-            const rect = event.currentTarget.getBoundingClientRect();
-            const offsetY = event.clientY - rect.top;
-            dragOverGroupId = groupId;
-            dragOverPosition = offsetY < rect.height / 2 ? 'top' : 'bottom';
-            renderGroupList(groups);
+            groupDragState.sourceEl.style.left = `${groupDragState.fixedLeft}px`;
+            groupDragState.sourceEl.style.top = `${event.clientY - groupDragState.offsetY}px`;
+            autoScrollGroupList(event.clientY);
+            moveGroupPlaceholder(event.clientY);
         }
 
-        function handleGroupDragEnd() {
-            suppressGroupClickUntil = Date.now() + 250;
-            clearGroupDragState();
-            renderGroupList(groups);
-        }
+        async function finishGroupDrag() {
+            const container = document.getElementById('groupList');
+            const sourceEl = groupDragState.sourceEl;
+            const placeholderEl = groupDragState.placeholderEl;
 
-        async function handleGroupDrop(event, targetGroupId) {
-            event.preventDefault();
-
-            if (draggingGroupId === null || draggingGroupId === targetGroupId) {
-                clearGroupDragState();
-                renderGroupList(groups);
+            if (!container || !sourceEl || !placeholderEl) {
+                resetGroupDragState();
                 return;
             }
 
-            const movableGroups = getMovableGroups();
-            const sourceIndex = movableGroups.findIndex(group => group.id === draggingGroupId);
-            const targetIndex = movableGroups.findIndex(group => group.id === targetGroupId);
+            container.insertBefore(sourceEl, placeholderEl);
 
-            if (sourceIndex === -1 || targetIndex === -1) {
-                clearGroupDragState();
-                renderGroupList(groups);
+            const newOrder = Array.from(container.querySelectorAll('.group-item.draggable'))
+                .map(item => parseInt(item.dataset.groupId));
+            const previousOrder = getMovableGroups().map(group => group.id);
+
+            resetGroupDragState();
+
+            if (JSON.stringify(newOrder) === JSON.stringify(previousOrder)) {
                 return;
             }
 
-            const reorderedGroups = [...movableGroups];
-            const [movedGroup] = reorderedGroups.splice(sourceIndex, 1);
-            let insertIndex = targetIndex;
-
-            if (dragOverPosition === 'bottom' && sourceIndex > targetIndex) {
-                insertIndex = targetIndex + 1;
-            }
-            if (dragOverPosition === 'top' && sourceIndex < targetIndex) {
-                insertIndex = targetIndex - 1;
-            }
-            if (dragOverPosition === 'bottom' && sourceIndex < targetIndex) {
-                insertIndex = targetIndex;
-            }
-            if (dragOverPosition === 'top' && sourceIndex > targetIndex) {
-                insertIndex = targetIndex;
-            }
-
-            reorderedGroups.splice(insertIndex, 0, movedGroup);
-
-            suppressGroupClickUntil = Date.now() + 250;
-            clearGroupDragState();
-            await persistGroupOrder(reorderedGroups);
+            reorderGroupData(newOrder);
+            await persistGroupOrder(newOrder);
         }
 
-        async function persistGroupOrder(reorderedGroups) {
+        async function handleGlobalGroupPointerUp(event) {
+            if (!groupDragState.sourceEl || event.pointerId !== groupDragState.pointerId) {
+                return;
+            }
+
+            if (!groupDragState.isDragging) {
+                resetGroupDragState();
+                return;
+            }
+
+            suppressGroupClickUntil = Date.now() + 250;
+            await finishGroupDrag();
+        }
+
+        async function persistGroupOrder(groupIds) {
             try {
                 const response = await fetch('/api/groups/reorder', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        group_ids: reorderedGroups.map(group => group.id)
+                        group_ids: groupIds
                     })
                 });
                 const data = await response.json();
@@ -2872,11 +3025,11 @@ ${details}
                     await loadGroups();
                 } else {
                     handleApiError(data, '更新分组排序失败');
-                    renderGroupList(groups);
+                    await loadGroups();
                 }
             } catch (error) {
                 showToast('更新分组排序失败', 'error');
-                renderGroupList(groups);
+                await loadGroups();
             }
         }
 
@@ -3081,10 +3234,23 @@ ${details}
         // 排序相关变量
         let currentSortBy = 'refresh_time';
         let currentSortOrder = 'asc';
-        let draggingGroupId = null;
-        let dragOverGroupId = null;
-        let dragOverPosition = null;
         let suppressGroupClickUntil = 0;
+        function createGroupDragState() {
+            return {
+                groupId: null,
+                pointerId: null,
+                pointerType: 'mouse',
+                sourceEl: null,
+                placeholderEl: null,
+                pressTimer: null,
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                offsetY: 0,
+                fixedLeft: 0
+            };
+        }
+        let groupDragState = createGroupDragState();
 
         // 排序账号列表
         function sortAccounts(sortBy) {
@@ -3279,6 +3445,7 @@ ${details}
             document.getElementById('groupModalTitle').textContent = '添加分组';
             document.getElementById('groupName').value = '';
             document.getElementById('groupDescription').value = '';
+            updateGroupSortPositionOptions();
             selectedColor = '#1a1a1a';
             document.querySelectorAll('.color-option').forEach(o => {
                 o.classList.toggle('selected', o.dataset.color === selectedColor);
@@ -3305,6 +3472,7 @@ ${details}
                     document.getElementById('groupModalTitle').textContent = '编辑分组';
                     document.getElementById('groupName').value = data.group.name;
                     document.getElementById('groupDescription').value = data.group.description || '';
+                    updateGroupSortPositionOptions(groupId, data.group.sort_position);
                     selectedColor = data.group.color || '#1a1a1a';
 
                     // 检查是否是预设颜色
@@ -3336,6 +3504,7 @@ ${details}
         async function saveGroup() {
             const name = document.getElementById('groupName').value.trim();
             const description = document.getElementById('groupDescription').value.trim();
+            const sortPosition = parseInt(document.getElementById('groupSortPosition').value);
 
             if (!name) {
                 showToast('请输入分组名称', 'error');
@@ -3353,7 +3522,8 @@ ${details}
                         name,
                         description,
                         color: selectedColor,
-                        proxy_url: document.getElementById('groupProxyUrl').value.trim()
+                        proxy_url: document.getElementById('groupProxyUrl').value.trim(),
+                        sort_position: sortPosition
                     })
                 });
 

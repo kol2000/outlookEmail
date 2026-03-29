@@ -813,25 +813,97 @@ def get_group_by_id(group_id: int) -> Optional[Dict]:
     return dict(row) if row else None
 
 
-def add_group(name: str, description: str = '', color: str = '#1a1a1a', proxy_url: str = '') -> Optional[int]:
+def get_movable_group_ids(db=None, exclude_group_id: Optional[int] = None) -> List[int]:
+    """获取可排序分组 ID 列表（不含临时邮箱）"""
+    database = db or get_db()
+    query = '''
+        SELECT id FROM groups
+        WHERE name != '临时邮箱'
+    '''
+    params = []
+    if exclude_group_id is not None:
+        query += ' AND id != ?'
+        params.append(exclude_group_id)
+    query += ' ORDER BY sort_order, id'
+    cursor = database.execute(query, tuple(params))
+    return [row['id'] for row in cursor.fetchall()]
+
+
+def apply_group_order(group_ids: List[int], db=None) -> None:
+    """按给定顺序写入分组排序"""
+    database = db or get_db()
+    for index, group_id in enumerate(group_ids, start=1):
+        database.execute('UPDATE groups SET sort_order = ? WHERE id = ?', (index, group_id))
+
+    temp_group = database.execute(
+        "SELECT id FROM groups WHERE name = '临时邮箱' LIMIT 1"
+    ).fetchone()
+    if temp_group:
+        database.execute('UPDATE groups SET sort_order = 0 WHERE id = ?', (temp_group['id'],))
+
+
+def normalize_group_order(db=None) -> None:
+    """归一化分组顺序"""
+    database = db or get_db()
+    apply_group_order(get_movable_group_ids(database), database)
+
+
+def clamp_group_position(sort_position: Optional[int], max_position: int) -> int:
+    """限制分组位置范围，位置从 1 开始"""
+    if max_position <= 0:
+        return 1
+    if sort_position is None:
+        return max_position
+    return max(1, min(sort_position, max_position))
+
+
+def get_group_sort_position(group_id: int, db=None) -> Optional[int]:
+    """获取分组在可排序列表中的位置（从 1 开始）"""
+    group_ids = get_movable_group_ids(db)
+    try:
+        return group_ids.index(group_id) + 1
+    except ValueError:
+        return None
+
+
+def set_group_position(group_id: int, sort_position: Optional[int], db=None) -> bool:
+    """设置分组在可排序列表中的位置"""
+    database = db or get_db()
+    group = database.execute('SELECT id, name FROM groups WHERE id = ?', (group_id,)).fetchone()
+    if not group or group['name'] == '临时邮箱':
+        return False
+
+    group_ids = get_movable_group_ids(database, exclude_group_id=group_id)
+    target_position = clamp_group_position(sort_position, len(group_ids) + 1)
+    group_ids.insert(target_position - 1, group_id)
+    apply_group_order(group_ids, database)
+    return True
+
+
+def add_group(name: str, description: str = '', color: str = '#1a1a1a',
+              proxy_url: str = '', sort_position: Optional[int] = None) -> Optional[int]:
     """添加分组"""
     db = get_db()
     try:
         cursor = db.execute(
-            "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM groups WHERE name != '临时邮箱'"
-        )
-        next_order = cursor.fetchone()['next_order']
-        cursor = db.execute('''
+            '''
             INSERT INTO groups (name, description, color, proxy_url, sort_order)
             VALUES (?, ?, ?, ?, ?)
-        ''', (name, description, color, proxy_url or '', next_order))
+            ''',
+            (name, description, color, proxy_url or '', 999999)
+        )
+        group_id = cursor.lastrowid
+        set_group_position(group_id, sort_position, db)
         db.commit()
-        return cursor.lastrowid
+        return group_id
     except sqlite3.IntegrityError:
+        return None
+    except Exception:
         return None
 
 
-def update_group(group_id: int, name: str, description: str, color: str, proxy_url: str = '') -> bool:
+def update_group(group_id: int, name: str, description: str, color: str,
+                 proxy_url: str = '', sort_position: Optional[int] = None) -> bool:
     """更新分组"""
     db = get_db()
     try:
@@ -839,6 +911,8 @@ def update_group(group_id: int, name: str, description: str, color: str, proxy_u
             UPDATE groups SET name = ?, description = ?, color = ?, proxy_url = ?
             WHERE id = ?
         ''', (name, description, color, proxy_url or '', group_id))
+        if not set_group_position(group_id, sort_position, db):
+            return False
         db.commit()
         return True
     except Exception:
@@ -854,6 +928,7 @@ def delete_group(group_id: int) -> bool:
         # 删除分组（不能删除默认分组）
         if group_id != 1:
             db.execute('DELETE FROM groups WHERE id = ?', (group_id,))
+        normalize_group_order(db)
         db.commit()
         return True
     except Exception:
@@ -872,20 +947,12 @@ def reorder_groups(group_ids: List[int]) -> bool:
     """重新排序分组，临时邮箱分组固定在最前面"""
     db = get_db()
     try:
-        cursor = db.execute('SELECT id, name FROM groups')
-        groups = [dict(row) for row in cursor.fetchall()]
-        movable_ids = [group['id'] for group in groups if group['name'] != '临时邮箱']
+        movable_ids = get_movable_group_ids(db)
 
         if set(group_ids) != set(movable_ids):
             return False
 
-        for index, group_id in enumerate(group_ids, start=1):
-            db.execute('UPDATE groups SET sort_order = ? WHERE id = ?', (index, group_id))
-
-        temp_group = next((group for group in groups if group['name'] == '临时邮箱'), None)
-        if temp_group:
-            db.execute('UPDATE groups SET sort_order = 0 WHERE id = ?', (temp_group['id'],))
-
+        apply_group_order(group_ids, db)
         db.commit()
         return True
     except Exception:
@@ -1790,13 +1857,17 @@ def get_csrf_token():
 def api_get_groups():
     """获取所有分组"""
     groups = load_groups()
+    movable_position = 1
     # 添加每个分组的邮箱数量
     for group in groups:
         if group['name'] == '临时邮箱':
             # 临时邮箱分组从 temp_emails 表获取数量
             group['account_count'] = get_temp_email_count()
+            group['sort_position'] = None
         else:
             group['account_count'] = get_group_account_count(group['id'])
+            group['sort_position'] = movable_position
+            movable_position += 1
     return jsonify({'success': True, 'groups': groups})
 
 
@@ -1808,6 +1879,7 @@ def api_get_group(group_id):
     if not group:
         return jsonify({'success': False, 'error': '分组不存在'})
     group['account_count'] = get_group_account_count(group_id)
+    group['sort_position'] = get_group_sort_position(group_id)
     return jsonify({'success': True, 'group': group})
 
 
@@ -1820,11 +1892,17 @@ def api_add_group():
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
     proxy_url = data.get('proxy_url', '').strip()
+    sort_position_raw = data.get('sort_position')
 
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
 
-    group_id = add_group(name, description, color, proxy_url)
+    try:
+        sort_position = int(sort_position_raw) if sort_position_raw not in (None, '') else None
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': '排序位置无效'})
+
+    group_id = add_group(name, description, color, proxy_url, sort_position)
     if group_id:
         return jsonify({'success': True, 'message': '分组创建成功', 'group_id': group_id})
     else:
@@ -1840,11 +1918,17 @@ def api_update_group(group_id):
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
     proxy_url = data.get('proxy_url', '').strip()
+    sort_position_raw = data.get('sort_position')
 
     if not name:
         return jsonify({'success': False, 'error': '分组名称不能为空'})
 
-    if update_group(group_id, name, description, color, proxy_url):
+    try:
+        sort_position = int(sort_position_raw) if sort_position_raw not in (None, '') else None
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': '排序位置无效'})
+
+    if update_group(group_id, name, description, color, proxy_url, sort_position):
         return jsonify({'success': True, 'message': '分组更新成功'})
     else:
         return jsonify({'success': False, 'error': '更新失败'})
