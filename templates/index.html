@@ -2385,7 +2385,7 @@
             }
         }
 
-        // 切换文件夹（不触发查询）
+        // 切换文件夹（自动触发查询）
         function switchFolder(folder) {
             if (currentFolder === folder) return;
 
@@ -2418,7 +2418,7 @@
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">点击"获取邮件"按钮获取${folder === 'inbox' ? '收件箱' : '垃圾邮件'}</div>
+                        <div class="empty-state-text">正在自动刷新${folder === 'inbox' ? '收件箱' : '垃圾邮件'}...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';
@@ -2428,6 +2428,11 @@
                 currentEmails = [];
                 currentSkip = 0;
                 hasMoreEmails = true;
+            }
+
+            // 切换文件夹后自动刷新对应列表
+            if (currentAccount && !isTempEmailGroup) {
+                loadEmails(currentAccount, true);
             }
         }
 
@@ -4080,7 +4085,7 @@ ${details}
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">点击"获取邮件"按钮获取邮件</div>
+                        <div class="empty-state-text">正在自动刷新收件箱...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';
@@ -4095,6 +4100,9 @@ ${details}
                 </div>
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
+
+            // 选中账号后自动刷新收件箱
+            loadEmails(email, true);
         }
 
         // 显示添加账号模态框
