@@ -1407,6 +1407,11 @@
                         style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
                         DuckMail
                     </button>
+                    <button class="provider-filter-btn" data-provider="cloudflare"
+                        onclick="filterTempEmailByProvider('cloudflare')"
+                        style="padding: 4px 10px; font-size: 12px; background-color: #ffffff; border: 1px solid #e5e5e5; border-radius: 4px; color: #666; cursor: pointer; transition: all 0.15s;">
+                        Cloudflare
+                    </button>
                 </div>
             </div>
             <div class="sort-control"
@@ -1602,6 +1607,7 @@
                     <select class="form-select" id="importChannelSelect" onchange="updateImportHint()">
                         <option value="gptmail">GPTMail</option>
                         <option value="duckmail">DuckMail</option>
+                        <option value="cloudflare">Cloudflare</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1771,6 +1777,29 @@
                         <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="dk_ 前缀的 API Key">
                         <div class="form-hint">可选，用于获取私有域名。可从 <a href="https://domain.duckmail.sbs" target="_blank"
                                 style="color: #0078d4;">domain.duckmail.sbs</a> 获取</div>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #e5e5e5; margin: 24px 0; padding-top: 24px;">
+                    <h4 style="font-size: 15px; font-weight: 600; margin-bottom: 16px;">Cloudflare 临时邮箱设置</h4>
+
+                    <div class="form-group">
+                        <label class="form-label">Worker 域名</label>
+                        <input type="text" class="form-input" id="settingsCloudflareWorkerDomain"
+                            placeholder="your-worker.example.workers.dev">
+                        <div class="form-hint">只填写域名部分，不带 https://</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">邮箱域名列表</label>
+                        <input type="text" class="form-input" id="settingsCloudflareEmailDomains"
+                            placeholder="mail1.example.com, mail2.example.com">
+                        <div class="form-hint">多个域名用英文逗号分隔</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">管理员密码</label>
+                        <input type="password" class="form-input" id="settingsCloudflareAdminPassword"
+                            placeholder="对应 Cloudflare Temp Email 的 ADMIN_PASSWORD">
+                        <div class="form-hint">用于调用 <code>/admin/new_address</code></div>
                     </div>
                 </div>
 
@@ -3427,6 +3456,13 @@ ${details}
                         exampleEl.style.display = '';
                         exampleEl.textContent = '示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2';
                     }
+                } else if (channel === 'cloudflare') {
+                    hintEl.textContent = '格式：邮箱----JWT，每行一个';
+                    inputEl.placeholder = '邮箱----JWT';
+                    if (exampleEl) {
+                        exampleEl.style.display = '';
+                        exampleEl.textContent = '示例：\nuser@example.com----eyJhbGciOi...\nuser2@example.com----eyJ0eXAiOi...';
+                    }
                 } else {
                     hintEl.textContent = '格式：每行一个邮箱地址';
                     inputEl.placeholder = '每行一个邮箱地址';
@@ -3615,7 +3651,8 @@ ${details}
             const filtered = filter === 'all' ? emails : emails.filter(e => e.provider === filter);
 
             if (filtered.length === 0) {
-                const hint = filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${filter === 'duckmail' ? 'DuckMail' : 'GPTMail'} 邮箱`;
+                const providerName = filter === 'duckmail' ? 'DuckMail' : (filter === 'cloudflare' ? 'Cloudflare' : 'GPTMail');
+                const hint = filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${providerName} 邮箱`;
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚡</div>
@@ -3635,7 +3672,6 @@ ${details}
                     </div>
                     <div class="account-actions" style="flex-shrink: 0;">
                         <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(email.email)}')" title="复制邮箱">复制</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); clearTempEmailMessages('${escapeJs(email.email)}')" title="清空邮件">清空</button>
                         <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteTempEmail('${escapeJs(email.email)}')" title="删除">删除</button>
                     </div>
                 </div>
@@ -3675,6 +3711,10 @@ ${details}
                                         <input type="radio" name="tempEmailProvider" value="duckmail" onchange="toggleTempEmailProvider('duckmail')">
                                         <span style="font-weight: 600;">DuckMail</span>
                                     </label>
+                                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 10px 16px; border: 2px solid #e5e5e5; border-radius: 8px; flex: 1; transition: all 0.2s;" id="providerLabelCloudflare">
+                                        <input type="radio" name="tempEmailProvider" value="cloudflare" onchange="toggleTempEmailProvider('cloudflare')">
+                                        <span style="font-weight: 600;">Cloudflare</span>
+                                    </label>
                                 </div>
                             </div>
                             <div id="gptmailFields">
@@ -3695,6 +3735,19 @@ ${details}
                                     <label class="form-label">密码</label>
                                     <input type="password" class="form-input" id="duckmailPassword" placeholder="至少 6 个字符">
                                     <div class="form-hint">用于登录邮箱，请牢记密码。邮件保存 3 天，账号不会自动删除</div>
+                                </div>
+                            </div>
+                            <div id="cloudflareFields" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label">域名</label>
+                                    <select class="form-input" id="cloudflareDomain" style="width: 100%;">
+                                        <option value="">加载中...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">用户名（可选）</label>
+                                    <input type="text" class="form-input" id="cloudflareUsername" placeholder="留空则随机生成">
+                                    <div class="form-hint">如填写，至少 3 个字符；不填则后端自动生成随机前缀</div>
                                 </div>
                             </div>
                         </div>
@@ -3721,25 +3774,44 @@ ${details}
 
             const gptmailFields = document.getElementById('gptmailFields');
             const duckmailFields = document.getElementById('duckmailFields');
+            const cloudflareFields = document.getElementById('cloudflareFields');
             const labelGpt = document.getElementById('providerLabelGptmail');
             const labelDuck = document.getElementById('providerLabelDuckmail');
+            const labelCloudflare = document.getElementById('providerLabelCloudflare');
 
             if (provider === 'duckmail') {
                 gptmailFields.style.display = 'none';
                 duckmailFields.style.display = 'block';
+                cloudflareFields.style.display = 'none';
                 labelGpt.style.borderColor = '#e5e5e5';
                 labelGpt.style.backgroundColor = 'transparent';
                 labelDuck.style.borderColor = '#1a1a1a';
                 labelDuck.style.backgroundColor = '#f8f8f8';
+                labelCloudflare.style.borderColor = '#e5e5e5';
+                labelCloudflare.style.backgroundColor = 'transparent';
                 // 加载 DuckMail 域名
                 loadDuckmailDomains();
+            } else if (provider === 'cloudflare') {
+                gptmailFields.style.display = 'none';
+                duckmailFields.style.display = 'none';
+                cloudflareFields.style.display = 'block';
+                labelGpt.style.borderColor = '#e5e5e5';
+                labelGpt.style.backgroundColor = 'transparent';
+                labelDuck.style.borderColor = '#e5e5e5';
+                labelDuck.style.backgroundColor = 'transparent';
+                labelCloudflare.style.borderColor = '#1a1a1a';
+                labelCloudflare.style.backgroundColor = '#f8f8f8';
+                loadCloudflareDomains();
             } else {
                 gptmailFields.style.display = 'block';
                 duckmailFields.style.display = 'none';
+                cloudflareFields.style.display = 'none';
                 labelGpt.style.borderColor = '#1a1a1a';
                 labelGpt.style.backgroundColor = '#f8f8f8';
                 labelDuck.style.borderColor = '#e5e5e5';
                 labelDuck.style.backgroundColor = 'transparent';
+                labelCloudflare.style.borderColor = '#e5e5e5';
+                labelCloudflare.style.backgroundColor = 'transparent';
             }
         }
 
@@ -3749,6 +3821,26 @@ ${details}
             select.innerHTML = '<option value="">加载中...</option>';
             try {
                 const response = await fetch('/api/duckmail/domains');
+                const data = await response.json();
+                if (data.success && data.domains && data.domains.length > 0) {
+                    select.innerHTML = data.domains.map(d =>
+                        `<option value="${escapeHtml(d.domain)}">${escapeHtml(d.domain)}</option>`
+                    ).join('');
+                } else if (data.error) {
+                    select.innerHTML = `<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
+                } else {
+                    select.innerHTML = '<option value="">无可用域名</option>';
+                }
+            } catch (error) {
+                select.innerHTML = `<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
+            }
+        }
+
+        async function loadCloudflareDomains() {
+            const select = document.getElementById('cloudflareDomain');
+            select.innerHTML = '<option value="">加载中...</option>';
+            try {
+                const response = await fetch('/api/cloudflare/domains');
                 const data = await response.json();
                 if (data.success && data.domains && data.domains.length > 0) {
                     select.innerHTML = data.domains.map(d =>
@@ -3790,6 +3882,18 @@ ${details}
                     }
                     if (!body.password || body.password.length < 6) {
                         showToast('密码至少 6 个字符', 'error');
+                        return;
+                    }
+                } else if (provider === 'cloudflare') {
+                    body.domain = document.getElementById('cloudflareDomain').value;
+                    body.username = document.getElementById('cloudflareUsername').value.trim();
+
+                    if (!body.domain) {
+                        showToast('请选择域名', 'error');
+                        return;
+                    }
+                    if (body.username && body.username.length < 3) {
+                        showToast('用户名至少 3 个字符，或留空随机生成', 'error');
                         return;
                     }
                 }
@@ -3963,12 +4067,16 @@ ${details}
 
                 if (data.success) {
                     currentEmails = data.emails;
-                    currentMethod = data.method === 'DuckMail' ? 'duckmail' : 'gptmail';
+                    currentMethod = data.method === 'DuckMail'
+                        ? 'duckmail'
+                        : (data.method === 'Cloudflare' ? 'cloudflare' : 'gptmail');
 
                     const methodTag = document.getElementById('methodTag');
                     methodTag.textContent = data.method || 'GPTMail';
                     methodTag.style.display = 'inline';
-                    methodTag.style.backgroundColor = data.method === 'DuckMail' ? '#ff9800' : '#00bcf2';
+                    methodTag.style.backgroundColor = data.method === 'DuckMail'
+                        ? '#ff9800'
+                        : (data.method === 'Cloudflare' ? '#f48120' : '#00bcf2');
                     methodTag.style.color = 'white';
 
                     document.getElementById('emailCount').textContent = `(${data.count})`;
@@ -4006,6 +4114,8 @@ ${details}
             });
 
             document.getElementById('emailDetailToolbar').style.display = 'flex';
+            const deleteBtn = document.querySelector('#emailDetailToolbar .batch-btn.danger');
+            if (deleteBtn) deleteBtn.style.display = 'none';
 
             const container = document.getElementById('emailDetail');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
@@ -4710,6 +4820,10 @@ ${details}
 
         function updateEmailBatchActionBar() {
             const bar = document.getElementById('emailBatchActionBar');
+            if (isTempEmailGroup) {
+                bar.style.display = 'none';
+                return;
+            }
             if (selectedEmailIds.size > 0) {
                 bar.style.display = 'flex';
                 document.getElementById('emailSelectedCount').textContent = `已选 ${selectedEmailIds.size} 项`;
@@ -4729,6 +4843,7 @@ ${details}
         }
 
         async function confirmDeleteCurrentEmail() {
+            if (isTempEmailGroup) return;
             if (!currentEmailDetail || !currentEmailDetail.id) return;
 
             if (!confirm('确定要永久删除这封邮件吗？此操作不可恢复！')) {
@@ -4803,6 +4918,8 @@ ${details}
 
             // 显示工具栏
             document.getElementById('emailDetailToolbar').style.display = 'flex';
+            const deleteBtn = document.querySelector('#emailDetailToolbar .batch-btn.danger');
+            if (deleteBtn) deleteBtn.style.display = '';
 
             // 加载邮件详情
             const container = document.getElementById('emailDetail');
@@ -5376,6 +5493,10 @@ ${details}
                     // DuckMail 设置
                     document.getElementById('settingsDuckmailBaseUrl').value = data.settings.duckmail_base_url || '';
                     document.getElementById('settingsDuckmailApiKey').value = data.settings.duckmail_api_key || '';
+                    // Cloudflare 设置
+                    document.getElementById('settingsCloudflareWorkerDomain').value = data.settings.cloudflare_worker_domain || '';
+                    document.getElementById('settingsCloudflareEmailDomains').value = data.settings.cloudflare_email_domains || '';
+                    document.getElementById('settingsCloudflareAdminPassword').value = data.settings.cloudflare_admin_password || '';
 
                     // 密码框留空
                     document.getElementById('settingsPassword').value = '';
@@ -5482,6 +5603,9 @@ ${details}
             // DuckMail 设置
             settings.duckmail_base_url = document.getElementById('settingsDuckmailBaseUrl').value.trim();
             settings.duckmail_api_key = document.getElementById('settingsDuckmailApiKey').value.trim();
+            settings.cloudflare_worker_domain = document.getElementById('settingsCloudflareWorkerDomain').value.trim();
+            settings.cloudflare_email_domains = document.getElementById('settingsCloudflareEmailDomains').value.trim();
+            settings.cloudflare_admin_password = document.getElementById('settingsCloudflareAdminPassword').value.trim();
 
             // 刷新配置
             const days = parseInt(refreshDays);

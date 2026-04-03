@@ -260,20 +260,22 @@ curl -H "X-API-Key: your-api-key" \
 
 ---
 
-### 临时邮箱（支持 GPTMail 和 DuckMail）
+### 临时邮箱（支持 GPTMail、DuckMail 和 Cloudflare）
 
 #### 获取 / 导入 / 清空 临时邮箱
 - **获取所有**: `GET /api/temp-emails`
 - **导入邮箱**: `POST /api/temp-emails/import` (Body: `account_string`, `provider`)
 - **清空某邮箱**: `DELETE /api/temp-emails/<email>/clear`
 - **删除邮箱**: `DELETE /api/temp-emails/<email>`
+- **获取 Cloudflare 域名**: `GET /api/cloudflare/domains`
 
 #### 生成临时邮箱
 - **接口**: `POST /api/temp-emails/generate`
 - **请求 Body (JSON)**:
-  - `provider` (string): 填 `gptmail` 或 `duckmail`。默认 `gptmail`。
+  - `provider` (string): 填 `gptmail`、`duckmail` 或 `cloudflare`。默认 `gptmail`。
   - 若为 `gptmail`: 可选 `prefix` 和 `domain`
   - 若为 `duckmail`: 必填 `domain`、`username` 和 `password`
+  - 若为 `cloudflare`: 必填 `domain`，可选 `username`（留空则随机生成）
 - **响应示例**: `{"success": true, "email": "user@domain.com", "message": "临时邮箱创建成功"}`
 
 #### 获取临时邮件及详情
