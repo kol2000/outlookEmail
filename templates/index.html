@@ -5322,7 +5322,13 @@ ${details}
         function formatDate(dateStr) {
             if (!dateStr) return '';
             try {
-                const date = new Date(dateStr);
+                let normalizedDate = dateStr;
+                if (typeof dateStr === 'number' || /^\d+$/.test(String(dateStr))) {
+                    const timestamp = Number(dateStr);
+                    normalizedDate = timestamp < 1000000000000 ? timestamp * 1000 : timestamp;
+                }
+
+                const date = new Date(normalizedDate);
                 if (isNaN(date.getTime())) return dateStr;
 
                 const now = new Date();
@@ -6079,6 +6085,9 @@ ${details}
             let date;
             if (dateStr instanceof Date) {
                 date = dateStr;
+            } else if (typeof dateStr === 'number' || /^\d+$/.test(String(dateStr))) {
+                const timestamp = Number(dateStr);
+                date = new Date(timestamp < 1000000000000 ? timestamp * 1000 : timestamp);
             } else {
                 // 如果字符串不包含时区信息，假定为 UTC 时间
                 if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {

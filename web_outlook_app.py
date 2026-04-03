@@ -1355,6 +1355,40 @@ def generate_random_temp_name() -> str:
     return f"{secrets.token_hex(3)}{secrets.randbelow(1000)}"
 
 
+def build_cloudflare_domain_candidates(domain: str) -> List[str]:
+    """为 Cloudflare 创建邮箱生成可回退的域名候选列表"""
+    normalized = domain.strip().lower().lstrip('@').rstrip('.')
+    if not normalized:
+        return []
+
+    candidates: List[str] = [normalized]
+    labels = [label for label in normalized.split('.') if label]
+    if len(labels) < 3:
+        return candidates
+
+    common_second_level_suffixes = {
+        'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn',
+        'co.uk', 'org.uk', 'ac.uk',
+        'com.hk', 'com.sg',
+        'com.au', 'net.au', 'org.au',
+        'co.jp'
+    }
+
+    last_two = '.'.join(labels[-2:])
+    last_three = '.'.join(labels[-3:]) if len(labels) >= 3 else ''
+
+    if last_three and last_two in common_second_level_suffixes:
+        if last_three not in candidates:
+            candidates.append(last_three)
+    elif last_two not in candidates:
+        candidates.append(last_two)
+
+    if last_three and last_three not in candidates:
+        candidates.append(last_three)
+
+    return candidates
+
+
 def parse_raw_email_to_temp_message(email_addr: str, raw_email: str, fallback_id: str = None,
                                     fallback_timestamp: int = 0) -> Dict[str, Any]:
     """将原始邮件解析为统一的临时邮箱消息格式"""
@@ -3726,12 +3760,30 @@ def cloudflare_create_address(username: str = None, domain: str = None) -> Optio
     if not selected_domain:
         return {'success': False, 'error': '未配置可用域名'}
 
-    payload = {
-        'enablePrefix': True,
-        'name': username or generate_random_temp_name(),
-        'domain': selected_domain
-    }
-    return cloudflare_temp_request('POST', '/admin/new_address', admin_auth=True, json_data=payload)
+    email_name = username or generate_random_temp_name()
+    last_error: Optional[Dict] = None
+
+    for candidate_domain in build_cloudflare_domain_candidates(selected_domain):
+        payload = {
+            'enablePrefix': True,
+            'name': email_name,
+            'domain': candidate_domain
+        }
+        result = cloudflare_temp_request('POST', '/admin/new_address', admin_auth=True, json_data=payload)
+        if result and result.get('jwt') and result.get('address'):
+            return result
+
+        last_error = result
+        error_text = str((result or {}).get('error', '')).lower()
+        if 'invalid domain' not in error_text:
+            break
+
+    if last_error and 'invalid domain' in str(last_error.get('error', '')).lower():
+        last_error['error'] = (
+            f"{last_error.get('error')}，请确认该域名已配置到 cloudflare_temp_email 的 DOMAINS/DEFAULT_DOMAINS，"
+            "且如使用子域名收信，已按官方文档完成子域名邮箱配置"
+        )
+    return last_error
 
 
 def cloudflare_get_messages(jwt: str, limit: int = 50, offset: int = 0) -> Optional[List[Dict]]:
