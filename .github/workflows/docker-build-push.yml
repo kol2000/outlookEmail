@@ -5,11 +5,17 @@ on:
     branches:
       - main
       - master
+      - dev
+    tags:
+      - 'v*'
     paths:
       - '**.py'
       - 'requirements.txt'
       - 'Dockerfile'
       - 'templates/**'
+      - 'VERSION'
+      - 'README.md'
+      - 'CHANGELOG.md'
   workflow_dispatch:
 
 env:
@@ -46,6 +52,9 @@ jobs:
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5

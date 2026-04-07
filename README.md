@@ -69,6 +69,39 @@ Web 应用采用四栏式布局设计：
 
 ## 📦 快速开始
 
+## 🌿 版本管理与发布
+
+本项目采用轻量化双分支版本管理：
+
+- `main`：稳定分支，只保留可发布版本
+- `dev`：开发分支，日常功能开发与修复默认在这里进行
+
+版本号遵循语义化版本（Semantic Versioning）：
+
+- `v1.0.0`：首个稳定正式版
+- `v1.0.1`：向后兼容的问题修复
+- `v1.1.0`：向后兼容的新功能
+- `v2.0.0`：包含不兼容变更的大版本
+
+仓库中的版本相关文件：
+
+- `VERSION`：当前仓库内定义的版本号
+- `CHANGELOG.md`：版本变更记录
+- Git Tag：正式发布标签，如 `v1.0.0`
+
+推荐发布流程：
+
+1. 在 `dev` 分支完成开发与验证
+2. 合并到 `main`
+3. 更新 `VERSION` 与 `CHANGELOG.md`
+4. 在 `main` 上打正式标签，例如 `v1.0.0`
+
+Docker 镜像标签约定：
+
+- `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
+- `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
+- `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像
+
 ### 方式一：使用 Docker（推荐）
 
 ```bash
@@ -228,7 +261,7 @@ curl -H "X-API-Key: your-api-key" \
 | [🔐 安全配置](docs/security.md) | XSS/CSRF 防护、数据加密、速率限制、审计日志 |
 | [📡 API 文档](docs/api.md) | 对外 API、内部 API 端点、代理配置 |
 | [🛠️ 故障排查](docs/troubleshooting.md) | 常见问题、故障排查步骤 |
-| [📋 更新日志](docs/changelog.md) | 版本更新历史 |
+| [📋 更新日志](CHANGELOG.md) | 版本更新历史 |
 
 ## 🏗️ 技术架构
 
