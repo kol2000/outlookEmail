@@ -2404,6 +2404,30 @@
                                 </div>
                             </section>
                         </div>
+                        <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" type="button" onclick="loadForwardingLogs()">查看转发历史</button>
+                            <button class="btn btn-secondary" type="button" onclick="loadFailedForwardingLogs()">查看转发失败</button>
+                        </div>
+                        <div id="forwardingLogsContainer" style="display: none; margin-top: 16px;">
+                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #f8f9fa; border-radius: 6px;">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span>📨</span>
+                                    <span>最近转发历史</span>
+                                </span>
+                                <button class="btn btn-sm btn-secondary" type="button" onclick="hideForwardingLogs()">隐藏</button>
+                            </div>
+                            <div id="forwardingLogsList" style="max-height: 320px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;"></div>
+                        </div>
+                        <div id="failedForwardingLogsContainer" style="display: none; margin-top: 16px;">
+                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #fff5f5; border-radius: 6px;">
+                                <span style="display: flex; align-items: center; gap: 6px; color: #dc3545;">
+                                    <span>❌</span>
+                                    <span>最近转发失败</span>
+                                </span>
+                                <button class="btn btn-sm btn-secondary" type="button" onclick="hideFailedForwardingLogs()">隐藏</button>
+                            </div>
+                            <div id="failedForwardingLogsList" style="max-height: 320px; overflow-y: auto; border: 1px solid #f3d6d6; border-radius: 6px; background-color: white;"></div>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -2697,6 +2721,27 @@
         </div>
     </div>
 
+    <div class="modal" id="accountForwardingLogsModal" onclick="if(event.target === this) hideAccountForwardingLogs()">
+        <div class="modal-content" style="width: 760px; max-width: 92vw;">
+            <div class="modal-header">
+                <h3 id="accountForwardingLogsTitle">转发日志</h3>
+                <button class="modal-close" onclick="hideAccountForwardingLogs()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer; font-size: 13px; color: #666;">
+                    <input type="checkbox" id="accountForwardingLogsFailedOnly" onchange="toggleAccountForwardingLogFilter()">
+                    <span>只看失败</span>
+                </label>
+                <div id="accountForwardingLogsList" style="max-height: 420px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;">
+                    <div style="padding: 20px; text-align: center; color: #666;">加载中...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAccountForwardingLogs()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 获取 Refresh Token 模态框 -->
     <div class="modal" id="getRefreshTokenModal" onclick="if(event.target === this) hideGetRefreshTokenModal()">
         <div class="modal-content" style="width: 600px;">
@@ -2761,6 +2806,8 @@
         let isListVisible = true;
         let groups = [];
         let accountsCache = {}; // 缓存各分组的邮箱列表
+        let currentForwardingLogAccountId = null;
+        let currentForwardingLogAccountEmail = '';
         let editingGroupId = null;
         let selectedColor = '#1a1a1a';
         let isTempEmailGroup = false; // 是否是临时邮箱分组
@@ -3056,6 +3103,72 @@
                 hideRefreshErrorModal();
                 showEditAccountModal(accountId);
             };
+        }
+
+        async function showAccountForwardingLogs(accountId, accountEmail) {
+            currentForwardingLogAccountId = accountId;
+            currentForwardingLogAccountEmail = accountEmail || '';
+            const modal = document.getElementById('accountForwardingLogsModal');
+            const title = document.getElementById('accountForwardingLogsTitle');
+            title.textContent = `${accountEmail || '该账号'} 的转发日志`;
+            modal.classList.add('show');
+            await loadAccountForwardingLogs();
+        }
+
+        async function loadAccountForwardingLogs() {
+            const listEl = document.getElementById('accountForwardingLogsList');
+            const failedOnly = !!document.getElementById('accountForwardingLogsFailedOnly')?.checked;
+            if (!currentForwardingLogAccountId) {
+                listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">未选择账号</div>';
+                return;
+            }
+
+            listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>';
+
+            try {
+                const suffix = failedOnly ? '&failed_only=1' : '';
+                const response = await fetch(`/api/accounts/${currentForwardingLogAccountId}/forwarding-logs?limit=100${suffix}`);
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.logs)) {
+                    throw new Error('加载失败');
+                }
+                if (data.logs.length === 0) {
+                    listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">${failedOnly ? '该账号暂无失败转发日志' : '该账号暂无转发日志'}</div>`;
+                    return;
+                }
+
+                let html = '';
+                data.logs.forEach(log => {
+                    const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
+                    const statusText = log.status === 'success' ? '成功' : '失败';
+                    html += `
+                        <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
+                            <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                                <div style="font-weight: 600;">${escapeHtml(log.account_email || currentForwardingLogAccountEmail || '-')}</div>
+                                <div style="font-size: 12px; color: ${statusColor}; font-weight: 600;">${statusText}</div>
+                            </div>
+                            <div style="font-size: 12px; color: #666; line-height: 1.7;">
+                                <div>渠道：${escapeHtml(log.channel || '-')}</div>
+                                <div>邮件 ID：${escapeHtml(log.message_id || '-')}</div>
+                                <div>时间：${formatDateTime(log.created_at)}</div>
+                            </div>
+                            ${log.error_message ? `<div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message)}</div>` : ''}
+                        </div>
+                    `;
+                });
+                listEl.innerHTML = html;
+            } catch (error) {
+                listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">加载账号转发日志失败</div>';
+            }
+        }
+
+        function toggleAccountForwardingLogFilter() {
+            if (!currentForwardingLogAccountId) return;
+            loadAccountForwardingLogs();
+        }
+
+        function hideAccountForwardingLogs() {
+            document.getElementById('accountForwardingLogsModal').classList.remove('show');
         }
 
         // 隐藏刷新错误模态框
@@ -3784,6 +3897,7 @@ ${details}
                     </div>
                     <div class="account-actions">
                         <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(acc.email)}')" title="复制邮箱">复制</button>
+                        <button class="account-action-btn" onclick="event.stopPropagation(); showAccountForwardingLogs(${acc.id}, '${escapeJs(acc.email)}')" title="转发日志">转发日志</button>
                         <button class="account-action-btn" onclick="event.stopPropagation(); toggleAccountStatus(${acc.id}, '${escapeJs(acc.status || 'active')}')" title="${acc.status === 'inactive' ? '启用' : '停用'}">${acc.status === 'inactive' ? '启用' : '停用'}</button>
                         <button class="account-action-btn" onclick="event.stopPropagation(); showEditAccountModal(${acc.id})" title="编辑">编辑</button>
                         <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteAccount(${acc.id}, '${escapeJs(acc.email)}')" title="删除">删除</button>
@@ -7178,9 +7292,97 @@ ${details}
             }
         }
 
+        async function loadForwardingLogs() {
+            const container = document.getElementById('forwardingLogsContainer');
+            const listEl = document.getElementById('forwardingLogsList');
+            hideFailedForwardingLogs();
+
+            try {
+                const response = await fetch('/api/accounts/forwarding-logs?limit=100');
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.logs.length === 0) {
+                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无转发历史</div>';
+                    } else {
+                        let html = '';
+                        data.logs.forEach(log => {
+                            const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
+                            const statusText = log.status === 'success' ? '成功' : '失败';
+                            html += `
+                                <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
+                                    <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                                        <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
+                                        <div style="font-size: 12px; color: ${statusColor}; font-weight: 600;">${statusText}</div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666; line-height: 1.7;">
+                                        <div>渠道：${escapeHtml(log.channel || '-')}</div>
+                                        <div>邮件 ID：${escapeHtml(log.message_id || '-')}</div>
+                                        <div>时间：${formatDateTime(log.created_at)}</div>
+                                    </div>
+                                    ${log.error_message ? `<div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message)}</div>` : ''}
+                                </div>
+                            `;
+                        });
+                        listEl.innerHTML = html;
+                    }
+                    container.style.display = 'block';
+                }
+            } catch (error) {
+                showToast('加载转发历史失败', 'error');
+            }
+        }
+
+        async function loadFailedForwardingLogs() {
+            const container = document.getElementById('failedForwardingLogsContainer');
+            const listEl = document.getElementById('failedForwardingLogsList');
+            hideForwardingLogs();
+
+            try {
+                const response = await fetch('/api/accounts/forwarding-logs/failed?limit=100');
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.logs.length === 0) {
+                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无转发失败记录</div>';
+                    } else {
+                        let html = '';
+                        data.logs.forEach(log => {
+                            html += `
+                                <div style="padding: 12px; border-bottom: 1px solid #f3d6d6;">
+                                    <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                                        <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
+                                        <div style="font-size: 12px; color: #dc3545; font-weight: 600;">失败</div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #666; line-height: 1.7;">
+                                        <div>渠道：${escapeHtml(log.channel || '-')}</div>
+                                        <div>邮件 ID：${escapeHtml(log.message_id || '-')}</div>
+                                        <div>时间：${formatDateTime(log.created_at)}</div>
+                                    </div>
+                                    <div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message || '未知错误')}</div>
+                                </div>
+                            `;
+                        });
+                        listEl.innerHTML = html;
+                    }
+                    container.style.display = 'block';
+                }
+            } catch (error) {
+                showToast('加载转发失败记录失败', 'error');
+            }
+        }
+
         // 隐藏刷新历史
         function hideRefreshLogs() {
             document.getElementById('refreshLogsContainer').style.display = 'none';
+        }
+
+        function hideForwardingLogs() {
+            document.getElementById('forwardingLogsContainer').style.display = 'none';
+        }
+
+        function hideFailedForwardingLogs() {
+            document.getElementById('failedForwardingLogsContainer').style.display = 'none';
         }
 
         // 格式化日期时间
@@ -7231,6 +7433,7 @@ ${details}
             hideSettingsModal();
             hideRefreshModal();
             hideRefreshErrorModal();
+            hideAccountForwardingLogs();
             hideErrorDetailModal();
             hideGetRefreshTokenModal();
             closeFullscreenEmail();
@@ -7253,6 +7456,7 @@ ${details}
                 hideSettingsModal();
                 hideRefreshModal();
                 hideRefreshErrorModal();
+                hideAccountForwardingLogs();
                 hideErrorDetailModal();
                 hideGetRefreshTokenModal();
                 closeFullscreenEmail();

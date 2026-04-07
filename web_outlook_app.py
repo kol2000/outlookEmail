@@ -646,6 +646,20 @@ def init_db():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS forwarding_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            account_email TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            status TEXT NOT NULL,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+        )
+    ''')
+
     # 创建审计日志表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -913,6 +927,16 @@ def init_db():
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_forward_logs_lookup
         ON forward_logs(account_id, message_id, channel)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_forwarding_logs_account_created
+        ON forwarding_logs(account_id, created_at)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_forwarding_logs_status_created
+        ON forwarding_logs(status, created_at)
     ''')
 
     # 迁移现有明文数据为加密数据
@@ -1470,12 +1494,14 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
         db.execute('''
             INSERT INTO accounts (
                 email, password, client_id, refresh_token, group_id, remark,
-                account_type, provider, imap_host, imap_port, imap_password, forward_enabled
+                account_type, provider, imap_host, imap_port, imap_password, forward_enabled,
+                forward_last_checked_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark,
-            account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0
+            account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
+            datetime.utcnow().isoformat() if forward_enabled else None
         ))
         db.commit()
         return True
@@ -1494,19 +1520,42 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
         # 加密敏感字段
         encrypted_password = encrypt_data(password) if password else password
         encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
+        encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
 
-        db.execute('''
-            UPDATE accounts
-            SET email = ?, password = ?, client_id = ?, refresh_token = ?,
-                group_id = ?, remark = ?, status = ?, account_type = ?, provider = ?,
-                imap_host = ?, imap_port = ?, imap_password = ?, forward_enabled = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        ''', (
-            email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
-            account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
-            account_id
-        ))
+        current_account = db.execute(
+            'SELECT forward_enabled, forward_last_checked_at FROM accounts WHERE id = ?',
+            (account_id,)
+        ).fetchone()
+        should_init_forward_cursor = bool(
+            forward_enabled and current_account and not current_account['forward_enabled']
+        )
+
+        if should_init_forward_cursor:
+            db.execute('''
+                UPDATE accounts
+                SET email = ?, password = ?, client_id = ?, refresh_token = ?,
+                    group_id = ?, remark = ?, status = ?, account_type = ?, provider = ?,
+                    imap_host = ?, imap_port = ?, imap_password = ?, forward_enabled = ?,
+                    forward_last_checked_at = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (
+                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
+                account_type, provider, imap_host, imap_port, encrypted_imap_password, 1,
+                datetime.utcnow().isoformat(), account_id
+            ))
+        else:
+            db.execute('''
+                UPDATE accounts
+                SET email = ?, password = ?, client_id = ?, refresh_token = ?,
+                    group_id = ?, remark = ?, status = ?, account_type = ?, provider = ?,
+                    imap_host = ?, imap_port = ?, imap_password = ?, forward_enabled = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (
+                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
+                account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
+                account_id
+            ))
         db.commit()
         return True
     except Exception:
@@ -3508,6 +3557,29 @@ def log_refresh_result(account_id: int, account_email: str, refresh_type: str, s
         return False
 
 
+def log_forwarding_result(account_id: int, account_email: str, message_id: str, channel: str,
+                          status: str, error_message: str = None):
+    """记录转发结果到数据库"""
+    db = get_db()
+    try:
+        db.execute('''
+            INSERT INTO forwarding_logs (account_id, account_email, message_id, channel, status, error_message)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            account_id,
+            account_email,
+            str(message_id or ''),
+            channel,
+            status,
+            sanitize_error_details(error_message)[:500] if error_message else None,
+        ))
+        db.commit()
+        return True
+    except Exception as e:
+        print(f"记录转发结果失败: {str(e)}")
+        return False
+
+
 def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None) -> tuple[bool, str]:
     """测试 refresh token 是否有效，返回 (是否成功, 错误信息)"""
     try:
@@ -4035,6 +4107,109 @@ def api_get_failed_refresh_logs():
             'account_email': row['account_email'] or row['account_email'],
             'account_status': row['account_status'],
             'refresh_type': row['refresh_type'],
+            'status': row['status'],
+            'error_message': row['error_message'],
+            'created_at': row['created_at']
+        })
+
+    return jsonify({'success': True, 'logs': logs})
+
+
+@app.route('/api/accounts/forwarding-logs', methods=['GET'])
+@login_required
+def api_get_forwarding_logs():
+    """获取最近的转发记录"""
+    db = get_db()
+    limit = int(request.args.get('limit', 100))
+    offset = int(request.args.get('offset', 0))
+
+    cursor = db.execute('''
+        SELECT * FROM forwarding_logs
+        WHERE created_at >= datetime('now', '-6 months')
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    ''', (limit, offset))
+
+    logs = []
+    for row in cursor.fetchall():
+        logs.append({
+            'id': row['id'],
+            'account_id': row['account_id'],
+            'account_email': row['account_email'],
+            'message_id': row['message_id'],
+            'channel': row['channel'],
+            'status': row['status'],
+            'error_message': row['error_message'],
+            'created_at': row['created_at']
+        })
+
+    return jsonify({'success': True, 'logs': logs})
+
+
+@app.route('/api/accounts/forwarding-logs/failed', methods=['GET'])
+@login_required
+def api_get_failed_forwarding_logs():
+    """获取最近失败的转发记录"""
+    db = get_db()
+    limit = int(request.args.get('limit', 100))
+
+    cursor = db.execute('''
+        SELECT * FROM forwarding_logs
+        WHERE status = 'failed'
+        AND created_at >= datetime('now', '-6 months')
+        ORDER BY created_at DESC
+        LIMIT ?
+    ''', (limit,))
+
+    logs = []
+    for row in cursor.fetchall():
+        logs.append({
+            'id': row['id'],
+            'account_id': row['account_id'],
+            'account_email': row['account_email'],
+            'message_id': row['message_id'],
+            'channel': row['channel'],
+            'status': row['status'],
+            'error_message': row['error_message'],
+            'created_at': row['created_at']
+        })
+
+    return jsonify({'success': True, 'logs': logs})
+
+
+@app.route('/api/accounts/<int:account_id>/forwarding-logs', methods=['GET'])
+@login_required
+def api_get_account_forwarding_logs(account_id):
+    """获取单个账号的转发记录"""
+    db = get_db()
+    limit = int(request.args.get('limit', 100))
+    offset = int(request.args.get('offset', 0))
+    failed_only = str(request.args.get('failed_only', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+
+    query = '''
+        SELECT * FROM forwarding_logs
+        WHERE account_id = ?
+        AND created_at >= datetime('now', '-6 months')
+    '''
+    params = [account_id]
+    if failed_only:
+        query += " AND status = 'failed'"
+    query += '''
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    '''
+    params.extend([limit, offset])
+
+    cursor = db.execute(query, tuple(params))
+
+    logs = []
+    for row in cursor.fetchall():
+        logs.append({
+            'id': row['id'],
+            'account_id': row['account_id'],
+            'account_email': row['account_email'],
+            'message_id': row['message_id'],
+            'channel': row['channel'],
             'status': row['status'],
             'error_message': row['error_message'],
             'created_at': row['created_at']
@@ -6352,75 +6527,243 @@ def fetch_forward_detail(account: Dict[str, Any], message_id: str) -> Optional[D
 
 
 def process_forwarding_job():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    try:
-        forward_channels = set(get_forward_channels())
-        email_enabled = FORWARD_CHANNEL_SMTP_SETTING in forward_channels and bool(
-            get_setting('email_forward_recipient', '').strip() and get_setting('smtp_host', '').strip()
-        )
-        telegram_enabled = FORWARD_CHANNEL_TG_SETTING in forward_channels and bool(
-            get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip()
-        )
-        if not email_enabled and not telegram_enabled:
-            return
-
-        accounts = conn.execute(
-            "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
-        ).fetchall()
-        for row in accounts:
-            account = dict(row)
-            if account.get('password'):
-                try:
-                    account['password'] = decrypt_data(account['password'])
-                except Exception:
-                    pass
-            if account.get('refresh_token'):
-                try:
-                    account['refresh_token'] = decrypt_data(account['refresh_token'])
-                except Exception:
-                    pass
-            if account.get('imap_password'):
-                try:
-                    account['imap_password'] = decrypt_data(account['imap_password'])
-                except Exception:
-                    pass
-
-            cursor_time = parse_email_datetime(account.get('forward_last_checked_at', ''))
-            emails = fetch_forward_candidates(account, 20)
-            recent_emails = []
-            for item in emails:
-                dt = parse_email_datetime(item.get('date', ''))
-                if cursor_time and dt and dt <= cursor_time:
-                    continue
-                recent_emails.append((dt, item))
-            recent_emails.sort(key=lambda pair: pair[0] or datetime.min)
-
-            for _, item in recent_emails:
-                detail = fetch_forward_detail(account, item.get('id'))
-                if not detail:
-                    continue
-                title, plain, html_body, telegram_text = build_forward_payload(account, detail)
-                if email_enabled and not has_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_EMAIL):
-                    try:
-                        if send_forward_email(title, plain, html_body):
-                            record_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_EMAIL)
-                    except Exception:
-                        pass
-                if telegram_enabled and not has_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_TELEGRAM):
-                    try:
-                        if send_forward_telegram(telegram_text):
-                            record_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_TELEGRAM)
-                    except Exception:
-                        pass
-
-            conn.execute(
-                'UPDATE accounts SET forward_last_checked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                (account['id'],)
+    with app.app_context():
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        try:
+            forward_channels = set(get_forward_channels())
+            email_enabled = FORWARD_CHANNEL_SMTP_SETTING in forward_channels and bool(
+                get_setting('email_forward_recipient', '').strip() and get_setting('smtp_host', '').strip()
             )
-            conn.commit()
-    finally:
-        conn.close()
+            telegram_enabled = FORWARD_CHANNEL_TG_SETTING in forward_channels and bool(
+                get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip()
+            )
+            if not email_enabled and not telegram_enabled:
+                app.logger.info('[forward] skip job: no active channels configured')
+                return
+
+            accounts = conn.execute(
+                "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
+            ).fetchall()
+            app.logger.info(
+                '[forward] start job: accounts=%s email_enabled=%s telegram_enabled=%s',
+                len(accounts),
+                email_enabled,
+                telegram_enabled,
+            )
+            for row in accounts:
+                account = dict(row)
+                if account.get('password'):
+                    try:
+                        account['password'] = decrypt_data(account['password'])
+                    except Exception:
+                        pass
+                if account.get('refresh_token'):
+                    try:
+                        account['refresh_token'] = decrypt_data(account['refresh_token'])
+                    except Exception:
+                        pass
+                if account.get('imap_password'):
+                    try:
+                        account['imap_password'] = decrypt_data(account['imap_password'])
+                    except Exception:
+                        pass
+
+                cursor_time = parse_email_datetime(account.get('forward_last_checked_at', ''))
+                emails = fetch_forward_candidates(account, 20)
+                recent_emails = []
+                skipped_before_cursor = 0
+                email_success_count = 0
+                telegram_success_count = 0
+                latest_success_time = cursor_time
+                had_processing_failure = False
+                for item in emails:
+                    dt = parse_email_datetime(item.get('date', ''))
+                    if cursor_time and dt and dt <= cursor_time:
+                        skipped_before_cursor += 1
+                        app.logger.info(
+                            '[forward] skip email before cursor: account=%s message_id=%s email_time=%s cursor=%s',
+                            account.get('email', ''),
+                            item.get('id', ''),
+                            item.get('date', ''),
+                            account.get('forward_last_checked_at', ''),
+                        )
+                        continue
+                    recent_emails.append((dt, item))
+                recent_emails.sort(key=lambda pair: pair[0] or datetime.min)
+                app.logger.info(
+                    '[forward] account candidates: account=%s fetched=%s pending=%s skipped_before_cursor=%s cursor=%s',
+                    account.get('email', ''),
+                    len(emails),
+                    len(recent_emails),
+                    skipped_before_cursor,
+                    account.get('forward_last_checked_at', ''),
+                )
+
+                for item_time, item in recent_emails:
+                    detail = fetch_forward_detail(account, item.get('id'))
+                    if not detail:
+                        had_processing_failure = True
+                        log_forwarding_result(
+                            account['id'],
+                            account.get('email', ''),
+                            item.get('id', ''),
+                            'detail',
+                            'failed',
+                            '获取邮件详情失败',
+                        )
+                        app.logger.warning(
+                            '[forward] skip email detail fetch failed: account=%s message_id=%s',
+                            account.get('email', ''),
+                            item.get('id', ''),
+                        )
+                        continue
+                    title, plain, html_body, telegram_text = build_forward_payload(account, detail)
+                    message_processed = False
+                    message_failed = False
+                    if email_enabled:
+                        if has_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_EMAIL):
+                            app.logger.info(
+                                '[forward] skip already forwarded email: account=%s message_id=%s channel=%s',
+                                account.get('email', ''),
+                                detail.get('id', ''),
+                                FORWARD_CHANNEL_EMAIL,
+                            )
+                            message_processed = True
+                        else:
+                            try:
+                                if send_forward_email(title, plain, html_body):
+                                    record_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_EMAIL)
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_EMAIL,
+                                        'success',
+                                    )
+                                    email_success_count += 1
+                                    message_processed = True
+                                else:
+                                    message_failed = True
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_EMAIL,
+                                        'failed',
+                                        'SMTP 转发返回失败',
+                                    )
+                                    app.logger.warning(
+                                        '[forward] send email returned false: account=%s message_id=%s channel=%s',
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_EMAIL,
+                                    )
+                            except Exception as exc:
+                                message_failed = True
+                                log_forwarding_result(
+                                    account['id'],
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_EMAIL,
+                                    'failed',
+                                    str(exc),
+                                )
+                                app.logger.warning(
+                                    '[forward] send email failed: account=%s message_id=%s channel=%s error=%s',
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_EMAIL,
+                                    str(exc),
+                                )
+                    if telegram_enabled:
+                        if has_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_TELEGRAM):
+                            app.logger.info(
+                                '[forward] skip already forwarded email: account=%s message_id=%s channel=%s',
+                                account.get('email', ''),
+                                detail.get('id', ''),
+                                FORWARD_CHANNEL_TELEGRAM,
+                            )
+                            message_processed = True
+                        else:
+                            try:
+                                if send_forward_telegram(telegram_text):
+                                    record_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_TELEGRAM)
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_TELEGRAM,
+                                        'success',
+                                    )
+                                    telegram_success_count += 1
+                                    message_processed = True
+                                else:
+                                    message_failed = True
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_TELEGRAM,
+                                        'failed',
+                                        'Telegram 转发返回失败',
+                                    )
+                                    app.logger.warning(
+                                        '[forward] send telegram returned false: account=%s message_id=%s channel=%s',
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_TELEGRAM,
+                                    )
+                            except Exception as exc:
+                                message_failed = True
+                                log_forwarding_result(
+                                    account['id'],
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_TELEGRAM,
+                                    'failed',
+                                    str(exc),
+                                )
+                                app.logger.warning(
+                                    '[forward] send telegram failed: account=%s message_id=%s channel=%s error=%s',
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_TELEGRAM,
+                                    str(exc),
+                                )
+
+                    if message_failed:
+                        had_processing_failure = True
+                        continue
+                    if message_processed and item_time and (latest_success_time is None or item_time > latest_success_time):
+                        latest_success_time = item_time
+
+                cursor_value = account.get('forward_last_checked_at', '')
+                cursor_updated = False
+                if latest_success_time and (cursor_time is None or latest_success_time > cursor_time):
+                    cursor_value = latest_success_time.isoformat()
+                    conn.execute(
+                        'UPDATE accounts SET forward_last_checked_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                        (cursor_value, account['id'])
+                    )
+                    cursor_updated = True
+                else:
+                    conn.execute(
+                        'UPDATE accounts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                        (account['id'],)
+                    )
+                conn.commit()
+                app.logger.info(
+                    '[forward] account done: account=%s email_success=%s telegram_success=%s cursor_updated=%s cursor=%s had_failure=%s',
+                    account.get('email', ''),
+                    email_success_count,
+                    telegram_success_count,
+                    cursor_updated,
+                    cursor_value,
+                    had_processing_failure,
+                )
+        finally:
+            conn.close()
 
 
 def init_scheduler():
