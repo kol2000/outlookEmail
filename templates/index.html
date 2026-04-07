@@ -2296,6 +2296,116 @@
                         </div>
                     </div>
                 </section>
+
+                <section class="settings-section" id="forwardingSettingsSection">
+                    <div class="settings-section-head">
+                        <span class="settings-section-kicker">Forwarding</span>
+                        <h4>邮件转发设置</h4>
+                        <p>可同时启用多个转发渠道，只有选中的渠道才会展示并参与实际转发。</p>
+                    </div>
+                    <div class="settings-panel">
+                        <div class="form-group">
+                            <label class="form-label">轮询间隔</label>
+                            <div class="input-inline">
+                                <input type="number" class="form-input" id="forwardCheckIntervalMinutes" min="1" max="60" value="5">
+                                <span>分钟</span>
+                            </div>
+                            <div class="form-hint">系统会按该频率扫描开启了“邮件转发”的邮箱账号。</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">转发渠道</label>
+                            <div class="forward-channel-picker" id="forwardChannelPicker">
+                                <label class="forward-channel-option">
+                                    <input type="checkbox" id="forwardChannelSmtp" onchange="syncForwardChannelUI()">
+                                    <span class="forward-channel-option__content">
+                                        <span class="forward-channel-option__title">SMTP</span>
+                                        <span class="forward-channel-option__meta">转发为邮件，适合归档或再次分发。</span>
+                                    </span>
+                                </label>
+                                <label class="forward-channel-option">
+                                    <input type="checkbox" id="forwardChannelTelegram" onchange="syncForwardChannelUI()">
+                                    <span class="forward-channel-option__content">
+                                        <span class="forward-channel-option__title">TG</span>
+                                        <span class="forward-channel-option__meta">转发到 Telegram，适合即时提醒。</span>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="form-hint">支持多选；不选渠道时不会执行自动转发。</div>
+                        </div>
+                        <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
+                            当前未选择任何转发渠道。保存后，已开启邮件转发的账号也不会再向外发送通知。
+                        </div>
+                        <div class="forward-channel-panels" id="forwardChannelPanels">
+                            <section class="forward-channel-panel" data-channel="smtp" hidden>
+                                <div class="forward-channel-panel__header">
+                                    <div>
+                                        <h5 class="forward-channel-panel__title">SMTP 转发</h5>
+                                        <p class="forward-channel-panel__desc">配置接收邮箱与 SMTP 服务器，用于邮件形式的二次转发。</p>
+                                    </div>
+                                    <span class="forward-channel-panel__tag">SMTP</span>
+                                </div>
+                                <div class="forward-grid">
+                                    <div class="form-group">
+                                        <label class="form-label">转发到邮箱</label>
+                                        <input type="text" class="form-input" id="settingsEmailForwardRecipient" placeholder="main@example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">发件人邮箱</label>
+                                        <input type="text" class="form-input" id="settingsSmtpFromEmail" placeholder="noreply@example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">SMTP 主机</label>
+                                        <input type="text" class="form-input" id="settingsSmtpHost" placeholder="smtp.example.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">SMTP 端口</label>
+                                        <input type="number" class="form-input" id="settingsSmtpPort" value="465" min="1" max="65535">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">SMTP 用户名</label>
+                                        <input type="text" class="form-input" id="settingsSmtpUsername" placeholder="username">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">SMTP 密码</label>
+                                        <input type="password" class="form-input" id="settingsSmtpPassword" placeholder="密码或授权码">
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-top: 14px;">
+                                    <label class="form-label">连接选项</label>
+                                    <div class="forward-toggle-list">
+                                        <label class="forward-checkbox">
+                                            <input type="checkbox" id="settingsSmtpUseSsl" checked>
+                                            <span class="form-label">使用 SSL</span>
+                                        </label>
+                                        <label class="forward-checkbox">
+                                            <input type="checkbox" id="settingsSmtpUseTls">
+                                            <span class="form-label">使用 TLS / STARTTLS</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="forward-channel-panel" data-channel="telegram" hidden>
+                                <div class="forward-channel-panel__header">
+                                    <div>
+                                        <h5 class="forward-channel-panel__title">Telegram 转发</h5>
+                                        <p class="forward-channel-panel__desc">使用 Bot Token 与 Chat ID，把新邮件摘要推送到指定 TG 会话。</p>
+                                    </div>
+                                    <span class="forward-channel-panel__tag">TG</span>
+                                </div>
+                                <div class="forward-grid">
+                                    <div class="form-group">
+                                        <label class="form-label">Telegram Bot Token</label>
+                                        <input type="password" class="form-input" id="settingsTelegramBotToken" placeholder="123456:ABCDEF...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Telegram Chat ID</label>
+                                        <input type="text" class="form-input" id="settingsTelegramChatId" placeholder="-1001234567890">
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </section>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="hideSettingsModal()">取消</button>
@@ -3989,118 +4099,7 @@ ${details}
         }
 
         function ensureForwardingSettingsUI() {
-            if (document.getElementById('forwardingSettingsSection')) return;
-            const footer = document.querySelector('#settingsModal .modal-footer');
-            if (!footer) return;
-            footer.insertAdjacentHTML('beforebegin', `
-                <div class="settings-section" id="forwardingSettingsSection">
-                    <div class="settings-section-head">
-                        <span class="settings-section-kicker">Forwarding</span>
-                        <h4>邮件转发设置</h4>
-                        <p>可同时启用多个转发渠道，只有选中的渠道才会展示并参与实际转发。</p>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">轮询间隔</label>
-                        <div class="input-inline">
-                            <input type="number" class="form-input" id="forwardCheckIntervalMinutes" min="1" max="60" value="5">
-                            <span>分钟</span>
-                        </div>
-                        <div class="form-hint">系统会按该频率扫描开启了“邮件转发”的邮箱账号。</div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">转发渠道</label>
-                        <div class="forward-channel-picker" id="forwardChannelPicker">
-                            <label class="forward-channel-option">
-                                <input type="checkbox" id="forwardChannelSmtp" onchange="syncForwardChannelUI()">
-                                <span class="forward-channel-option__content">
-                                    <span class="forward-channel-option__title">SMTP</span>
-                                    <span class="forward-channel-option__meta">转发为邮件，适合归档或再次分发。</span>
-                                </span>
-                            </label>
-                            <label class="forward-channel-option">
-                                <input type="checkbox" id="forwardChannelTelegram" onchange="syncForwardChannelUI()">
-                                <span class="forward-channel-option__content">
-                                    <span class="forward-channel-option__title">TG</span>
-                                    <span class="forward-channel-option__meta">转发到 Telegram，适合即时提醒。</span>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="form-hint">支持多选；不选渠道时不会执行自动转发。</div>
-                    </div>
-                    <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
-                        当前未选择任何转发渠道。保存后，已开启邮件转发的账号也不会再向外发送通知。
-                    </div>
-                    <div class="forward-channel-panels" id="forwardChannelPanels">
-                        <section class="forward-channel-panel" data-channel="smtp" hidden>
-                            <div class="forward-channel-panel__header">
-                                <div>
-                                    <h5 class="forward-channel-panel__title">SMTP 转发</h5>
-                                    <p class="forward-channel-panel__desc">配置接收邮箱与 SMTP 服务器，用于邮件形式的二次转发。</p>
-                                </div>
-                                <span class="forward-channel-panel__tag">SMTP</span>
-                            </div>
-                            <div class="forward-grid">
-                                <div class="form-group">
-                                    <label class="form-label">转发到邮箱</label>
-                                    <input type="text" class="form-input" id="settingsEmailForwardRecipient" placeholder="main@example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">发件人邮箱</label>
-                                    <input type="text" class="form-input" id="settingsSmtpFromEmail" placeholder="noreply@example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">SMTP 主机</label>
-                                    <input type="text" class="form-input" id="settingsSmtpHost" placeholder="smtp.example.com">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">SMTP 端口</label>
-                                    <input type="number" class="form-input" id="settingsSmtpPort" value="465" min="1" max="65535">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">SMTP 用户名</label>
-                                    <input type="text" class="form-input" id="settingsSmtpUsername" placeholder="username">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">SMTP 密码</label>
-                                    <input type="password" class="form-input" id="settingsSmtpPassword" placeholder="密码或授权码">
-                                </div>
-                            </div>
-                            <div class="form-group" style="margin-top: 14px;">
-                                <label class="form-label">连接选项</label>
-                                <div class="forward-toggle-list">
-                                    <label class="forward-checkbox">
-                                        <input type="checkbox" id="settingsSmtpUseSsl" checked>
-                                        <span class="form-label">使用 SSL</span>
-                                    </label>
-                                    <label class="forward-checkbox">
-                                        <input type="checkbox" id="settingsSmtpUseTls">
-                                        <span class="form-label">使用 TLS / STARTTLS</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </section>
-                        <section class="forward-channel-panel" data-channel="telegram" hidden>
-                            <div class="forward-channel-panel__header">
-                                <div>
-                                    <h5 class="forward-channel-panel__title">Telegram 转发</h5>
-                                    <p class="forward-channel-panel__desc">使用 Bot Token 与 Chat ID，把新邮件摘要推送到指定 TG 会话。</p>
-                                </div>
-                                <span class="forward-channel-panel__tag">TG</span>
-                            </div>
-                            <div class="forward-grid">
-                                <div class="form-group">
-                                    <label class="form-label">Telegram Bot Token</label>
-                                    <input type="password" class="form-input" id="settingsTelegramBotToken" placeholder="123456:ABCDEF...">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Telegram Chat ID</label>
-                                    <input type="text" class="form-input" id="settingsTelegramChatId" placeholder="-1001234567890">
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            `);
+            if (!document.getElementById('forwardingSettingsSection')) return;
             syncForwardChannelUI();
         }
 
