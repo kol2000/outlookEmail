@@ -138,12 +138,14 @@ ports:
 
 ## 镜像说明
 
-项目使用 GitHub Actions 自动构建并推送 Docker 镜像到 `ghcr.io/assast/outlookemail:latest`。
+项目使用 GitHub Actions 自动构建并推送 Docker 镜像，支持稳定版、开发版和正式版本标签。
 
 ### 可用镜像标签
 
-- `ghcr.io/assast/outlookemail:latest` - 最新的主分支构建（推荐）
+- `ghcr.io/assast/outlookemail:latest` - 默认稳定版（默认分支）
 - `ghcr.io/assast/outlookemail:main` - main 分支最新版本
+- `ghcr.io/assast/outlookemail:dev` - dev 分支最新开发版
+- `ghcr.io/assast/outlookemail:v1.0.0` - 指定正式版本镜像
 
 ### 更新镜像
 
