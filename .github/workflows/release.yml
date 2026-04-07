@@ -1,0 +1,60 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build release notes from changelog
+        id: notes
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          python3 - <<'PY'
+from pathlib import Path
+import os
+import re
+import sys
+
+version = os.environ['VERSION']
+changelog = Path('CHANGELOG.md')
+out = Path(os.environ['GITHUB_OUTPUT'])
+text = changelog.read_text(encoding='utf-8') if changelog.exists() else ''
+pattern = re.compile(r'^## \[' + re.escape(version) + r'\].*?(?=^## \[|\Z)', re.M | re.S)
+m = pattern.search(text)
+if m:
+    body = m.group(0).strip() + '\n'
+else:
+    body = f'## {os.environ["TAG"]}\n\nRelease {os.environ["TAG"]}.\n'
+with out.open('a', encoding='utf-8') as f:
+    f.write('body<<EOF\n')
+    f.write(body)
+    if not body.endswith('\n'):
+      f.write('\n')
+    f.write('EOF\n')
+PY
+        env:
+          VERSION: ${{ github.ref_name != '' && startsWith(github.ref_name, 'v') && fromJSON(format('"{0}"', github.ref_name))[1:] || github.ref_name }}
+          TAG: ${{ github.ref_name }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.body }}
+          draft: false
+          prerelease: false
