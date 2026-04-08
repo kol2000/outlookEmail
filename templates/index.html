@@ -1715,10 +1715,10 @@
             </div>
         </div>
         <div class="navbar-actions">
-            <button class="navbar-btn" id="refreshTokensBtn" type="button">全量刷新Token</button>
-            <button class="navbar-btn" id="exportAccountsBtn" type="button">导出邮箱</button>
-            <button class="navbar-btn" id="openSettingsBtn" type="button">⚙️ 设置</button>
-            <button class="navbar-btn" id="logoutBtn" type="button" style="color: #dc3545;">退出登录</button>
+            <button class="navbar-btn" id="refreshTokensBtn" type="button" onclick="showRefreshModal()">全量刷新Token</button>
+            <button class="navbar-btn" id="exportAccountsBtn" type="button" onclick="showExportModal()">导出邮箱</button>
+            <button class="navbar-btn" id="openSettingsBtn" type="button" onclick="showSettingsModal()">⚙️ 设置</button>
+            <button class="navbar-btn" id="logoutBtn" type="button" onclick="logout()" style="color: #dc3545;">退出登录</button>
         </div>
     </nav>
 
@@ -2016,6 +2016,7 @@
                     <div id="importFormatExample"
                         style="display: none; margin-top: 8px; padding: 10px 14px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #666; font-family: monospace; white-space: pre-line; border: 1px solid #e9ecef;">
                     </div>
+                </div>
                 <div class="form-group">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="importForwardEnabled">
@@ -2914,11 +2915,6 @@
         });
 
         function bindPersistentButtonHandlers() {
-            document.getElementById('refreshTokensBtn')?.addEventListener('click', showRefreshModal);
-            document.getElementById('exportAccountsBtn')?.addEventListener('click', showExportModal);
-            document.getElementById('openSettingsBtn')?.addEventListener('click', showSettingsModal);
-            document.getElementById('logoutBtn')?.addEventListener('click', logout);
-
             const accountList = document.getElementById('accountList');
             if (accountList && !accountList.dataset.boundActions) {
                 accountList.dataset.boundActions = 'true';
@@ -3161,10 +3157,18 @@
             toast.className = 'toast show ' + type;
         }
 
+        function updateModalBodyState() {
+            const hasVisibleModal = !!document.querySelector('.modal.show, .fullscreen-email-modal.show');
+            document.body.style.overflow = hasVisibleModal ? 'hidden' : '';
+        }
+
         function setModalVisible(modalId, visible) {
             const modal = document.getElementById(modalId);
             if (!modal) return null;
             modal.classList.toggle('show', visible);
+            modal.style.display = visible ? 'flex' : 'none';
+            modal.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            updateModalBodyState();
             return modal;
         }
 
@@ -4881,7 +4885,7 @@ ${details}
 
                 if (data.success) {
                     showToast(`临时邮箱已生成: ${data.email}`, 'success');
-                    document.getElementById('tempEmailProviderModal').classList.remove('show');
+                    hideModal('tempEmailProviderModal');
                     delete accountsCache['temp'];
                     loadTempEmails(true);
                     loadGroups();
@@ -5199,7 +5203,7 @@ ${details}
                 document.getElementById('importGroupSelect').value = currentGroupId;
             }
             updateImportHint();
-            document.getElementById('addAccountModal').classList.add('show');
+            setModalVisible('addAccountModal', true);
         }
 
         // 隐藏添加账号模态框
@@ -5283,7 +5287,7 @@ ${details}
                     document.getElementById('editGroupSelect').value = acc.group_id || 1;
                     document.getElementById('editRemark').value = acc.remark || '';
                     document.getElementById('editStatus').value = acc.status || 'active';
-                    document.getElementById('editAccountModal').classList.add('show');
+                    setModalVisible('editAccountModal', true);
                 }
             } catch (error) {
                 showToast('加载账号信息失败', 'error');
@@ -6155,7 +6159,7 @@ ${details}
 
                 // 显示模态框
                 modal.classList.add('show');
-                document.body.style.overflow = 'hidden';
+                updateModalBodyState();
             }
         }
 
@@ -6182,7 +6186,7 @@ ${details}
             const modal = document.getElementById('fullscreenEmailModal');
             if (!modal) return;
             modal.classList.remove('show');
-            document.body.style.overflow = '';
+            updateModalBodyState();
         }
 
         function closeFullscreenEmailOnBackdrop(event) {
@@ -7564,8 +7568,10 @@ ${details}
 
         // 统一关闭所有模态框的函数 (修复 bug：防止模态框意外残留)
         function closeAllModals() {
-            document.querySelectorAll('.modal.show').forEach(modal => {
+            document.querySelectorAll('.modal').forEach(modal => {
                 modal.classList.remove('show');
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
             });
 
             const settingsPassword = document.getElementById('settingsPassword');
@@ -7601,6 +7607,7 @@ ${details}
             }
 
             closeFullscreenEmail();
+            updateModalBodyState();
         }
 
         // HTML 转义
