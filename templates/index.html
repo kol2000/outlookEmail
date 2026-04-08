@@ -963,21 +963,6 @@
             min-width: 0;
         }
 
-        .email-unread-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #2563eb;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
-            flex-shrink: 0;
-            margin-top: 5px;
-        }
-
-        .email-item:not(.unread) .email-unread-dot {
-            background-color: #cbd5e1;
-            box-shadow: none;
-        }
-
         .email-item.unread .email-subject {
             font-weight: 700;
         }
@@ -1018,41 +1003,6 @@
             color: #6b7280;
             white-space: nowrap;
             flex-shrink: 0;
-        }
-
-        .email-meta-row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .email-meta-pill {
-            display: inline-flex;
-            align-items: center;
-            min-height: 22px;
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 600;
-            line-height: 1.2;
-            white-space: nowrap;
-            background-color: #eef2f7;
-            color: #475569;
-        }
-
-        .email-meta-pill.unread {
-            background-color: #e8f0ff;
-            color: #1d4ed8;
-        }
-
-        .email-meta-pill.read {
-            background-color: #f1f3f5;
-            color: #6b7280;
-        }
-
-        .email-meta-pill.attachment {
-            background-color: #fef3c7;
-            color: #92400e;
         }
 
         /* 邮件详情面板 */
@@ -4400,24 +4350,6 @@ ${details}
                 : '<span class="account-status-pill muted">转发未开启</span>';
         }
 
-        function renderEmailMetaSummary(email) {
-            const pills = [];
-
-            if (typeof email.is_read === 'boolean') {
-                pills.push(
-                    email.is_read === false
-                        ? '<span class="email-meta-pill unread">未读</span>'
-                        : '<span class="email-meta-pill read">已读</span>'
-                );
-            }
-
-            if (email.has_attachments) {
-                pills.push('<span class="email-meta-pill attachment">附件</span>');
-            }
-
-            return pills.join('');
-        }
-
         function renderAccountTagSummary(tags) {
             const safeTags = Array.isArray(tags) ? tags : [];
             const visibleTags = safeTags.slice(0, 2);
@@ -4477,7 +4409,7 @@ ${details}
                         ${(acc.tags || []).length ? `<div class="account-tags">${renderAccountTagSummary(acc.tags)}</div>` : ''}
                         <div class="account-refresh-row">
                             <span class="account-refresh-meta ${acc.last_refresh_status === 'failed' ? 'failed' : ''}">
-                                最近刷新 ${formatRelativeTime(acc.last_refresh_at)}
+                                ${formatRelativeTime(acc.last_refresh_at)}
                             </span>
                             ${acc.last_refresh_status === 'failed' ? '<button class="account-error-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || '未知错误') + '\', \'' + escapeJs(acc.email) + '\')">查看错误</button>' : ''}
                         </div>
@@ -6268,14 +6200,12 @@ ${details}
                     <div class="email-body">
                         <div class="email-top-row">
                             <div class="email-top-main">
-                                <span class="email-unread-dot"></span>
                                 <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
                             </div>
                             <div class="email-date">${formatDate(email.date)}</div>
                         </div>
                         <div class="email-subject">${escapeHtml(email.subject || '无主题')}</div>
                         <div class="email-preview">${escapeHtml((email.body_preview || '').trim() || '暂无预览内容')}</div>
-                        <div class="email-meta-row">${renderEmailMetaSummary(email)}</div>
                     </div>
                 </div>
             `}).join('');
@@ -7513,7 +7443,6 @@ ${details}
             if (!timestamp) return '从未刷新';
 
             const now = new Date();
-            // 如果时间戳不包含时区信息，假定为 UTC 时间并添加 Z
             let dateStr = timestamp;
             if (typeof dateStr === 'string' && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
                 dateStr = dateStr + 'Z';
