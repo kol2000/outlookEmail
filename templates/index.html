@@ -2405,6 +2405,7 @@
                             </section>
                         </div>
                         <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" type="button" id="triggerForwardingCheckBtn" onclick="triggerForwardingCheck()">手动触发转发检查</button>
                             <button class="btn btn-secondary" type="button" onclick="loadForwardingLogs()">查看转发历史</button>
                             <button class="btn btn-secondary" type="button" onclick="loadFailedForwardingLogs()">查看转发失败</button>
                         </div>
@@ -3103,6 +3104,35 @@
                 hideRefreshErrorModal();
                 showEditAccountModal(accountId);
             };
+        }
+
+        async function triggerForwardingCheck() {
+            const triggerBtn = document.getElementById('triggerForwardingCheckBtn');
+            if (!triggerBtn || triggerBtn.disabled) return;
+
+            const originalText = triggerBtn.textContent;
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = '触发中...';
+
+            try {
+                const response = await fetch('/api/accounts/trigger-forwarding-check', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || '已触发一次转发检查', 'success');
+                    loadForwardingLogs();
+                    loadFailedForwardingLogs();
+                } else {
+                    showToast(data.error || data.message || '触发转发检查失败', 'error');
+                }
+            } catch (error) {
+                showToast('触发转发检查失败', 'error');
+            } finally {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = originalText;
+            }
         }
 
         async function showAccountForwardingLogs(accountId, accountEmail) {

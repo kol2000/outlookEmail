@@ -6539,17 +6539,14 @@ def process_forwarding_job():
                 get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip()
             )
             if not email_enabled and not telegram_enabled:
-                app.logger.info('[forward] skip job: no active channels configured')
+                print('[forward] skip job: no active channels configured')
                 return
 
             accounts = conn.execute(
                 "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
             ).fetchall()
-            app.logger.info(
-                '[forward] start job: accounts=%s email_enabled=%s telegram_enabled=%s',
-                len(accounts),
-                email_enabled,
-                telegram_enabled,
+            print(
+                f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled}"
             )
             for row in accounts:
                 account = dict(row)
@@ -6590,7 +6587,6 @@ def process_forwarding_job():
                         )
                         continue
                     recent_emails.append((dt, item))
-                recent_emails.sort(key=lambda pair: pair[0] or datetime.min)
                 app.logger.info(
                     '[forward] account candidates: account=%s fetched=%s pending=%s skipped_before_cursor=%s cursor=%s',
                     account.get('email', ''),
@@ -6599,6 +6595,8 @@ def process_forwarding_job():
                     skipped_before_cursor,
                     account.get('forward_last_checked_at', ''),
                 )
+
+                recent_emails.sort(key=lambda pair: pair[0] or datetime.min)
 
                 for item_time, item in recent_emails:
                     detail = fetch_forward_detail(account, item.get('id'))
@@ -6753,17 +6751,25 @@ def process_forwarding_job():
                         (account['id'],)
                     )
                 conn.commit()
-                app.logger.info(
-                    '[forward] account done: account=%s email_success=%s telegram_success=%s cursor_updated=%s cursor=%s had_failure=%s',
-                    account.get('email', ''),
-                    email_success_count,
-                    telegram_success_count,
-                    cursor_updated,
-                    cursor_value,
-                    had_processing_failure,
+                print(
+                    f"[forward] account done: account={account.get('email', '')} email_success={email_success_count} telegram_success={telegram_success_count} cursor_updated={cursor_updated} cursor={cursor_value} had_failure={had_processing_failure}"
                 )
+        except Exception as exc:
+            print(f"[forward] job failed: {str(exc)}")
+            raise
         finally:
             conn.close()
+
+
+@app.route('/api/accounts/trigger-forwarding-check', methods=['POST'])
+@login_required
+def api_trigger_forwarding_check():
+    """手动触发一次转发检查"""
+    try:
+        process_forwarding_job()
+        return jsonify({'success': True, 'message': '已触发一次转发检查，请查看转发历史或容器日志'})
+    except Exception as exc:
+        return jsonify({'success': False, 'error': f'触发转发检查失败: {str(exc)}'})
 
 
 def init_scheduler():
