@@ -572,6 +572,18 @@
             word-break: break-word;
         }
 
+        .account-aliases {
+            font-size: 12px;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+            word-break: break-word;
+        }
+
         .account-email {
             font-size: 13px;
             color: #111827;

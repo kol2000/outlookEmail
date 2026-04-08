@@ -1191,6 +1191,17 @@ ${details}
             return html;
         }
 
+        function renderAccountAliasSummary(aliases) {
+            const safeAliases = Array.isArray(aliases) ? aliases.filter(Boolean) : [];
+            if (!safeAliases.length) return '';
+
+            const visibleAliases = safeAliases.slice(0, 2);
+            const hiddenCount = Math.max(0, safeAliases.length - visibleAliases.length);
+            const aliasText = visibleAliases.join(' / ');
+            const suffix = hiddenCount > 0 ? ` +${hiddenCount}` : '';
+            return `<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
+        }
+
         // 渲染邮箱列表
         function renderAccountList(accounts) {
             const container = document.getElementById('accountList');
@@ -1228,6 +1239,7 @@ ${details}
                             ${acc.status === 'inactive' ? '<span class="account-status-pill muted">已停用</span>' : ''}
                             ${acc.last_refresh_status === 'failed' ? '<span class="account-status-pill danger">刷新失败</span>' : ''}
                         </div>
+                        ${renderAccountAliasSummary(acc.aliases)}
                         ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${escapeHtml(acc.remark)}">${escapeHtml(acc.remark)}</div>` : ''}
                         ${(acc.tags || []).length ? `<div class="account-tags">${renderAccountTagSummary(acc.tags)}</div>` : ''}
                         <div class="account-refresh-row">
@@ -1309,6 +1321,21 @@ ${details}
         // 应用筛选和排序
         function applyFiltersAndSort(accounts) {
             let result = [...accounts];
+
+            const searchQuery = (document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
+
+            if (searchQuery) {
+                result = result.filter(acc => {
+                    const aliasText = Array.isArray(acc.aliases) ? acc.aliases.join('\n').toLowerCase() : '';
+                    const tagText = Array.isArray(acc.tags) ? acc.tags.map(tag => String(tag.name || '')).join('\n').toLowerCase() : '';
+                    const remarkText = String(acc.remark || '').toLowerCase();
+                    const emailText = String(acc.email || '').toLowerCase();
+                    return emailText.includes(searchQuery)
+                        || aliasText.includes(searchQuery)
+                        || remarkText.includes(searchQuery)
+                        || tagText.includes(searchQuery);
+                });
+            }
 
             // 1. Tag 筛选
             // Get checked tags
