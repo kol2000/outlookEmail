@@ -242,6 +242,12 @@ user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXE
 
 通过 API Key 直接获取邮件，无需登录 Web 界面。
 
+当前额外支持：
+
+- 使用主邮箱或别名邮箱取信
+- `folder=all` 一次聚合收件箱和垃圾邮件并按时间排序
+- 直接提取最新验证码邮件中的验证码
+
 **配置步骤：**
 1. 点击「⚙️ 设置」→ 在「对外 API Key」处点击「🔑 随机生成」→ 保存
 
@@ -249,6 +255,12 @@ user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXE
 ```bash
 curl -H "X-API-Key: your-api-key" \
   "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=inbox"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails/code?email=alias@example.com"
 ```
 
 详细文档见 [API 文档](docs/api.md)。
