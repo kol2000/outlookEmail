@@ -55,6 +55,7 @@
             flex: 1;
             display: flex;
             justify-content: center;
+            min-width: 0;
         }
 
         .current-account {
@@ -66,6 +67,10 @@
             display: none;
             cursor: pointer;
             transition: all 0.2s;
+            max-width: min(40vw, 520px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .current-account:hover {
@@ -84,6 +89,9 @@
         .navbar-actions {
             display: flex;
             gap: 12px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 101;
         }
 
         .navbar-btn {
@@ -95,6 +103,8 @@
             padding: 6px 12px;
             border-radius: 6px;
             transition: all 0.15s;
+            position: relative;
+            z-index: 102;
         }
 
         .navbar-btn:hover {
@@ -392,6 +402,15 @@
             transition: background-color 0.15s;
             border-left: 3px solid transparent;
             border-bottom: 1px solid #f5f5f5;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .account-item > :first-child {
+            flex: 1;
+            min-width: 0;
         }
 
         .account-item:hover {
@@ -465,10 +484,16 @@
             gap: 8px;
             opacity: 0;
             transition: opacity 0.15s;
+            pointer-events: none;
+            flex-shrink: 0;
+            align-items: center;
         }
 
-        .account-item:hover .account-actions {
+        .account-item:hover .account-actions,
+        .account-item.active .account-actions,
+        .account-item:focus-within .account-actions {
             opacity: 1;
+            pointer-events: auto;
         }
 
         .account-action-btn {
@@ -1690,10 +1715,10 @@
             </div>
         </div>
         <div class="navbar-actions">
-            <button class="navbar-btn" onclick="showRefreshModal()">全量刷新Token</button>
-            <button class="navbar-btn" onclick="showExportModal()">导出邮箱</button>
-            <button class="navbar-btn" onclick="showSettingsModal()">⚙️ 设置</button>
-            <button class="navbar-btn" onclick="logout()" style="color: #dc3545;">退出登录</button>
+            <button class="navbar-btn" id="refreshTokensBtn" type="button">全量刷新Token</button>
+            <button class="navbar-btn" id="exportAccountsBtn" type="button">导出邮箱</button>
+            <button class="navbar-btn" id="openSettingsBtn" type="button">⚙️ 设置</button>
+            <button class="navbar-btn" id="logoutBtn" type="button" style="color: #dc3545;">退出登录</button>
         </div>
     </nav>
 
@@ -2862,6 +2887,7 @@
             // 初始化 CSRF Token
             await initCSRFToken();
             ensureForwardingSettingsUI();
+            bindPersistentButtonHandlers();
             document.getElementById('importImapHost')?.addEventListener('input', updateImportHint);
             document.getElementById('importImapPort')?.addEventListener('input', updateImportHint);
 
@@ -2886,6 +2912,42 @@
                 searchInput.addEventListener('input', debouncedSearch);
             }
         });
+
+        function bindPersistentButtonHandlers() {
+            document.getElementById('refreshTokensBtn')?.addEventListener('click', showRefreshModal);
+            document.getElementById('exportAccountsBtn')?.addEventListener('click', showExportModal);
+            document.getElementById('openSettingsBtn')?.addEventListener('click', showSettingsModal);
+            document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+            const accountList = document.getElementById('accountList');
+            if (accountList && !accountList.dataset.boundActions) {
+                accountList.dataset.boundActions = 'true';
+                accountList.addEventListener('click', function (event) {
+                    const actionBtn = event.target.closest('[data-account-action]');
+                    if (!actionBtn) return;
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const action = actionBtn.dataset.accountAction;
+                    const accountId = parseInt(actionBtn.dataset.accountId || '0', 10);
+                    const accountEmail = actionBtn.dataset.accountEmail || '';
+                    const accountStatus = actionBtn.dataset.accountStatus || 'active';
+
+                    if (action === 'copy') {
+                        copyEmail(accountEmail);
+                    } else if (action === 'forwardingLogs') {
+                        showAccountForwardingLogs(accountId, accountEmail);
+                    } else if (action === 'toggleStatus') {
+                        toggleAccountStatus(accountId, accountStatus);
+                    } else if (action === 'edit') {
+                        showEditAccountModal(accountId);
+                    } else if (action === 'delete') {
+                        deleteAccount(accountId, accountEmail);
+                    }
+                });
+            }
+        }
 
         // 初始化颜色选择器
         function initColorPicker() {
@@ -3957,11 +4019,11 @@ ${details}
                         </div>
                     </div>
                     <div class="account-actions">
-                        <button class="account-action-btn" onclick="event.stopPropagation(); copyEmail('${escapeJs(acc.email)}')" title="复制邮箱">复制</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); showAccountForwardingLogs(${acc.id}, '${escapeJs(acc.email)}')" title="转发日志">转发日志</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); toggleAccountStatus(${acc.id}, '${escapeJs(acc.status || 'active')}')" title="${acc.status === 'inactive' ? '启用' : '停用'}">${acc.status === 'inactive' ? '启用' : '停用'}</button>
-                        <button class="account-action-btn" onclick="event.stopPropagation(); showEditAccountModal(${acc.id})" title="编辑">编辑</button>
-                        <button class="account-action-btn delete" onclick="event.stopPropagation(); deleteAccount(${acc.id}, '${escapeJs(acc.email)}')" title="删除">删除</button>
+                        <button class="account-action-btn" type="button" data-account-action="copy" data-account-email="${escapeHtml(acc.email)}" title="复制">复制</button>
+                        <button class="account-action-btn" type="button" data-account-action="forwardingLogs" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}" title="转发日志">转发日志</button>
+                        <button class="account-action-btn" type="button" data-account-action="toggleStatus" data-account-id="${acc.id}" data-account-status="${escapeHtml(acc.status || 'active')}" title="${acc.status === 'inactive' ? '启用' : '停用'}">${acc.status === 'inactive' ? '启用' : '停用'}</button>
+                        <button class="account-action-btn" type="button" data-account-action="edit" data-account-id="${acc.id}" title="编辑">编辑</button>
+                        <button class="account-action-btn delete" type="button" data-account-action="delete" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}" title="删除">删除</button>
                     </div>
                 </div>
             `).join('');
