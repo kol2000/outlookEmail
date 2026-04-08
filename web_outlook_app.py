@@ -3394,6 +3394,7 @@ def api_add_account():
     group_id = data.get('group_id', 1)
     account_format = data.get('account_format', 'client_id_refresh_token')
     provider = data.get('provider', 'outlook')
+    forward_enabled = bool(data.get('forward_enabled', False))
     imap_host = (data.get('imap_host', '') or '').strip()
     try:
         imap_port = int(data.get('imap_port', 993) or 993)
@@ -3426,7 +3427,7 @@ def api_add_account():
                 parsed.get('imap_host', ''),
                 parsed.get('imap_port', 993),
                 parsed.get('imap_password', ''),
-                False
+                forward_enabled
             ):
                 added += 1
     

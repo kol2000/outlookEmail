@@ -1920,11 +1920,7 @@
                     <div class="form-hint">可选，设置后该分组下所有邮箱获取邮件时走此代理（支持 HTTP/SOCKS5）</div>
                 </div>
                 <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="groupForwardEnabledPlaceholder">
-                        <span class="form-label" style="margin: 0;">启用邮件转发</span>
-                    </label>
-                    <div class="form-hint">开启后会按系统设置转发到邮箱或 Telegram。</div>
+                    <div class="form-hint">账号级转发请在“编辑邮箱账号”里开启，这里不再提供无效的分组级开关。</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1995,6 +1991,12 @@
                     <div id="importFormatExample"
                         style="display: none; margin-top: 8px; padding: 10px 14px; background: #f8f9fa; border-radius: 6px; font-size: 12px; color: #666; font-family: monospace; white-space: pre-line; border: 1px solid #e9ecef;">
                     </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="importForwardEnabled">
+                        <span class="form-label" style="margin: 0;">导入后启用邮件转发</span>
+                    </label>
+                    <div class="form-hint">开启后，新导入账号会立即参与转发轮询。</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2301,7 +2303,7 @@
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">Forwarding</span>
                         <h4>邮件转发设置</h4>
-                        <p>可同时启用多个转发渠道，只有选中的渠道才会展示并参与实际转发。</p>
+                        <p>这里配置全局转发渠道；实际是否参与转发，仍以每个账号单独开启的状态为准。</p>
                     </div>
                     <div class="settings-panel">
                         <div class="form-group">
@@ -2310,7 +2312,7 @@
                                 <input type="number" class="form-input" id="forwardCheckIntervalMinutes" min="1" max="60" value="5">
                                 <span>分钟</span>
                             </div>
-                            <div class="form-hint">系统会按该频率扫描开启了“邮件转发”的邮箱账号。</div>
+                            <div class="form-hint">系统会按该频率扫描“已在账号里开启转发”的邮箱。</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">转发渠道</label>
@@ -2333,7 +2335,7 @@
                             <div class="form-hint">支持多选；不选渠道时不会执行自动转发。</div>
                         </div>
                         <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
-                            当前未选择任何转发渠道。保存后，已开启邮件转发的账号也不会再向外发送通知。
+                            当前未选择任何转发渠道。保存后，即使账号已开启转发，也不会向外发送通知。
                         </div>
                         <div class="forward-channel-panels" id="forwardChannelPanels">
                             <section class="forward-channel-panel" data-channel="smtp" hidden>
@@ -3887,6 +3889,12 @@ ${details}
             }
         }
 
+        function showForwardStatusLabel(enabled) {
+            return enabled
+                ? '<span class="tag-badge" style="background-color: #16a34a">转发已开启</span>'
+                : '<span class="tag-badge" style="background-color: #6b7280">转发未开启</span>';
+        }
+
         // 渲染邮箱列表
         function renderAccountList(accounts) {
             const container = document.getElementById('accountList');
@@ -3919,7 +3927,7 @@ ${details}
                                 <span class="tag-badge" style="background-color: ${acc.account_type === 'imap' ? '#0ea5e9' : '#2563eb'}">
                                     ${escapeHtml(getProviderLabel(acc.provider || (acc.account_type === 'imap' ? 'custom' : 'outlook')))}
                                 </span>
-                                ${acc.forward_enabled ? '<span class="tag-badge" style="background-color: #16a34a">Forward</span>' : ''}
+                                ${showForwardStatusLabel(!!acc.forward_enabled)}
                                 ${(acc.tags || []).map(tag => `
                                     <span class="tag-badge" style="background-color: ${tag.color}">
                                         ${escapeHtml(tag.name)}
@@ -6610,6 +6618,7 @@ ${details}
             const provider = document.getElementById('importProviderSelect')?.value || 'outlook';
             const imapHost = document.getElementById('importImapHost')?.value.trim() || '';
             const imapPort = parseInt(document.getElementById('importImapPort')?.value || '993', 10);
+            const forwardEnabled = !!document.getElementById('importForwardEnabled')?.checked;
 
             if (!input) {
                 showToast('请输入账号信息', 'error');
@@ -6641,7 +6650,8 @@ ${details}
                             account_format: accountFormat,
                             provider,
                             imap_host: imapHost,
-                            imap_port: Number.isFinite(imapPort) ? imapPort : 993
+                            imap_port: Number.isFinite(imapPort) ? imapPort : 993,
+                            forward_enabled: forwardEnabled
                         })
                     });
                 }
