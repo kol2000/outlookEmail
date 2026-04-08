@@ -5106,7 +5106,7 @@ ${details}
         }
 
         // 显示添加账号模态框
-        function showAddAccountModal() {
+        function showAddAccountModalLegacy() {
             document.getElementById('accountInput').value = '';
             if (document.getElementById('importFormatSelect')) {
                 document.getElementById('importFormatSelect').value = 'client_id_refresh_token';
@@ -5125,7 +5125,7 @@ ${details}
         }
 
         // 添加账号
-        async function addAccount() {
+        async function addAccountLegacy() {
             const input = document.getElementById('accountInput').value.trim();
             const groupId = parseInt(document.getElementById('importGroupSelect').value);
             const accountFormatEl = document.getElementById('importFormatSelect');
@@ -5185,7 +5185,7 @@ ${details}
         }
 
         // 显示编辑账号模态框
-        async function showEditAccountModal(accountId) {
+        async function showEditAccountModalLegacy(accountId) {
             try {
                 const response = await fetch(`/api/accounts/${accountId}`);
                 const data = await response.json();
@@ -5213,7 +5213,7 @@ ${details}
         }
 
         // 更新账号
-        async function updateAccount() {
+        async function updateAccountLegacy() {
             const accountId = document.getElementById('editAccountId').value;
             const oldGroupId = currentGroupId;
             const newGroupId = parseInt(document.getElementById('editGroupSelect').value);
