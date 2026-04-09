@@ -1,0 +1,1171 @@
+# ==================== GPTMail 临时邮箱 API ====================
+
+def gptmail_request(method: str, endpoint: str, params: dict = None, json_data: dict = None) -> Optional[Dict]:
+    """发送 GPTMail API 请求"""
+    try:
+        url = f"{GPTMAIL_BASE_URL}{endpoint}"
+        # 从数据库获取 API Key
+        api_key = get_gptmail_api_key()
+        headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        
+        if method.upper() == 'GET':
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+        elif method.upper() == 'POST':
+            response = requests.post(url, headers=headers, json=json_data, timeout=30)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(url, headers=headers, params=params, timeout=30)
+        else:
+            return None
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return {'success': False, 'error': f'API 请求失败: {response.status_code}'}
+    except Exception as e:
+        return {'success': False, 'error': f'请求异常: {str(e)}'}
+
+
+def generate_temp_email(prefix: str = None, domain: str = None) -> Optional[str]:
+    """生成临时邮箱地址"""
+    json_data = {}
+    if prefix:
+        json_data['prefix'] = prefix
+    if domain:
+        json_data['domain'] = domain
+    
+    if json_data:
+        result = gptmail_request('POST', '/api/generate-email', json_data=json_data)
+    else:
+        result = gptmail_request('GET', '/api/generate-email')
+    
+    if result and result.get('success'):
+        return result.get('data', {}).get('email')
+    return None
+
+
+def get_temp_emails_from_api(email_addr: str) -> Optional[List[Dict]]:
+    """从 GPTMail API 获取邮件列表"""
+    result = gptmail_request('GET', '/api/emails', params={'email': email_addr})
+    
+    if result and result.get('success'):
+        return result.get('data', {}).get('emails', [])
+    return None
+
+
+def get_temp_email_detail_from_api(message_id: str) -> Optional[Dict]:
+    """从 GPTMail API 获取邮件详情"""
+    result = gptmail_request('GET', f'/api/email/{message_id}')
+    
+    if result and result.get('success'):
+        return result.get('data')
+    return None
+
+
+def delete_temp_email_from_api(message_id: str) -> bool:
+    """从 GPTMail API 删除邮件"""
+    result = gptmail_request('DELETE', f'/api/email/{message_id}')
+    return result and result.get('success', False)
+
+
+def clear_temp_emails_from_api(email_addr: str) -> bool:
+    """清空 GPTMail 邮箱的所有邮件"""
+    result = gptmail_request('DELETE', '/api/emails/clear', params={'email': email_addr})
+    return result and result.get('success', False)
+
+
+# ==================== Cloudflare Temp Email API ====================
+
+def cloudflare_temp_request(method: str, endpoint: str, jwt: str = None,
+                            admin_auth: bool = False, params: dict = None,
+                            json_data: dict = None) -> Optional[Dict]:
+    """发送 Cloudflare Temp Email API 请求"""
+    worker_domain = get_cloudflare_worker_domain().strip()
+    if not worker_domain:
+        return {'success': False, 'error': '未配置 Cloudflare Worker 域名'}
+
+    try:
+        url = f"https://{worker_domain}{endpoint}"
+        headers = {"Content-Type": "application/json"}
+
+        if jwt:
+            headers["Authorization"] = f"Bearer {jwt}"
+        if admin_auth:
+            admin_password = get_cloudflare_admin_password().strip()
+            if not admin_password:
+                return {'success': False, 'error': '未配置 Cloudflare 管理密码'}
+            headers["x-admin-auth"] = admin_password
+
+        if method.upper() == 'GET':
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+        elif method.upper() == 'POST':
+            response = requests.post(url, headers=headers, params=params, json=json_data, timeout=30)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(url, headers=headers, params=params, timeout=30)
+        else:
+            return {'success': False, 'error': '不支持的请求方法'}
+
+        if response.status_code in (200, 201):
+            try:
+                return response.json()
+            except Exception:
+                return {'success': False, 'error': 'Cloudflare API 响应不是有效 JSON'}
+        if response.status_code == 204:
+            return {'success': True}
+
+        try:
+            error_data = response.json()
+            error_message = error_data.get('message') or error_data.get('error') or response.text
+        except Exception:
+            error_message = response.text or f'API 请求失败: {response.status_code}'
+        return {'success': False, 'error': error_message}
+    except Exception as e:
+        return {'success': False, 'error': f'请求异常: {str(e)}'}
+
+
+def cloudflare_get_domains() -> tuple[List[str], Optional[str]]:
+    """获取 Cloudflare Temp Email 可用域名列表"""
+    domains = get_cloudflare_email_domains()
+    if domains:
+        return domains, None
+    return [], '未配置 Cloudflare 邮箱域名，请在设置中填写'
+
+
+def cloudflare_create_address(username: str = None, domain: str = None) -> Optional[Dict]:
+    """创建 Cloudflare Temp Email 地址"""
+    domains = get_cloudflare_email_domains()
+    selected_domain = domain or (domains[0] if domains else None)
+    if not selected_domain:
+        return {'success': False, 'error': '未配置可用域名'}
+
+    email_name = username or generate_random_temp_name()
+    last_error: Optional[Dict] = None
+
+    for candidate_domain in build_cloudflare_domain_candidates(selected_domain):
+        payload = {
+            'enablePrefix': True,
+            'name': email_name,
+            'domain': candidate_domain
+        }
+        result = cloudflare_temp_request('POST', '/admin/new_address', admin_auth=True, json_data=payload)
+        if result and result.get('jwt') and result.get('address'):
+            return result
+
+        last_error = result
+        error_text = str((result or {}).get('error', '')).lower()
+        if 'invalid domain' not in error_text:
+            break
+
+    if last_error and 'invalid domain' in str(last_error.get('error', '')).lower():
+        last_error['error'] = (
+            f"{last_error.get('error')}，请确认该域名已配置到 cloudflare_temp_email 的 DOMAINS/DEFAULT_DOMAINS，"
+            "且如使用子域名收信，已按官方文档完成子域名邮箱配置"
+        )
+    return last_error
+
+
+def cloudflare_get_messages(jwt: str, limit: int = 50, offset: int = 0) -> Optional[List[Dict]]:
+    """获取 Cloudflare Temp Email 邮件列表"""
+    result = cloudflare_temp_request(
+        'GET',
+        '/api/mails',
+        jwt=jwt,
+        params={'limit': limit, 'offset': offset}
+    )
+    if result and isinstance(result.get('results'), list):
+        return result['results']
+    return None
+
+
+def cloudflare_delete_address(address_id: str) -> bool:
+    """删除 Cloudflare Temp Email 地址"""
+    if not address_id:
+        return False
+    result = cloudflare_temp_request('DELETE', f'/admin/delete_address/{quote(str(address_id))}', admin_auth=True)
+    return result is not None and result.get('success', False)
+
+
+# ==================== DuckMail 临时邮箱 API ====================
+
+def duckmail_request(method: str, endpoint: str, token: str = None,
+                     json_data: dict = None, params: dict = None) -> Optional[Dict]:
+    """发送 DuckMail API 请求"""
+    try:
+        base_url = get_duckmail_base_url().rstrip('/')
+        url = f"{base_url}{endpoint}"
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        if method.upper() == 'GET':
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+        elif method.upper() == 'POST':
+            response = requests.post(url, headers=headers, json=json_data, timeout=30)
+        elif method.upper() == 'PATCH':
+            response = requests.patch(url, headers=headers, json=json_data, timeout=30)
+        elif method.upper() == 'DELETE':
+            response = requests.delete(url, headers=headers, params=params, timeout=30)
+        else:
+            return None
+
+        if response.status_code == 204:
+            return {'success': True}
+        elif response.status_code in (200, 201):
+            return response.json()
+        else:
+            try:
+                err = response.json()
+                return {'success': False, 'error': err.get('message', f'API 请求失败: {response.status_code}')}
+            except Exception:
+                return {'success': False, 'error': f'API 请求失败: {response.status_code}'}
+    except Exception as e:
+        return {'success': False, 'error': f'请求异常: {str(e)}'}
+
+
+def duckmail_get_domains() -> tuple:
+    """获取 DuckMail 可用域名列表，返回 (domains_list, error_msg)"""
+    api_key = get_duckmail_api_key()
+    token = api_key if api_key else None
+    result = duckmail_request('GET', '/domains', token=token)
+    if result and 'hydra:member' in result:
+        domains = [d for d in result['hydra:member'] if d.get('isVerified', False)]
+        return domains, None
+    error = result.get('error', '获取域名失败') if result else '无法连接 DuckMail API'
+    return [], error
+
+
+def duckmail_create_account(address: str, password: str) -> Optional[Dict]:
+    """创建 DuckMail 邮箱账户，返回账户信息"""
+    api_key = get_duckmail_api_key()
+    token = api_key if api_key else None
+    result = duckmail_request('POST', '/accounts', token=token,
+                              json_data={'address': address, 'password': password})
+    if result and result.get('id'):
+        return result
+    return result  # 返回错误信息
+
+
+def duckmail_get_token(address: str, password: str) -> Optional[Dict]:
+    """获取 DuckMail Bearer Token"""
+    result = duckmail_request('POST', '/token',
+                              json_data={'address': address, 'password': password})
+    if result and result.get('token'):
+        return result
+    return result
+
+
+def duckmail_get_messages(token: str, page: int = 1) -> Optional[List[Dict]]:
+    """获取 DuckMail 邮件列表"""
+    result = duckmail_request('GET', '/messages', token=token, params={'page': page})
+    if result and 'hydra:member' in result:
+        return result['hydra:member']
+    return None
+
+
+def duckmail_get_message_detail(token: str, message_id: str) -> Optional[Dict]:
+    """获取 DuckMail 邮件详情（含 body）"""
+    result = duckmail_request('GET', f'/messages/{message_id}', token=token)
+    if result and result.get('id'):
+        return result
+    return None
+
+
+def duckmail_delete_message(token: str, message_id: str) -> bool:
+    """删除 DuckMail 邮件"""
+    result = duckmail_request('DELETE', f'/messages/{message_id}', token=token)
+    return result is not None and result.get('success', False)
+
+
+def duckmail_delete_account(token: str, account_id: str) -> bool:
+    """删除 DuckMail 账户"""
+    result = duckmail_request('DELETE', f'/accounts/{account_id}', token=token)
+    return result is not None and result.get('success', False)
+
+
+def duckmail_refresh_token(email_addr: str) -> Optional[str]:
+    """刷新 DuckMail Token（使用存储的密码重新获取）"""
+    temp_email = get_temp_email_by_address(email_addr)
+    if not temp_email or temp_email.get('provider') != 'duckmail':
+        return None
+
+    password = temp_email.get('duckmail_password', '')
+    if password:
+        password = decrypt_data(password)
+
+    if not password:
+        return None
+
+    result = duckmail_get_token(email_addr, password)
+    if result and result.get('token'):
+        new_token = result['token']
+        # 更新数据库中的 Token
+        db = get_db()
+        db.execute('UPDATE temp_emails SET duckmail_token = ? WHERE email = ?',
+                   (encrypt_data(new_token), email_addr))
+        db.commit()
+        return new_token
+    return None
+
+
+def get_duckmail_token_for_email(email_addr: str) -> Optional[str]:
+    """获取临时邮箱的 DuckMail Token，过期则自动刷新"""
+    temp_email = get_temp_email_by_address(email_addr)
+    if not temp_email or temp_email.get('provider') != 'duckmail':
+        return None
+
+    token = temp_email.get('duckmail_token', '')
+    if token:
+        token = decrypt_data(token)
+
+    if not token:
+        # Token 不存在，尝试刷新
+        token = duckmail_refresh_token(email_addr)
+
+    return token
+
+
+# ==================== 临时邮箱数据库操作 ====================
+
+def get_temp_email_group_id() -> int:
+    """获取临时邮箱分组的 ID"""
+    db = get_db()
+    cursor = db.execute("SELECT id FROM groups WHERE name = '临时邮箱'")
+    row = cursor.fetchone()
+    return row['id'] if row else 2
+
+
+def load_temp_emails() -> List[Dict]:
+    """加载所有临时邮箱"""
+    db = get_db()
+    cursor = db.execute('SELECT * FROM temp_emails ORDER BY created_at DESC')
+    rows = cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_temp_email_by_address(email_addr: str) -> Optional[Dict]:
+    """根据邮箱地址获取临时邮箱"""
+    db = get_db()
+    cursor = db.execute('SELECT * FROM temp_emails WHERE email = ?', (email_addr,))
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def add_temp_email(email_addr: str, provider: str = 'gptmail',
+                   duckmail_token: str = None, duckmail_account_id: str = None,
+                   duckmail_password: str = None, cloudflare_jwt: str = None,
+                   cloudflare_address_id: str = None) -> bool:
+    """添加临时邮箱"""
+    db = get_db()
+    try:
+        db.execute('''INSERT INTO temp_emails (
+                        email, provider, duckmail_token, duckmail_account_id, duckmail_password,
+                        cloudflare_jwt, cloudflare_address_id
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                   (email_addr, provider,
+                    encrypt_data(duckmail_token) if duckmail_token else None,
+                    duckmail_account_id,
+                    encrypt_data(duckmail_password) if duckmail_password else None,
+                    encrypt_data(cloudflare_jwt) if cloudflare_jwt else None,
+                    cloudflare_address_id))
+        db.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+
+
+def get_cloudflare_jwt_for_email(email_addr: str) -> Optional[str]:
+    """获取临时邮箱的 Cloudflare JWT"""
+    temp_email = get_temp_email_by_address(email_addr)
+    if not temp_email or temp_email.get('provider') != 'cloudflare':
+        return None
+
+    token = temp_email.get('cloudflare_jwt', '')
+    if token:
+        return decrypt_data(token)
+    return None
+
+
+def delete_temp_email(email_addr: str) -> bool:
+    """删除临时邮箱及其所有邮件"""
+    db = get_db()
+    try:
+        db.execute('DELETE FROM temp_email_messages WHERE email_address = ?', (email_addr,))
+        db.execute('DELETE FROM temp_emails WHERE email = ?', (email_addr,))
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def save_temp_email_messages(email_addr: str, messages: List[Dict]) -> int:
+    """保存临时邮件到数据库"""
+    db = get_db()
+    saved = 0
+    for msg in messages:
+        try:
+            db.execute('''
+                INSERT OR REPLACE INTO temp_email_messages
+                (message_id, email_address, from_address, subject, content, html_content, has_html, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                msg.get('id'),
+                email_addr,
+                msg.get('from_address', ''),
+                msg.get('subject', ''),
+                msg.get('content', ''),
+                msg.get('html_content', ''),
+                1 if msg.get('has_html') else 0,
+                msg.get('timestamp', 0)
+            ))
+            saved += 1
+        except Exception:
+            continue
+    db.commit()
+    return saved
+
+
+def get_temp_email_messages(email_addr: str) -> List[Dict]:
+    """获取临时邮箱的所有邮件（从数据库）"""
+    db = get_db()
+    cursor = db.execute('''
+        SELECT * FROM temp_email_messages
+        WHERE email_address = ?
+        ORDER BY timestamp DESC
+    ''', (email_addr,))
+    rows = cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_temp_email_message_by_id(message_id: str) -> Optional[Dict]:
+    """根据 ID 获取临时邮件"""
+    db = get_db()
+    cursor = db.execute('SELECT * FROM temp_email_messages WHERE message_id = ?', (message_id,))
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def delete_temp_email_message(message_id: str) -> bool:
+    """删除临时邮件"""
+    db = get_db()
+    try:
+        db.execute('DELETE FROM temp_email_messages WHERE message_id = ?', (message_id,))
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def get_temp_email_count() -> int:
+    """获取临时邮箱数量"""
+    db = get_db()
+    cursor = db.execute('SELECT COUNT(*) as count FROM temp_emails')
+    row = cursor.fetchone()
+    return row['count'] if row else 0
+
+
+# ==================== 临时邮箱 API 路由 ====================
+
+@app.route('/api/temp-emails', methods=['GET'])
+@login_required
+def api_get_temp_emails():
+    """获取所有临时邮箱"""
+    emails = load_temp_emails()
+    return jsonify({'success': True, 'emails': emails})
+
+
+@app.route('/api/temp-emails/import', methods=['POST'])
+@login_required
+def api_import_temp_emails():
+    """导入临时邮箱（根据渠道使用不同格式）"""
+    data = request.json
+    import_text = data.get('account_string', '').strip()
+    provider = data.get('provider', 'gptmail')
+
+    if not import_text:
+        return jsonify({'success': False, 'error': '请输入要导入的临时邮箱'})
+
+    lines = import_text.strip().split('\n')
+    added = 0
+    updated = 0
+    skipped = 0
+    token_errors = []
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        try:
+            if provider == 'duckmail':
+                # DuckMail 格式：邮箱----密码
+                parts = line.split('----')
+                if len(parts) >= 2:
+                    email_addr = parts[0].strip()
+                    duckmail_password = parts[1].strip()
+
+                    if email_addr and duckmail_password:
+                        # 检查是否已存在，如果存在则更新密码
+                        existing = get_temp_email_by_address(email_addr)
+                        if existing:
+                            # 更新密码和 provider
+                            db = get_db()
+                            db.execute('UPDATE temp_emails SET duckmail_password = ?, provider = ? WHERE email = ?',
+                                       (encrypt_data(duckmail_password), 'duckmail', email_addr))
+                            db.commit()
+                            updated += 1
+                        else:
+                            if not add_temp_email(
+                                email_addr, provider='duckmail',
+                                duckmail_token=None,
+                                duckmail_account_id=None,
+                                duckmail_password=duckmail_password
+                            ):
+                                skipped += 1
+                                continue
+                            added += 1
+
+                        # 尝试获取 Token（非阻塞，失败不影响导入）
+                        try:
+                            token_result = duckmail_get_token(email_addr, duckmail_password)
+                            if token_result and token_result.get('token'):
+                                db = get_db()
+                                db.execute('UPDATE temp_emails SET duckmail_token = ? WHERE email = ?',
+                                           (encrypt_data(token_result['token']), email_addr))
+                                db.commit()
+                            else:
+                                token_errors.append(email_addr)
+                        except Exception:
+                            token_errors.append(email_addr)
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+            elif provider == 'cloudflare':
+                # Cloudflare 格式：邮箱----JWT
+                parts = line.split('----')
+                if len(parts) >= 2:
+                    email_addr = parts[0].strip()
+                    cloudflare_jwt = parts[1].strip()
+
+                    if email_addr and cloudflare_jwt and '@' in email_addr:
+                        existing = get_temp_email_by_address(email_addr)
+                        db = get_db()
+                        if existing:
+                            db.execute(
+                                'UPDATE temp_emails SET cloudflare_jwt = ?, provider = ? WHERE email = ?',
+                                (encrypt_data(cloudflare_jwt), 'cloudflare', email_addr)
+                            )
+                            db.commit()
+                            updated += 1
+                        elif add_temp_email(
+                            email_addr,
+                            provider='cloudflare',
+                            cloudflare_jwt=cloudflare_jwt
+                        ):
+                            added += 1
+                        else:
+                            skipped += 1
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+            else:
+                # GPTMail 格式：每行一个邮箱地址
+                email_addr = line.strip()
+                if email_addr and '@' in email_addr:
+                    existing = get_temp_email_by_address(email_addr)
+                    if existing:
+                        updated += 1
+                    elif add_temp_email(email_addr, provider='gptmail'):
+                        added += 1
+                    else:
+                        skipped += 1
+                else:
+                    skipped += 1
+        except Exception:
+            skipped += 1
+
+    total = added + updated
+    if total > 0:
+        log_audit('import', 'temp_emails', None, f"导入 {added} 个新临时邮箱，更新 {updated} 个已有邮箱")
+        msg = ''
+        if added > 0:
+            msg += f'新增 {added} 个临时邮箱'
+        if updated > 0:
+            msg += ('，' if msg else '') + f'更新 {updated} 个已有邮箱'
+        if skipped > 0:
+            msg += f'，跳过 {skipped} 个（格式错误）'
+        if token_errors:
+            msg += f'，{len(token_errors)} 个邮箱 Token 获取失败（不影响使用，获取邮件时会自动重试）'
+        return jsonify({
+            'success': True,
+            'message': msg
+        })
+    else:
+        return jsonify({'success': False, 'error': '没有新的临时邮箱被导入（可能格式错误）'})
+
+
+@app.route('/api/duckmail/domains', methods=['GET'])
+@login_required
+def api_get_duckmail_domains():
+    """获取 DuckMail 可用域名列表"""
+    domains, error = duckmail_get_domains()
+    if error:
+        return jsonify({'success': False, 'error': error, 'domains': []})
+    return jsonify({
+        'success': True,
+        'domains': [{'id': d.get('id'), 'domain': d.get('domain')} for d in domains]
+    })
+
+
+@app.route('/api/cloudflare/domains', methods=['GET'])
+@login_required
+def api_get_cloudflare_domains():
+    """获取 Cloudflare Temp Email 可用域名列表"""
+    domains, error = cloudflare_get_domains()
+    if error:
+        return jsonify({'success': False, 'error': error, 'domains': []})
+    return jsonify({
+        'success': True,
+        'domains': [{'domain': domain} for domain in domains]
+    })
+
+
+@app.route('/api/temp-emails/generate', methods=['POST'])
+@login_required
+def api_generate_temp_email():
+    """生成新的临时邮箱（支持 GPTMail、DuckMail 和 Cloudflare）"""
+    data = request.json or {}
+    provider = data.get('provider', 'gptmail')
+
+    if provider == 'duckmail':
+        # DuckMail: 需要 domain、username、password
+        domain = data.get('domain', '')
+        username = data.get('username', '')
+        password = data.get('password', '')
+
+        if not domain or not username:
+            return jsonify({'success': False, 'error': '请输入用户名和域名'})
+        if len(username) < 3:
+            return jsonify({'success': False, 'error': '用户名至少 3 个字符'})
+        if not password or len(password) < 6:
+            return jsonify({'success': False, 'error': '密码至少 6 个字符'})
+
+        email_addr = f"{username}@{domain}"
+
+        # 检查本地数据库是否已存在
+        existing = get_temp_email_by_address(email_addr)
+        if existing:
+            return jsonify({'success': False, 'error': '邮箱已存在'})
+
+        # 1. 创建账户
+        account_result = duckmail_create_account(email_addr, password)
+        if not account_result or not account_result.get('id'):
+            error_msg = account_result.get('error', '创建 DuckMail 账户失败') if account_result else '创建 DuckMail 账户失败'
+            return jsonify({'success': False, 'error': error_msg})
+
+        account_id = account_result['id']
+
+        # 2. 获取 Token
+        token_result = duckmail_get_token(email_addr, password)
+        if not token_result or not token_result.get('token'):
+            error_msg = token_result.get('error', '获取 DuckMail Token 失败') if token_result else '获取 DuckMail Token 失败'
+            return jsonify({'success': False, 'error': error_msg})
+
+        token = token_result['token']
+
+        # 3. 保存到数据库
+        if add_temp_email(email_addr, provider='duckmail',
+                         duckmail_token=token,
+                         duckmail_account_id=account_id,
+                         duckmail_password=password):
+            return jsonify({'success': True, 'email': email_addr, 'message': 'DuckMail 临时邮箱创建成功'})
+        else:
+            return jsonify({'success': False, 'error': '邮箱已存在'})
+    elif provider == 'cloudflare':
+        domain = data.get('domain', '').strip()
+        username = data.get('username', '').strip() or None
+
+        if username and len(username) < 3:
+            return jsonify({'success': False, 'error': '用户名至少 3 个字符，或留空随机生成'})
+        if not domain:
+            domains = get_cloudflare_email_domains()
+            if not domains:
+                return jsonify({'success': False, 'error': '请先在设置中配置 Cloudflare 邮箱域名'})
+            domain = domains[0]
+
+        result = cloudflare_create_address(username=username, domain=domain)
+        if not result:
+            return jsonify({'success': False, 'error': '创建 Cloudflare 临时邮箱失败'})
+
+        email_addr = result.get('address')
+        jwt = result.get('jwt')
+        address_id = result.get('id') or result.get('address_id')
+
+        if not email_addr or not jwt:
+            return jsonify({'success': False, 'error': result.get('error', 'Cloudflare 返回数据不完整')})
+
+        if add_temp_email(
+            email_addr,
+            provider='cloudflare',
+            cloudflare_jwt=jwt,
+            cloudflare_address_id=address_id
+        ):
+            return jsonify({'success': True, 'email': email_addr, 'message': 'Cloudflare 临时邮箱创建成功'})
+        return jsonify({'success': False, 'error': '邮箱已存在'})
+    else:
+        # GPTMail: 保持原有逻辑
+        prefix = data.get('prefix')
+        domain = data.get('domain')
+
+        email_addr = generate_temp_email(prefix, domain)
+
+        if email_addr:
+            if add_temp_email(email_addr, provider='gptmail'):
+                return jsonify({'success': True, 'email': email_addr, 'message': '临时邮箱创建成功'})
+            else:
+                return jsonify({'success': False, 'error': '邮箱已存在'})
+        else:
+            return jsonify({'success': False, 'error': '生成临时邮箱失败，请稍后重试'})
+
+
+@app.route('/api/temp-emails/<path:email_addr>', methods=['DELETE'])
+@login_required
+def api_delete_temp_email(email_addr):
+    """删除临时邮箱"""
+    temp_email = get_temp_email_by_address(email_addr)
+
+    # DuckMail: 额外调用删除账户 API
+    if temp_email and temp_email.get('provider') == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        account_id = temp_email.get('duckmail_account_id', '')
+        if token and account_id:
+            duckmail_delete_account(token, account_id)
+    elif temp_email and temp_email.get('provider') == 'cloudflare':
+        cloudflare_delete_address(temp_email.get('cloudflare_address_id', ''))
+
+    if delete_temp_email(email_addr):
+        return jsonify({'success': True, 'message': '临时邮箱已删除'})
+    else:
+        return jsonify({'success': False, 'error': '删除失败'})
+
+
+@app.route('/api/temp-emails/<path:email_addr>/messages', methods=['GET'])
+@login_required
+def api_get_temp_email_messages(email_addr):
+    """获取临时邮箱的邮件列表"""
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        # DuckMail: 使用 Bearer Token 获取邮件
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            # Token 获取失败，尝试用密码刷新
+            token = duckmail_refresh_token(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 获取失败，请检查密码是否正确或 DuckMail 服务是否可用'})
+
+        messages = duckmail_get_messages(token)
+        if messages is None:
+            # Token 可能过期，尝试刷新
+            token = duckmail_refresh_token(email_addr)
+            if token:
+                messages = duckmail_get_messages(token)
+
+        if messages is None:
+            return jsonify({'success': False, 'error': '获取 DuckMail 邮件失败'})
+
+        # 转换为统一格式并保存到数据库
+        unified_messages = []
+        for msg in messages:
+            from_info = msg.get('from', {})
+            from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+            unified_messages.append({
+                'id': msg.get('id', ''),
+                'from_address': from_addr,
+                'subject': msg.get('subject', '无主题'),
+                'content': msg.get('text', ''),
+                'html_content': msg.get('html', [''])[0] if isinstance(msg.get('html'), list) else (msg.get('html', '') or ''),
+                'has_html': bool(msg.get('html')),
+                'timestamp': int(datetime.fromisoformat(msg['createdAt'].replace('Z', '+00:00')).timestamp()) if msg.get('createdAt') else 0
+            })
+        save_temp_email_messages(email_addr, unified_messages)
+
+        formatted = []
+        for msg in unified_messages:
+            formatted.append({
+                'id': msg.get('id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('timestamp', 0),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': 1 if msg.get('has_html') else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'method': 'DuckMail'
+        })
+    elif provider == 'cloudflare':
+        jwt = get_cloudflare_jwt_for_email(email_addr)
+        if not jwt:
+            return jsonify({'success': False, 'error': 'Cloudflare JWT 不存在，请重新导入或创建邮箱'})
+
+        messages = cloudflare_get_messages(jwt)
+        if messages is None:
+            return jsonify({'success': False, 'error': '获取 Cloudflare 邮件失败'})
+
+        unified_messages = []
+        for index, msg in enumerate(messages):
+            raw_email = msg.get('raw')
+            if not raw_email:
+                continue
+            fallback_id = msg.get('id') or f"{email_addr}-{index}-{hashlib.sha256(raw_email.encode('utf-8', 'replace')).hexdigest()}"
+            fallback_timestamp = 0
+            for key in ('createdAt', 'created_at', 'date'):
+                if msg.get(key):
+                    try:
+                        fallback_timestamp = int(datetime.fromisoformat(str(msg[key]).replace('Z', '+00:00')).timestamp())
+                        break
+                    except Exception:
+                        continue
+            unified_messages.append(
+                parse_raw_email_to_temp_message(email_addr, raw_email, fallback_id, fallback_timestamp)
+            )
+
+        save_temp_email_messages(email_addr, unified_messages)
+
+        formatted = []
+        for msg in unified_messages:
+            formatted.append({
+                'id': msg.get('id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('timestamp', 0),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': 1 if msg.get('has_html') else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'method': 'Cloudflare'
+        })
+    else:
+        # GPTMail: 保持原有逻辑
+        api_messages = get_temp_emails_from_api(email_addr)
+
+        if api_messages:
+            save_temp_email_messages(email_addr, api_messages)
+
+        messages = get_temp_email_messages(email_addr)
+
+        formatted = []
+        for msg in messages:
+            formatted.append({
+                'id': msg.get('message_id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('created_at', ''),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': msg.get('has_html', 0)
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'method': 'GPTMail'
+        })
+
+
+@app.route('/api/temp-emails/<path:email_addr>/messages/<path:message_id>', methods=['GET'])
+@login_required
+def api_get_temp_email_message_detail(email_addr, message_id):
+    """获取临时邮件详情"""
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        # 先检查本地缓存
+        msg = get_temp_email_message_by_id(message_id)
+
+        # 如果有 HTML 内容直接返回本地缓存
+        if msg and msg.get('has_html') and msg.get('html_content'):
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'to': email_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
+                    'body_type': 'html' if msg.get('has_html') else 'text',
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0)
+                }
+            })
+
+        # 从 DuckMail API 获取详情（含 body）
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 无效'})
+
+        detail = duckmail_get_message_detail(token, message_id)
+        if detail:
+            from_info = detail.get('from', {})
+            from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+            html_content = detail.get('html', [''])[0] if isinstance(detail.get('html'), list) else (detail.get('html', '') or '')
+            text_content = detail.get('text', '')
+
+            # 更新本地缓存
+            save_temp_email_messages(email_addr, [{
+                'id': detail.get('id', ''),
+                'from_address': from_addr,
+                'subject': detail.get('subject', '无主题'),
+                'content': text_content,
+                'html_content': html_content,
+                'has_html': bool(html_content),
+                'timestamp': int(datetime.fromisoformat(detail['createdAt'].replace('Z', '+00:00')).timestamp()) if detail.get('createdAt') else 0
+            }])
+
+            body = html_content if html_content else text_content
+            body_type = 'html' if html_content else 'text'
+
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': detail.get('id'),
+                    'from': from_addr,
+                    'to': email_addr,
+                    'subject': detail.get('subject', '无主题'),
+                    'body': body,
+                    'body_type': body_type,
+                    'date': detail.get('createdAt', ''),
+                    'timestamp': int(datetime.fromisoformat(detail['createdAt'].replace('Z', '+00:00')).timestamp()) if detail.get('createdAt') else 0
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': '获取邮件详情失败'})
+    elif provider == 'cloudflare':
+        msg = get_temp_email_message_by_id(message_id)
+
+        if not msg:
+            jwt = get_cloudflare_jwt_for_email(email_addr)
+            if not jwt:
+                return jsonify({'success': False, 'error': 'Cloudflare JWT 无效'})
+
+            messages = cloudflare_get_messages(jwt)
+            if messages is None:
+                return jsonify({'success': False, 'error': '获取 Cloudflare 邮件失败'})
+
+            parsed_messages = []
+            for index, item in enumerate(messages):
+                raw_email = item.get('raw')
+                if not raw_email:
+                    continue
+                fallback_id = item.get('id') or f"{email_addr}-{index}-{hashlib.sha256(raw_email.encode('utf-8', 'replace')).hexdigest()}"
+                parsed_messages.append(parse_raw_email_to_temp_message(email_addr, raw_email, fallback_id))
+            save_temp_email_messages(email_addr, parsed_messages)
+            msg = get_temp_email_message_by_id(message_id)
+
+        if msg:
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'to': email_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
+                    'body_type': 'html' if msg.get('has_html') else 'text',
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0)
+                }
+            })
+        return jsonify({'success': False, 'error': '邮件不存在'})
+    else:
+        # GPTMail: 保持原有逻辑
+        msg = get_temp_email_message_by_id(message_id)
+
+        if not msg:
+            api_msg = get_temp_email_detail_from_api(message_id)
+            if api_msg:
+                save_temp_email_messages(email_addr, [api_msg])
+                msg = get_temp_email_message_by_id(message_id)
+
+        if msg:
+            return jsonify({
+                'success': True,
+                'email': {
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'to': email_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'body': msg.get('html_content') if msg.get('has_html') else msg.get('content', ''),
+                    'body_type': 'html' if msg.get('has_html') else 'text',
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0)
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': '邮件不存在'})
+
+
+@app.route('/api/temp-emails/<path:email_addr>/messages/<path:message_id>', methods=['DELETE'])
+@login_required
+def api_delete_temp_email_message(email_addr, message_id):
+    """删除临时邮件"""
+    return jsonify({'success': False, 'error': '临时邮箱单封删信功能已暂时关闭'})
+
+
+@app.route('/api/temp-emails/<path:email_addr>/clear', methods=['DELETE'])
+@login_required
+def api_clear_temp_email_messages(email_addr):
+    """清空临时邮箱的所有邮件"""
+    return jsonify({'success': False, 'error': '临时邮箱清空功能已暂时关闭'})
+
+
+@app.route('/api/temp-emails/<path:email_addr>/refresh', methods=['POST'])
+@login_required
+def api_refresh_temp_email_messages(email_addr):
+    """刷新临时邮箱的邮件"""
+    temp_email = get_temp_email_by_address(email_addr)
+    provider = temp_email.get('provider', 'gptmail') if temp_email else 'gptmail'
+
+    if provider == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        if not token:
+            return jsonify({'success': False, 'error': 'DuckMail Token 无效，请尝试重新创建邮箱'})
+
+        messages = duckmail_get_messages(token)
+        if messages is None:
+            # Token 可能过期，尝试刷新
+            token = duckmail_refresh_token(email_addr)
+            if token:
+                messages = duckmail_get_messages(token)
+
+        if messages is not None:
+            unified_messages = []
+            for msg in messages:
+                from_info = msg.get('from', {})
+                from_addr = from_info.get('address', '') if isinstance(from_info, dict) else str(from_info)
+                unified_messages.append({
+                    'id': msg.get('id', ''),
+                    'from_address': from_addr,
+                    'subject': msg.get('subject', '无主题'),
+                    'content': msg.get('text', ''),
+                    'html_content': msg.get('html', [''])[0] if isinstance(msg.get('html'), list) else (msg.get('html', '') or ''),
+                    'has_html': bool(msg.get('html')),
+                    'timestamp': int(datetime.fromisoformat(msg['createdAt'].replace('Z', '+00:00')).timestamp()) if msg.get('createdAt') else 0
+                })
+            saved = save_temp_email_messages(email_addr, unified_messages)
+
+            formatted = []
+            for msg in unified_messages:
+                formatted.append({
+                    'id': msg.get('id'),
+                    'from': msg.get('from_address', '未知'),
+                    'subject': msg.get('subject', '无主题'),
+                    'body_preview': (msg.get('content', '') or '')[:200],
+                    'date': msg.get('timestamp', 0),
+                    'timestamp': msg.get('timestamp', 0),
+                    'has_html': 1 if msg.get('has_html') else 0
+                })
+
+            return jsonify({
+                'success': True,
+                'emails': formatted,
+                'count': len(formatted),
+                'new_count': saved,
+                'method': 'DuckMail'
+            })
+        else:
+            return jsonify({'success': False, 'error': '获取 DuckMail 邮件失败'})
+    elif provider == 'cloudflare':
+        jwt = get_cloudflare_jwt_for_email(email_addr)
+        if not jwt:
+            return jsonify({'success': False, 'error': 'Cloudflare JWT 无效，请重新导入或创建邮箱'})
+
+        messages = cloudflare_get_messages(jwt)
+        if messages is None:
+            return jsonify({'success': False, 'error': '获取 Cloudflare 邮件失败'})
+
+        unified_messages = []
+        for index, item in enumerate(messages):
+            raw_email = item.get('raw')
+            if not raw_email:
+                continue
+            fallback_id = item.get('id') or f"{email_addr}-{index}-{hashlib.sha256(raw_email.encode('utf-8', 'replace')).hexdigest()}"
+            fallback_timestamp = 0
+            for key in ('createdAt', 'created_at', 'date'):
+                if item.get(key):
+                    try:
+                        fallback_timestamp = int(datetime.fromisoformat(str(item[key]).replace('Z', '+00:00')).timestamp())
+                        break
+                    except Exception:
+                        continue
+            unified_messages.append(
+                parse_raw_email_to_temp_message(email_addr, raw_email, fallback_id, fallback_timestamp)
+            )
+        saved = save_temp_email_messages(email_addr, unified_messages)
+
+        formatted = []
+        for msg in unified_messages:
+            formatted.append({
+                'id': msg.get('id'),
+                'from': msg.get('from_address', '未知'),
+                'subject': msg.get('subject', '无主题'),
+                'body_preview': (msg.get('content', '') or '')[:200],
+                'date': msg.get('timestamp', 0),
+                'timestamp': msg.get('timestamp', 0),
+                'has_html': 1 if msg.get('has_html') else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'emails': formatted,
+            'count': len(formatted),
+            'new_count': saved,
+            'method': 'Cloudflare'
+        })
+    else:
+        # GPTMail: 保持原有逻辑
+        api_messages = get_temp_emails_from_api(email_addr)
+
+        if api_messages is not None:
+            saved = save_temp_email_messages(email_addr, api_messages)
+            messages = get_temp_email_messages(email_addr)
+
+            formatted = []
+            for msg in messages:
+                formatted.append({
+                    'id': msg.get('message_id'),
+                    'from': msg.get('from_address', '未知'),
+                    'subject': msg.get('subject', '无主题'),
+                    'body_preview': (msg.get('content', '') or '')[:200],
+                    'date': msg.get('created_at', ''),
+                    'timestamp': msg.get('timestamp', 0),
+                    'has_html': msg.get('has_html', 0)
+                })
+
+            return jsonify({
+                'success': True,
+                'emails': formatted,
+                'count': len(formatted),
+                'new_count': saved,
+                'method': 'GPTMail'
+            })
+        else:
+            return jsonify({'success': False, 'error': '获取邮件失败'})
+
+
