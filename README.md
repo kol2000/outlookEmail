@@ -1,6 +1,6 @@
-# Outlook 邮件管理工具
+# 多邮箱邮件管理工具
 
-一个功能完整的 Outlook 邮件管理解决方案，支持多种方式读取 Outlook 邮箱邮件，并提供 Web 界面进行邮箱账号管理和邮件查看。集成 GPTMail + DuckMail + Cloudflare Temp Email 多提供商临时邮箱（支持自建接入），支持一键生成或自定义域名/用户名临时邮箱
+一个功能完整的多邮箱邮件管理解决方案，支持通过 Outlook OAuth、标准 IMAP 和 Microsoft Graph API 读取及管理多个邮箱账号，并提供 Web 界面用于账号管理、邮件查看、邮件转发和对外 API 调用。目前支持 Outlook、Gmail、暂未测试（QQ、163、126、Yahoo、阿里云邮箱以及自定义 IMAP 邮箱）。集成 GPTMail + DuckMail + Cloudflare Temp Email 多提供商临时邮箱（支持自建接入），支持一键生成或自定义域名/用户名临时邮箱
 
 ## ✨ 功能特性
 
