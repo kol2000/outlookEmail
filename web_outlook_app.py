@@ -112,6 +112,19 @@ IMAP_SERVER_OLD = "outlook.office365.com"
 IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
 
+try:
+    with open('VERSION', 'r', encoding='utf-8') as version_file:
+        APP_VERSION = version_file.read().strip() or '1.0.0'
+except Exception:
+    APP_VERSION = '1.0.0'
+
+IMAP_IDENTITY_FIELDS = {
+    'name': os.getenv('IMAP_ID_NAME', 'outlookEmail'),
+    'version': os.getenv('IMAP_ID_VERSION', APP_VERSION),
+    'vendor': os.getenv('IMAP_ID_VENDOR', 'outlookEmail'),
+    'support-email': os.getenv('IMAP_ID_SUPPORT_EMAIL', ''),
+}
+
 MAIL_PROVIDERS = {
     "outlook": {
         "label": "Outlook",
@@ -183,35 +196,41 @@ DOMAIN_PROVIDER_MAP = {
 
 PROVIDER_FOLDER_MAP = {
     "gmail": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["[Gmail]/Spam", "[Gmail]/垃圾邮件"],
         "deleteditems": ["[Gmail]/Trash", "[Gmail]/已删除邮件"],
     },
     "qq": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Junk", "&V4NXPpCuTvY-"],
         "deleteditems": ["Deleted Messages", "&XfJT0ZABkK5O9g-"],
     },
     "163": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Junk", "&V4NXPpCuTvY-"],
         "deleteditems": ["Deleted Messages", "&XfJT0ZABkK5O9g-"],
     },
     "126": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Junk", "&V4NXPpCuTvY-"],
         "deleteditems": ["Deleted Messages", "&XfJT0ZABkK5O9g-"],
     },
     "yahoo": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Bulk Mail", "Spam"],
         "deleteditems": ["Trash"],
     },
     "_default": {
-        "inbox": ["INBOX"],
+        "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Junk", "Junk Email", "Spam", "SPAM", "Bulk Mail"],
         "deleteditems": ["Trash", "Deleted", "Deleted Items", "Deleted Messages"],
     },
+}
+
+IMAP_FOLDER_MATCH_ALIASES = {
+    "inbox": {"inbox", "收件箱"},
+    "junkemail": {"junk", "junk email", "spam", "bulk mail", "垃圾邮件", "垃圾箱"},
+    "deleteditems": {"trash", "deleted", "deleted items", "deleted messages", "已删除邮件", "垃圾箱"},
 }
 
 FORWARD_CHANNEL_EMAIL = "email"
@@ -282,6 +301,134 @@ def get_imap_folder_candidates(provider: str, folder: str) -> List[str]:
     folder_key = (folder or 'inbox').strip().lower()
     folder_map = PROVIDER_FOLDER_MAP.get(provider_key, PROVIDER_FOLDER_MAP['_default'])
     return folder_map.get(folder_key, PROVIDER_FOLDER_MAP['_default'].get(folder_key, ['INBOX']))
+
+
+def decode_imap_utf7(value: str) -> str:
+    if not value or '&' not in value:
+        return value or ''
+    decoded_parts = []
+    index = 0
+    while index < len(value):
+        if value[index] != '&':
+            decoded_parts.append(value[index])
+            index += 1
+            continue
+        end = value.find('-', index + 1)
+        if end == -1:
+            decoded_parts.append(value[index:])
+            break
+        if end == index + 1:
+            decoded_parts.append('&')
+            index = end + 1
+            continue
+        encoded = value[index + 1:end].replace(',', '/')
+        padding = '=' * ((4 - len(encoded) % 4) % 4)
+        try:
+            decoded = base64.b64decode(f'{encoded}{padding}').decode('utf-16-be')
+            decoded_parts.append(decoded)
+        except Exception:
+            decoded_parts.append(value[index:end + 1])
+        index = end + 1
+    return ''.join(decoded_parts)
+
+
+def normalize_imap_mailbox_name(value: str) -> str:
+    text = str(value or '').strip().strip('"')
+    text = re.sub(r'\s+', ' ', text)
+    return text.lower()
+
+
+def extract_imap_list_mailbox_name(raw_item: Any) -> str:
+    if raw_item is None:
+        return ''
+    line = raw_item.decode('utf-8', errors='ignore') if isinstance(raw_item, (bytes, bytearray)) else str(raw_item)
+    line = line.strip()
+    if not line:
+        return ''
+    quoted_parts = re.findall(r'"((?:[^"\\]|\\.)*)"', line)
+    if quoted_parts:
+        return quoted_parts[-1].replace(r'\"', '"').replace(r'\\', '\\')
+    return line.rsplit(' ', 1)[-1].strip('"')
+
+
+def build_imap_mailbox_match_profile(mailbox_name: str) -> Dict[str, set[str]]:
+    variants = []
+    for candidate in [str(mailbox_name or '').strip()]:
+        if candidate and candidate not in variants:
+            variants.append(candidate)
+        decoded_candidate = decode_imap_utf7(candidate)
+        if decoded_candidate and decoded_candidate not in variants:
+            variants.append(decoded_candidate)
+
+    full_names = set()
+    terminal_names = set()
+    for variant in variants:
+        normalized = normalize_imap_mailbox_name(variant)
+        if normalized:
+            full_names.add(normalized)
+        terminal_segment = ''
+        for segment in re.split(r'[./\\\\]+', variant):
+            if normalize_imap_mailbox_name(segment):
+                terminal_segment = segment
+        terminal_normalized = normalize_imap_mailbox_name(terminal_segment)
+        if terminal_normalized:
+            terminal_names.add(terminal_normalized)
+    return {'full': full_names, 'terminal': terminal_names}
+
+
+def list_imap_mailboxes(mail) -> List[str]:
+    try:
+        status, folder_list = mail.list()
+    except Exception:
+        return []
+    if status != 'OK' or not folder_list:
+        return []
+
+    mailboxes = []
+    for raw_item in folder_list:
+        mailbox_name = extract_imap_list_mailbox_name(raw_item)
+        if mailbox_name and mailbox_name not in mailboxes:
+            mailboxes.append(mailbox_name)
+    return mailboxes
+
+
+def rank_imap_listed_mailboxes(folder: str, candidates: List[str], available_folders: List[str]) -> List[str]:
+    candidate_names = set()
+    for candidate in candidates:
+        profile = build_imap_mailbox_match_profile(candidate)
+        candidate_names.update(profile['full'])
+        candidate_names.update(profile['terminal'])
+
+    alias_names = {
+        normalize_imap_mailbox_name(alias)
+        for alias in IMAP_FOLDER_MATCH_ALIASES.get((folder or '').strip().lower(), set())
+        if normalize_imap_mailbox_name(alias)
+    }
+
+    buckets = {
+        'candidate_full': [],
+        'candidate_segment': [],
+        'alias_full': [],
+        'alias_segment': [],
+    }
+
+    for mailbox_name in available_folders:
+        profile = build_imap_mailbox_match_profile(mailbox_name)
+        if profile['full'] & candidate_names:
+            buckets['candidate_full'].append(mailbox_name)
+        elif profile['terminal'] & candidate_names:
+            buckets['candidate_segment'].append(mailbox_name)
+        elif profile['full'] & alias_names:
+            buckets['alias_full'].append(mailbox_name)
+        elif profile['terminal'] & alias_names:
+            buckets['alias_segment'].append(mailbox_name)
+
+    ranked = []
+    for bucket_name in ('candidate_full', 'candidate_segment', 'alias_full', 'alias_segment'):
+        for mailbox_name in buckets[bucket_name]:
+            if mailbox_name not in ranked:
+                ranked.append(mailbox_name)
+    return ranked
 
 
 # ==================== 登录速率限制 ====================
@@ -2322,54 +2469,8 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
-        # 根据文件夹类型选择 IMAP 文件夹
-        # 尝试多种可能的文件夹名称
-        folder_map = {
-            'inbox': ['"INBOX"', 'INBOX'],
-            'junkemail': ['"Junk"', '"Junk Email"', 'Junk', '"垃圾邮件"'],
-            'deleteditems': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"'],
-            'trash': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"']
-        }
-        possible_folders = folder_map.get(folder.lower(), ['"INBOX"'])
-
-        # 尝试选择文件夹
-        selected_folder = None
-        last_error = None
-        for imap_folder in possible_folders:
-            try:
-                status, response = connection.select(imap_folder, readonly=True)
-                if status == 'OK':
-                    selected_folder = imap_folder
-                    break
-                else:
-                    last_error = f"select {imap_folder} status={status}"
-            except Exception as e:
-                last_error = f"select {imap_folder} error={str(e)}"
-                continue
-
+        selected_folder, folder_diagnostics = resolve_imap_folder(connection, 'outlook', folder, readonly=True)
         if not selected_folder:
-            # 如果所有尝试都失败，列出所有可用文件夹以便调试
-            try:
-                status, folder_list = connection.list()
-                available_folders = []
-                if status == 'OK' and folder_list:
-                    for folder_item in folder_list:
-                        if isinstance(folder_item, bytes):
-                            available_folders.append(folder_item.decode('utf-8', errors='ignore'))
-                        else:
-                            available_folders.append(str(folder_item))
-                
-                error_details = {
-                    "last_error": last_error,
-                    "tried_folders": possible_folders,
-                    "available_folders": available_folders[:10]  # 只返回前10个
-                }
-            except Exception:
-                error_details = {
-                    "last_error": last_error,
-                    "tried_folders": possible_folders
-                }
-
             return {
                 "success": False,
                 "error": build_error_payload(
@@ -2377,7 +2478,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                     f"无法访问文件夹，请检查账号配置",
                     "IMAPSelectError",
                     500,
-                    error_details
+                    folder_diagnostics
                 )
             }
 
@@ -2458,26 +2559,7 @@ def get_email_detail_imap(account: str, client_id: str, refresh_token: str, mess
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
-        # 根据文件夹类型选择 IMAP 文件夹
-        folder_map = {
-            'inbox': ['"INBOX"', 'INBOX'],
-            'junkemail': ['"Junk"', '"Junk Email"', 'Junk', '"垃圾邮件"'],
-            'deleteditems': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"'],
-            'trash': ['"Deleted"', '"Deleted Items"', '"Trash"', 'Deleted', '"已删除邮件"']
-        }
-        possible_folders = folder_map.get(folder.lower(), ['"INBOX"'])
-
-        # 尝试选择文件夹
-        selected_folder = None
-        for imap_folder in possible_folders:
-            try:
-                status, response = connection.select(imap_folder, readonly=True)
-                if status == 'OK':
-                    selected_folder = imap_folder
-                    break
-            except Exception:
-                continue
-
+        selected_folder, _ = resolve_imap_folder(connection, 'outlook', folder, readonly=True)
         if not selected_folder:
             return None
 
@@ -2586,24 +2668,150 @@ def create_imap_connection(imap_host: str, imap_port: int = 993, proxy_url: str 
             socket.setdefaulttimeout(old_timeout)
 
 
-def resolve_imap_folder(mail, provider: str, folder: str, readonly: bool = True) -> Optional[str]:
-    candidates = get_imap_folder_candidates(provider, folder)
-    for folder_name in candidates:
-        try_names = [folder_name]
-        if ' ' in folder_name and not (folder_name.startswith('"') and folder_name.endswith('"')):
-            try_names.append(f'"{folder_name}"')
-        for candidate in try_names:
+def quote_imap_id_value(value: str) -> str:
+    return str(value or '').replace('\\', '\\\\').replace('"', r'\"')
+
+
+def build_imap_id_payload() -> Optional[str]:
+    parts = []
+    for key, value in IMAP_IDENTITY_FIELDS.items():
+        if not value:
+            continue
+        parts.append(f'"{quote_imap_id_value(key)}"')
+        parts.append(f'"{quote_imap_id_value(value)}"')
+    if not parts:
+        return None
+    return f'({" ".join(parts)})'
+
+
+def send_imap_id(mail, provider: str, imap_host: str) -> Dict[str, Any]:
+    payload = build_imap_id_payload()
+    if not payload:
+        return {'attempted': False, 'reason': 'empty_payload'}
+    if not hasattr(mail, 'xatom'):
+        return {'attempted': False, 'reason': 'xatom_not_supported'}
+
+    try:
+        status, response = mail.xatom('ID', payload)
+        return {
+            'attempted': True,
+            'status': str(status),
+            'response': sanitize_error_details(str(response or ''))[:300],
+            'fields': [key for key, value in IMAP_IDENTITY_FIELDS.items() if value],
+            'provider': provider,
+            'imap_host': imap_host,
+        }
+    except Exception as exc:
+        return {
+            'attempted': True,
+            'status': type(exc).__name__,
+            'response': sanitize_error_details(str(exc))[:300],
+            'fields': [key for key, value in IMAP_IDENTITY_FIELDS.items() if value],
+            'provider': provider,
+            'imap_host': imap_host,
+        }
+
+
+def build_imap_select_variants(folder_name: str) -> List[str]:
+    raw_name = str(folder_name or '').strip()
+    if not raw_name:
+        return []
+
+    unquoted_name = raw_name[1:-1] if raw_name.startswith('"') and raw_name.endswith('"') and len(raw_name) >= 2 else raw_name
+    variants = []
+    for candidate in (raw_name, unquoted_name, f'"{unquoted_name}"'):
+        if candidate and candidate not in variants:
+            variants.append(candidate)
+    return variants
+
+
+def try_select_imap_folder(mail, folder_name: str, readonly: bool = True) -> tuple[Optional[str], List[Dict[str, Any]]]:
+    if not folder_name:
+        return None, []
+
+    attempts = []
+    readonly_modes = [readonly]
+    if readonly:
+        readonly_modes.append(False)
+
+    for use_readonly in readonly_modes:
+        for candidate in build_imap_select_variants(folder_name):
             try:
-                status, _ = mail.select(candidate, readonly=readonly)
+                status, response = mail.select(candidate, readonly=use_readonly)
+                attempts.append({
+                    'folder': candidate,
+                    'readonly': use_readonly,
+                    'status': str(status),
+                    'response': sanitize_error_details(str(response or ''))[:200],
+                })
                 if status == 'OK':
-                    return candidate
-            except Exception:
-                continue
-    return None
+                    return candidate, attempts
+            except imaplib.IMAP4.readonly:
+                attempts.append({
+                    'folder': candidate,
+                    'readonly': use_readonly,
+                    'status': 'READONLY',
+                    'response': 'mailbox selected as read-only',
+                })
+                return candidate, attempts
+            except Exception as exc:
+                attempts.append({
+                    'folder': candidate,
+                    'readonly': use_readonly,
+                    'status': type(exc).__name__,
+                    'response': sanitize_error_details(str(exc))[:200],
+                })
+    return None, attempts
+
+
+def resolve_imap_folder(mail, provider: str, folder: str, readonly: bool = True) -> tuple[Optional[str], Dict[str, Any]]:
+    candidates = []
+    for folder_name in get_imap_folder_candidates(provider, folder):
+        if folder_name and folder_name not in candidates:
+            candidates.append(folder_name)
+
+    select_attempts = []
+    for folder_name in candidates:
+        selected, attempts = try_select_imap_folder(mail, folder_name, readonly=readonly)
+        select_attempts.extend(attempts)
+        if selected:
+            diagnostics = {'tried_folders': candidates}
+            if attempts and any(not item.get('readonly', True) for item in attempts):
+                diagnostics['fallback_mode'] = 'select'
+            if select_attempts:
+                diagnostics['select_attempts'] = select_attempts[-10:]
+            return selected, diagnostics
+
+    available_folders = list_imap_mailboxes(mail)
+    ranked_folders = rank_imap_listed_mailboxes(folder, candidates, available_folders)
+    for folder_name in ranked_folders:
+        selected, attempts = try_select_imap_folder(mail, folder_name, readonly=readonly)
+        select_attempts.extend(attempts)
+        if selected:
+            return selected, {
+                'tried_folders': candidates,
+                'available_folders': available_folders[:20],
+                'matched_folders': ranked_folders[:10],
+                'fallback_mode': 'select' if any(not item.get('readonly', True) for item in attempts) else '',
+                'select_attempts': select_attempts[-10:],
+            }
+
+    diagnostics = {'tried_folders': candidates}
+    if available_folders:
+        diagnostics['available_folders'] = available_folders[:20]
+    if ranked_folders:
+        diagnostics['matched_folders'] = ranked_folders[:10]
+    if select_attempts:
+        diagnostics['select_attempts'] = select_attempts[-10:]
+    return None, diagnostics
 
 
 def normalize_imap_auth_error(provider: str, imap_host: str, raw_message: str) -> str:
     message = sanitize_error_details(str(raw_message or '')).strip() or 'IMAP 认证失败'
+    if 'unsafe login' in message.lower():
+        if (provider or '').strip().lower() in {'126', '163'}:
+            return '网易邮箱拦截了当前 IMAP 登录（Unsafe Login），请在网页端开启 IMAP 并使用客户端授权码；若仍失败，说明当前网络或服务器 IP 被风控'
+        return '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查是否已开启 IMAP 并改用授权码'
     if (provider or '').strip().lower() == 'gmail':
         return 'IMAP 认证失败，请使用 Gmail 应用专用密码并确认已开启 IMAP'
     if ((provider or '').strip().lower() == 'outlook' or (imap_host or '').strip().lower() in {IMAP_SERVER_NEW, IMAP_SERVER_OLD}) and 'basicauthblocked' in message.lower():
@@ -2611,11 +2819,43 @@ def normalize_imap_auth_error(provider: str, imap_host: str, raw_message: str) -
     return message
 
 
+def get_imap_access_block_error(provider: str, folder: str, diagnostics: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    attempts = diagnostics.get('select_attempts') or []
+    unsafe_attempts = []
+    for item in attempts:
+        response_text = str(item.get('response') or '')
+        status_text = str(item.get('status') or '')
+        if 'unsafe login' in response_text.lower() or 'unsafe login' in status_text.lower():
+            unsafe_attempts.append(item)
+
+    if not unsafe_attempts:
+        return None
+
+    provider_key = (provider or '').strip().lower()
+    if provider_key in {'126', '163'}:
+        message = '网易邮箱拦截了当前 IMAP 登录（Unsafe Login），请在网页端开启 IMAP 并使用客户端授权码；若仍失败，说明当前网络或服务器 IP 被网易风控'
+    else:
+        message = '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请确认已开启 IMAP、使用授权码，并检查当前网络或代理是否被风控'
+
+    return build_error_payload(
+        'IMAP_UNSAFE_LOGIN_BLOCKED',
+        message,
+        'IMAPSecurityError',
+        403,
+        {
+            'provider': provider,
+            'folder': folder,
+            **diagnostics,
+        }
+    )
+
+
 def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                             imap_port: int = 993, folder: str = 'inbox',
                             provider: str = 'custom', skip: int = 0, top: int = 20,
                             proxy_url: str = '') -> Dict[str, Any]:
     mail = None
+    imap_id_info = {}
     try:
         skip = max(0, int(skip or 0))
         top = max(1, int(top or 20))
@@ -2635,8 +2875,18 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 'error_code': 'IMAP_AUTH_FAILED'
             }
 
-        selected = resolve_imap_folder(mail, provider, folder, readonly=True)
+        imap_id_info = send_imap_id(mail, provider, imap_host)
+        selected, folder_diagnostics = resolve_imap_folder(mail, provider, folder, readonly=True)
         if not selected:
+            if imap_id_info:
+                folder_diagnostics = {**folder_diagnostics, 'imap_id': imap_id_info}
+            blocked_error = get_imap_access_block_error(provider, folder, folder_diagnostics)
+            if blocked_error:
+                return {
+                    'success': False,
+                    'error': blocked_error,
+                    'error_code': 'IMAP_UNSAFE_LOGIN_BLOCKED'
+                }
             return {
                 'success': False,
                 'error': build_error_payload(
@@ -2644,7 +2894,11 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                     'IMAP 文件夹不存在或无权访问',
                     'IMAPFolderError',
                     400,
-                    {'provider': provider, 'folder': folder}
+                    {
+                        'provider': provider,
+                        'folder': folder,
+                        **folder_diagnostics,
+                    }
                 ),
                 'error_code': 'IMAP_FOLDER_NOT_FOUND'
             }
@@ -2737,6 +2991,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
         return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_INVALID', 'message_id 不能为空', 'ValidationError', 400, '')}
 
     mail = None
+    imap_id_info = {}
     try:
         mail = create_imap_connection(imap_host, imap_port, proxy_url)
         try:
@@ -2753,9 +3008,31 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 )
             }
 
-        selected = resolve_imap_folder(mail, provider, folder, readonly=True)
+        imap_id_info = send_imap_id(mail, provider, imap_host)
+        selected, folder_diagnostics = resolve_imap_folder(mail, provider, folder, readonly=True)
         if not selected:
-            return {'success': False, 'error': build_error_payload('IMAP_FOLDER_NOT_FOUND', 'IMAP 文件夹不存在或无权访问', 'IMAPFolderError', 400, '')}
+            if imap_id_info:
+                folder_diagnostics = {**folder_diagnostics, 'imap_id': imap_id_info}
+            blocked_error = get_imap_access_block_error(provider, folder, folder_diagnostics)
+            if blocked_error:
+                return {
+                    'success': False,
+                    'error': blocked_error
+                }
+            return {
+                'success': False,
+                'error': build_error_payload(
+                    'IMAP_FOLDER_NOT_FOUND',
+                    'IMAP 文件夹不存在或无权访问',
+                    'IMAPFolderError',
+                    400,
+                    {
+                        'provider': provider,
+                        'folder': folder,
+                        **folder_diagnostics,
+                    }
+                )
+            }
 
         status, msg_data = mail.uid('FETCH', str(message_id), '(RFC822)')
         if status != 'OK' or not msg_data:

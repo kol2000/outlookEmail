@@ -510,6 +510,44 @@
 
         // ==================== 统一错误处理相关 ====================
 
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function parseJsonLike(value) {
+            if (typeof value !== 'string') return value;
+            const text = value.trim();
+            if (!text || (!text.startsWith('{') && !text.startsWith('['))) return value;
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                return value;
+            }
+        }
+
+        function formatFetchErrorDetails(value) {
+            const normalized = parseJsonLike(value);
+            if (normalized === undefined || normalized === null || normalized === '') return '';
+            if (typeof normalized === 'string') return normalized;
+            try {
+                return JSON.stringify(normalized, null, 2);
+            } catch (err) {
+                return String(normalized);
+            }
+        }
+
+        function normalizeMethodError(err) {
+            if (err && typeof err === 'object' && err.error && typeof err.error === 'object') {
+                return err.error;
+            }
+            return err;
+        }
+
         // 显示统一错误详情模态框
         function showErrorDetailModal(error) {
             showModal('errorDetailModal');
@@ -523,7 +561,7 @@
             const detailsContainer = document.getElementById('errorModalDetailsContainer');
             const toggleBtn = document.getElementById('toggleTraceBtn');
 
-            detailsEl.textContent = error.details || '暂无详细技术堆栈信息';
+            detailsEl.textContent = formatFetchErrorDetails(error && error.details) || '暂无详细技术堆栈信息';
 
             // 重置堆栈显示状态
             detailsContainer.style.display = 'none';
@@ -542,7 +580,12 @@
             const methodNames = {
                 'graph': 'Graph API',
                 'imap_new': 'IMAP（新服务器）',
-                'imap_old': 'IMAP（旧服务器）'
+                'imap_old': 'IMAP（旧服务器）',
+                'imap_generic': '标准 IMAP',
+                'inbox': '收件箱',
+                'junkemail': '垃圾邮件',
+                'deleteditems': '已删除邮件',
+                'all': '全部邮件'
             };
 
             function translateError(err) {
@@ -551,7 +594,7 @@
                 if (typeof err === 'string') return err;
 
                 const code = err.code || '';
-                const details = typeof err.details === 'string' ? err.details : JSON.stringify(err.details || '');
+                const details = formatFetchErrorDetails(err.details);
                 const msg = err.message || '';
 
                 // 翻译常见错误
@@ -573,22 +616,61 @@
                 if (code === 'IMAP_CONNECTION_FAILED') {
                     return 'IMAP 连接失败：无法连接到邮件服务器';
                 }
+                if (code === 'IMAP_FOLDER_NOT_FOUND') {
+                    return `IMAP 文件夹不存在或无权访问：${msg || '请检查邮箱服务端的实际文件夹名称'}`;
+                }
+                if (code === 'IMAP_AUTH_FAILED') {
+                    return `IMAP 认证失败：${msg || '请检查邮箱密码或授权码'}`;
+                }
+                if (code === 'IMAP_UNSAFE_LOGIN_BLOCKED') {
+                    return msg || '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查 IMAP 开关、授权码和当前网络环境';
+                }
+                if (code === 'IMAP_CONNECT_FAILED') {
+                    return `IMAP 连接失败：${msg || '请检查 IMAP 主机、端口和网络连通性'}`;
+                }
                 return msg || details || '未知错误';
             }
 
+            const detailEntries = (typeof details === 'object' && !Array.isArray(details) && !(details.message && details.code))
+                ? details
+                : { error: details };
+            const preferredOrder = ['graph', 'imap_new', 'imap_old', 'imap_generic', 'inbox', 'junkemail', 'deleteditems', 'all', 'error'];
+            const methods = [
+                ...preferredOrder.filter(method => detailEntries[method] !== undefined),
+                ...Object.keys(detailEntries).filter(method => !preferredOrder.includes(method))
+            ];
+
+            const summaryEl = document.getElementById('emailFetchErrorSummary');
+            if (summaryEl) {
+                summaryEl.textContent = methods.length > 1
+                    ? '所有获取方式均失败，以下是各方式的详细错误信息：'
+                    : '获取邮件失败，以下是详细错误信息：';
+            }
+
             let html = '';
-            const methods = ['graph', 'imap_new', 'imap_old'];
             methods.forEach(method => {
-                const err = details[method];
+                const err = normalizeMethodError(detailEntries[method]);
                 if (err !== undefined) {
                     const name = methodNames[method] || method;
                     const reason = translateError(err);
                     const codeText = (err && typeof err === 'object') ? (err.code || '-') : '-';
+                    const typeText = (err && typeof err === 'object') ? (err.type || '-') : '-';
+                    const statusText = (err && typeof err === 'object') ? (err.status || '-') : '-';
+                    const traceIdText = (err && typeof err === 'object') ? (err.trace_id || '-') : '-';
+                    const detailText = (err && typeof err === 'object')
+                        ? formatFetchErrorDetails(err.details)
+                        : formatFetchErrorDetails(detailEntries[method]);
                     html += `
                         <div style="background: #fff5f5; border: 1px solid #fde2e2; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
                             <div style="font-weight: 600; color: #dc3545; margin-bottom: 6px; font-size: 14px;">${name}</div>
                             <div style="color: #333; font-size: 13px; line-height: 1.6;">${reason}</div>
-                            <div style="color: #999; font-size: 12px; margin-top: 4px;">错误代码: ${codeText}</div>
+                            <div style="color: #999; font-size: 12px; margin-top: 6px; line-height: 1.6;">
+                                错误代码: ${escapeHtml(codeText)}<br>
+                                类型: ${escapeHtml(typeText)}<br>
+                                状态码: ${escapeHtml(statusText)}<br>
+                                Trace ID: ${escapeHtml(traceIdText)}
+                            </div>
+                            ${detailText ? `<pre style="margin-top:10px; padding:10px 12px; background:#fff; border:1px solid #f3caca; border-radius:6px; color:#444; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; max-height:240px; overflow:auto;">${escapeHtml(detailText)}</pre>` : ''}
                         </div>
                     `;
                 }
@@ -3041,8 +3123,9 @@ ${details}
                     renderEmailList(data.emails);
                 } else {
                     // 显示详细的多方法失败弹框
-                    if (data.details) {
-                        showEmailFetchErrorModal(data.details);
+                    const fetchErrorDetails = data.details || (data.error ? { error: data.error } : {});
+                    if (Object.keys(fetchErrorDetails).length > 0) {
+                        showEmailFetchErrorModal(fetchErrorDetails);
                     } else {
                         handleApiError(data, '获取邮件失败');
                     }
@@ -3052,7 +3135,7 @@ ${details}
                             <div class="empty-state-text">获取邮件失败，<a href="javascript:void(0)" onclick="showEmailFetchErrorModal(window._lastFetchErrorDetails)" style="color:#409eff;text-decoration:underline;">点击查看详情</a></div>
                         </div>
                     `;
-                    window._lastFetchErrorDetails = data.details || {};
+                    window._lastFetchErrorDetails = fetchErrorDetails;
                 }
             } catch (error) {
                 container.innerHTML = `
