@@ -1687,9 +1687,15 @@ ${details}
             }
         }
 
+        const SMTP_FORWARD_PROVIDER_OPTIONS = ['outlook', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom'];
+
+        function normalizeSmtpForwardProvider(value) {
+            const provider = String(value || '').trim().toLowerCase();
+            return SMTP_FORWARD_PROVIDER_OPTIONS.includes(provider) ? provider : 'custom';
+        }
+
         const SMTP_PROVIDER_PRESETS = {
             outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: 'Outlook 推荐使用 SMTP + STARTTLS（587）。' },
-            gmail: { host: 'smtp.gmail.com', port: '465', useTls: false, useSsl: true, hint: 'Gmail 通常使用应用专用密码，默认 SSL 465。' },
             qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: 'QQ 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
             '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: '163 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
             '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: '126 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
@@ -1714,7 +1720,8 @@ ${details}
             const fromHint = document.getElementById('settingsSmtpFromEmailHint');
             if (!providerSelect || !hostInput || !portInput || !useTlsInput || !useSslInput || !providerHint || !fromHint) return;
 
-            const provider = String(providerSelect.value || 'custom');
+            const provider = normalizeSmtpForwardProvider(providerSelect.value || 'custom');
+            providerSelect.value = provider;
             const preset = SMTP_PROVIDER_PRESETS[provider] || SMTP_PROVIDER_PRESETS.custom;
 
             if (applyPreset) {
@@ -4333,7 +4340,7 @@ ${details}
                     document.getElementById('settingsSmtpPort').value = data.settings.smtp_port || '465';
                     document.getElementById('settingsSmtpUsername').value = data.settings.smtp_username || '';
                     document.getElementById('settingsSmtpPassword').value = data.settings.smtp_password || '';
-                    document.getElementById('settingsSmtpProvider').value = data.settings.smtp_provider || 'custom';
+                    document.getElementById('settingsSmtpProvider').value = normalizeSmtpForwardProvider(data.settings.smtp_provider || 'custom');
                     document.getElementById('settingsSmtpFromEmail').value = data.settings.smtp_from_email || '';
                     document.getElementById('settingsSmtpUseTls').checked = String(data.settings.smtp_use_tls) === 'true';
                     document.getElementById('settingsSmtpUseSsl').checked = String(data.settings.smtp_use_ssl) !== 'false';
@@ -4385,7 +4392,7 @@ ${details}
             const smtpPort = parseInt(smtpPortValue || '465', 10);
             const smtpRecipient = document.getElementById('settingsEmailForwardRecipient').value.trim();
             const smtpHost = document.getElementById('settingsSmtpHost').value.trim();
-            const smtpProvider = document.getElementById('settingsSmtpProvider')?.value || 'custom';
+            const smtpProvider = normalizeSmtpForwardProvider(document.getElementById('settingsSmtpProvider')?.value || 'custom');
             const smtpFromEmail = document.getElementById('settingsSmtpFromEmail').value.trim();
             const smtpUsername = document.getElementById('settingsSmtpUsername').value.trim();
             const telegramBotToken = document.getElementById('settingsTelegramBotToken').value.trim();

@@ -255,7 +255,7 @@ curl -H "X-API-Key: your-api-key" \
 | `forward_check_interval_minutes` | 转发轮询间隔 |
 | `forward_email_window_minutes` | 仅转发最近多少分钟内收到的邮件，`0` 表示不限制 |
 | `forward_include_junkemail` | 是否把垃圾箱邮件也纳入转发 |
-| `smtp_provider` | SMTP 邮箱类型：`outlook` / `gmail` / `qq` / `163` / `126` / `yahoo` / `aliyun` / `custom` |
+| `smtp_provider` | SMTP 邮箱类型：`outlook` / `qq` / `163` / `126` / `yahoo` / `aliyun` / `custom` |
 | `forward_channels` | 当前启用的转发渠道 |
 
 前端设置页支持直接测试 SMTP / Telegram 链路，测试时使用当前表单值，不要求先保存设置。
@@ -269,7 +269,7 @@ curl -H "X-API-Key: your-api-key" \
 | `forward_check_interval_minutes` | int | 轮询间隔，范围 `1-60` |
 | `forward_email_window_minutes` | int | 转发邮件时间范围，范围 `0-10080`，`0` 表示不限制 |
 | `forward_include_junkemail` | bool | 是否把垃圾箱邮件也纳入转发轮询 |
-| `smtp_provider` | string | SMTP 邮箱类型，支持 `outlook`、`gmail`、`qq`、`163`、`126`、`yahoo`、`aliyun`、`custom` |
+| `smtp_provider` | string | SMTP 邮箱类型，支持 `outlook`、`qq`、`163`、`126`、`yahoo`、`aliyun`、`custom` |
 | `forward_channels` | array<string> | `smtp` / `telegram` |
 
 #### 请求示例
@@ -279,7 +279,7 @@ curl -H "X-API-Key: your-api-key" \
   "forward_check_interval_minutes": 5,
   "forward_email_window_minutes": 30,
   "forward_include_junkemail": true,
-  "smtp_provider": "gmail",
+  "smtp_provider": "outlook",
   "forward_channels": ["smtp", "telegram"]
 }
 ```

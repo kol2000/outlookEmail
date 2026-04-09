@@ -237,6 +237,7 @@ FORWARD_CHANNEL_EMAIL = "email"
 FORWARD_CHANNEL_TELEGRAM = "telegram"
 FORWARD_CHANNEL_SMTP_SETTING = "smtp"
 FORWARD_CHANNEL_TG_SETTING = "telegram"
+SMTP_FORWARD_PROVIDERS = ('outlook', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom')
 
 # 数据库文件
 DATABASE = os.getenv("DATABASE_PATH", "data/outlook_accounts.db")
@@ -6577,7 +6578,7 @@ def api_get_settings():
     settings['smtp_username'] = get_setting('smtp_username', '')
     settings['smtp_password'] = get_setting_decrypted('smtp_password', '')
     settings['smtp_from_email'] = get_setting('smtp_from_email', '')
-    settings['smtp_provider'] = get_setting('smtp_provider', 'custom')
+    settings['smtp_provider'] = normalize_smtp_forward_provider(get_setting('smtp_provider', 'custom'))
     settings['smtp_use_tls'] = get_setting('smtp_use_tls', 'false')
     settings['smtp_use_ssl'] = get_setting('smtp_use_ssl', 'true')
     settings['telegram_bot_token'] = get_setting_decrypted('telegram_bot_token', '')
@@ -6814,8 +6815,8 @@ def api_update_settings():
             errors.append('保存 SMTP 发件人失败')
 
     if 'smtp_provider' in data:
-        smtp_provider = str(data['smtp_provider']).strip().lower()
-        if smtp_provider not in ('outlook', 'gmail', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom'):
+        smtp_provider = normalize_smtp_forward_provider(data['smtp_provider'])
+        if str(data['smtp_provider']).strip().lower() not in SMTP_FORWARD_PROVIDERS:
             errors.append('SMTP 邮箱类型无效')
         elif set_setting('smtp_provider', smtp_provider):
             updated.append('SMTP 邮箱类型')
@@ -6981,6 +6982,13 @@ def normalize_forward_channel_settings(raw_channels: Any) -> list[str]:
         if channel and channel not in normalized:
             normalized.append(channel)
     return normalized
+
+
+def normalize_smtp_forward_provider(value: str) -> str:
+    provider = str(value or '').strip().lower()
+    if provider not in SMTP_FORWARD_PROVIDERS:
+        return 'custom'
+    return provider
 
 
 def get_configured_forward_channels() -> list[str]:
