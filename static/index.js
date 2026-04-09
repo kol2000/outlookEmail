@@ -1202,6 +1202,26 @@ ${details}
             return `<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
         }
 
+        function isAccountRowInteractiveTarget(target) {
+            if (!target || typeof target.closest !== 'function') {
+                return false;
+            }
+            return !!target.closest(
+                '.account-menu-wrap, .account-action-btn, .account-menu-trigger, .account-menu-panel, .account-select-checkbox, .account-error-btn, button, input, a'
+            );
+        }
+
+        function handleAccountItemClick(event, email, isTemp = false) {
+            if (isAccountRowInteractiveTarget(event?.target)) {
+                return;
+            }
+            if (isTemp) {
+                selectTempEmail(email);
+            } else {
+                selectAccount(email);
+            }
+        }
+
         // 渲染邮箱列表
         function renderAccountList(accounts) {
             const container = document.getElementById('accountList');
@@ -1218,7 +1238,7 @@ ${details}
 
             container.innerHTML = accounts.map((acc, index) => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
-                     onclick="selectAccount('${escapeJs(acc.email)}')">
+                     onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}')">
                     <input type="checkbox" class="account-select-checkbox" value="${acc.id}" 
                            onclick="event.stopPropagation(); updateBatchActionBar()">
                     <div class="account-body">
@@ -1882,7 +1902,7 @@ ${details}
 
             container.innerHTML = filtered.map(email => `
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
-                     onclick="selectTempEmail('${escapeJs(email.email)}')">
+                     onclick="handleAccountItemClick(event, '${escapeJs(email.email)}', true)">
                     <div class="account-leading-icon">⚡</div>
                     <div class="account-body">
                         <div class="account-title-row">
