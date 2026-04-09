@@ -35,7 +35,7 @@
             </div>
         </div>
         <div class="navbar-actions">
-            <button class="navbar-btn" id="refreshTokensBtn" type="button" onclick="showRefreshModal()">全量刷新Token</button>
+            <button class="navbar-btn" id="refreshTokensBtn" type="button" onclick="showRefreshModal()">Token刷新管理</button>
             <button class="navbar-btn" id="exportAccountsBtn" type="button" onclick="showExportModal()">导出邮箱</button>
             <button class="navbar-btn" id="openSettingsBtn" type="button" onclick="showSettingsModal()">⚙️ 设置</button>
             <button class="navbar-btn" id="logoutBtn" type="button" onclick="logout()" style="color: #dc3545;">退出登录</button>
@@ -140,6 +140,7 @@
                         <button class="batch-btn batch-btn-secondary" onclick="clearAccountSelection()">清空选择</button>
                     </div>
                     <div class="batch-action-group batch-action-group--accent">
+                        <button class="batch-btn batch-btn-primary" id="batchRefreshTokensBtn" onclick="refreshSelectedAccounts()">刷新 Token</button>
                         <button class="batch-btn batch-btn-accent" onclick="showBatchTagModal('add')">标签+</button>
                         <button class="batch-btn batch-btn-accent" onclick="showBatchTagModal('remove')">标签-</button>
                         <button class="batch-btn batch-btn-accent" onclick="showBatchMoveGroupModal()">移动</button>
@@ -860,7 +861,7 @@
                             <div
                                 style="font-size: 12px; color: #666; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                                 <span>🕐</span>
-                                <span>上次全量刷新</span>
+                                <span>上次刷新</span>
                             </div>
                             <div style="font-size: 13px; font-weight: 600; color: #333;" id="lastRefreshTime">-</div>
                         </div>
@@ -939,7 +940,7 @@
                         style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #f8f9fa; border-radius: 6px;">
                         <span style="display: flex; align-items: center; gap: 6px;">
                             <span>📋</span>
-                            <span>全量刷新历史</span>
+                            <span>刷新历史</span>
                         </span>
                         <button class="btn btn-sm btn-secondary" onclick="hideRefreshLogs()">隐藏</button>
                     </div>

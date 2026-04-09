@@ -8,6 +8,7 @@
         let isListVisible = true;
         let groups = [];
         let accountsCache = {}; // 缓存各分组的邮箱列表
+        let currentAccountListSource = []; // 当前账号列表的原始数据源（分组或搜索结果）
         let currentForwardingLogAccountId = null;
         let currentForwardingLogAccountEmail = '';
         let editingGroupId = null;
@@ -24,6 +25,8 @@
         let currentEmailDetail = null; // 当前查看的邮件详细数据
         let isTrustedMode = false; // 是否处于信任模式（不过滤 HTML）
         let oauthPreviewAccount = null;
+        let selectedTagFilters = new Set();
+        let tagFilterKeyword = '';
 
         // ==================== CSRF 防护 ====================
 
@@ -65,6 +68,7 @@
             ensureForwardingSettingsUI();
             bindPersistentButtonHandlers();
             document.addEventListener('click', closeAccountActionMenus);
+            document.addEventListener('click', handleGlobalTagFilterClick);
             document.getElementById('importImapHost')?.addEventListener('input', updateImportHint);
             document.getElementById('importImapPort')?.addEventListener('input', updateImportHint);
             document.getElementById('oauthEmailInput')?.addEventListener('input', invalidateRefreshTokenPreview);
@@ -97,6 +101,16 @@
             document.querySelectorAll('.account-item.menu-open').forEach(item => {
                 item.classList.remove('menu-open');
             });
+        }
+
+        function closeTagFilterDropdown() {
+            document.getElementById('tagFilterDropdown')?.classList.remove('open');
+        }
+
+        function handleGlobalTagFilterClick(event) {
+            if (!event.target.closest('#tagFilterDropdown')) {
+                closeTagFilterDropdown();
+            }
         }
 
         function toggleAccountActionMenu(toggleBtn) {
@@ -1280,7 +1294,7 @@ ${details}
 
             // 如果有缓存且不强制刷新，直接使用缓存
             if (!forceRefresh && accountsCache[groupId]) {
-                renderAccountList(accountsCache[groupId]);
+                renderFilteredAccountList(accountsCache[groupId]);
                 return;
             }
 
@@ -1293,7 +1307,7 @@ ${details}
                 if (data.success) {
                     // 缓存数据
                     accountsCache[groupId] = data.accounts;
-                    renderAccountList(data.accounts);
+                    renderFilteredAccountList(data.accounts);
                 }
             } catch (error) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
@@ -1373,6 +1387,9 @@ ${details}
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}')">
                     <input type="checkbox" class="account-select-checkbox" value="${acc.id}" 
+                           data-account-email="${escapeHtml(acc.email)}"
+                           data-account-type="${escapeHtml(acc.account_type || 'outlook')}"
+                           data-refreshable="${acc.account_type !== 'imap' ? 'true' : 'false'}"
                            onclick="event.stopPropagation(); updateBatchActionBar()">
                     <div class="account-body">
                         <div class="account-title-row">
@@ -1465,10 +1482,31 @@ ${details}
             }
 
             // 重新加载并排序账号列表
-            if (accountsCache[currentGroupId]) {
-                const sortedAccounts = applyFiltersAndSort(accountsCache[currentGroupId]);
-                renderAccountList(sortedAccounts);
+            if (currentAccountListSource.length) {
+                renderFilteredAccountList(currentAccountListSource);
             }
+        }
+
+        function renderFilteredAccountList(accounts) {
+            currentAccountListSource = Array.isArray(accounts) ? [...accounts] : [];
+            const filteredAccounts = applyFiltersAndSort(currentAccountListSource);
+            renderAccountList(filteredAccounts);
+
+            const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
+            if (searchQuery) {
+                updateCurrentGroupHeader(null, `搜索结果 (${filteredAccounts.length})`);
+            }
+        }
+
+        function refreshVisibleAccountList(forceRefresh = false) {
+            const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
+            if (searchQuery) {
+                return searchAccounts(searchQuery);
+            }
+            if (currentGroupId && !isTempEmailGroup) {
+                return loadAccountsByGroup(currentGroupId, forceRefresh);
+            }
+            return Promise.resolve();
         }
 
         // 应用筛选和排序
@@ -1491,15 +1529,10 @@ ${details}
             }
 
             // 1. Tag 筛选
-            // Get checked tags
-            const checkedBoxes = document.querySelectorAll('.tag-filter-checkbox:checked');
-            const selectedTagIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-
+            const selectedTagIds = Array.from(selectedTagFilters);
             if (selectedTagIds.length > 0) {
                 result = result.filter(acc => {
                     if (!acc.tags) return false;
-                    // Check if account has ANY of the selected tags (OR logic)
-                    // If you want AND logic, use every() instead of some()
                     return acc.tags.some(t => selectedTagIds.includes(t.id));
                 });
             }
@@ -1522,9 +1555,21 @@ ${details}
 
         // Tag Filter Change Handler
         function handleTagFilterChange() {
-            if (accountsCache[currentGroupId]) {
-                const filteredAccounts = applyFiltersAndSort(accountsCache[currentGroupId]);
-                renderAccountList(filteredAccounts);
+            const selected = document.querySelectorAll('.tag-filter-checkbox:checked');
+            selectedTagFilters = new Set(
+                Array.from(selected)
+                    .map(cb => parseInt(cb.value, 10))
+                    .filter(Number.isFinite)
+            );
+            document.querySelectorAll('.tag-filter-option').forEach(option => {
+                const checkbox = option.querySelector('.tag-filter-checkbox');
+                option.classList.toggle('is-checked', !!checkbox?.checked);
+            });
+            updateTagFilterSummary();
+            if (currentAccountListSource.length) {
+                renderFilteredAccountList(currentAccountListSource);
+            } else if (currentGroupId && !isTempEmailGroup) {
+                loadAccountsByGroup(currentGroupId);
             }
         }
 
@@ -1544,7 +1589,12 @@ ${details}
             if (!query.trim()) {
                 const currentGroup = groups.find(group => group.id === currentGroupId);
                 updateCurrentGroupHeader(currentGroup);
-                loadAccountsByGroup(currentGroupId);
+                currentAccountListSource = [];
+                if (isTempEmailGroup) {
+                    loadTempEmails();
+                } else {
+                    loadAccountsByGroup(currentGroupId);
+                }
                 return;
             }
 
@@ -1555,8 +1605,7 @@ ${details}
                 const data = await response.json();
 
                 if (data.success) {
-                    updateCurrentGroupHeader(null, `搜索结果 (${data.accounts.length})`);
-                    renderAccountList(data.accounts);
+                    renderFilteredAccountList(data.accounts);
                 } else {
                     container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败</div></div>';
                 }
@@ -2041,6 +2090,7 @@ ${details}
         // 渲染临时邮箱列表
         function renderTempEmailList(emails) {
             const container = document.getElementById('accountList');
+            currentAccountListSource = [];
 
             // 渠道筛选
             const filter = localStorage.getItem('outlook_temp_email_filter') || 'all';
@@ -4752,12 +4802,14 @@ ${details}
         // ==================== Token 刷新管理 ====================
 
         // 显示刷新模态框
-        async function showRefreshModal() {
+        async function showRefreshModal(autoLoadFailedList = true) {
             showModal('refreshModal');
             // 加载统计数据
             await loadRefreshStats();
             // 自动加载失败列表（如果有失败记录）
-            await autoLoadFailedListIfNeeded();
+            if (autoLoadFailedList) {
+                await autoLoadFailedListIfNeeded();
+            }
         }
 
         // 自动加载失败列表（如果有失败记录）
@@ -5103,7 +5155,7 @@ ${details}
 
                 if (data.success) {
                     if (data.logs.length === 0) {
-                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无全量刷新历史</div>';
+                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无刷新历史</div>';
                     } else {
                         listEl.innerHTML = `<div style="padding: 12px; background-color: #f8f9fa; border-bottom: 1px solid #e5e5e5; font-size: 13px; color: #666;">近半年刷新历史（共 ${data.logs.length} 条）</div>`;
                         let html = '';
@@ -5335,6 +5387,7 @@ ${details}
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 closeAccountActionMenus();
+                closeTagFilterDropdown();
                 closeAllModals();
             }
         });
@@ -5360,11 +5413,87 @@ ${details}
                 const data = await response.json();
                 if (data.success) {
                     allTags = data.tags;
+                    selectedTagFilters = new Set(
+                        Array.from(selectedTagFilters).filter(tagId => allTags.some(tag => tag.id === tagId))
+                    );
                     renderTagList();
-                    updateTagFilter();  // Update Filter Dropdown
+                    updateTagFilter();
                 }
             } catch (error) {
                 showToast('加载标签失败', 'error');
+            }
+        }
+
+        function getSelectedTagFilterItems() {
+            return allTags.filter(tag => selectedTagFilters.has(tag.id));
+        }
+
+        function getTagFilterSummaryText() {
+            const selected = getSelectedTagFilterItems();
+            if (!selected.length) return '全部标签';
+            if (selected.length <= 2) {
+                return selected.map(tag => tag.name).join('、');
+            }
+            return `已选 ${selected.length} 个标签`;
+        }
+
+        function updateTagFilterSummary() {
+            const triggerText = document.getElementById('tagFilterTriggerText');
+            const countBadge = document.getElementById('tagFilterTriggerCount');
+            if (!triggerText || !countBadge) return;
+
+            const selectedCount = selectedTagFilters.size;
+            triggerText.textContent = getTagFilterSummaryText();
+            countBadge.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
+            countBadge.textContent = String(selectedCount);
+        }
+
+        function filterTagOptions(keyword = '') {
+            tagFilterKeyword = keyword.trim().toLowerCase();
+            let visibleCount = 0;
+            document.querySelectorAll('.tag-filter-option').forEach(option => {
+                const tagName = (option.dataset.tagName || '').toLowerCase();
+                const isVisible = !tagFilterKeyword || tagName.includes(tagFilterKeyword);
+                option.classList.toggle('hidden', !isVisible);
+                if (isVisible) visibleCount += 1;
+            });
+
+            const emptyState = document.getElementById('tagFilterEmptyState');
+            if (emptyState) {
+                emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+        }
+
+        function toggleTagFilterDropdown(event) {
+            event?.stopPropagation();
+            const dropdown = document.getElementById('tagFilterDropdown');
+            if (!dropdown) return;
+
+            const willOpen = !dropdown.classList.contains('open');
+            dropdown.classList.toggle('open', willOpen);
+
+            if (willOpen) {
+                const searchInput = document.getElementById('tagFilterSearchInput');
+                if (searchInput) {
+                    searchInput.value = tagFilterKeyword;
+                    filterTagOptions(searchInput.value);
+                    window.requestAnimationFrame(() => searchInput.focus());
+                }
+            }
+        }
+
+        function clearTagFilterSelection(event) {
+            event?.stopPropagation();
+            selectedTagFilters = new Set();
+            document.querySelectorAll('.tag-filter-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            document.querySelectorAll('.tag-filter-option').forEach(option => {
+                option.classList.remove('is-checked');
+            });
+            updateTagFilterSummary();
+            if (currentAccountListSource.length) {
+                renderFilteredAccountList(currentAccountListSource);
             }
         }
 
@@ -5375,25 +5504,52 @@ ${details}
 
             if (allTags.length === 0) {
                 container.style.display = 'none';
+                container.innerHTML = '';
                 return;
             }
 
-            container.style.display = 'flex';
+            container.style.display = isTempEmailGroup ? 'none' : 'flex';
+            if (isTempEmailGroup) return;
 
-            let html = '';
-            allTags.forEach(tag => {
-                html += `
-                    <label class="tag-filter-label">
-                        <input type="checkbox" class="tag-filter-checkbox" value="${tag.id}" onchange="handleTagFilterChange()">
-                        <span class="tag-filter-dot" style="background-color: ${tag.color};"></span>
-                        ${escapeHtml(tag.name)}
-                    </label>
-                `;
-            });
-            container.innerHTML = html;
-            /* Old dropdown code removed */
+            const optionsHtml = allTags.map(tag => `
+                <label class="tag-filter-option ${selectedTagFilters.has(tag.id) ? 'is-checked' : ''}" data-tag-name="${escapeHtml(tag.name)}">
+                    <input type="checkbox" class="tag-filter-checkbox" value="${tag.id}"
+                        ${selectedTagFilters.has(tag.id) ? 'checked' : ''}
+                        onchange="handleTagFilterChange()">
+                    <span class="tag-filter-dot" style="background-color: ${tag.color};"></span>
+                    <span class="tag-filter-name">${escapeHtml(tag.name)}</span>
+                </label>
+            `).join('');
 
+            container.innerHTML = `
+                <span class="toolbar-label">标签</span>
+                <div class="tag-filter-dropdown" id="tagFilterDropdown">
+                    <button class="tag-filter-trigger" type="button" onclick="toggleTagFilterDropdown(event)">
+                        <span class="tag-filter-trigger-text" id="tagFilterTriggerText">${escapeHtml(getTagFilterSummaryText())}</span>
+                        <span class="tag-filter-trigger-count" id="tagFilterTriggerCount" style="display: none;"></span>
+                        <span class="tag-filter-trigger-caret">▾</span>
+                    </button>
+                    <div class="tag-filter-panel">
+                        <div class="tag-filter-panel-header">
+                            <input
+                                type="text"
+                                id="tagFilterSearchInput"
+                                class="tag-filter-search-input"
+                                placeholder="搜索标签..."
+                                oninput="filterTagOptions(this.value)"
+                            >
+                            <button class="tag-filter-clear-btn" type="button" onclick="clearTagFilterSelection(event)">清空</button>
+                        </div>
+                        <div class="tag-filter-options" id="tagFilterOptions">
+                            ${optionsHtml}
+                            <div class="tag-filter-empty" id="tagFilterEmptyState" style="display: none;">没有匹配的标签</div>
+                        </div>
+                    </div>
+                </div>
+            `;
 
+            updateTagFilterSummary();
+            filterTagOptions(tagFilterKeyword);
         }
 
         // 渲染标签列表
@@ -5479,25 +5635,47 @@ ${details}
 
         // 更新批量操作栏状态
         function updateBatchActionBar() {
-            const checked = document.querySelectorAll('.account-select-checkbox:checked');
+            const checked = Array.from(document.querySelectorAll('.account-select-checkbox:checked'));
             const allCheckboxes = document.querySelectorAll('#accountList .account-select-checkbox');
             const bar = document.getElementById('batchActionBar');
             const countSpan = document.getElementById('selectedCount');
             const selectAllBtn = document.getElementById('accountSelectAllBtn');
+            const batchRefreshBtn = document.getElementById('batchRefreshTokensBtn');
             const panel = document.getElementById('accountPanel');
+            const refreshableChecked = checked.filter(cb => cb.dataset.refreshable === 'true');
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
                 panel?.classList.add('batch-toolbar-active');
-                countSpan.textContent = `已选 ${checked.length} 项`;
+                countSpan.textContent = refreshableChecked.length > 0 && refreshableChecked.length !== checked.length
+                    ? `已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项`
+                    : `已选 ${checked.length} 项`;
                 if (selectAllBtn) {
                     selectAllBtn.textContent = allCheckboxes.length > 0 && checked.length === allCheckboxes.length
                         ? '取消全选'
                         : '全选';
                 }
+                if (batchRefreshBtn) {
+                    const isRefreshing = batchRefreshBtn.dataset.loading === 'true';
+                    batchRefreshBtn.disabled = refreshableChecked.length === 0 || isRefreshing;
+                    batchRefreshBtn.title = refreshableChecked.length === 0
+                        ? '所选账号中没有可刷新的 Outlook 账号'
+                        : '';
+                    if (!isRefreshing) {
+                        batchRefreshBtn.textContent = refreshableChecked.length > 0
+                            ? `刷新 Token${refreshableChecked.length !== checked.length ? ` (${refreshableChecked.length})` : ''}`
+                            : '刷新 Token';
+                    }
+                }
             } else {
                 bar.style.display = 'none';
                 panel?.classList.remove('batch-toolbar-active');
+                if (batchRefreshBtn) {
+                    batchRefreshBtn.disabled = false;
+                    batchRefreshBtn.dataset.loading = 'false';
+                    batchRefreshBtn.textContent = '刷新 Token';
+                    batchRefreshBtn.title = '';
+                }
             }
         }
 
@@ -5517,6 +5695,68 @@ ${details}
                 cb.checked = false;
             });
             updateBatchActionBar();
+        }
+
+        async function refreshSelectedAccounts() {
+            const btn = document.getElementById('batchRefreshTokensBtn');
+            if (!btn || btn.disabled) return;
+
+            const checked = Array.from(document.querySelectorAll('#accountList .account-select-checkbox:checked'));
+            const accountIds = checked
+                .map(cb => parseInt(cb.value, 10))
+                .filter(Number.isFinite);
+            const refreshableCount = checked.filter(cb => cb.dataset.refreshable === 'true').length;
+
+            if (!accountIds.length) {
+                showToast('请先选择要刷新的邮箱', 'error');
+                return;
+            }
+            if (!refreshableCount) {
+                showToast('所选账号中没有可刷新的 Outlook 账号', 'error');
+                return;
+            }
+            if (!confirm(`确定要刷新所选 ${accountIds.length} 个邮箱的 Token 吗？`)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.dataset.loading = 'true';
+            btn.textContent = '刷新中...';
+
+            try {
+                const response = await fetch('/api/accounts/refresh-selected', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_ids: accountIds })
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    handleApiError(data, '批量刷新失败');
+                    return;
+                }
+
+                const toastType = data.failed_count > 0 || data.skipped_count > 0 ? 'warning' : 'success';
+                showToast(
+                    `批量刷新完成：成功 ${data.success_count}，失败 ${data.failed_count}，跳过 ${data.skipped_count}`,
+                    toastType
+                );
+
+                if (data.failed_count > 0) {
+                    await showRefreshModal(false);
+                    showFailedListFromData(data.failed_list || []);
+                } else {
+                    loadRefreshStats();
+                }
+
+                clearAccountSelection();
+                await refreshVisibleAccountList(true);
+            } catch (error) {
+                showToast('批量刷新请求失败', 'error');
+            } finally {
+                btn.dataset.loading = 'false';
+                updateBatchActionBar();
+            }
         }
 
         let batchActionType = ''; // 'add' or 'remove'
@@ -5583,10 +5823,7 @@ ${details}
                 if (data.success) {
                     showToast(data.message, 'success');
                     hideBatchTagModal();
-                    // 刷新列表
-                    if (currentGroupId) {
-                        loadAccountsByGroup(currentGroupId, true);
-                    }
+                    await refreshVisibleAccountList(true);
                     // 隐藏操作栏
                     document.querySelectorAll('.account-select-checkbox').forEach(cb => cb.checked = false);
                     updateBatchActionBar();
@@ -5659,11 +5896,10 @@ ${details}
                     hideBatchMoveGroupModal();
                     // 刷新分组列表
                     loadGroups();
-                    // 刷新当前分组的邮箱列表
                     if (currentGroupId) {
                         delete accountsCache[currentGroupId];
-                        loadAccountsByGroup(currentGroupId, true);
                     }
+                    await refreshVisibleAccountList(true);
                     // 清除选择
                     document.querySelectorAll('.account-select-checkbox').forEach(cb => cb.checked = false);
                     updateBatchActionBar();

@@ -4218,6 +4218,60 @@ def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None
         return False, f"请求异常: {str(e)}"
 
 
+def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'manual') -> Dict[str, Any]:
+    """刷新单个 Outlook 账号的 refresh token 并记录结果。"""
+    account_id = account['id']
+    account_email = account['email']
+    client_id = account['client_id']
+    encrypted_refresh_token = account['refresh_token']
+
+    # 获取分组代理设置
+    proxy_url = ''
+    if account['group_id']:
+        group = get_group_by_id(account['group_id'])
+        if group:
+            proxy_url = group.get('proxy_url', '') or ''
+
+    # 解密 refresh_token
+    try:
+        refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
+    except Exception as e:
+        error_msg = sanitize_error_details(f"解密 token 失败: {str(e)}")
+        log_refresh_result(account_id, account_email, refresh_type, 'failed', error_msg)
+        return {
+            'success': False,
+            'error_message': error_msg,
+            'error_payload': build_error_payload(
+                "TOKEN_DECRYPT_FAILED",
+                "Token 解密失败",
+                "DecryptionError",
+                500,
+                error_msg
+            )
+        }
+
+    success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
+    sanitized_error = sanitize_error_details(error_msg) if error_msg else ''
+
+    # 记录刷新结果
+    log_refresh_result(account_id, account_email, refresh_type, 'success' if success else 'failed', sanitized_error or None)
+
+    if success:
+        return {'success': True, 'message': 'Token 刷新成功'}
+
+    return {
+        'success': False,
+        'error_message': sanitized_error or '未知错误',
+        'error_payload': build_error_payload(
+            "TOKEN_REFRESH_FAILED",
+            "Token 刷新失败",
+            "RefreshTokenError",
+            400,
+            sanitized_error or "未知错误"
+        )
+    }
+
+
 @app.route('/api/accounts/<int:account_id>/refresh', methods=['POST'])
 @login_required
 def api_refresh_account(account_id):
@@ -4239,50 +4293,104 @@ def api_refresh_account(account_id):
     if (account['account_type'] or '').strip().lower() == 'imap':
         return jsonify({'success': False, 'error': 'IMAP 账号无需刷新 Token'})
 
-    account_id = account['id']
-    account_email = account['email']
-    client_id = account['client_id']
-    encrypted_refresh_token = account['refresh_token']
+    result = refresh_outlook_account_token(account, 'manual')
+    if result['success']:
+        return jsonify({'success': True, 'message': result['message']})
+    return jsonify({'success': False, 'error': result['error_payload']})
 
-    # 获取分组代理设置
-    proxy_url = ''
-    if account['group_id']:
-        group = get_group_by_id(account['group_id'])
-        if group:
-            proxy_url = group.get('proxy_url', '') or ''
 
-    # 解密 refresh_token
-    try:
-        refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
-    except Exception as e:
-        error_msg = f"解密 token 失败: {str(e)}"
-        log_refresh_result(account_id, account_email, 'manual', 'failed', error_msg)
-        error_payload = build_error_payload(
-            "TOKEN_DECRYPT_FAILED",
-            "Token 解密失败",
-            "DecryptionError",
-            500,
-            error_msg
-        )
-        return jsonify({'success': False, 'error': error_payload})
+@app.route('/api/accounts/refresh-selected', methods=['POST'])
+@login_required
+def api_refresh_selected_accounts():
+    """刷新选中账号的 token。"""
+    data = request.get_json(silent=True) or {}
+    raw_account_ids = data.get('account_ids') or []
 
-    # 测试 refresh token
-    success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url)
+    if not isinstance(raw_account_ids, list):
+        return jsonify({'success': False, 'error': '账号列表格式错误'})
 
-    # 记录刷新结果
-    log_refresh_result(account_id, account_email, 'manual', 'success' if success else 'failed', error_msg)
+    account_ids = []
+    seen_ids = set()
+    for account_id in raw_account_ids:
+        try:
+            normalized_id = int(account_id)
+        except (TypeError, ValueError):
+            continue
+        if normalized_id <= 0 or normalized_id in seen_ids:
+            continue
+        seen_ids.add(normalized_id)
+        account_ids.append(normalized_id)
 
-    if success:
-        return jsonify({'success': True, 'message': 'Token 刷新成功'})
+    if not account_ids:
+        return jsonify({'success': False, 'error': '请选择要刷新的账号'})
 
-    error_payload = build_error_payload(
-        "TOKEN_REFRESH_FAILED",
-        "Token 刷新失败",
-        "RefreshTokenError",
-        400,
-        error_msg or "未知错误"
-    )
-    return jsonify({'success': False, 'error': error_payload})
+    db = get_db()
+    placeholders = ','.join('?' * len(account_ids))
+    cursor = db.execute(f'''
+        SELECT id, email, client_id, refresh_token, group_id, account_type, provider
+        FROM accounts
+        WHERE id IN ({placeholders})
+        ORDER BY email COLLATE NOCASE ASC
+    ''', account_ids)
+    accounts = cursor.fetchall()
+
+    found_ids = {row['id'] for row in accounts}
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+    failed_list = []
+    skipped_list = []
+
+    missing_ids = [account_id for account_id in account_ids if account_id not in found_ids]
+    for missing_id in missing_ids:
+        skipped_count += 1
+        skipped_list.append({
+            'id': missing_id,
+            'email': f'账号 #{missing_id}',
+            'reason': '账号不存在或已删除'
+        })
+
+    for account in accounts:
+        if (account['account_type'] or '').strip().lower() == 'imap':
+            skipped_count += 1
+            skipped_list.append({
+                'id': account['id'],
+                'email': account['email'],
+                'reason': 'IMAP 账号无需刷新 Token'
+            })
+            continue
+
+        result = refresh_outlook_account_token(account, 'manual')
+        if result['success']:
+            success_count += 1
+            continue
+
+        failed_count += 1
+        failed_list.append({
+            'id': account['id'],
+            'email': account['email'],
+            'error': result.get('error_message') or '未知错误'
+        })
+
+    requested_count = len(account_ids)
+    processed_count = success_count + failed_count
+    message_parts = [f'成功 {success_count}']
+    if failed_count:
+        message_parts.append(f'失败 {failed_count}')
+    if skipped_count:
+        message_parts.append(f'跳过 {skipped_count}')
+
+    return jsonify({
+        'success': True,
+        'message': f'已处理 {requested_count} 个账号，' + '，'.join(message_parts),
+        'requested_count': requested_count,
+        'processed_count': processed_count,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'skipped_count': skipped_count,
+        'failed_list': failed_list,
+        'skipped_list': skipped_list,
+    })
 
 
 @app.route('/api/accounts/refresh-all', methods=['GET'])
