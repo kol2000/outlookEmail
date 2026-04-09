@@ -769,6 +769,32 @@ ${details}
             return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
         }
 
+        function updateCurrentGroupHeader(group = null, titleOverride = '') {
+            const nameEl = document.getElementById('currentGroupName');
+            const idBadgeEl = document.getElementById('currentGroupIdBadge');
+            if (!nameEl || !idBadgeEl) {
+                return;
+            }
+
+            if (titleOverride) {
+                nameEl.textContent = titleOverride;
+                idBadgeEl.textContent = '';
+                idBadgeEl.style.display = 'none';
+                return;
+            }
+
+            if (!group) {
+                nameEl.textContent = '选择分组';
+                idBadgeEl.textContent = '';
+                idBadgeEl.style.display = 'none';
+                return;
+            }
+
+            nameEl.textContent = group.name || '未命名分组';
+            idBadgeEl.textContent = `groupId ${group.id}`;
+            idBadgeEl.style.display = 'inline-flex';
+        }
+
         // ==================== 分组相关 ====================
 
         // 加载分组列表
@@ -857,7 +883,10 @@ ${details}
                             <span class="group-name">${escapeHtml(group.name)}${isTempGroup ? ' ⚡' : ''}</span>
                         </div>
                         <div class="group-row-2">
-                            <span class="group-count">${group.account_count || 0} 个邮箱</span>
+                            <div class="group-meta">
+                                <span class="group-id-badge">groupId ${group.id}</span>
+                                <span class="group-count">${group.account_count || 0} 个邮箱</span>
+                            </div>
                             <div class="group-actions">
                                 ${!isSystem ? `<button class="group-action-btn" onclick="event.stopPropagation(); editGroup(${group.id})" title="编辑">✏️</button>` : ''}
                                 ${!isDefault && !isSystem ? `<button class="group-action-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" title="删除">🗑️</button>` : ''}
@@ -1147,7 +1176,7 @@ ${details}
 
             // 更新邮箱面板标题
             if (group) {
-                document.getElementById('currentGroupName').textContent = group.name;
+                updateCurrentGroupHeader(group);
                 document.getElementById('currentGroupColor').style.backgroundColor = group.color || '#666';
 
                 // 更新导入邮箱时的默认分组
@@ -1511,9 +1540,10 @@ ${details}
         // 全局搜索函数
         async function searchAccounts(query) {
             const container = document.getElementById('accountList');
-            const titleElement = document.getElementById('currentGroupName');
 
             if (!query.trim()) {
+                const currentGroup = groups.find(group => group.id === currentGroupId);
+                updateCurrentGroupHeader(currentGroup);
                 loadAccountsByGroup(currentGroupId);
                 return;
             }
@@ -1525,7 +1555,7 @@ ${details}
                 const data = await response.json();
 
                 if (data.success) {
-                    titleElement.textContent = `搜索结果 (${data.accounts.length})`;
+                    updateCurrentGroupHeader(null, `搜索结果 (${data.accounts.length})`);
                     renderAccountList(data.accounts);
                 } else {
                     container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败</div></div>';

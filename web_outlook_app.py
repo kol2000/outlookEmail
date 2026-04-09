@@ -1758,6 +1758,57 @@ def get_account_by_id(account_id: int) -> Optional[Dict]:
     return resolve_account_record(row)
 
 
+def get_latest_account_refresh_log(account_id: int, db=None) -> Optional[Dict[str, Any]]:
+    """获取账号最近一次刷新结果"""
+    database = db or get_db()
+    row = database.execute(
+        '''
+        SELECT status, error_message, created_at
+        FROM account_refresh_logs
+        WHERE account_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        ''',
+        (account_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optional[Dict[str, Any]] = None,
+                              include_client_meta: bool = True,
+                              include_imap_meta: bool = True) -> Dict[str, Any]:
+    """序列化账号摘要，默认隐藏敏感字段"""
+    client_id = account.get('client_id') or ''
+    payload = {
+        'id': account['id'],
+        'email': account['email'],
+        'aliases': account.get('aliases', []),
+        'alias_count': account.get('alias_count', 0),
+        'group_id': account.get('group_id'),
+        'group_name': account.get('group_name', '默认分组'),
+        'group_color': account.get('group_color', '#666666'),
+        'remark': account.get('remark', ''),
+        'status': account.get('status', 'active'),
+        'account_type': account.get('account_type', 'outlook'),
+        'provider': account.get('provider', 'outlook'),
+        'forward_enabled': bool(account.get('forward_enabled')),
+        'last_refresh_at': account.get('last_refresh_at', ''),
+        'last_refresh_status': last_refresh_log['status'] if last_refresh_log else None,
+        'last_refresh_error': last_refresh_log['error_message'] if last_refresh_log else None,
+        'created_at': account.get('created_at', ''),
+        'updated_at': account.get('updated_at', ''),
+        'tags': account.get('tags', [])
+    }
+    if include_client_meta:
+        payload['client_id'] = (
+            client_id[:8] + '...' if client_id and len(client_id) > 8 else client_id
+        )
+    if include_imap_meta:
+        payload['imap_host'] = account.get('imap_host', '')
+        payload['imap_port'] = account.get('imap_port', 993)
+    return payload
+
+
 def add_account(email_addr: str, password: str, client_id: str = '', refresh_token: str = '',
                 group_id: int = 1, remark: str = '', account_type: str = 'outlook',
                 provider: str = 'outlook', imap_host: str = '', imap_port: int = 993,
@@ -3646,40 +3697,37 @@ def api_get_accounts():
     # 返回时隐藏敏感信息
     safe_accounts = []
     for acc in accounts:
-        # 查询该账号最后一次刷新记录
-        cursor = db.execute('''
-            SELECT status, error_message, created_at
-            FROM account_refresh_logs
-            WHERE account_id = ?
-            ORDER BY created_at DESC
-            LIMIT 1
-        ''', (acc['id'],))
-        last_refresh_log = cursor.fetchone()
-
-        safe_accounts.append({
-            'id': acc['id'],
-            'email': acc['email'],
-            'aliases': acc.get('aliases', []),
-            'alias_count': acc.get('alias_count', 0),
-            'client_id': acc['client_id'][:8] + '...' if acc.get('client_id') and len(acc['client_id']) > 8 else (acc.get('client_id') or ''),
-            'group_id': acc.get('group_id'),
-            'group_name': acc.get('group_name', '默认分组'),
-            'group_color': acc.get('group_color', '#666666'),
-            'remark': acc.get('remark', ''),
-            'status': acc.get('status', 'active'),
-            'account_type': acc.get('account_type', 'outlook'),
-            'provider': acc.get('provider', 'outlook'),
-            'imap_host': acc.get('imap_host', ''),
-            'imap_port': acc.get('imap_port', 993),
-            'forward_enabled': bool(acc.get('forward_enabled')),
-            'last_refresh_at': acc.get('last_refresh_at', ''),
-            'last_refresh_status': last_refresh_log['status'] if last_refresh_log else None,
-            'last_refresh_error': last_refresh_log['error_message'] if last_refresh_log else None,
-            'created_at': acc.get('created_at', ''),
-            'updated_at': acc.get('updated_at', ''),
-            'tags': acc.get('tags', [])
-        })
+        last_refresh_log = get_latest_account_refresh_log(acc['id'], db)
+        safe_accounts.append(serialize_account_summary(acc, last_refresh_log))
     return jsonify({'success': True, 'accounts': safe_accounts})
+
+
+@app.route('/api/external/accounts', methods=['GET'])
+@csrf_exempt
+@api_key_required
+def api_external_get_accounts():
+    """对外 API：通过 API Key 获取邮箱账号列表"""
+    group_id = request.args.get('group_id', type=int)
+    accounts = load_accounts(group_id)
+    db = get_db()
+
+    safe_accounts = []
+    for acc in accounts:
+        last_refresh_log = get_latest_account_refresh_log(acc['id'], db)
+        safe_accounts.append(
+            serialize_account_summary(
+                acc,
+                last_refresh_log,
+                include_client_meta=False,
+                include_imap_meta=False
+            )
+        )
+
+    return jsonify({
+        'success': True,
+        'total': len(safe_accounts),
+        'accounts': safe_accounts
+    })
 
 
 # ==================== 标签 API ====================

@@ -185,5 +185,118 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertIn('"version"', payload)
 
 
+class ExternalAccountsApiTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+        self.client = self.app.test_client()
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('DELETE FROM account_tags')
+            db.execute('DELETE FROM account_aliases')
+            db.execute('DELETE FROM account_refresh_logs')
+            db.execute('DELETE FROM accounts')
+            db.execute('DELETE FROM tags')
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.commit()
+
+            self.assertTrue(web_outlook_app.set_setting('external_api_key', 'test-external-key'))
+
+            tag_id = web_outlook_app.add_tag('核心', '#1a1a1a')
+            self.assertIsNotNone(tag_id)
+
+            added = web_outlook_app.add_account(
+                'user@outlook.com',
+                'password123',
+                '24d9a0ed-8787-4584-883c-2fd79308940a',
+                '0.AXEA_refresh',
+                group_id=1,
+                remark='主账号',
+                forward_enabled=True
+            )
+            self.assertTrue(added)
+
+            account = web_outlook_app.get_account_by_email('user@outlook.com')
+            self.assertIsNotNone(account)
+
+            alias_ok, _, alias_errors = web_outlook_app.replace_account_aliases(
+                account['id'],
+                account['email'],
+                ['alias@example.com'],
+                db
+            )
+            self.assertTrue(alias_ok, alias_errors)
+            db.commit()
+
+            self.assertTrue(web_outlook_app.add_account_tag(account['id'], tag_id))
+            db.execute(
+                '''
+                INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
+                VALUES (?, ?, ?, ?, ?)
+                ''',
+                (account['id'], account['email'], 'manual', 'success', None)
+            )
+            db.commit()
+
+    def test_external_accounts_requires_api_key(self):
+        response = self.client.get('/api/external/accounts')
+
+        self.assertEqual(response.status_code, 401)
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertIn('API Key', payload['error'])
+
+    def test_external_accounts_returns_sanitized_accounts(self):
+        with self.app.app_context():
+            group_id = web_outlook_app.add_group('代理组', '带代理的账号', '#123456')
+            self.assertIsNotNone(group_id)
+            added = web_outlook_app.add_account(
+                'other@example.com',
+                'password456',
+                '',
+                '',
+                group_id=group_id,
+                remark='次账号',
+                account_type='imap',
+                provider='custom',
+                imap_host='imap.example.com',
+                imap_port=993,
+                imap_password='imap-secret',
+                forward_enabled=False
+            )
+            self.assertTrue(added)
+
+        response = self.client.get(
+            '/api/external/accounts?group_id=1',
+            headers={'X-API-Key': 'test-external-key'}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['total'], 1)
+        self.assertEqual(len(payload['accounts']), 1)
+
+        account = payload['accounts'][0]
+        self.assertEqual(account['email'], 'user@outlook.com')
+        self.assertEqual(account['aliases'], ['alias@example.com'])
+        self.assertEqual(account['alias_count'], 1)
+        self.assertEqual(account['group_id'], 1)
+        self.assertEqual(account['group_name'], '默认分组')
+        self.assertEqual(account['remark'], '主账号')
+        self.assertEqual(account['status'], 'active')
+        self.assertEqual(account['provider'], 'outlook')
+        self.assertTrue(account['forward_enabled'])
+        self.assertEqual(account['last_refresh_status'], 'success')
+        self.assertIsNone(account['last_refresh_error'])
+        self.assertEqual(account['tags'][0]['name'], '核心')
+        self.assertNotIn('password', account)
+        self.assertNotIn('refresh_token', account)
+        self.assertNotIn('client_id', account)
+        self.assertNotIn('imap_host', account)
+        self.assertNotIn('imap_port', account)
+
+
 if __name__ == '__main__':
     unittest.main()

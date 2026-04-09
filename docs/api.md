@@ -60,6 +60,69 @@
 
 ## 对外 API
 
+### GET `/api/external/accounts`
+
+获取当前系统中已管理的邮箱账号列表，适合外部系统先同步邮箱池，再按邮箱调用 `/api/external/emails` 取邮件。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `group_id` | int | 否 | 仅返回指定分组下的账号 |
+
+#### 请求示例
+
+```bash
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/accounts"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/accounts?group_id=1"
+```
+
+#### 成功响应示例
+
+```json
+{
+  "success": true,
+  "total": 1,
+  "accounts": [
+    {
+      "id": 1,
+      "email": "user@outlook.com",
+      "aliases": ["alias@example.com"],
+      "alias_count": 1,
+      "group_id": 1,
+      "group_name": "默认分组",
+      "group_color": "#666666",
+      "remark": "主账号",
+      "status": "active",
+      "account_type": "outlook",
+      "provider": "outlook",
+      "forward_enabled": true,
+      "last_refresh_at": "2026-04-09 14:20:00",
+      "last_refresh_status": "success",
+      "last_refresh_error": null,
+      "created_at": "2026-04-09 14:00:00",
+      "updated_at": "2026-04-09 14:20:00",
+      "tags": [
+        {
+          "id": 1,
+          "name": "核心",
+          "color": "#1a1a1a"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### 返回说明
+
+- 该接口只返回普通邮箱账号，不包含临时邮箱列表
+- 已隐藏密码、Refresh Token、IMAP 密码等敏感字段
+- 如需拉取某个邮箱的邮件列表，再调用 `/api/external/emails`
+
 ### GET `/api/external/emails`
 
 获取指定邮箱的邮件列表，支持主邮箱、别名邮箱、收件箱/垃圾箱聚合查询。
