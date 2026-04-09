@@ -163,18 +163,57 @@
         }
 
         .panel-action-btn {
-            background: none;
-            border: none;
-            color: #666;
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            color: #64748b;
             cursor: pointer;
-            font-size: 18px;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 16px;
+            padding: 0;
+            border-radius: 10px;
             line-height: 1;
+            transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s, border-color 0.15s, color 0.15s;
         }
 
         .panel-action-btn:hover {
-            background-color: #e5e5e5;
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .panel-action-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .panel-action-btn-accent {
+            background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .panel-action-btn-accent:hover {
+            background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+            border-color: #93c5fd;
+            color: #1d4ed8;
+        }
+
+        .panel-action-btn-primary {
+            background: #1a1a1a;
+            border-color: #1a1a1a;
+            color: #ffffff;
+        }
+
+        .panel-action-btn-primary:hover {
+            background: #111827;
+            border-color: #111827;
+            color: #ffffff;
         }
 
         .group-list {
@@ -299,6 +338,7 @@
             flex-direction: column;
             flex-shrink: 0;
             min-width: 0;
+            position: relative;
         }
 
         .account-panel-header {
@@ -317,6 +357,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            min-width: 0;
         }
 
         .account-panel-title .group-color {
@@ -327,7 +368,13 @@
         .account-panel-header-actions {
             margin-left: auto;
             display: flex;
-            gap: 4px;
+            gap: 6px;
+            flex-shrink: 0;
+            padding: 4px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
 
         .account-toolbar {
@@ -449,29 +496,8 @@
             isolation: isolate;
         }
 
-        .account-panel-footer {
-            padding: 16px;
-            border-top: 1px solid #e5e5e5;
-            background-color: #ffffff;
-        }
-
-        .add-account-btn {
-            width: 100%;
-            padding: 10px 16px;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            border: none;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.15s, box-shadow 0.15s;
-            box-shadow: 0 10px 22px rgba(26, 26, 26, 0.12);
-        }
-
-        .add-account-btn:hover {
-            background-color: #333;
-            transform: translateY(-1px);
+        .account-panel.batch-toolbar-active .account-list {
+            padding-bottom: 88px;
         }
 
         .account-item {
@@ -778,24 +804,29 @@
 
         .batch-action-bar {
             display: none;
-            margin: 12px 14px 14px;
-            padding: 12px;
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            margin: 0;
+            padding: 10px;
             border: 1px solid rgba(209, 213, 219, 0.9);
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.94);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(14px);
-            gap: 12px;
+            gap: 10px;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+            box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+            z-index: 12;
         }
 
         .batch-action-bar__summary {
             display: inline-flex;
             align-items: center;
-            min-height: 40px;
-            padding: 0 14px;
+            min-height: 34px;
+            padding: 0 12px;
             border-radius: 999px;
             border: 1px solid rgba(209, 213, 219, 0.9);
             background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -817,7 +848,7 @@
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 8px;
             flex: 1;
             flex-wrap: wrap;
             min-width: 0;
@@ -828,7 +859,7 @@
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
-            padding: 5px;
+            padding: 4px;
             border-radius: 999px;
             border: 1px solid rgba(226, 232, 240, 0.95);
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
@@ -850,8 +881,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-height: 34px;
-            padding: 0 14px;
+            min-height: 30px;
+            padding: 0 12px;
             border-radius: 999px;
             border: 1px solid transparent;
             cursor: pointer;
@@ -923,6 +954,7 @@
             flex-direction: column;
             flex-shrink: 0;
             min-width: 0;
+            position: relative;
         }
 
         .email-list-panel.hidden {
@@ -1007,6 +1039,10 @@
             overflow-y: auto;
             background-color: #f7f8fb;
             padding: 8px 0 16px;
+        }
+
+        .email-list-panel.batch-toolbar-active .email-list {
+            padding-bottom: 88px;
         }
 
         .email-item {
@@ -2153,7 +2189,9 @@
             }
 
             .batch-action-bar {
-                margin: 10px 12px 12px;
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
                 padding: 10px;
                 border-radius: 16px;
                 align-items: stretch;

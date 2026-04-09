@@ -1162,8 +1162,8 @@ ${details}
                 window.tempEmailProviderFilter = storedFilter;
                 localStorage.setItem('outlook_temp_email_filter', storedFilter);
             }
-            // 更新底部按钮
-            updateAccountPanelFooter();
+            // 更新账号面板头部动作
+            updateAccountPanelActions();
 
             // 加载该分组的邮箱
             if (isTempEmailGroup) {
@@ -1173,13 +1173,21 @@ ${details}
             }
         }
 
-        // 更新账号面板底部按钮
-        function updateAccountPanelFooter() {
-            const footer = document.querySelector('.account-panel-footer');
+        // 更新账号面板头部动作按钮
+        function updateAccountPanelActions() {
+            const actions = document.querySelector('.account-panel-header-actions');
+            if (!actions) return;
             if (isTempEmailGroup) {
-                footer.innerHTML = `
-                    <button class="add-account-btn" onclick="generateTempEmail()" style="margin-bottom: 8px;">+ 生成临时邮箱</button>
-                    <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
+                actions.innerHTML = `
+                    <button class="panel-action-btn panel-action-btn-accent" onclick="generateTempEmail()" title="生成临时邮箱">
+                        ⚡
+                    </button>
+                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="导入邮箱">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+                        </svg>
+                    </button>
                 `;
                 // 显示渠道筛选、隐藏排序和标签
                 document.getElementById('tempEmailProviderFilter').style.display = 'flex';
@@ -1191,9 +1199,19 @@ ${details}
                     btn.classList.toggle('active', btn.dataset.provider === currentFilter);
                 });
             } else {
-                footer.innerHTML = `
-                    <button class="add-account-btn" onclick="showGetRefreshTokenModal()" style="background-color: #0078d4; margin-bottom: 8px;">🔑 获取 Refresh Token</button>
-                    <button class="add-account-btn" onclick="showAddAccountModal()">+ 导入邮箱</button>
+                actions.innerHTML = `
+                    <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
+                        🏷️
+                    </button>
+                    <button class="panel-action-btn panel-action-btn-accent" onclick="showGetRefreshTokenModal()" title="获取 Refresh Token">
+                        🔑
+                    </button>
+                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="导入账号">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+                        </svg>
+                    </button>
                 `;
                 // 隐藏渠道筛选、显示排序、恢复标签筛选
                 document.getElementById('tempEmailProviderFilter').style.display = 'none';
@@ -3196,20 +3214,24 @@ ${details}
         function updateEmailBatchActionBar() {
             const bar = document.getElementById('emailBatchActionBar');
             const selectAllBtn = document.getElementById('emailSelectAllBtn');
+            const panel = document.getElementById('emailListPanel');
             if (isTempEmailGroup) {
                 bar.style.display = 'none';
+                panel?.classList.remove('batch-toolbar-active');
                 return;
             }
             if (selectedEmailIds.size > 0) {
                 bar.style.display = 'flex';
+                panel?.classList.add('batch-toolbar-active');
                 document.getElementById('emailSelectedCount').textContent = `已选 ${selectedEmailIds.size} 项`;
                 if (selectAllBtn) {
                     selectAllBtn.textContent = currentEmails.length > 0 && selectedEmailIds.size === currentEmails.length
                         ? '取消全选'
-                        : '全选当前列表';
+                        : '全选';
                 }
             } else {
                 bar.style.display = 'none';
+                panel?.classList.remove('batch-toolbar-active');
             }
         }
 
@@ -5290,17 +5312,20 @@ ${details}
             const bar = document.getElementById('batchActionBar');
             const countSpan = document.getElementById('selectedCount');
             const selectAllBtn = document.getElementById('accountSelectAllBtn');
+            const panel = document.getElementById('accountPanel');
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
+                panel?.classList.add('batch-toolbar-active');
                 countSpan.textContent = `已选 ${checked.length} 项`;
                 if (selectAllBtn) {
                     selectAllBtn.textContent = allCheckboxes.length > 0 && checked.length === allCheckboxes.length
                         ? '取消全选'
-                        : '全选当前列表';
+                        : '全选';
                 }
             } else {
                 bar.style.display = 'none';
+                panel?.classList.remove('batch-toolbar-active');
             }
         }
 
