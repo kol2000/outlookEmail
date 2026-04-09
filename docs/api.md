@@ -255,6 +255,7 @@ curl -H "X-API-Key: your-api-key" \
 | `forward_check_interval_minutes` | 转发轮询间隔 |
 | `forward_email_window_minutes` | 仅转发最近多少分钟内收到的邮件，`0` 表示不限制 |
 | `forward_include_junkemail` | 是否把垃圾箱邮件也纳入转发 |
+| `smtp_from_mode` | SMTP 发件邮箱类型：`auto` / `username` / `custom` |
 | `forward_channels` | 当前启用的转发渠道 |
 
 ### PUT `/api/settings`
@@ -266,6 +267,7 @@ curl -H "X-API-Key: your-api-key" \
 | `forward_check_interval_minutes` | int | 轮询间隔，范围 `1-60` |
 | `forward_email_window_minutes` | int | 转发邮件时间范围，范围 `0-10080`，`0` 表示不限制 |
 | `forward_include_junkemail` | bool | 是否把垃圾箱邮件也纳入转发轮询 |
+| `smtp_from_mode` | string | SMTP 发件邮箱类型，支持 `auto`、`username`、`custom` |
 | `forward_channels` | array<string> | `smtp` / `telegram` |
 
 #### 请求示例
@@ -275,6 +277,7 @@ curl -H "X-API-Key: your-api-key" \
   "forward_check_interval_minutes": 5,
   "forward_email_window_minutes": 30,
   "forward_include_junkemail": true,
+  "smtp_from_mode": "custom",
   "forward_channels": ["smtp", "telegram"]
 }
 ```

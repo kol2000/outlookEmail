@@ -14,6 +14,7 @@ on:
       - 'Dockerfile'
       - '.dockerignore'
       - 'templates/**'
+      - 'static/**'
       - '.github/workflows/docker-build-push.yml'
   workflow_dispatch:
 

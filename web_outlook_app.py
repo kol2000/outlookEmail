@@ -917,6 +917,10 @@ def init_db():
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('smtp_from_mode', 'auto')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
         VALUES ('smtp_use_tls', 'false')
     ''')
     cursor.execute('''
@@ -6296,6 +6300,7 @@ def api_get_settings():
     settings['smtp_username'] = get_setting('smtp_username', '')
     settings['smtp_password'] = get_setting_decrypted('smtp_password', '')
     settings['smtp_from_email'] = get_setting('smtp_from_email', '')
+    settings['smtp_from_mode'] = get_setting('smtp_from_mode', 'auto')
     settings['smtp_use_tls'] = get_setting('smtp_use_tls', 'false')
     settings['smtp_use_ssl'] = get_setting('smtp_use_ssl', 'true')
     settings['telegram_bot_token'] = get_setting_decrypted('telegram_bot_token', '')
@@ -6531,6 +6536,15 @@ def api_update_settings():
         else:
             errors.append('保存 SMTP 发件人失败')
 
+    if 'smtp_from_mode' in data:
+        smtp_from_mode = str(data['smtp_from_mode']).strip().lower()
+        if smtp_from_mode not in ('auto', 'username', 'custom'):
+            errors.append('SMTP 发件邮箱类型无效')
+        elif set_setting('smtp_from_mode', smtp_from_mode):
+            updated.append('SMTP 发件邮箱类型')
+        else:
+            errors.append('保存 SMTP 发件邮箱类型失败')
+
     if 'smtp_use_tls' in data:
         if set_setting('smtp_use_tls', str(data['smtp_use_tls']).lower()):
             updated.append('SMTP TLS')
@@ -6734,7 +6748,16 @@ def send_forward_email(subject: str, body_text: str, body_html: str = '') -> boo
     port = int(get_setting('smtp_port', '465') or 465)
     username = get_setting('smtp_username', '').strip()
     password = get_setting_decrypted('smtp_password', '').strip()
-    from_email = get_setting('smtp_from_email', '').strip() or username
+    smtp_from_email = get_setting('smtp_from_email', '').strip()
+    smtp_from_mode = (get_setting('smtp_from_mode', 'auto') or 'auto').strip().lower()
+    if smtp_from_mode == 'custom':
+        from_email = smtp_from_email
+    elif smtp_from_mode == 'username':
+        from_email = username
+    else:
+        from_email = smtp_from_email or username
+    if not from_email:
+        return False
     use_tls = get_bool_setting('smtp_use_tls', False)
     use_ssl = get_bool_setting('smtp_use_ssl', True)
 

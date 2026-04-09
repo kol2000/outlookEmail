@@ -1608,6 +1608,26 @@ ${details}
         function ensureForwardingSettingsUI() {
             if (!document.getElementById('forwardingSettingsSection')) return;
             syncForwardChannelUI();
+            syncSmtpFromModeUI();
+        }
+
+        function syncSmtpFromModeUI() {
+            const modeSelect = document.getElementById('settingsSmtpFromMode');
+            const fromInput = document.getElementById('settingsSmtpFromEmail');
+            const hintEl = document.getElementById('settingsSmtpFromEmailHint');
+            if (!modeSelect || !fromInput || !hintEl) return;
+
+            const mode = String(modeSelect.value || 'auto');
+            if (mode === 'username') {
+                fromInput.disabled = true;
+                hintEl.textContent = '当前将直接使用 SMTP 用户名作为发件人邮箱。';
+            } else if (mode === 'custom') {
+                fromInput.disabled = false;
+                hintEl.textContent = '当前必须填写自定义发件邮箱，否则 SMTP 转发无法保存。';
+            } else {
+                fromInput.disabled = false;
+                hintEl.textContent = '自动模式下，优先使用这里填写的地址；留空则回退到 SMTP 用户名。';
+            }
         }
 
         function updateEditAccountFields() {
@@ -4214,6 +4234,7 @@ ${details}
                     document.getElementById('settingsSmtpPort').value = data.settings.smtp_port || '465';
                     document.getElementById('settingsSmtpUsername').value = data.settings.smtp_username || '';
                     document.getElementById('settingsSmtpPassword').value = data.settings.smtp_password || '';
+                    document.getElementById('settingsSmtpFromMode').value = data.settings.smtp_from_mode || 'auto';
                     document.getElementById('settingsSmtpFromEmail').value = data.settings.smtp_from_email || '';
                     document.getElementById('settingsSmtpUseTls').checked = String(data.settings.smtp_use_tls) === 'true';
                     document.getElementById('settingsSmtpUseSsl').checked = String(data.settings.smtp_use_ssl) !== 'false';
@@ -4224,6 +4245,7 @@ ${details}
                     const useCron = data.settings.use_cron_schedule === 'true';
                     document.querySelector('input[name="refreshStrategy"][value="' + (useCron ? 'cron' : 'days') + '"]').checked = true;
                     toggleRefreshStrategy();
+                    syncSmtpFromModeUI();
                 }
             } catch (error) {
                 showToast('加载设置失败', 'error');
@@ -4264,6 +4286,9 @@ ${details}
             const smtpPort = parseInt(smtpPortValue || '465', 10);
             const smtpRecipient = document.getElementById('settingsEmailForwardRecipient').value.trim();
             const smtpHost = document.getElementById('settingsSmtpHost').value.trim();
+            const smtpFromMode = document.getElementById('settingsSmtpFromMode')?.value || 'auto';
+            const smtpFromEmail = document.getElementById('settingsSmtpFromEmail').value.trim();
+            const smtpUsername = document.getElementById('settingsSmtpUsername').value.trim();
             const telegramBotToken = document.getElementById('settingsTelegramBotToken').value.trim();
             const telegramChatId = document.getElementById('settingsTelegramChatId').value.trim();
 
@@ -4291,6 +4316,14 @@ ${details}
                 showToast('启用 SMTP 转发时必须填写 SMTP 主机', 'error');
                 return;
             }
+            if (forwardChannels.includes('smtp') && smtpFromMode === 'custom' && !smtpFromEmail) {
+                showToast('使用自定义发件邮箱时必须填写发件人邮箱', 'error');
+                return;
+            }
+            if (forwardChannels.includes('smtp') && smtpFromMode === 'username' && !smtpUsername) {
+                showToast('使用 SMTP 用户名作为发件邮箱时必须填写 SMTP 用户名', 'error');
+                return;
+            }
             if (forwardChannels.includes('smtp') && (Number.isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
                 showToast('SMTP 端口无效', 'error');
                 return;
@@ -4315,9 +4348,10 @@ ${details}
             settings.email_forward_recipient = smtpRecipient;
             settings.smtp_host = smtpHost;
             settings.smtp_port = Number.isNaN(smtpPort) ? 465 : smtpPort;
-            settings.smtp_username = document.getElementById('settingsSmtpUsername').value.trim();
+            settings.smtp_username = smtpUsername;
             settings.smtp_password = document.getElementById('settingsSmtpPassword').value;
-            settings.smtp_from_email = document.getElementById('settingsSmtpFromEmail').value.trim();
+            settings.smtp_from_mode = smtpFromMode;
+            settings.smtp_from_email = smtpFromEmail;
             settings.smtp_use_tls = document.getElementById('settingsSmtpUseTls').checked;
             settings.smtp_use_ssl = document.getElementById('settingsSmtpUseSsl').checked;
             settings.telegram_bot_token = telegramBotToken;
