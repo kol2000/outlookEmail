@@ -677,6 +677,13 @@
                             <div class="form-hint">仅转发最近 X 分钟内收到的邮件。`0` 表示不限制。</div>
                         </div>
                         <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="forwardIncludeJunkemail">
+                                <span class="form-label" style="margin: 0;">转发垃圾箱邮件</span>
+                            </label>
+                            <div class="form-hint">开启后，垃圾箱中的新邮件也会纳入转发轮询。</div>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">转发渠道</label>
                             <div class="forward-channel-picker" id="forwardChannelPicker">
                                 <label class="forward-channel-option">

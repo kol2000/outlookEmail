@@ -4188,6 +4188,7 @@ ${details}
 
                     document.getElementById('forwardCheckIntervalMinutes').value = data.settings.forward_check_interval_minutes || '5';
                     document.getElementById('forwardEmailWindowMinutes').value = data.settings.forward_email_window_minutes || '0';
+                    document.getElementById('forwardIncludeJunkemail').checked = String(data.settings.forward_include_junkemail) === 'true';
                     document.getElementById('settingsEmailForwardRecipient').value = data.settings.email_forward_recipient || '';
                     document.getElementById('settingsSmtpHost').value = data.settings.smtp_host || '';
                     document.getElementById('settingsSmtpPort').value = data.settings.smtp_port || '465';
@@ -4238,6 +4239,7 @@ ${details}
             const delay = parseInt(refreshDelay, 10);
             const forwardMinutes = parseInt(document.getElementById('forwardCheckIntervalMinutes').value || '5', 10);
             const forwardWindowMinutes = parseInt(document.getElementById('forwardEmailWindowMinutes').value || '0', 10);
+            const forwardIncludeJunkemail = !!document.getElementById('forwardIncludeJunkemail')?.checked;
             const smtpPortValue = document.getElementById('settingsSmtpPort').value.trim();
             const smtpPort = parseInt(smtpPortValue || '465', 10);
             const smtpRecipient = document.getElementById('settingsEmailForwardRecipient').value.trim();
@@ -4289,6 +4291,7 @@ ${details}
             settings.forward_channels = forwardChannels;
             settings.forward_check_interval_minutes = forwardMinutes;
             settings.forward_email_window_minutes = forwardWindowMinutes;
+            settings.forward_include_junkemail = forwardIncludeJunkemail;
             settings.email_forward_recipient = smtpRecipient;
             settings.smtp_host = smtpHost;
             settings.smtp_port = Number.isNaN(smtpPort) ? 465 : smtpPort;

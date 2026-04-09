@@ -885,6 +885,10 @@ def init_db():
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('forward_include_junkemail', 'false')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
         VALUES ('forward_channels', 'auto')
     ''')
     cursor.execute('''
@@ -4636,6 +4640,18 @@ def normalize_folder_name(folder: str) -> str:
     return value or 'inbox'
 
 
+def get_query_arg_preserve_plus(name: str, default: str = '') -> str:
+    raw_query = request.query_string.decode('utf-8', errors='ignore')
+    if raw_query:
+        for chunk in raw_query.split('&'):
+            if not chunk:
+                continue
+            key, sep, value = chunk.partition('=')
+            if unquote(key) == name:
+                return unquote(value) if sep else ''
+    return request.args.get(name, default)
+
+
 def format_graph_email_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
     return {
         'id': item.get('id'),
@@ -4809,17 +4825,18 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
         }
 
     if folder_name == 'all':
-        fetch_size = max(1, min(100, skip + top))
+        merged_top = max(1, min(100, top * 2))
         return merge_folder_results(
             {
-                'inbox': fetch_account_folder_emails(account, 'inbox', 0, fetch_size, proxy_url),
-                'junkemail': fetch_account_folder_emails(account, 'junkemail', 0, fetch_size, proxy_url),
+                'inbox': fetch_account_folder_emails(account, 'inbox', skip, top, proxy_url),
+                'junkemail': fetch_account_folder_emails(account, 'junkemail', skip, top, proxy_url),
             },
-            skip,
-            top
+            0,
+            merged_top
         )
 
     return fetch_account_folder_emails(account, folder_name, skip, top, proxy_url)
+
 
 @app.route('/api/emails/<email_addr>')
 @login_required
@@ -6272,6 +6289,7 @@ def api_get_settings():
     settings['forward_channels'] = get_forward_channels()
     settings['forward_check_interval_minutes'] = get_setting('forward_check_interval_minutes', '5')
     settings['forward_email_window_minutes'] = get_setting('forward_email_window_minutes', '0')
+    settings['forward_include_junkemail'] = get_setting('forward_include_junkemail', 'false')
     settings['email_forward_recipient'] = get_setting('email_forward_recipient', '')
     settings['smtp_host'] = get_setting('smtp_host', '')
     settings['smtp_port'] = get_setting('smtp_port', '465')
@@ -6452,6 +6470,16 @@ def api_update_settings():
                 errors.append('保存转发邮件时间范围失败')
         except ValueError:
             errors.append('转发邮件时间范围必须是数字')
+
+    if 'forward_include_junkemail' in data:
+        include_junk = str(data['forward_include_junkemail']).lower()
+        if include_junk in ('true', 'false'):
+            if set_setting('forward_include_junkemail', include_junk):
+                updated.append('转发垃圾箱邮件')
+            else:
+                errors.append('保存转发垃圾箱邮件失败')
+        else:
+            errors.append('转发垃圾箱邮件必须是 true 或 false')
 
     if 'forward_channels' in data:
         forward_channels = normalize_forward_channel_settings(data['forward_channels'])
@@ -6768,39 +6796,15 @@ def build_forward_payload(account: Dict[str, Any], email_detail: Dict[str, Any])
     return title, plain, html_body, telegram_text
 
 
-def fetch_forward_candidates(account: Dict[str, Any], top: int = 20) -> List[Dict[str, Any]]:
+def fetch_forward_candidates(account: Dict[str, Any], top: int = 20, folder: str = 'inbox') -> List[Dict[str, Any]]:
     proxy_url = get_account_proxy_url(account)
-    if account.get('account_type') == 'imap':
-        result = get_emails_imap_generic(
-            account['email'],
-            account.get('imap_password', ''),
-            account.get('imap_host', ''),
-            account.get('imap_port', 993),
-            'inbox',
-            account.get('provider', 'custom'),
-            0,
-            top,
-            proxy_url
-        )
-        return result.get('emails', []) if result.get('success') else []
-
-    result = get_emails_graph(account.get('client_id', ''), account.get('refresh_token', ''), 'inbox', 0, top, proxy_url)
+    result = fetch_account_folder_emails(account, folder, 0, top, proxy_url)
     if not result.get('success'):
         return []
-
-    formatted = []
-    for e in result.get('emails', []):
-        formatted.append({
-            'id': e.get('id'),
-            'subject': e.get('subject', '无主题'),
-            'from': e.get('from', {}).get('emailAddress', {}).get('address', '未知'),
-            'date': e.get('receivedDateTime', ''),
-            'body_preview': e.get('bodyPreview', '')
-        })
-    return formatted
+    return result.get('emails', [])
 
 
-def fetch_forward_detail(account: Dict[str, Any], message_id: str) -> Optional[Dict[str, Any]]:
+def fetch_forward_detail(account: Dict[str, Any], message_id: str, folder: str = 'inbox') -> Optional[Dict[str, Any]]:
     proxy_url = get_account_proxy_url(account)
     if account.get('account_type') == 'imap':
         result = get_email_detail_imap_generic_result(
@@ -6809,7 +6813,7 @@ def fetch_forward_detail(account: Dict[str, Any], message_id: str) -> Optional[D
             account.get('imap_host', ''),
             account.get('imap_port', 993),
             message_id,
-            'inbox',
+            folder,
             account.get('provider', 'custom'),
             proxy_url
         )
@@ -6843,6 +6847,7 @@ def process_forwarding_job():
             telegram_enabled = FORWARD_CHANNEL_TG_SETTING in forward_channels and bool(
                 get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip()
             )
+            include_junkemail = get_bool_setting('forward_include_junkemail', False)
             try:
                 forward_window_minutes = max(0, min(10080, int(get_setting('forward_email_window_minutes', '0') or '0')))
             except (TypeError, ValueError):
@@ -6877,7 +6882,12 @@ def process_forwarding_job():
                         pass
 
                 cursor_time = parse_email_datetime(account.get('forward_last_checked_at', ''))
-                emails = fetch_forward_candidates(account, 20)
+                folders_to_scan = ['inbox']
+                if include_junkemail:
+                    folders_to_scan.append('junkemail')
+                emails = []
+                for folder_name in folders_to_scan:
+                    emails.extend(fetch_forward_candidates(account, 20, folder_name))
                 recent_emails = []
                 skipped_before_cursor = 0
                 email_success_count = 0
@@ -6918,7 +6928,7 @@ def process_forwarding_job():
                 recent_emails.sort(key=lambda pair: pair[0] or datetime.min)
 
                 for item_time, item in recent_emails:
-                    detail = fetch_forward_detail(account, item.get('id'))
+                    detail = fetch_forward_detail(account, item.get('id'), item.get('folder', 'inbox'))
                     if not detail:
                         had_processing_failure = True
                         log_forwarding_result(
@@ -7435,8 +7445,16 @@ def api_get_emails_v2(email_addr):
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
+    subject_contains = request.args.get('subject_contains', '').strip().lower()
+    from_contains = request.args.get('from_contains', '').strip().lower()
+    keyword = request.args.get('keyword', '').strip().lower()
     result = fetch_account_emails(account, folder, skip, top)
     if result.get('success'):
+        if subject_contains or from_contains or keyword:
+            result['emails'] = [
+                item for item in result.get('emails', [])
+                if email_matches_filters(account, item, subject_contains, from_contains, keyword)
+            ]
         db = get_db()
         db.execute(
             '''
@@ -7451,10 +7469,13 @@ def api_get_emails_v2(email_addr):
 
 
 def api_external_get_emails_v2():
-    email_addr = request.args.get('email', '').strip()
+    email_addr = get_query_arg_preserve_plus('email', '').strip()
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
     skip = int(request.args.get('skip', 0))
-    top = int(request.args.get('top', 20))
+    top = int(request.args.get('top', 1))
+    subject_contains = get_query_arg_preserve_plus('subject_contains', '').strip().lower()
+    from_contains = get_query_arg_preserve_plus('from_contains', '').strip().lower()
+    keyword = get_query_arg_preserve_plus('keyword', '').strip().lower()
 
     if not email_addr:
         return jsonify({'success': False, 'error': '缺少 email 参数'}), 400
@@ -7471,6 +7492,11 @@ def api_external_get_emails_v2():
         return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
     result = fetch_account_emails(account, folder, skip, top)
     if result.get('success'):
+        if subject_contains or from_contains or keyword:
+            result['emails'] = [
+                item for item in result.get('emails', [])
+                if email_matches_filters(account, item, subject_contains, from_contains, keyword)
+            ]
         result['requested_email'] = email_addr
         result['resolved_email'] = account.get('email', '')
         if account.get('matched_alias'):
@@ -7478,125 +7504,51 @@ def api_external_get_emails_v2():
     return jsonify(result)
 
 
-def extract_verification_codes(text: str) -> List[str]:
-    if not text:
-        return []
+def email_matches_filters(account: Dict[str, Any], item: Dict[str, Any],
+                          subject_contains: str = '', from_contains: str = '',
+                          keyword: str = '') -> bool:
+    subject = str(item.get('subject', '') or '')
+    sender = str(item.get('from', '') or '')
+    preview = str(item.get('body_preview', '') or '')
 
-    patterns = [
-        re.compile(r'(?:验证码|校验码|动态码|安全码|验证代码|verification code|verify code|one[- ]time password|otp|pin)[^A-Za-z0-9]{0,20}([A-Za-z0-9]{4,10})', re.IGNORECASE),
-        re.compile(r'\b(\d{4,8})\b'),
-    ]
+    if subject_contains and subject_contains not in subject.lower():
+        return False
+    if from_contains and from_contains not in sender.lower():
+        return False
+    if not keyword:
+        return True
 
-    found = []
-    seen = set()
-    for pattern in patterns:
-        for match in pattern.finditer(text):
-            code = str(match.group(1)).strip()
-            normalized = code.upper()
-            if normalized not in seen:
-                seen.add(normalized)
-                found.append(code)
-    return found
+    base_text = '\n'.join([subject, preview]).lower()
+    if keyword in base_text:
+        return True
 
-
-@app.route('/api/external/emails/code', methods=['GET'])
-@csrf_exempt
-@api_key_required
-def api_external_get_email_code():
-    email_addr = request.args.get('email', '').strip()
-    folder = normalize_folder_name(request.args.get('folder', 'all'))
-    top = min(max(int(request.args.get('top', 20) or 20), 1), 50)
-    subject_contains = request.args.get('subject_contains', '').strip().lower()
-    from_contains = request.args.get('from_contains', '').strip().lower()
-    keyword = request.args.get('keyword', '').strip().lower()
-
-    if not email_addr:
-        return jsonify({'success': False, 'error': '缺少 email 参数'}), 400
-    if folder not in VALID_MAIL_FOLDERS:
-        return jsonify({'success': False, 'error': f'folder 参数无效，仅支持 {", ".join(sorted(VALID_MAIL_FOLDERS))}'}), 400
-
-    account = get_account_by_email(email_addr)
-    if not account:
-        return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
-
-    result = fetch_account_emails(account, folder, 0, top)
-    if not result.get('success'):
-        return jsonify(result), 502
-
-    emails = result.get('emails', [])
     proxy_url = get_account_proxy_url(account)
-    for item in emails:
-        subject = str(item.get('subject', '') or '')
-        sender = str(item.get('from', '') or '')
-        preview = str(item.get('body_preview', '') or '')
-
-        if subject_contains and subject_contains not in subject.lower():
-            continue
-        if from_contains and from_contains not in sender.lower():
-            continue
-
-        text_candidates = [subject, preview]
-        detail_payload = None
-
-        if account.get('account_type') == 'imap':
-            detail_payload = get_email_detail_imap_generic_result(
-                account['email'],
-                account.get('imap_password', ''),
-                account.get('imap_host', ''),
-                account.get('imap_port', 993),
-                str(item.get('id', '')),
-                item.get('folder', 'inbox'),
-                account.get('provider', 'custom'),
-                proxy_url
-            )
-        else:
-            detail = get_email_detail_graph(
-                account.get('client_id', ''),
-                account.get('refresh_token', ''),
-                str(item.get('id', '')),
-                proxy_url
-            )
-            if detail:
-                detail_payload = {
-                    'success': True,
-                    'email': {
-                        'body': detail.get('body', {}).get('content', ''),
-                        'body_type': detail.get('body', {}).get('contentType', 'text').lower(),
-                    }
-                }
-
+    if account.get('account_type') == 'imap':
+        detail_payload = get_email_detail_imap_generic_result(
+            account['email'],
+            account.get('imap_password', ''),
+            account.get('imap_host', ''),
+            account.get('imap_port', 993),
+            str(item.get('id', '')),
+            item.get('folder', 'inbox'),
+            account.get('provider', 'custom'),
+            proxy_url
+        )
         if detail_payload and detail_payload.get('success'):
             body = str((detail_payload.get('email') or {}).get('body', '') or '')
-            text_candidates.append(strip_html_content(body))
+            return keyword in strip_html_content(body).lower()
+        return False
 
-        joined = '\n'.join(part for part in text_candidates if part)
-        if keyword and keyword not in joined.lower():
-            continue
-        codes = extract_verification_codes(joined)
-        if codes:
-            return jsonify({
-                'success': True,
-                'requested_email': email_addr,
-                'resolved_email': account.get('email', ''),
-                'matched_alias': account.get('matched_alias', ''),
-                'code': codes[0],
-                'codes': codes,
-                'message': {
-                    'id': item.get('id'),
-                    'folder': item.get('folder', ''),
-                    'subject': subject,
-                    'from': sender,
-                    'date': item.get('date', ''),
-                }
-            })
-
-    return jsonify({
-        'success': False,
-        'error': '未找到验证码邮件',
-        'requested_email': email_addr,
-        'resolved_email': account.get('email', ''),
-        'matched_alias': account.get('matched_alias', ''),
-    }), 404
+    detail = get_email_detail_graph(
+        account.get('client_id', ''),
+        account.get('refresh_token', ''),
+        str(item.get('id', '')),
+        proxy_url
+    )
+    if not detail:
+        return False
+    body = str((detail.get('body') or {}).get('content', '') or '')
+    return keyword in strip_html_content(body).lower()
 
 
 app.view_functions['api_update_account'] = api_update_account_v2

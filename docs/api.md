@@ -26,6 +26,10 @@
   - `requested_email`: 请求里传入的邮箱
   - `resolved_email`: 实际命中的主邮箱
   - `matched_alias`: 若通过别名命中，则为对应别名；否则为空
+- 别名邮箱支持常见特殊字符，例如 `+`、`@`、`&`
+  - `@` 可以直接传
+  - `+` 建议编码成 `%2B`
+  - `&` 必须编码成 `%26`
 
 典型高级用法：
 
@@ -41,12 +45,15 @@
 
 #### 查询参数
 
-| 参数 | 类型 | 必填 | 说明 |
+| 参数 | 类型 | 必填 | 说明 |   
 | --- | --- | --- | --- |
 | `email` | string | 是 | 主邮箱或别名邮箱 |
 | `folder` | string | 否 | `inbox`、`junkemail`、`deleteditems`、`all`。`all` 会同时抓取收件箱和垃圾邮件并按时间倒序合并 |
-| `skip` | int | 否 | 分页偏移，默认 `0` |
-| `top` | int | 否 | 返回数量，默认 `20`，最大 `50` |
+| `skip` | int | 否 | 分页偏移，默认 `0`。当 `folder=all` 时，对每个文件夹分别跳过 `skip` 封 |
+| `top` | int | 否 | 返回数量，默认 `1`，最大 `50`。当 `folder=all` 时，表示每个文件夹各取 `top` 封 |
+| `subject_contains` | string | 否 | 仅保留主题中包含该关键字的邮件 |
+| `from_contains` | string | 否 | 仅保留发件人中包含该关键字的邮件 |
+| `keyword` | string | 否 | 在主题、预览、正文中做进一步关键字过滤 |
 
 #### 请求示例
 
@@ -56,6 +63,12 @@ curl -H "X-API-Key: your-api-key" \
 
 curl -H "X-API-Key: your-api-key" \
   "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10&subject_contains=verify&from_contains=github&keyword=reset"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=user%2Balias%40example.com"
 ```
 
 #### 成功响应示例
@@ -88,69 +101,15 @@ curl -H "X-API-Key: your-api-key" \
 当 `folder=all` 时：
 
 - 后端会同时抓取 `inbox` 和 `junkemail`
+- `top` 是“每个文件夹各取多少封”
+- 例如 `top=1` 时，最多返回 `收件箱 1 + 垃圾邮件 1 = 2` 封
+- `skip` 也是“每个文件夹各跳过多少封”
 - 结果按邮件时间统一倒序排序
 - 每条邮件会带上 `folder`
 - 若其中一个文件夹成功、另一个失败，会返回：
   - `success: true`
   - `partial: true`
   - `details` 中包含失败文件夹的错误信息
-
-### GET `/api/external/emails/code`
-
-从指定邮箱最近邮件中提取验证码，支持主邮箱、别名邮箱、聚合文件夹查询。
-
-#### 查询参数
-
-| 参数 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `email` | string | 是 | 主邮箱或别名邮箱 |
-| `folder` | string | 否 | 默认 `all`，支持 `inbox`、`junkemail`、`deleteditems`、`all` |
-| `top` | int | 否 | 扫描最近多少封邮件，默认 `20`，最大 `50` |
-| `subject_contains` | string | 否 | 仅匹配主题中包含该关键字的邮件 |
-| `from_contains` | string | 否 | 仅匹配发件人中包含该关键字的邮件 |
-| `keyword` | string | 否 | 在主题 / 预览 / 正文里做进一步关键字过滤 |
-
-#### 请求示例
-
-```bash
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails/code?email=alias@example.com"
-
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails/code?email=alias@example.com&subject_contains=verify&from_contains=github"
-```
-
-#### 成功响应示例
-
-```json
-{
-  "success": true,
-  "requested_email": "alias@example.com",
-  "resolved_email": "user@outlook.com",
-  "matched_alias": "alias@example.com",
-  "code": "123456",
-  "codes": ["123456"],
-  "message": {
-    "id": "AAMk...",
-    "folder": "inbox",
-    "subject": "Your verification code",
-    "from": "no-reply@example.com",
-    "date": "2026-04-09T14:20:00Z"
-  }
-}
-```
-
-#### 失败响应示例
-
-```json
-{
-  "success": false,
-  "error": "未找到验证码邮件",
-  "requested_email": "alias@example.com",
-  "resolved_email": "user@outlook.com",
-  "matched_alias": "alias@example.com"
-}
-```
 
 ## 内部 API
 
@@ -295,6 +254,7 @@ curl -H "X-API-Key: your-api-key" \
 | --- | --- |
 | `forward_check_interval_minutes` | 转发轮询间隔 |
 | `forward_email_window_minutes` | 仅转发最近多少分钟内收到的邮件，`0` 表示不限制 |
+| `forward_include_junkemail` | 是否把垃圾箱邮件也纳入转发 |
 | `forward_channels` | 当前启用的转发渠道 |
 
 ### PUT `/api/settings`
@@ -305,6 +265,7 @@ curl -H "X-API-Key: your-api-key" \
 | --- | --- | --- |
 | `forward_check_interval_minutes` | int | 轮询间隔，范围 `1-60` |
 | `forward_email_window_minutes` | int | 转发邮件时间范围，范围 `0-10080`，`0` 表示不限制 |
+| `forward_include_junkemail` | bool | 是否把垃圾箱邮件也纳入转发轮询 |
 | `forward_channels` | array<string> | `smtp` / `telegram` |
 
 #### 请求示例
@@ -313,6 +274,7 @@ curl -H "X-API-Key: your-api-key" \
 {
   "forward_check_interval_minutes": 5,
   "forward_email_window_minutes": 30,
+  "forward_include_junkemail": true,
   "forward_channels": ["smtp", "telegram"]
 }
 ```

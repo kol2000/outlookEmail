@@ -245,8 +245,8 @@ user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXE
 当前额外支持：
 
 - 使用主邮箱或别名邮箱取信
-- `folder=all` 一次聚合收件箱和垃圾邮件并按时间排序
-- 直接提取最新验证码邮件中的验证码
+- `folder=all` 一次聚合收件箱和垃圾邮件并按时间排序，`top` 按每个文件夹分别计算
+- 支持按主题、发件人、关键词筛选列表
 
 **配置步骤：**
 1. 点击「⚙️ 设置」→ 在「对外 API Key」处点击「🔑 随机生成」→ 保存
@@ -260,8 +260,17 @@ curl -H "X-API-Key: your-api-key" \
   "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10"
 
 curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails/code?email=alias@example.com"
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10&subject_contains=verify&from_contains=github&keyword=reset"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=user%2Balias%40example.com"
 ```
+
+如果邮箱或别名里带特殊字符：
+
+- `@` 可以直接传
+- `+` 建议编码成 `%2B`
+- `&` 必须编码成 `%26`
 
 详细文档见 [API 文档](docs/api.md)。
 
