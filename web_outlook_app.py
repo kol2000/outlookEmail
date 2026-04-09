@@ -2077,19 +2077,44 @@ def parse_raw_email_to_temp_message(email_addr: str, raw_email: str, fallback_id
 
 
 # 重写导入解析函数，支持多种账号字段顺序
+def is_probable_client_id(value: str) -> bool:
+    candidate = str(value or '').strip()
+    if not candidate:
+        return False
+    try:
+        uuid.UUID(candidate)
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
+def resolve_outlook_token_order(third: str, fourth: str,
+                                account_format: str = 'client_id_refresh_token') -> tuple[str, str]:
+    third = str(third or '').strip()
+    fourth = str(fourth or '').strip()
+
+    # Azure / Microsoft public client_id is normally a UUID. If one side clearly
+    # looks like client_id and the other does not, auto-detect the order so that
+    # pasted import lines keep working even when the UI format selector is wrong.
+    third_is_client_id = is_probable_client_id(third)
+    fourth_is_client_id = is_probable_client_id(fourth)
+    if third_is_client_id and not fourth_is_client_id:
+        return third, fourth
+    if fourth_is_client_id and not third_is_client_id:
+        return fourth, third
+
+    if account_format == 'refresh_token_client_id':
+        return fourth, third
+    return third, fourth
+
+
 def parse_account_string(account_str: str, account_format: str = 'client_id_refresh_token') -> Optional[Dict]:
     parts = [part.strip() for part in account_str.strip().split('----')]
     if len(parts) < 4 or not parts[0]:
         return None
 
     email_addr, password, third, fourth = parts[:4]
-
-    if account_format == 'refresh_token_client_id':
-        refresh_token = third
-        client_id = fourth
-    else:
-        client_id = third
-        refresh_token = fourth
+    client_id, refresh_token = resolve_outlook_token_order(third, fourth, account_format)
 
     if not client_id or not refresh_token:
         return None
@@ -2111,12 +2136,7 @@ def parse_outlook_account_string(account_str: str, account_format: str = 'client
         return None
 
     email_addr, password, third, fourth = parts[:4]
-    if account_format == 'refresh_token_client_id':
-        refresh_token = third
-        client_id = fourth
-    else:
-        client_id = third
-        refresh_token = fourth
+    client_id, refresh_token = resolve_outlook_token_order(third, fourth, account_format)
 
     if not client_id or not refresh_token:
         return None

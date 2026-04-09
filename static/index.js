@@ -3875,12 +3875,11 @@ ${details}
                 const data = await response.json();
 
                 if (data.success) {
-                    // 生成完整的导入格式
+                    // 输出默认推荐导入格式，避免用户复制到与当前导入格式不匹配的备用顺序。
                     const importFormat = `your@outlook.com----yourpassword----${data.client_id}----${data.refresh_token}`;
-                    const importFormatAlt = `your@outlook.com----yourpassword----${data.refresh_token}----${data.client_id}`;
 
                     // 显示结果
-                    document.getElementById('refreshTokenOutput').value = `${importFormat}\n---\n${importFormatAlt}`;
+                    document.getElementById('refreshTokenOutput').value = importFormat;
                     document.getElementById('refreshTokenResult').style.display = 'block';
 
                     showToast('✅ Refresh Token 获取成功！', 'success');

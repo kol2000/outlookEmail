@@ -49,6 +49,26 @@ class FakeMail:
 
 
 class ImapFolderResolutionTests(unittest.TestCase):
+    def test_parse_outlook_import_default_order(self):
+        parsed = web_outlook_app.parse_outlook_account_string(
+            'user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA_refresh',
+            'client_id_refresh_token',
+        )
+
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed['client_id'], '24d9a0ed-8787-4584-883c-2fd79308940a')
+        self.assertEqual(parsed['refresh_token'], '0.AXEA_refresh')
+
+    def test_parse_outlook_import_reversed_order_even_when_selector_is_default(self):
+        parsed = web_outlook_app.parse_outlook_account_string(
+            'user@outlook.com----password123----0.AXEA_refresh----24d9a0ed-8787-4584-883c-2fd79308940a',
+            'client_id_refresh_token',
+        )
+
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed['client_id'], '24d9a0ed-8787-4584-883c-2fd79308940a')
+        self.assertEqual(parsed['refresh_token'], '0.AXEA_refresh')
+
     def test_resolve_126_inbox_from_listed_folder(self):
         mail = FakeMail(
             selectable={'INBOX.收件箱'},

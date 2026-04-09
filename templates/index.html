@@ -1164,16 +1164,15 @@
                 </div>
 
                 <div class="form-group" id="refreshTokenResult" style="display: none;">
-                    <label class="form-label">✅ 账号信息（已获取成功）</label>
+                    <label class="form-label">✅ 推荐导入内容（已获取成功）</label>
                     <textarea class="form-textarea" id="refreshTokenOutput" readonly
                         style="height: 100px; font-size: 12px; font-family: monospace; background-color: #f0f9ff; border-color: #0078d4;"></textarea>
                     <div class="form-hint" style="color: #0078d4;">
-                        <strong>格式说明：</strong>默认导入格式为：邮箱----密码----client_id----refresh_token<br>
-                        也支持在“导入邮箱”中切换为：邮箱----密码----令牌----client_id
+                        <strong>格式说明：</strong>下方输出的是默认推荐导入格式：邮箱----密码----client_id----refresh_token
                     </div>
                     <div class="form-hint" style="color: #0078d4;">
-                        <strong>示例说明：</strong>上方第一行是旧格式，第二行是新格式<br>
-                        请将"your@outlook.com"和"yourpassword"替换为您的实际邮箱和密码，然后复制整行内容到"导入邮箱"中使用
+                        <strong>兼容说明：</strong>导入接口也兼容：邮箱----密码----refresh_token----client_id。若第三、第四段填反，后端会自动识别常见 Outlook Client ID 顺序。<br>
+                        请将"your@outlook.com"和"yourpassword"替换为您的实际邮箱和密码，然后复制整行内容到"导入邮箱"中使用。
                     </div>
                 </div>
             </div>
