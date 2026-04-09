@@ -6,10 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-04-09
+
+### Changed
+- Formalized the repository into a release-managed project with `main` / `dev` branch roles, semantic versioning, and documented release flow.
+- Added automated GitHub Release generation and clarified collaboration / branch-protection guidance for future contributors.
+- Tightened Docker image publishing policy so documentation-only changes no longer trigger image builds.
+
 ### Added
-- Established a lightweight release workflow with `main` (stable) and `dev` (development) branches.
-- Added a root `VERSION` file as the canonical in-repo version source.
-- Added versioning and release process documentation.
+- Added `VERSION`, `CHANGELOG.md`, `RELEASE.md`, and `BRANCH_PROTECTION.md` to make versioning, release, and collaboration rules explicit.
+- Added release-tag driven image/version workflow for `latest`, `dev`, and semantic version tags.
+
+### Fixed
+- Fixed invalid Docker image tag generation caused by `docker/metadata-action` in tag-triggered builds.
 
 ## [1.0.0] - 2026-04-07
 
