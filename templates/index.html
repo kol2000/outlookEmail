@@ -713,7 +713,10 @@
                                         <h5 class="forward-channel-panel__title">SMTP 转发</h5>
                                         <p class="forward-channel-panel__desc">配置接收邮箱与 SMTP 服务器，用于邮件形式的二次转发。</p>
                                     </div>
-                                    <span class="forward-channel-panel__tag">SMTP</span>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testSmtpBtn" onclick="testForwardChannel('smtp')">发送测试消息</button>
+                                        <span class="forward-channel-panel__tag">SMTP</span>
+                                    </div>
                                 </div>
                                 <div class="forward-grid">
                                     <div class="form-group">
@@ -721,17 +724,23 @@
                                         <input type="text" class="form-input" id="settingsEmailForwardRecipient" placeholder="main@example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">发件邮箱类型</label>
-                                        <select class="form-select" id="settingsSmtpFromMode" onchange="syncSmtpFromModeUI()">
-                                            <option value="auto">自动</option>
-                                            <option value="username">SMTP 用户名</option>
-                                            <option value="custom">自定义发件邮箱</option>
+                                        <label class="form-label">邮箱类型</label>
+                                        <select class="form-select" id="settingsSmtpProvider" onchange="syncSmtpProviderUI(true)">
+                                            <option value="outlook">Outlook</option>
+                                            <option value="gmail">Gmail</option>
+                                            <option value="qq">QQ邮箱</option>
+                                            <option value="163">163邮箱</option>
+                                            <option value="126">126邮箱</option>
+                                            <option value="yahoo">Yahoo</option>
+                                            <option value="aliyun">阿里邮箱</option>
+                                            <option value="custom">自定义</option>
                                         </select>
+                                        <div class="form-hint" id="settingsSmtpProviderHint">选择后会自动带出 SMTP 主机、端口和连接方式，你仍然可以继续手动修改。</div>
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">发件人邮箱</label>
                                         <input type="text" class="form-input" id="settingsSmtpFromEmail" placeholder="noreply@example.com">
-                                        <div class="form-hint" id="settingsSmtpFromEmailHint">自动模式下，优先使用这里填写的地址；留空则回退到 SMTP 用户名。</div>
+                                        <div class="form-hint" id="settingsSmtpFromEmailHint">可选。留空时默认使用 SMTP 用户名作为发件人邮箱。</div>
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">SMTP 用户名</label>
@@ -770,7 +779,10 @@
                                         <h5 class="forward-channel-panel__title">Telegram 转发</h5>
                                         <p class="forward-channel-panel__desc">使用 Bot Token 与 Chat ID，把新邮件摘要推送到指定 TG 会话。</p>
                                     </div>
-                                    <span class="forward-channel-panel__tag">TG</span>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testTelegramBtn" onclick="testForwardChannel('telegram')">发送测试消息</button>
+                                        <span class="forward-channel-panel__tag">TG</span>
+                                    </div>
                                 </div>
                                 <div class="forward-grid">
                                     <div class="form-group">

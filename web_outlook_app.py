@@ -917,7 +917,7 @@ def init_db():
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
-        VALUES ('smtp_from_mode', 'auto')
+        VALUES ('smtp_provider', 'custom')
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
@@ -6300,7 +6300,7 @@ def api_get_settings():
     settings['smtp_username'] = get_setting('smtp_username', '')
     settings['smtp_password'] = get_setting_decrypted('smtp_password', '')
     settings['smtp_from_email'] = get_setting('smtp_from_email', '')
-    settings['smtp_from_mode'] = get_setting('smtp_from_mode', 'auto')
+    settings['smtp_provider'] = get_setting('smtp_provider', 'custom')
     settings['smtp_use_tls'] = get_setting('smtp_use_tls', 'false')
     settings['smtp_use_ssl'] = get_setting('smtp_use_ssl', 'true')
     settings['telegram_bot_token'] = get_setting_decrypted('telegram_bot_token', '')
@@ -6536,14 +6536,14 @@ def api_update_settings():
         else:
             errors.append('保存 SMTP 发件人失败')
 
-    if 'smtp_from_mode' in data:
-        smtp_from_mode = str(data['smtp_from_mode']).strip().lower()
-        if smtp_from_mode not in ('auto', 'username', 'custom'):
-            errors.append('SMTP 发件邮箱类型无效')
-        elif set_setting('smtp_from_mode', smtp_from_mode):
-            updated.append('SMTP 发件邮箱类型')
+    if 'smtp_provider' in data:
+        smtp_provider = str(data['smtp_provider']).strip().lower()
+        if smtp_provider not in ('outlook', 'gmail', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom'):
+            errors.append('SMTP 邮箱类型无效')
+        elif set_setting('smtp_provider', smtp_provider):
+            updated.append('SMTP 邮箱类型')
         else:
-            errors.append('保存 SMTP 发件邮箱类型失败')
+            errors.append('保存 SMTP 邮箱类型失败')
 
     if 'smtp_use_tls' in data:
         if set_setting('smtp_use_tls', str(data['smtp_use_tls']).lower()):
@@ -6749,13 +6749,7 @@ def send_forward_email(subject: str, body_text: str, body_html: str = '') -> boo
     username = get_setting('smtp_username', '').strip()
     password = get_setting_decrypted('smtp_password', '').strip()
     smtp_from_email = get_setting('smtp_from_email', '').strip()
-    smtp_from_mode = (get_setting('smtp_from_mode', 'auto') or 'auto').strip().lower()
-    if smtp_from_mode == 'custom':
-        from_email = smtp_from_email
-    elif smtp_from_mode == 'username':
-        from_email = username
-    else:
-        from_email = smtp_from_email or username
+    from_email = smtp_from_email or username
     if not from_email:
         return False
     use_tls = get_bool_setting('smtp_use_tls', False)
@@ -6782,9 +6776,62 @@ def send_forward_email(subject: str, body_text: str, body_html: str = '') -> boo
     return True
 
 
+def send_forward_email_with_config(config: Dict[str, Any], subject: str, body_text: str, body_html: str = '') -> bool:
+    recipient = str(config.get('recipient', '') or '').strip()
+    host = str(config.get('host', '') or '').strip()
+    if not recipient or not host:
+        return False
+
+    port = int(config.get('port') or 465)
+    username = str(config.get('username', '') or '').strip()
+    password = str(config.get('password', '') or '')
+    from_email = str(config.get('from_email', '') or '').strip() or username
+    if not from_email:
+        return False
+    use_tls = str(config.get('use_tls', '')).lower() in ('1', 'true', 'yes', 'on')
+    use_ssl = str(config.get('use_ssl', '')).lower() in ('1', 'true', 'yes', 'on')
+
+    message = EmailMessage()
+    message['From'] = from_email
+    message['To'] = recipient
+    message['Subject'] = subject
+    message.set_content(body_text)
+    if body_html:
+        message.add_alternative(body_html, subtype='html')
+
+    smtp_cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with smtp_cls(host, port, timeout=20) as client:
+        if not use_ssl:
+            client.ehlo()
+            if use_tls:
+                client.starttls()
+                client.ehlo()
+        if username:
+            client.login(username, password)
+        client.send_message(message)
+    return True
+
+
 def send_forward_telegram(text: str) -> bool:
     bot_token = get_setting_decrypted('telegram_bot_token', '').strip()
     chat_id = get_setting('telegram_chat_id', '').strip()
+    if not bot_token or not chat_id:
+        return False
+    response = requests.post(
+        f'https://api.telegram.org/bot{bot_token}/sendMessage',
+        json={
+            'chat_id': chat_id,
+            'text': text[:4000],
+            'disable_web_page_preview': True,
+        },
+        timeout=15
+    )
+    return response.ok
+
+
+def send_forward_telegram_with_config(config: Dict[str, Any], text: str) -> bool:
+    bot_token = str(config.get('bot_token', '') or '').strip()
+    chat_id = str(config.get('chat_id', '') or '').strip()
     if not bot_token or not chat_id:
         return False
     response = requests.post(
@@ -7122,6 +7169,42 @@ def api_trigger_forwarding_check():
         return jsonify({'success': True, 'message': '已触发一次转发检查，请查看转发历史或容器日志'})
     except Exception as exc:
         return jsonify({'success': False, 'error': f'触发转发检查失败: {str(exc)}'})
+
+
+@app.route('/api/settings/test-forward-channel', methods=['POST'])
+@login_required
+def api_test_forward_channel():
+    data = request.json or {}
+    channel = str(data.get('channel', '') or '').strip().lower()
+    config = data.get('config', {}) or {}
+
+    subject = f'[测试消息] 转发链路检测 {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+    body_text = (
+        '这是一条由系统主动发送的测试消息。\n'
+        '如果你收到了这条消息，说明当前转发链路配置可用。'
+    )
+    body_html = (
+        '<p>这是一条由系统主动发送的测试消息。</p>'
+        '<p>如果你收到了这条消息，说明当前转发链路配置可用。</p>'
+    )
+    telegram_text = f'{subject}\n\n这是一条由系统主动发送的测试消息。\n如果你收到了这条消息，说明当前转发链路配置可用。'
+
+    try:
+        if channel == 'smtp':
+            smtp_config = config.get('smtp', {}) if isinstance(config, dict) else {}
+            if not send_forward_email_with_config(smtp_config, subject, body_text, body_html):
+                return jsonify({'success': False, 'error': 'SMTP 测试发送失败，请检查当前表单配置'})
+            return jsonify({'success': True, 'message': 'SMTP 测试消息已发送，请检查收件箱'})
+
+        if channel == 'telegram':
+            telegram_config = config.get('telegram', {}) if isinstance(config, dict) else {}
+            if not send_forward_telegram_with_config(telegram_config, telegram_text):
+                return jsonify({'success': False, 'error': 'Telegram 测试发送失败，请检查当前表单配置'})
+            return jsonify({'success': True, 'message': 'Telegram 测试消息已发送，请检查目标会话'})
+
+        return jsonify({'success': False, 'error': '未知转发渠道'})
+    except Exception as exc:
+        return jsonify({'success': False, 'error': f'测试失败: {str(exc)}'})
 
 
 def init_scheduler():

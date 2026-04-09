@@ -1605,29 +1605,45 @@ ${details}
             }
         }
 
+        const SMTP_PROVIDER_PRESETS = {
+            outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: 'Outlook 推荐使用 SMTP + STARTTLS（587）。' },
+            gmail: { host: 'smtp.gmail.com', port: '465', useTls: false, useSsl: true, hint: 'Gmail 通常使用应用专用密码，默认 SSL 465。' },
+            qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: 'QQ 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
+            '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: '163 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
+            '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: '126 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
+            yahoo: { host: 'smtp.mail.yahoo.com', port: '465', useTls: false, useSsl: true, hint: 'Yahoo 默认 SSL 465。' },
+            aliyun: { host: 'smtp.aliyun.com', port: '465', useTls: false, useSsl: true, hint: '阿里邮箱默认 SSL 465。' },
+            custom: { host: '', port: '465', useTls: false, useSsl: true, hint: '自定义模式下，请手动填写 SMTP 主机、端口和连接方式。' }
+        };
+
         function ensureForwardingSettingsUI() {
             if (!document.getElementById('forwardingSettingsSection')) return;
             syncForwardChannelUI();
-            syncSmtpFromModeUI();
+            syncSmtpProviderUI(false);
         }
 
-        function syncSmtpFromModeUI() {
-            const modeSelect = document.getElementById('settingsSmtpFromMode');
-            const fromInput = document.getElementById('settingsSmtpFromEmail');
-            const hintEl = document.getElementById('settingsSmtpFromEmailHint');
-            if (!modeSelect || !fromInput || !hintEl) return;
+        function syncSmtpProviderUI(applyPreset = false) {
+            const providerSelect = document.getElementById('settingsSmtpProvider');
+            const hostInput = document.getElementById('settingsSmtpHost');
+            const portInput = document.getElementById('settingsSmtpPort');
+            const useTlsInput = document.getElementById('settingsSmtpUseTls');
+            const useSslInput = document.getElementById('settingsSmtpUseSsl');
+            const providerHint = document.getElementById('settingsSmtpProviderHint');
+            const fromHint = document.getElementById('settingsSmtpFromEmailHint');
+            if (!providerSelect || !hostInput || !portInput || !useTlsInput || !useSslInput || !providerHint || !fromHint) return;
 
-            const mode = String(modeSelect.value || 'auto');
-            if (mode === 'username') {
-                fromInput.disabled = true;
-                hintEl.textContent = '当前将直接使用 SMTP 用户名作为发件人邮箱。';
-            } else if (mode === 'custom') {
-                fromInput.disabled = false;
-                hintEl.textContent = '当前必须填写自定义发件邮箱，否则 SMTP 转发无法保存。';
-            } else {
-                fromInput.disabled = false;
-                hintEl.textContent = '自动模式下，优先使用这里填写的地址；留空则回退到 SMTP 用户名。';
+            const provider = String(providerSelect.value || 'custom');
+            const preset = SMTP_PROVIDER_PRESETS[provider] || SMTP_PROVIDER_PRESETS.custom;
+
+            if (applyPreset) {
+                hostInput.value = preset.host;
+                portInput.value = preset.port;
+                useTlsInput.checked = !!preset.useTls;
+                useSslInput.checked = !!preset.useSsl;
             }
+
+            providerHint.textContent = preset.hint;
+            fromHint.textContent = '可选。留空时默认使用 SMTP 用户名作为发件人邮箱。';
         }
 
         function updateEditAccountFields() {
@@ -4234,7 +4250,7 @@ ${details}
                     document.getElementById('settingsSmtpPort').value = data.settings.smtp_port || '465';
                     document.getElementById('settingsSmtpUsername').value = data.settings.smtp_username || '';
                     document.getElementById('settingsSmtpPassword').value = data.settings.smtp_password || '';
-                    document.getElementById('settingsSmtpFromMode').value = data.settings.smtp_from_mode || 'auto';
+                    document.getElementById('settingsSmtpProvider').value = data.settings.smtp_provider || 'custom';
                     document.getElementById('settingsSmtpFromEmail').value = data.settings.smtp_from_email || '';
                     document.getElementById('settingsSmtpUseTls').checked = String(data.settings.smtp_use_tls) === 'true';
                     document.getElementById('settingsSmtpUseSsl').checked = String(data.settings.smtp_use_ssl) !== 'false';
@@ -4245,7 +4261,7 @@ ${details}
                     const useCron = data.settings.use_cron_schedule === 'true';
                     document.querySelector('input[name="refreshStrategy"][value="' + (useCron ? 'cron' : 'days') + '"]').checked = true;
                     toggleRefreshStrategy();
-                    syncSmtpFromModeUI();
+                    syncSmtpProviderUI(false);
                 }
             } catch (error) {
                 showToast('加载设置失败', 'error');
@@ -4286,7 +4302,7 @@ ${details}
             const smtpPort = parseInt(smtpPortValue || '465', 10);
             const smtpRecipient = document.getElementById('settingsEmailForwardRecipient').value.trim();
             const smtpHost = document.getElementById('settingsSmtpHost').value.trim();
-            const smtpFromMode = document.getElementById('settingsSmtpFromMode')?.value || 'auto';
+            const smtpProvider = document.getElementById('settingsSmtpProvider')?.value || 'custom';
             const smtpFromEmail = document.getElementById('settingsSmtpFromEmail').value.trim();
             const smtpUsername = document.getElementById('settingsSmtpUsername').value.trim();
             const telegramBotToken = document.getElementById('settingsTelegramBotToken').value.trim();
@@ -4316,12 +4332,8 @@ ${details}
                 showToast('启用 SMTP 转发时必须填写 SMTP 主机', 'error');
                 return;
             }
-            if (forwardChannels.includes('smtp') && smtpFromMode === 'custom' && !smtpFromEmail) {
-                showToast('使用自定义发件邮箱时必须填写发件人邮箱', 'error');
-                return;
-            }
-            if (forwardChannels.includes('smtp') && smtpFromMode === 'username' && !smtpUsername) {
-                showToast('使用 SMTP 用户名作为发件邮箱时必须填写 SMTP 用户名', 'error');
+            if (forwardChannels.includes('smtp') && !smtpUsername && !smtpFromEmail) {
+                showToast('至少需要填写 SMTP 用户名或发件人邮箱之一', 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && (Number.isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
@@ -4350,7 +4362,7 @@ ${details}
             settings.smtp_port = Number.isNaN(smtpPort) ? 465 : smtpPort;
             settings.smtp_username = smtpUsername;
             settings.smtp_password = document.getElementById('settingsSmtpPassword').value;
-            settings.smtp_from_mode = smtpFromMode;
+            settings.smtp_provider = smtpProvider;
             settings.smtp_from_email = smtpFromEmail;
             settings.smtp_use_tls = document.getElementById('settingsSmtpUseTls').checked;
             settings.smtp_use_ssl = document.getElementById('settingsSmtpUseSsl').checked;
@@ -4381,6 +4393,91 @@ ${details}
                 }
             } catch (error) {
                 showToast('保存设置失败', 'error');
+            }
+        }
+
+        function buildForwardingDraftConfig() {
+            const smtpPortValue = document.getElementById('settingsSmtpPort').value.trim();
+            const smtpPort = parseInt(smtpPortValue || '465', 10);
+            return {
+                smtp: {
+                    provider: document.getElementById('settingsSmtpProvider')?.value || 'custom',
+                    recipient: document.getElementById('settingsEmailForwardRecipient').value.trim(),
+                    host: document.getElementById('settingsSmtpHost').value.trim(),
+                    port: Number.isNaN(smtpPort) ? null : smtpPort,
+                    username: document.getElementById('settingsSmtpUsername').value.trim(),
+                    password: document.getElementById('settingsSmtpPassword').value,
+                    from_email: document.getElementById('settingsSmtpFromEmail').value.trim(),
+                    use_tls: !!document.getElementById('settingsSmtpUseTls')?.checked,
+                    use_ssl: !!document.getElementById('settingsSmtpUseSsl')?.checked,
+                },
+                telegram: {
+                    bot_token: document.getElementById('settingsTelegramBotToken').value.trim(),
+                    chat_id: document.getElementById('settingsTelegramChatId').value.trim(),
+                }
+            };
+        }
+
+        async function testForwardChannel(channel) {
+            const btn = document.getElementById(channel === 'smtp' ? 'testSmtpBtn' : 'testTelegramBtn');
+            if (!btn || btn.disabled) return;
+
+            const draft = buildForwardingDraftConfig();
+            if (channel === 'smtp') {
+                if (!draft.smtp.recipient) {
+                    showToast('请先填写 SMTP 转发到邮箱', 'error');
+                    return;
+                }
+                if (!draft.smtp.host) {
+                    showToast('请先填写 SMTP 主机', 'error');
+                    return;
+                }
+                if (!draft.smtp.username && !draft.smtp.from_email) {
+                    showToast('请至少填写 SMTP 用户名或发件人邮箱', 'error');
+                    return;
+                }
+                if (!draft.smtp.port || draft.smtp.port < 1 || draft.smtp.port > 65535) {
+                    showToast('SMTP 端口无效', 'error');
+                    return;
+                }
+            } else if (channel === 'telegram') {
+                if (!draft.telegram.bot_token) {
+                    showToast('请先填写 Telegram Bot Token', 'error');
+                    return;
+                }
+                if (!draft.telegram.chat_id) {
+                    showToast('请先填写 Telegram Chat ID', 'error');
+                    return;
+                }
+            } else {
+                showToast('未知转发渠道', 'error');
+                return;
+            }
+
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+
+            try {
+                const response = await fetch('/api/settings/test-forward-channel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel,
+                        config: draft
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast(data.message || '测试成功', 'success');
+                } else {
+                    handleApiError(data, '测试失败');
+                }
+            } catch (error) {
+                showToast('测试失败', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
             }
         }
 
