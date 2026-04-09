@@ -298,5 +298,100 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertNotIn('imap_port', account)
 
 
+class BatchForwardingApiTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+        self.app.config['WTF_CSRF_ENABLED'] = False
+        self.client = self.app.test_client()
+
+        with self.client.session_transaction() as sess:
+            sess['logged_in'] = True
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('DELETE FROM account_tags')
+            db.execute('DELETE FROM account_aliases')
+            db.execute('DELETE FROM account_refresh_logs')
+            db.execute('DELETE FROM accounts')
+            db.execute('DELETE FROM tags')
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.commit()
+
+            self.assertTrue(web_outlook_app.add_account(
+                'disabled-forward@outlook.com',
+                'password123',
+                'client-id-disabled',
+                'refresh-token-disabled',
+                group_id=1,
+                forward_enabled=False
+            ))
+            self.assertTrue(web_outlook_app.add_account(
+                'enabled-forward@outlook.com',
+                'password123',
+                'client-id-enabled',
+                'refresh-token-enabled',
+                group_id=1,
+                forward_enabled=True
+            ))
+
+            disabled_account = web_outlook_app.get_account_by_email('disabled-forward@outlook.com')
+            enabled_account = web_outlook_app.get_account_by_email('enabled-forward@outlook.com')
+            self.assertIsNotNone(disabled_account)
+            self.assertIsNotNone(enabled_account)
+
+            self.disabled_account_id = disabled_account['id']
+            self.enabled_account_id = enabled_account['id']
+            self.disabled_cursor_before = disabled_account.get('forward_last_checked_at')
+            self.enabled_cursor_before = enabled_account.get('forward_last_checked_at')
+
+    def test_batch_enable_forwarding_only_updates_disabled_accounts(self):
+        response = self.client.post(
+            '/api/accounts/batch-update-forwarding',
+            json={
+                'account_ids': [self.disabled_account_id, self.enabled_account_id],
+                'forward_enabled': True,
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['updated_count'], 1)
+        self.assertEqual(payload['unchanged_count'], 1)
+
+        with self.app.app_context():
+            disabled_account = web_outlook_app.get_account_by_id(self.disabled_account_id)
+            enabled_account = web_outlook_app.get_account_by_id(self.enabled_account_id)
+
+        self.assertTrue(disabled_account['forward_enabled'])
+        self.assertTrue(disabled_account['forward_last_checked_at'])
+        self.assertEqual(enabled_account['forward_last_checked_at'], self.enabled_cursor_before)
+
+    def test_batch_disable_forwarding_only_updates_enabled_accounts(self):
+        response = self.client.post(
+            '/api/accounts/batch-update-forwarding',
+            json={
+                'account_ids': [self.disabled_account_id, self.enabled_account_id],
+                'forward_enabled': False,
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['updated_count'], 1)
+        self.assertEqual(payload['unchanged_count'], 1)
+
+        with self.app.app_context():
+            disabled_account = web_outlook_app.get_account_by_id(self.disabled_account_id)
+            enabled_account = web_outlook_app.get_account_by_id(self.enabled_account_id)
+
+        self.assertFalse(disabled_account['forward_enabled'])
+        self.assertEqual(disabled_account['forward_last_checked_at'], self.disabled_cursor_before)
+        self.assertFalse(enabled_account['forward_enabled'])
+        self.assertEqual(enabled_account['forward_last_checked_at'], self.enabled_cursor_before)
+
+
 if __name__ == '__main__':
     unittest.main()

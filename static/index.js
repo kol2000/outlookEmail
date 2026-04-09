@@ -1380,6 +1380,7 @@ ${details}
                         <div class="empty-state-text">该分组暂无邮箱</div>
                     </div>
                 `;
+                updateBatchActionBar();
                 return;
             }
 
@@ -1390,6 +1391,7 @@ ${details}
                            data-account-email="${escapeHtml(acc.email)}"
                            data-account-type="${escapeHtml(acc.account_type || 'outlook')}"
                            data-refreshable="${acc.account_type !== 'imap' ? 'true' : 'false'}"
+                           data-forward-enabled="${acc.forward_enabled ? 'true' : 'false'}"
                            onclick="event.stopPropagation(); updateBatchActionBar()">
                     <div class="account-body">
                         <div class="account-title-row">
@@ -5658,9 +5660,15 @@ ${details}
             const countSpan = document.getElementById('selectedCount');
             const selectAllBtn = document.getElementById('accountSelectAllBtn');
             const batchRefreshBtn = document.getElementById('batchRefreshTokensBtn');
+            const batchEnableForwardingBtn = document.getElementById('batchEnableForwardingBtn');
+            const batchDisableForwardingBtn = document.getElementById('batchDisableForwardingBtn');
             const batchDeleteBtn = document.getElementById('batchDeleteAccountsBtn');
             const panel = document.getElementById('accountPanel');
             const refreshableChecked = checked.filter(cb => cb.dataset.refreshable === 'true');
+            const enableForwardingChecked = checked.filter(cb => cb.dataset.forwardEnabled !== 'true');
+            const disableForwardingChecked = checked.filter(cb => cb.dataset.forwardEnabled === 'true');
+            const isForwardingUpdating = batchEnableForwardingBtn?.dataset.loading === 'true'
+                || batchDisableForwardingBtn?.dataset.loading === 'true';
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
@@ -5685,6 +5693,28 @@ ${details}
                             : '刷新 Token';
                     }
                 }
+                if (batchEnableForwardingBtn) {
+                    batchEnableForwardingBtn.disabled = enableForwardingChecked.length === 0 || isForwardingUpdating;
+                    batchEnableForwardingBtn.title = enableForwardingChecked.length === 0
+                        ? '所选账号已全部开启转发'
+                        : '';
+                    if (batchEnableForwardingBtn.dataset.loading !== 'true') {
+                        batchEnableForwardingBtn.textContent = enableForwardingChecked.length > 0
+                            ? `开启转发${enableForwardingChecked.length !== checked.length ? ` (${enableForwardingChecked.length})` : ''}`
+                            : '开启转发';
+                    }
+                }
+                if (batchDisableForwardingBtn) {
+                    batchDisableForwardingBtn.disabled = disableForwardingChecked.length === 0 || isForwardingUpdating;
+                    batchDisableForwardingBtn.title = disableForwardingChecked.length === 0
+                        ? '所选账号已全部取消转发'
+                        : '';
+                    if (batchDisableForwardingBtn.dataset.loading !== 'true') {
+                        batchDisableForwardingBtn.textContent = disableForwardingChecked.length > 0
+                            ? `取消转发${disableForwardingChecked.length !== checked.length ? ` (${disableForwardingChecked.length})` : ''}`
+                            : '取消转发';
+                    }
+                }
                 if (batchDeleteBtn) {
                     const isDeleting = batchDeleteBtn.dataset.loading === 'true';
                     batchDeleteBtn.disabled = isDeleting;
@@ -5700,6 +5730,18 @@ ${details}
                     batchRefreshBtn.dataset.loading = 'false';
                     batchRefreshBtn.textContent = '刷新 Token';
                     batchRefreshBtn.title = '';
+                }
+                if (batchEnableForwardingBtn) {
+                    batchEnableForwardingBtn.disabled = false;
+                    batchEnableForwardingBtn.dataset.loading = 'false';
+                    batchEnableForwardingBtn.textContent = '开启转发';
+                    batchEnableForwardingBtn.title = '';
+                }
+                if (batchDisableForwardingBtn) {
+                    batchDisableForwardingBtn.disabled = false;
+                    batchDisableForwardingBtn.dataset.loading = 'false';
+                    batchDisableForwardingBtn.textContent = '取消转发';
+                    batchDisableForwardingBtn.title = '';
                 }
                 if (batchDeleteBtn) {
                     batchDeleteBtn.disabled = false;
@@ -5787,6 +5829,77 @@ ${details}
                 btn.dataset.loading = 'false';
                 updateBatchActionBar();
             }
+        }
+
+        async function updateForwardingForSelectedAccounts(targetEnabled) {
+            const btn = document.getElementById(targetEnabled ? 'batchEnableForwardingBtn' : 'batchDisableForwardingBtn');
+            if (!btn || btn.disabled) return;
+
+            const checked = Array.from(document.querySelectorAll('#accountList .account-select-checkbox:checked'));
+            const accountIds = checked
+                .map(cb => parseInt(cb.value, 10))
+                .filter(Number.isFinite);
+            const eligibleCount = checked.filter(cb => (cb.dataset.forwardEnabled === 'true') !== targetEnabled).length;
+            const actionLabel = targetEnabled ? '开启转发' : '取消转发';
+            const loadingLabel = targetEnabled ? '开启中...' : '取消中...';
+            const finishedLabel = targetEnabled ? '已全部开启转发' : '已全部取消转发';
+            const skippedLabel = targetEnabled ? '已开启' : '已取消';
+
+            if (!accountIds.length) {
+                showToast(`请先选择要${actionLabel}的邮箱`, 'error');
+                return;
+            }
+            if (!eligibleCount) {
+                showToast(`所选账号${finishedLabel}`, 'error');
+                return;
+            }
+
+            const skippedCount = accountIds.length - eligibleCount;
+            const confirmMessage = skippedCount > 0
+                ? `确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？其中 ${skippedCount} 个${skippedLabel}账号会自动跳过。`
+                : `确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.dataset.loading = 'true';
+            btn.textContent = loadingLabel;
+
+            try {
+                const response = await fetch('/api/accounts/batch-update-forwarding', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_ids: accountIds,
+                        forward_enabled: targetEnabled
+                    })
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    handleApiError(data, `批量${actionLabel}失败`);
+                    return;
+                }
+
+                showToast(data.message || `已为 ${eligibleCount} 个账号${actionLabel}`, 'success');
+                invalidateAccountCaches();
+                clearAccountSelection();
+                await refreshVisibleAccountList(true);
+            } catch (error) {
+                showToast(`批量${actionLabel}失败`, 'error');
+            } finally {
+                btn.dataset.loading = 'false';
+                updateBatchActionBar();
+            }
+        }
+
+        async function enableForwardingForSelectedAccounts() {
+            await updateForwardingForSelectedAccounts(true);
+        }
+
+        async function disableForwardingForSelectedAccounts() {
+            await updateForwardingForSelectedAccounts(false);
         }
 
         async function deleteSelectedAccounts() {

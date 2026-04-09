@@ -24,7 +24,7 @@ import base64
 import html
 import socket
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
@@ -1842,7 +1842,7 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
         ''', (
             email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark,
             account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
-            datetime.utcnow().isoformat() if forward_enabled else None
+            datetime.now(timezone.utc).isoformat() if forward_enabled else None
         ))
         db.commit()
         return True
@@ -1882,7 +1882,7 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
             ''', (
                 email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
                 account_type, provider, imap_host, imap_port, encrypted_imap_password, 1,
-                datetime.utcnow().isoformat(), account_id
+                datetime.now(timezone.utc).isoformat(), account_id
             ))
         else:
             db.execute('''
@@ -1925,9 +1925,8 @@ def delete_account_by_email(email_addr: str) -> bool:
         return False
 
 
-def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
-    """批量删除邮箱账号。"""
-    db = get_db()
+def normalize_account_ids(account_ids: List[int]) -> List[int]:
+    """归一化账号 ID 列表，过滤非法值并去重。"""
     normalized_ids = []
     seen_ids = set()
     for account_id in account_ids or []:
@@ -1939,6 +1938,13 @@ def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
             continue
         seen_ids.add(normalized_id)
         normalized_ids.append(normalized_id)
+    return normalized_ids
+
+
+def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
+    """批量删除邮箱账号。"""
+    db = get_db()
+    normalized_ids = normalize_account_ids(account_ids)
 
     if not normalized_ids:
         return {'success': False, 'error': '请选择要删除的账号'}
@@ -1966,6 +1972,75 @@ def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
             'success': True,
             'deleted_count': len(existing_ids),
             'deleted_accounts': deleted_accounts,
+            'missing_ids': missing_ids,
+        }
+    except Exception as e:
+        db.rollback()
+        return {'success': False, 'error': str(e)}
+
+
+def update_accounts_forwarding_by_ids(account_ids: List[int], forward_enabled: bool) -> Dict[str, Any]:
+    """批量更新账号转发开关。"""
+    db = get_db()
+    normalized_ids = normalize_account_ids(account_ids)
+
+    if not normalized_ids:
+        return {'success': False, 'error': '请选择要修改的账号'}
+
+    placeholders = ','.join('?' * len(normalized_ids))
+    rows = db.execute(
+        f'''
+        SELECT id, email, COALESCE(forward_enabled, 0) AS forward_enabled
+        FROM accounts
+        WHERE id IN ({placeholders})
+        ORDER BY email COLLATE NOCASE ASC
+        ''',
+        normalized_ids
+    ).fetchall()
+
+    if not rows:
+        return {'success': False, 'error': '未找到可修改的账号'}
+
+    target_value = 1 if forward_enabled else 0
+    existing_ids = [row['id'] for row in rows]
+    existing_id_set = set(existing_ids)
+    missing_ids = [account_id for account_id in normalized_ids if account_id not in existing_id_set]
+    updated_rows = [row for row in rows if int(row['forward_enabled'] or 0) != target_value]
+    updated_ids = [row['id'] for row in updated_rows]
+    updated_accounts = [{'id': row['id'], 'email': row['email']} for row in updated_rows]
+    unchanged_count = len(rows) - len(updated_rows)
+
+    try:
+        if updated_ids:
+            update_placeholders = ','.join('?' * len(updated_ids))
+            if forward_enabled:
+                db.execute(
+                    f'''
+                    UPDATE accounts
+                    SET forward_enabled = 1,
+                        forward_last_checked_at = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id IN ({update_placeholders})
+                    ''',
+                    [datetime.now(timezone.utc).isoformat()] + updated_ids
+                )
+            else:
+                db.execute(
+                    f'''
+                    UPDATE accounts
+                    SET forward_enabled = 0,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id IN ({update_placeholders})
+                    ''',
+                    updated_ids
+                )
+            db.commit()
+
+        return {
+            'success': True,
+            'updated_count': len(updated_ids),
+            'updated_accounts': updated_accounts,
+            'unchanged_count': unchanged_count,
             'missing_ids': missing_ids,
         }
     except Exception as e:
@@ -3877,6 +3952,49 @@ def api_batch_update_account_group():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/accounts/batch-update-forwarding', methods=['POST'])
+@login_required
+def api_batch_update_account_forwarding():
+    """批量更新账号转发状态"""
+    data = request.json or {}
+    account_ids = data.get('account_ids', [])
+
+    if 'forward_enabled' not in data:
+        return jsonify({'success': False, 'error': '缺少转发状态参数'})
+
+    raw_forward_enabled = data.get('forward_enabled')
+    if isinstance(raw_forward_enabled, str):
+        forward_enabled = raw_forward_enabled.strip().lower() in {'1', 'true', 'yes', 'on'}
+    else:
+        forward_enabled = bool(raw_forward_enabled)
+
+    result = update_accounts_forwarding_by_ids(account_ids, forward_enabled)
+    if not result.get('success'):
+        return jsonify(result)
+
+    action_label = '开启' if forward_enabled else '关闭'
+    updated_count = result.get('updated_count', 0)
+    unchanged_count = result.get('unchanged_count', 0)
+
+    if updated_count and unchanged_count:
+        message = f'已为 {updated_count} 个账号{action_label}转发，{unchanged_count} 个账号已处于该状态'
+    elif updated_count:
+        message = f'已为 {updated_count} 个账号{action_label}转发'
+    elif unchanged_count:
+        message = f'所选 {unchanged_count} 个账号已处于{action_label}转发状态'
+    else:
+        message = '没有可更新的账号'
+
+    return jsonify({
+        'success': True,
+        'message': message,
+        'updated_count': updated_count,
+        'updated_accounts': result.get('updated_accounts', []),
+        'unchanged_count': unchanged_count,
+        'missing_ids': result.get('missing_ids', []),
+    })
 
 
 
