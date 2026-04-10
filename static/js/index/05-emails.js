@@ -297,8 +297,10 @@
             // 这里不重置 currentEmailDetail，等到 fetch 成功后再设置
 
             // 重置信任模式
-            document.getElementById('trustEmailCheckbox').checked = false;
+            const trustCheckbox = document.getElementById('trustEmailCheckbox');
+            trustCheckbox.checked = false;
             isTrustedMode = false;
+            updateTrustToggleState(trustCheckbox);
 
             // 显示工具栏
             document.getElementById('emailDetailToolbar').style.display = 'flex';
@@ -339,6 +341,7 @@
         // 渲染邮件详情
         function renderEmailDetail(email) {
             const container = document.getElementById('emailDetail');
+            const compactMobileMeta = typeof isMobileLayout === 'function' && isMobileLayout();
 
             const isHtml = email.body_type === 'html' ||
                 (email.body && (email.body.includes('<html') || email.body.includes('<div') || email.body.includes('<p>')));
@@ -347,30 +350,55 @@
                 ? `<iframe id="emailBodyFrame" sandbox="allow-same-origin" onload="adjustIframeHeight(this)"></iframe>`
                 : `<div class="email-body-text">${escapeHtml(email.body)}</div>`;
 
-            container.innerHTML = `
+            const detailMetaRows = `
+                <div class="email-detail-meta-row">
+                    <span class="email-detail-meta-label">发件人</span>
+                    <span class="email-detail-meta-value">${escapeHtml(email.from)}</span>
+                </div>
+                <div class="email-detail-meta-row">
+                    <span class="email-detail-meta-label">收件人</span>
+                    <span class="email-detail-meta-value">${escapeHtml(email.to || '-')}</span>
+                </div>
+                ${email.cc ? `
+                <div class="email-detail-meta-row">
+                    <span class="email-detail-meta-label">抄送</span>
+                    <span class="email-detail-meta-value">${escapeHtml(email.cc)}</span>
+                </div>
+                ` : ''}
+                <div class="email-detail-meta-row">
+                    <span class="email-detail-meta-label">时间</span>
+                    <span class="email-detail-meta-value">${formatDate(email.date)}</span>
+                </div>
+            `;
+
+            const detailHeader = compactMobileMeta
+                ? `
+                <div class="email-detail-header email-detail-header--compact">
+                    <div class="email-detail-subject">${escapeHtml(email.subject || '无主题')}</div>
+                    <div class="email-detail-meta-inline">
+                        <span class="email-detail-meta-inline__from">${escapeHtml(email.from || '未知发件人')}</span>
+                        <span class="email-detail-meta-inline__dot"></span>
+                        <span class="email-detail-meta-inline__time">${formatDate(email.date)}</span>
+                    </div>
+                    <details class="email-detail-meta-collapsible">
+                        <summary class="email-detail-meta-collapsible__summary">查看邮件信息</summary>
+                        <div class="email-detail-meta email-detail-meta--compact">
+                            ${detailMetaRows}
+                        </div>
+                    </details>
+                </div>
+                `
+                : `
                 <div class="email-detail-header">
                     <div class="email-detail-subject">${escapeHtml(email.subject || '无主题')}</div>
                     <div class="email-detail-meta">
-                        <div class="email-detail-meta-row">
-                            <span class="email-detail-meta-label">发件人</span>
-                            <span class="email-detail-meta-value">${escapeHtml(email.from)}</span>
-                        </div>
-                        <div class="email-detail-meta-row">
-                            <span class="email-detail-meta-label">收件人</span>
-                            <span class="email-detail-meta-value">${escapeHtml(email.to || '-')}</span>
-                        </div>
-                        ${email.cc ? `
-                        <div class="email-detail-meta-row">
-                            <span class="email-detail-meta-label">抄送</span>
-                            <span class="email-detail-meta-value">${escapeHtml(email.cc)}</span>
-                        </div>
-                        ` : ''}
-                        <div class="email-detail-meta-row">
-                            <span class="email-detail-meta-label">时间</span>
-                            <span class="email-detail-meta-value">${formatDate(email.date)}</span>
-                        </div>
+                        ${detailMetaRows}
                     </div>
                 </div>
+                `;
+
+            container.innerHTML = `
+                ${detailHeader}
                 <div class="email-detail-body">
                     ${bodyContent}
                 </div>
@@ -565,7 +593,12 @@
         }
 
         // 切换信任模式
+        function updateTrustToggleState(checkbox) {
+            checkbox?.closest('.email-trust-toggle')?.classList.toggle('is-active', !!checkbox?.checked);
+        }
+
         function toggleTrustMode(checkbox) {
+            updateTrustToggleState(checkbox);
             if (checkbox.checked) {
                 if (confirm('⚠️ 警告：启用信任模式将直接显示邮件原始内容，不进行任何安全过滤。\n\n这可能包含恶意脚本或不安全的内容。您确定要继续吗？')) {
                     isTrustedMode = true;
@@ -574,6 +607,7 @@
                     }
                 } else {
                     checkbox.checked = false;
+                    updateTrustToggleState(checkbox);
                 }
             } else {
                 isTrustedMode = false;

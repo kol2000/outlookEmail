@@ -246,6 +246,24 @@
             background-color: #fafafa;
         }
 
+        .email-detail-toolbar-spacer {
+            flex: 1;
+        }
+
+        .email-trust-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            margin-left: 12px;
+            cursor: pointer;
+            color: #374151;
+        }
+
+        .email-trust-toggle input {
+            margin: 0;
+        }
+
         .back-btn {
             display: none;
             background: none;
@@ -309,6 +327,14 @@
 
         .email-detail-meta-value {
             color: #1a1a1a;
+        }
+
+        .email-detail-meta-inline {
+            display: none;
+        }
+
+        .email-detail-meta-collapsible {
+            display: none;
         }
 
         .email-detail-body {
