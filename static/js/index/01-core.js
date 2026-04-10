@@ -54,6 +54,7 @@
             const listText = document.getElementById('mobileListButtonHint');
             const listHidden = document.getElementById('emailListPanel')?.classList.contains('hidden');
             const currentGroup = Array.isArray(groups) ? groups.find(group => group.id === currentGroupId) : null;
+            const mobileActive = isMobileLayout();
 
             if (groupText) {
                 groupText.textContent = currentGroup ? currentGroup.name : '未选择';
@@ -69,6 +70,8 @@
                 listText.textContent = listHidden ? '返回列表' : '当前列表';
             }
 
+            document.body.classList.toggle('mobile-email-detail-open', !!mobileActive && !!listHidden);
+            document.body.classList.toggle('mobile-has-current-account', !!mobileActive && !!currentAccount);
             updateMobileQuickbarState();
         }
 

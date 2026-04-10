@@ -196,11 +196,31 @@
             .mobile-quickbar {
                 display: grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 8px;
-                padding: 12px;
+                gap: 6px;
+                padding: 8px 10px;
                 border-bottom: 1px solid #e5e7eb;
                 background: linear-gradient(180deg, #fcfcfd 0%, #f4f6f9 100%);
                 flex-shrink: 0;
+            }
+
+            .mobile-quickbar-btn {
+                padding: 8px 10px;
+                gap: 2px;
+                border-radius: 12px;
+                min-height: 0;
+            }
+
+            .mobile-quickbar-label {
+                font-size: 10px;
+                letter-spacing: 0.03em;
+            }
+
+            .mobile-quickbar-value {
+                font-size: 12px;
+            }
+
+            body.mobile-email-detail-open .mobile-quickbar {
+                display: none;
             }
 
             .mobile-panel-scrim.show {
@@ -239,24 +259,47 @@
             }
 
             .email-list-header {
-                padding: 14px 14px 12px;
+                padding: 10px 12px 8px;
                 flex-shrink: 0;
             }
 
             .email-list-header-top {
-                gap: 10px;
-                margin-bottom: 12px;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+
+            .email-list-header h2 {
+                font-size: 15px;
+            }
+
+            .email-list-title-wrap {
+                gap: 4px;
             }
 
             .refresh-btn {
-                min-height: 42px;
-                padding: 0 14px;
+                min-height: 36px;
+                padding: 0 12px;
+                font-size: 12px;
+                border-radius: 9px;
+            }
+
+            .email-list-header-meta {
+                gap: 6px;
+            }
+
+            .email-list-hint {
+                display: none;
+            }
+
+            .method-tag {
+                font-size: 10px;
+                padding: 3px 8px;
             }
 
             .folder-tabs {
                 width: 100%;
                 overflow-x: auto;
-                padding: 4px;
+                padding: 3px;
                 scrollbar-width: none;
             }
 
@@ -265,7 +308,9 @@
             }
 
             .folder-tab {
-                min-height: 40px;
+                min-height: 34px;
+                padding: 7px 12px;
+                font-size: 12px;
                 flex: 0 0 auto;
             }
 
@@ -287,12 +332,12 @@
             }
 
             .email-list {
-                padding: 6px 0 16px;
+                padding: 4px 0 16px;
             }
 
             .email-detail-toolbar {
-                padding: 10px 12px;
-                gap: 8px;
+                padding: 8px 10px;
+                gap: 6px;
                 flex-wrap: wrap;
                 position: sticky;
                 top: 0;
@@ -313,7 +358,9 @@
             .back-btn,
             .fullscreen-btn,
             .email-detail-toolbar .batch-btn.danger {
-                min-height: 40px;
+                min-height: 36px;
+                padding-top: 0;
+                padding-bottom: 0;
             }
 
             .fullscreen-btn {
@@ -326,12 +373,12 @@
             }
 
             .email-detail-header {
-                padding: 18px 16px;
+                padding: 14px 14px 12px;
             }
 
             .email-detail-subject {
-                font-size: 20px;
-                margin-bottom: 12px;
+                font-size: 18px;
+                margin-bottom: 10px;
             }
 
             .email-detail-meta-row {
@@ -345,7 +392,7 @@
             }
 
             .email-detail-body {
-                padding: 18px 16px 24px;
+                padding: 14px 14px 20px;
             }
 
             .group-list,
@@ -438,7 +485,21 @@
 
         @media (max-width: 480px) {
             .mobile-quickbar {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+                padding: 8px;
+            }
+
+            .mobile-quickbar-btn {
+                padding: 8px 9px;
+            }
+
+            .mobile-quickbar-label {
+                display: none;
+            }
+
+            .mobile-quickbar-value {
+                font-size: 12px;
             }
 
             .group-panel,
@@ -463,5 +524,13 @@
 
             .email-date {
                 white-space: normal;
+            }
+
+            .email-list-header {
+                padding: 9px 10px 8px;
+            }
+
+            .email-detail-toolbar {
+                padding: 8px 8px;
             }
         }
