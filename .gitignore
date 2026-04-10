@@ -34,6 +34,8 @@ data/
 Thumbs.db
 /get_oauth_token.py
 /test*
+!/tests/
+!/tests/test_imap_folder_resolution.py
 .ace-tool/
 /CLAUDE.md
 /.claude/

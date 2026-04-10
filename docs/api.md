@@ -1,333 +1,789 @@
-# 📡 API 文档
+# API 文档
 
-## 对外 API（⭐ 新增）
+本文档基于当前代码实现整理，重点覆盖对外 API、账号别名、聚合取信、验证码提取，以及和本次改动相关的内部接口。
 
-对外 API 允许通过 API Key 直接访问邮件数据，无需登录 Web 界面。
+## 认证
 
-### 配置 API Key
+### 对外 API
 
-1. 登录 Web 界面，点击「⚙️ 设置」
-2. 在「对外 API Key」处点击「🔑 随机生成」或手动输入
-3. 点击「保存设置」
+对外 API 使用 API Key 认证，支持两种方式：
 
-### GET /api/external/emails
-
-通过 API Key 获取指定邮箱的邮件列表。
-
-**认证方式：**
 - Header: `X-API-Key: your-api-key`
-- 或查询参数: `?api_key=your-api-key`
+- Query: `?api_key=your-api-key`
 
-**查询参数：**
+可在 Web 界面 `设置 -> 对外 API Key` 中配置。
 
-| 参数 | 类型 | 必填 | 说明 | 默认值 |
-|------|------|------|------|--------|
-| `email` | string | ✅ | 邮箱地址 | - |
-| `folder` | string | ❌ | 邮件文件夹：`inbox`（收件箱）、`junkemail`（垃圾邮件） | `inbox` |
-| `skip` | int | ❌ | 跳过的邮件数（分页用） | `0` |
-| `top` | int | ❌ | 返回的邮件数（最大 50） | `20` |
+### 内部 API
 
-**请求示例：**
+内部 API 需要先登录 Web 界面并携带 Session Cookie。
+
+### GET `/api/csrf-token`
+
+获取前端可提交表单用的 CSRF Token。该接口不要求登录。
+
+成功响应示例：
+
+```json
+{
+  "csrf_token": "..."
+}
+```
+
+若当前未启用 CSRF，会返回：
+
+```json
+{
+  "csrf_token": null,
+  "csrf_disabled": true
+}
+```
+
+## 邮箱别名说明
+
+普通账号现在支持配置多个别名邮箱。
+
+- 对外 API 和内部邮件接口传入主邮箱或别名邮箱都可以命中同一个账号
+- 返回结果中可能包含：
+  - `requested_email`: 请求里传入的邮箱
+  - `resolved_email`: 实际命中的主邮箱
+  - `matched_alias`: 若通过别名命中，则为对应别名；否则为空
+- 别名邮箱支持常见特殊字符，例如 `+`、`@`、`&`
+  - `@` 可以直接传
+  - `+` 建议编码成 `%2B`
+  - `&` 必须编码成 `%26`
+
+典型用法：
+
+1. 把外部邮箱 B 的邮件自动转发到本项目管理的邮箱 A
+2. 在邮箱 A 下把邮箱 B 设置为别名
+3. 后续直接通过本项目 API，用邮箱 B 作为 `email` 参数取邮件或取验证码
+
+## 对外 API
+
+### GET `/api/external/accounts`
+
+获取当前系统中已管理的邮箱账号列表，适合外部系统先同步邮箱池，再按邮箱调用 `/api/external/emails` 取邮件。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `group_id` | int | 否 | 仅返回指定分组下的账号 |
+
+#### 请求示例
 
 ```bash
-# 获取收件箱邮件（Header 认证）
 curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=inbox"
+  "http://localhost:5000/api/external/accounts"
 
-# 获取垃圾邮件（Header 认证）
 curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=junkemail"
-
-# 获取收件箱邮件（查询参数认证）
-curl "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=inbox&api_key=your-api-key"
-
-# 获取垃圾邮件（查询参数认证）
-curl "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=junkemail&api_key=your-api-key"
-
-# 分页获取
-curl -H "X-API-Key: your-api-key" \
-  "http://localhost:5000/api/external/emails?email=user@outlook.com&skip=20&top=10"
+  "http://localhost:5000/api/external/accounts?group_id=1"
 ```
 
-**成功响应：**
+#### 成功响应示例
 
 ```json
 {
   "success": true,
-  "emails": [
-    {
-      "id": "AAMk...",
-      "subject": "邮件主题",
-      "from": "sender@example.com",
-      "date": "2026-02-23T15:30:00Z",
-      "is_read": false,
-      "has_attachments": false,
-      "body_preview": "邮件预览内容..."
-    }
-  ],
-  "method": "Graph API",
-  "has_more": true
-}
-```
-
-**错误响应：**
-
-```json
-// 401 - 缺少或无效的 API Key
-{ "success": false, "error": "缺少 API Key，请在 Header 中提供 X-API-Key" }
-{ "success": false, "error": "API Key 无效" }
-
-// 403 - 未配置 API Key
-{ "success": false, "error": "未配置对外 API Key，请在系统设置中配置" }
-
-// 400 - 参数错误
-{ "success": false, "error": "缺少 email 参数" }
-{ "success": false, "error": "folder 参数无效，支持: inbox, junkemail" }
-
-// 404 - 邮箱不存在
-{ "success": false, "error": "邮箱账号不存在" }
-```
-
----
-
-## 内部 API（需登录认证）
-
-以下 API 需要通过 Web 界面登录后使用。所有的接口请求必须携带有效的 Session Cookie，以验证登录状态。
-所有响应统一返回 JSON 格式：成功时包含 `"success": true`，失败时包含 `"success": false` 及 `"error"` 字段。
-
----
-
-### 分组管理
-
-#### 获取所有分组
-- **接口**: `GET /api/groups`
-- **响应示例**:
-```json
-{
-  "success": true,
-  "groups": [
-    {
-      "id": 1,
-      "name": "默认分组",
-      "description": "未分组的邮箱",
-      "color": "#666666",
-      "is_system": 0,
-      "proxy_url": "http://127.0.0.1:7890",
-      "account_count": 5
-    }
-  ]
-}
-```
-
-#### 获取单个分组
-- **接口**: `GET /api/groups/<id>`
-- **响应示例**: 包含单个 `group` 对象，格式同上。
-
-#### 创建分组
-- **接口**: `POST /api/groups`
-- **请求 Body (JSON)**:
-  - `name` (string, 必填): 分组名称
-  - `description` (string, 可选): 分组描述
-  - `color` (string, 可选): 颜色十六进制值，默认 `#1a1a1a`
-  - `proxy_url` (string, 可选): 代理地址，例如 `http://127.0.0.1:7890`
-- **响应示例**:
-```json
-{
-  "success": true,
-  "message": "分组创建成功",
-  "group_id": 2
-}
-```
-
-#### 更新分组 / 删除分组
-- **接口 (更新)**: `PUT /api/groups/<id>` (参数与创建相同)
-- **接口 (删除)**: `DELETE /api/groups/<id>`
-
----
-
-### 账号管理
-
-#### 获取账号列表
-- **接口**: `GET /api/accounts`
-- **查询参数**:
-  - `group_id` (int, 可选): 若提供则只返回该分组下的账号
-- **响应示例**:
-```json
-{
-  "success": true,
+  "total": 1,
   "accounts": [
     {
       "id": 1,
       "email": "user@outlook.com",
-      "client_id": "xxxxxxxx...",
+      "aliases": ["alias@example.com"],
+      "alias_count": 1,
       "group_id": 1,
       "group_name": "默认分组",
+      "group_color": "#666666",
+      "remark": "主账号",
       "status": "active",
-      "last_refresh_at": "2023-10-01 12:00:00",
+      "account_type": "outlook",
+      "provider": "outlook",
+      "forward_enabled": true,
+      "last_refresh_at": "2026-04-09 14:20:00",
       "last_refresh_status": "success",
-      "remark": "个人邮箱"
+      "last_refresh_error": null,
+      "created_at": "2026-04-09 14:00:00",
+      "updated_at": "2026-04-09 14:20:00",
+      "tags": [
+        {
+          "id": 1,
+          "name": "核心",
+          "color": "#1a1a1a"
+        }
+      ]
     }
   ]
 }
 ```
 
-#### 搜索账号
-- **接口**: `GET /api/accounts/search`
-- **查询参数**:
-  - `q` (string, 必填): 搜索关键词，支持匹配邮箱、备注、标签。
+#### 返回说明
 
-#### 添加账号
-- **接口**: `POST /api/accounts`
-- **请求 Body (JSON)**:
-  - `account_string` (string, 必填): 批量账号字符串，支持多行，每行格式为 `邮箱----密码----ClientID----RefreshToken`
-  - `group_id` (int, 可选): 默认值为 1
-- **响应示例**:
+- 该接口只返回普通邮箱账号，不包含临时邮箱列表
+- 已隐藏密码、Refresh Token、IMAP 密码等敏感字段
+- 如需拉取某个邮箱的邮件列表，再调用 `/api/external/emails`
+
+### GET `/api/external/emails`
+
+获取指定邮箱的邮件列表，支持主邮箱、别名邮箱、收件箱/垃圾箱聚合查询。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `email` | string | 是 | 主邮箱或别名邮箱 |
+| `folder` | string | 否 | `inbox`、`junkemail`、`deleteditems`、`all`。`all` 会同时抓取收件箱和垃圾邮件并按时间倒序合并 |
+| `skip` | int | 否 | 分页偏移，默认 `0`。当 `folder=all` 时，对每个文件夹分别跳过 `skip` 封 |
+| `top` | int | 否 | 返回数量，默认 `1`，最大 `50`。当 `folder=all` 时，表示每个文件夹各取 `top` 封 |
+| `subject_contains` | string | 否 | 仅保留主题中包含该关键字的邮件 |
+| `from_contains` | string | 否 | 仅保留发件人中包含该关键字的邮件 |
+| `keyword` | string | 否 | 在主题、预览、正文中做进一步关键字过滤 |
+
+#### 请求示例
+
+```bash
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=inbox"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10&subject_contains=verify&from_contains=github&keyword=reset"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=user%2Balias%40example.com"
+```
+
+#### 成功响应示例
+
 ```json
 {
   "success": true,
-  "message": "成功添加 1 个账号"
+  "requested_email": "alias@example.com",
+  "resolved_email": "user@outlook.com",
+  "matched_alias": "alias@example.com",
+  "method": "Graph API",
+  "has_more": true,
+  "emails": [
+    {
+      "id": "AAMk...",
+      "subject": "Your verification code",
+      "from": "no-reply@example.com",
+      "date": "2026-04-09T14:20:00Z",
+      "is_read": false,
+      "has_attachments": false,
+      "body_preview": "Your code is 123456",
+      "folder": "inbox"
+    }
+  ]
 }
 ```
 
-#### 更新账号 / 删除账号
-- **接口 (更新)**: `PUT /api/accounts/<id>`
-  - 请求 Body 参数 (JSON): `email`, `client_id`, `refresh_token`, `password`, `group_id`, `remark`, `status`
-  - 或仅更新状态时传递 `status`
-- **接口 (删除)**: `DELETE /api/accounts/<id>`
-- **接口 (邮箱删除)**: `DELETE /api/accounts/email/<email_addr>`
+#### 聚合模式说明
 
----
+当 `folder=all` 时：
 
-### Token 刷新管理
+- 后端会同时抓取 `inbox` 和 `junkemail`
+- `top` 是“每个文件夹各取多少封”
+- 例如 `top=1` 时，最多返回 `收件箱 1 + 垃圾邮件 1 = 2` 封
+- `skip` 也是“每个文件夹各跳过多少封”
+- 结果按邮件时间统一倒序排序
+- 每条邮件会带上 `folder`
+- 若其中一个文件夹成功、另一个失败，会返回：
+  - `success: true`
+  - `partial: true`
+  - `details` 中包含失败文件夹的错误信息
 
-#### 触发单个账号刷新
-- **接口**: `POST /api/accounts/<id>/refresh`
-- **响应示例**: `{"success": true, "message": "Token 刷新成功"}`
+## 内部 API
 
-#### 触发全部账号刷新 (SSE 流数据)
-- **接口**: `GET /api/accounts/refresh-all`
-- **说明**: 该接口返回 Server-Sent Events (SSE) 流，客户端可用于实时追踪刷新进度。
+## 分组管理
 
-#### 失败账号重试 / 日志获取
-- **重试单账号**: `POST /api/accounts/<id>/retry-refresh`
-- **重试所有失败**: `POST /api/accounts/refresh-failed`
-- **获取所有日志**: `GET /api/accounts/refresh-logs`
-- **获取失败日志**: `GET /api/accounts/refresh-logs/failed`
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/groups` | 无 | 获取所有分组，返回 `account_count`、`sort_position` |
+| GET | `/api/groups/<group_id>` | 路径参数 `group_id` | 获取单个分组详情 |
+| POST | `/api/groups` | JSON: `name`、`description?`、`color?`、`proxy_url?`、`sort_position?` | 创建分组 |
+| PUT | `/api/groups/<group_id>` | JSON: `name`、`description?`、`color?`、`proxy_url?`、`sort_position?` | 更新分组 |
+| DELETE | `/api/groups/<group_id>` | 路径参数 `group_id` | 删除分组，默认分组不能删除 |
+| PUT | `/api/groups/reorder` | JSON: `group_ids: number[]` | 重新排序普通分组 |
 
----
+创建或更新分组请求示例：
 
-### 邮件操作
+```json
+{
+  "name": "代理组",
+  "description": "走香港代理",
+  "color": "#1a1a1a",
+  "proxy_url": "http://127.0.0.1:7890",
+  "sort_position": 2
+}
+```
 
-#### 获取邮件列表
-- **接口**: `GET /api/emails/<email>`
-- **查询参数**:
-  - `folder` (string, 可选): 接收文件夹，常用 `inbox`（收件箱）或 `junkemail`（垃圾邮件）。默认 `inbox`。
-  - `skip` (int, 可选): 分页跳过数量，默认 `0`
-  - `top` (int, 可选): 本次返回最大邮件数量，默认 `20`
-- **响应说明**: 与对外 API 响应格式完全一致。
+## 导出与二次验证
 
-#### 获取邮件详情
-- **接口**: `GET /api/email/<email>/<message_id>`
-- **响应示例**:
+导出接口都会先校验一次登录密码，拿到 `verify_token` 后再发起导出。`verify_token` 当前为一次性令牌，默认 5 分钟内有效。
+
+| 方法 | 路径 | 参数 | 返回 |
+| --- | --- | --- | --- |
+| POST | `/api/export/verify` | JSON: `password` | JSON，返回 `verify_token` |
+| GET | `/api/groups/<group_id>/export` | Query: `verify_token` | `text/plain` 文件下载 |
+| GET | `/api/accounts/export` | Query: `verify_token` | `text/plain` 文件下载 |
+| POST | `/api/accounts/export-selected` | JSON: `group_ids: number[]`、`verify_token` | `text/plain` 文件下载 |
+
+二次验证请求示例：
+
+```json
+{
+  "password": "your-login-password"
+}
+```
+
+二次验证成功响应示例：
+
 ```json
 {
   "success": true,
-  "email": {
-    "id": "AAMk...",
-    "subject": "邮件主题",
-    "from": "sender@example.com",
-    "to": "user@outlook.com",
-    "date": "2026-02-23T15:30:00Z",
-    "body": "<html>...</html>",
-    "body_type": "html"
+  "verify_token": "..."
+}
+```
+
+## 账号管理
+
+### GET `/api/accounts`
+
+获取账号列表。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `group_id` | int | 否 | 仅返回指定分组下的账号 |
+
+#### 响应重点字段
+
+| 字段 | 说明 |
+| --- | --- |
+| `aliases` | 账号别名列表 |
+| `alias_count` | 别名数量 |
+| `forward_enabled` | 是否开启转发 |
+| `last_refresh_at` | 最近刷新时间 |
+| `last_refresh_status` | 最近刷新结果 |
+| `last_refresh_error` | 最近刷新错误 |
+| `tags` | 标签列表 |
+
+### GET `/api/accounts/search`
+
+搜索账号。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `q` | string | 是 | 搜索关键词，支持主邮箱、备注、标签、别名邮箱 |
+
+### POST `/api/accounts`
+
+批量导入账号。
+
+#### 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `account_string` | string | 是 | 多行账号文本 |
+| `group_id` | int | 否 | 目标分组，默认 `1` |
+| `account_format` | string | 否 | Outlook 导入格式：`client_id_refresh_token` 或 `refresh_token_client_id` |
+| `provider` | string | 否 | `outlook`、`auto`、`qq`、`163`、`126`、`yahoo`、`aliyun`、`custom` |
+| `imap_host` | string | 否 | `provider=custom` 时的 IMAP 服务器 |
+| `imap_port` | int | 否 | `provider=custom` 时的 IMAP 端口 |
+| `forward_enabled` | bool | 否 | 导入后是否默认启用转发 |
+
+#### 导入格式
+
+- Outlook: 每行 `邮箱----密码----ClientID----RefreshToken`
+- Outlook 反序: 每行 `邮箱----密码----RefreshToken----ClientID`，并设置 `account_format=refresh_token_client_id`
+- 非 Outlook IMAP: 每行 `邮箱----IMAP密码`
+- 自定义 IMAP: 每行 `邮箱----IMAP密码----IMAP主机----IMAP端口`
+
+#### 请求示例
+
+```json
+{
+  "account_string": "user@outlook.com----password----client-id----refresh-token",
+  "group_id": 1,
+  "account_format": "client_id_refresh_token",
+  "provider": "outlook",
+  "forward_enabled": false
+}
+```
+
+### GET `/api/accounts/<id>`
+
+获取单个账号详情。
+
+#### 响应补充字段
+
+```json
+{
+  "success": true,
+  "account": {
+    "id": 1,
+    "email": "user@outlook.com",
+    "aliases": ["alias@example.com", "login@example.com"],
+    "alias_count": 2,
+    "matched_alias": "",
+    "forward_enabled": true
   }
 }
 ```
 
-#### 批量删除邮件
-- **接口**: `POST /api/emails/delete`
-- **请求 Body (JSON)**:
-  - `email` (string, 必填): 对应邮箱地址
-  - `ids` (array<string>, 必填): 要删除的邮件 ID (`message_id`) 列表
-- **响应示例**:
+### PUT `/api/accounts/<id>`
+
+更新账号信息。
+
+- 若请求体只有 `status`，则只更新账号状态
+- 支持 Outlook 账号和 IMAP 账号
+- 现在支持直接在更新账号时一起保存别名
+
+#### 请求体常用字段
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `email` | string | 是 | 邮箱地址 |
+| `password` | string | 否 | 账号密码，Outlook 可为空 |
+| `client_id` | string | Outlook 必填 | Outlook Client ID |
+| `refresh_token` | string | Outlook 必填 | Outlook Refresh Token |
+| `account_type` | string | 否 | `outlook` 或 `imap` |
+| `provider` | string | 否 | `outlook`、`auto`、`qq`、`163`、`126`、`yahoo`、`aliyun`、`custom` |
+| `imap_host` | string | 自定义 IMAP 必填 | 自定义 IMAP 服务器 |
+| `imap_port` | int | 否 | IMAP 端口 |
+| `imap_password` | string | IMAP 必填 | IMAP 密码 |
+| `group_id` | int | 否 | 分组 ID |
+| `remark` | string | 否 | 备注 |
+| `status` | string | 否 | `active` 等状态值 |
+| `forward_enabled` | bool | 否 | 是否开启转发 |
+| `aliases` | array<string> | 否 | 账号别名列表；若传入则按新列表整体替换 |
+
+#### 请求示例
+
 ```json
 {
-  "success": true,
-  "message": "成功删除 1 封邮件",
-  "method": "Graph API"
+  "email": "user@outlook.com",
+  "client_id": "xxx",
+  "refresh_token": "xxx",
+  "group_id": 1,
+  "remark": "主账号",
+  "status": "active",
+  "forward_enabled": true,
+  "aliases": [
+    "alias@example.com",
+    "login@example.com"
+  ]
 }
 ```
 
----
+### POST `/api/accounts/batch-update-group`
 
-### 临时邮箱（支持 GPTMail、DuckMail 和 Cloudflare）
+批量修改账号分组。
 
-#### 获取 / 导入 / 清空 临时邮箱
-- **获取所有**: `GET /api/temp-emails`
-- **导入邮箱**: `POST /api/temp-emails/import` (Body: `account_string`, `provider`)
-- **清空某邮箱**: `DELETE /api/temp-emails/<email>/clear`
-- **删除邮箱**: `DELETE /api/temp-emails/<email>`
-- **获取 Cloudflare 域名**: `GET /api/cloudflare/domains`
+#### 请求示例
 
-#### 生成临时邮箱
-- **接口**: `POST /api/temp-emails/generate`
-- **请求 Body (JSON)**:
-  - `provider` (string): 填 `gptmail`、`duckmail` 或 `cloudflare`。默认 `gptmail`。
-  - 若为 `gptmail`: 可选 `prefix` 和 `domain`
-  - 若为 `duckmail`: 必填 `domain`、`username` 和 `password`
-  - 若为 `cloudflare`: 必填 `domain`，可选 `username`（留空则随机生成）
-- **响应示例**: `{"success": true, "email": "user@domain.com", "message": "临时邮箱创建成功"}`
-
-#### 获取临时邮件及详情
-- **获取列表**: `GET /api/temp-emails/<email>/messages`
-- **获取详情**: `GET /api/temp-emails/<email>/messages/<message_id>`
-- **删除邮件**: `DELETE /api/temp-emails/<email>/messages/<message_id>`
-
----
-
-### 标签与系统设置
-
-- **获取标签**: `GET /api/tags`
-- **添加标签**: `POST /api/tags`
-- **管理多账号标签**: `POST /api/accounts/tags` (Body: `account_ids`, `tag_id`, `action`)
-- **获取设置**: `GET /api/settings`
-- **修改设置**: `PUT /api/settings`
-
----
-
-## API 调用优先级与代理说明
-
-### API 调用优先级
-
-本工具在获取邮件、刷新 Token、删除邮件时，会按以下优先级自动尝试并回退：
-
-| 优先级 | 方式 | 说明 |
-|--------|------|------|
-| 1️⃣ | **Graph API** | 推荐方式，功能最完整 |
-| 2️⃣ | **IMAP（新服务器）** | `outlook.live.com`，Graph 失败后回退 |
-| 3️⃣ | **IMAP（旧服务器）** | `outlook.office365.com`，最后尝试 |
-
-> [!NOTE]
-> 如果 Graph API 失败原因是**代理连接错误**（ProxyError），则不会继续回退 IMAP，因为代理问题与 API 方式无关。
-
-### 分组代理支持
-
-每个分组可配置 HTTP 或 SOCKS5 代理，分组下所有邮箱在以下操作时会走该代理：
-
-- ✅ 获取邮件（Graph API）
-- ✅ 查看邮件详情（Graph API）
-- ✅ 刷新 Token
-- ✅ 删除邮件（Graph API）
-
-**代理格式示例：**
-```
-http://127.0.0.1:7890
-socks5://127.0.0.1:7891
-socks5://user:pass@proxy.example.com:1080
+```json
+{
+  "account_ids": [1, 2, 3],
+  "group_id": 5
+}
 ```
 
-> [!IMPORTANT]
-> **仅 Graph API 请求支持走代理**，IMAP 连接目前不支持代理。
+### GET `/api/accounts/<id>/aliases`
 
-> [!WARNING]
-> 使用 SOCKS5 代理需要安装 `pysocks` 依赖（`pip install pysocks` 或 `pip install requests[socks]`），Docker 镜像已内置。
+获取某个账号的别名列表。
+
+### PUT `/api/accounts/<id>/aliases`
+
+整体替换某个账号的别名列表。
+
+#### 请求示例
+
+```json
+{
+  "aliases": [
+    "alias@example.com",
+    "login@example.com"
+  ]
+}
+```
+
+### DELETE `/api/accounts/<id>`
+
+按账号 ID 删除账号。
+
+### DELETE `/api/accounts/email/<email_addr>`
+
+按邮箱地址删除账号。
+
+## 标签管理
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/tags` | 无 | 获取所有标签 |
+| POST | `/api/tags` | JSON: `name`、`color?` | 创建标签 |
+| DELETE | `/api/tags/<tag_id>` | 路径参数 `tag_id` | 删除标签 |
+| POST | `/api/accounts/tags` | JSON: `account_ids`、`tag_id`、`action` | 批量给账号加标签或移除标签 |
+
+批量标签管理请求示例：
+
+```json
+{
+  "account_ids": [1, 2, 3],
+  "tag_id": 8,
+  "action": "add"
+}
+```
+
+## 刷新与转发运维
+
+### Token 刷新
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/api/accounts/<account_id>/refresh` | 路径参数 `account_id` | 刷新单个 Outlook 账号 Token |
+| GET | `/api/accounts/refresh-all` | 无 | 刷新全部 Outlook 账号，返回 `text/event-stream` |
+| POST | `/api/accounts/<account_id>/retry-refresh` | 路径参数 `account_id` | 重试单个失败账号刷新 |
+| POST | `/api/accounts/refresh-failed` | 无 | 重试最近一次刷新失败的账号 |
+| GET | `/api/accounts/trigger-scheduled-refresh` | Query: `force=true/false` | 手动触发一次“定时刷新”逻辑，返回 `text/event-stream` |
+
+`/api/accounts/refresh-all` 和 `/api/accounts/trigger-scheduled-refresh` 都会返回 SSE 事件流，常见事件类型包括：
+
+- `start`
+- `progress`
+- `delay`
+- `complete`
+
+### 刷新日志与统计
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/accounts/refresh-logs` | Query: `limit`、`offset` | 获取所有刷新日志 |
+| GET | `/api/accounts/<account_id>/refresh-logs` | Query: `limit`、`offset` | 获取单个账号刷新日志 |
+| GET | `/api/accounts/refresh-logs/failed` | 无 | 获取最近失败刷新记录 |
+| GET | `/api/accounts/refresh-stats` | 无 | 获取刷新统计汇总 |
+
+### 转发日志与触发
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/accounts/forwarding-logs` | Query: `limit`、`offset` | 获取最近转发记录 |
+| GET | `/api/accounts/forwarding-logs/failed` | Query: `limit` | 获取最近失败转发记录 |
+| GET | `/api/accounts/<account_id>/forwarding-logs` | Query: `limit`、`offset`、`failed_only` | 获取单个账号转发记录 |
+| POST | `/api/accounts/trigger-forwarding-check` | 无 | 立即触发一次转发检查 |
+
+## 邮件接口
+
+### GET `/api/emails/<email>`
+
+内部邮件列表接口。支持主邮箱或别名邮箱。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `folder` | string | 否 | `inbox`、`junkemail`、`deleteditems`、`all` |
+| `skip` | int | 否 | 分页偏移，默认 `0` |
+| `top` | int | 否 | 返回数量，默认 `20` |
+| `subject_contains` | string | 否 | 仅保留主题中包含该关键字的邮件 |
+| `from_contains` | string | 否 | 仅保留发件人中包含该关键字的邮件 |
+| `keyword` | string | 否 | 在主题、预览、正文中做进一步关键字过滤 |
+
+当 `folder=all` 时，行为与对外 API 一致：同时抓取 `inbox` 与 `junkemail`，按时间合并排序。
+
+#### 列表项字段
+
+`emails` 数组中的每个对象至少包含以下字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 邮件 ID |
+| `subject` | string | 邮件主题 |
+| `from` | string | 发件人地址 |
+| `to` | string | 收件人地址，多个地址用 `, ` 拼接 |
+| `date` | string | 收件时间 |
+| `is_read` | bool | 是否已读 |
+| `has_attachments` | bool | 是否有附件 |
+| `body_preview` | string | 邮件预览 |
+| `folder` | string | 所属文件夹 |
+
+### GET `/api/email/<email>/<message_id>`
+
+获取单封邮件详情。`email` 参数同样支持传主邮箱或别名邮箱。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `folder` | string | 否 | 当前邮件所在文件夹，默认 `inbox` |
+| `method` | string | 否 | 优先取详情的方式，常见为 `graph` |
+
+### POST `/api/emails/delete`
+
+批量删除邮件。
+
+#### 请求体
+
+```json
+{
+  "email": "user@outlook.com",
+  "ids": ["AAMk...", "AAMk..."]
+}
+```
+
+说明：
+
+- Outlook 账号会优先走 Graph API，失败后按逻辑回退 IMAP
+- IMAP 账号当前不支持批量删除
+
+## 临时邮箱
+
+### 列表、导入、渠道域名
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/temp-emails` | 无 | 获取所有临时邮箱 |
+| POST | `/api/temp-emails/import` | JSON: `account_string`、`provider` | 批量导入临时邮箱 |
+| GET | `/api/duckmail/domains` | 无 | 获取 DuckMail 可用域名 |
+| GET | `/api/cloudflare/domains` | 无 | 获取 Cloudflare 可用域名 |
+
+`/api/temp-emails/import` 的导入格式：
+
+- `provider=gptmail`: 每行一个邮箱
+- `provider=duckmail`: 每行 `邮箱----密码`
+- `provider=cloudflare`: 每行 `邮箱----JWT`
+
+### POST `/api/temp-emails/generate`
+
+生成新的临时邮箱。
+
+#### 请求体
+
+| provider | 需要字段 | 说明 |
+| --- | --- | --- |
+| `gptmail` | `prefix?`、`domain?` | 不传则走默认随机生成 |
+| `duckmail` | `domain`、`username`、`password` | 用户名至少 3 位，密码至少 6 位 |
+| `cloudflare` | `domain?`、`username?` | `username` 可留空随机生成 |
+
+#### 请求示例
+
+```json
+{
+  "provider": "duckmail",
+  "domain": "example.com",
+  "username": "demo123",
+  "password": "secret123"
+}
+```
+
+### 临时邮箱邮件接口
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| DELETE | `/api/temp-emails/<email_addr>` | 路径参数 `email_addr` | 删除临时邮箱 |
+| GET | `/api/temp-emails/<email_addr>/messages` | 路径参数 `email_addr` | 获取临时邮箱邮件列表 |
+| GET | `/api/temp-emails/<email_addr>/messages/<message_id>` | 路径参数 | 获取临时邮件详情 |
+| DELETE | `/api/temp-emails/<email_addr>/messages/<message_id>` | 路径参数 | 当前返回“单封删信功能已暂时关闭” |
+| DELETE | `/api/temp-emails/<email_addr>/clear` | 路径参数 | 当前返回“清空功能已暂时关闭” |
+| POST | `/api/temp-emails/<email_addr>/refresh` | 路径参数 | 主动刷新一次临时邮箱邮件 |
+
+`GET /messages` 与 `POST /refresh` 都会返回统一结构的 `emails` 列表。`POST /refresh` 还会包含 `new_count`，表示本次新保存的邮件数量。
+
+## OAuth 辅助接口
+
+| 方法 | 路径 | 参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/oauth/auth-url` | 无 | 生成 Microsoft OAuth 授权链接 |
+| POST | `/api/oauth/exchange-token` | JSON: `redirected_url` | 从回调 URL 中解析 `code` 并换取 Refresh Token |
+
+换取 Token 请求示例：
+
+```json
+{
+  "redirected_url": "http://localhost:8080/?code=..."
+}
+```
+
+## 设置接口
+
+### POST `/api/settings/validate-cron`
+
+验证 Cron 表达式，并返回下一次执行时间与未来 5 次执行时间。
+
+#### 请求示例
+
+```json
+{
+  "cron_expression": "0 */6 * * *"
+}
+```
+
+### GET `/api/settings`
+
+获取系统设置。
+
+除数据库 `settings` 表中的原始键值外，接口还会额外整理并返回以下常用字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `login_password_masked` | 登录密码掩码 |
+| `external_api_key` | 当前对外 API Key |
+| `duckmail_base_url` | DuckMail API 地址 |
+| `duckmail_api_key` | DuckMail API Key |
+| `cloudflare_worker_domain` | Cloudflare Worker 域名 |
+| `cloudflare_email_domains` | Cloudflare 邮箱域名列表，逗号分隔字符串 |
+| `cloudflare_admin_password` | Cloudflare 管理密码 |
+| `forward_channels` | 当前启用的转发渠道 |
+| `forward_check_interval_minutes` | 转发检查间隔 |
+| `forward_email_window_minutes` | 转发时间窗口 |
+| `forward_include_junkemail` | 是否转发垃圾箱 |
+| `email_forward_recipient` | SMTP 转发收件人 |
+| `smtp_host` | SMTP 主机 |
+| `smtp_port` | SMTP 端口 |
+| `smtp_username` | SMTP 用户名 |
+| `smtp_password` | SMTP 密码 |
+| `smtp_from_email` | SMTP 发件邮箱 |
+| `smtp_provider` | SMTP 类型 |
+| `smtp_use_tls` | 是否启用 TLS |
+| `smtp_use_ssl` | 是否启用 SSL |
+| `telegram_bot_token` | Telegram Bot Token |
+| `telegram_chat_id` | Telegram Chat ID |
+
+### PUT `/api/settings`
+
+更新系统设置。当前实现支持的主要可写字段如下。
+
+#### 基础与调度相关字段
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `login_password` | string | 登录密码，至少 8 位 |
+| `gptmail_api_key` | string | GPTMail API Key |
+| `refresh_interval_days` | int | 刷新周期，范围 `1-90` |
+| `refresh_delay_seconds` | int | 刷新间隔秒数，范围 `0-60` |
+| `refresh_cron` | string | Cron 表达式 |
+| `use_cron_schedule` | bool | 是否使用 Cron 调度 |
+| `enable_scheduled_refresh` | bool | 是否开启定时刷新 |
+| `external_api_key` | string | 对外 API Key，可传空字符串清空 |
+
+#### 临时邮箱服务相关字段
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `duckmail_base_url` | string | DuckMail API 地址 |
+| `duckmail_api_key` | string | DuckMail API Key |
+| `cloudflare_worker_domain` | string | Cloudflare Worker 域名 |
+| `cloudflare_email_domains` | string | Cloudflare 邮箱域名，逗号分隔 |
+| `cloudflare_admin_password` | string | Cloudflare 管理密码 |
+
+#### 转发与 SMTP / Telegram 相关字段
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `forward_check_interval_minutes` | int | 轮询间隔，范围 `1-60` |
+| `forward_email_window_minutes` | int | 转发邮件时间范围，范围 `0-10080`，`0` 表示不限制 |
+| `forward_include_junkemail` | bool | 是否把垃圾箱邮件也纳入转发轮询 |
+| `forward_channels` | array<string> | `smtp` / `telegram` |
+| `email_forward_recipient` | string | SMTP 转发收件人 |
+| `smtp_host` | string | SMTP 主机 |
+| `smtp_port` | int | SMTP 端口 |
+| `smtp_username` | string | SMTP 用户名 |
+| `smtp_password` | string | SMTP 密码 |
+| `smtp_from_email` | string | SMTP 发件邮箱 |
+| `smtp_provider` | string | `outlook`、`qq`、`163`、`126`、`yahoo`、`aliyun`、`custom` |
+| `smtp_use_tls` | bool | 是否启用 TLS |
+| `smtp_use_ssl` | bool | 是否启用 SSL |
+| `telegram_bot_token` | string | Telegram Bot Token |
+| `telegram_chat_id` | string | Telegram Chat ID |
+
+#### 请求示例
+
+```json
+{
+  "forward_check_interval_minutes": 5,
+  "forward_email_window_minutes": 30,
+  "forward_include_junkemail": true,
+  "smtp_provider": "outlook",
+  "forward_channels": ["smtp", "telegram"]
+}
+```
+
+### POST `/api/settings/test-forward-channel`
+
+使用当前前端表单配置直接测试转发渠道，不要求先保存设置。
+
+#### 请求示例
+
+SMTP 测试：
+
+```json
+{
+  "channel": "smtp",
+  "config": {
+    "smtp": {
+      "recipient": "demo@example.com",
+      "host": "smtp.office365.com",
+      "port": 587,
+      "username": "demo@example.com",
+      "password": "secret",
+      "from_email": "demo@example.com",
+      "provider": "outlook",
+      "use_tls": true,
+      "use_ssl": false
+    }
+  }
+}
+```
+
+Telegram 测试：
+
+```json
+{
+  "channel": "telegram",
+  "config": {
+    "telegram": {
+      "bot_token": "123:abc",
+      "chat_id": "123456"
+    }
+  }
+}
+```
+
+## 说明
+
+### 代理使用
+
+账号邮箱相关 API 当前会优先继承账号所属分组的 `proxy_url`：
+
+- Graph token 获取
+- Graph 邮件列表
+- Graph 邮件详情
+- Outlook OAuth IMAP token 获取
+- Outlook OAuth IMAP 列表 / 详情 / 删除回退
+- 密码型 IMAP 列表 / 详情
+- 转发轮询抓信 / 详情抓取
+
+### 别名冲突规则
+
+别名保存时会校验：
+
+- 不能与本账号主邮箱重复
+- 不能与其他账号主邮箱重复
+- 不能与其他账号别名重复
+- 不能与临时邮箱地址冲突
+
+### 特殊响应类型
+
+以下接口不是普通 JSON 数据接口：
+
+- `GET /api/accounts/refresh-all`: `text/event-stream`
+- `GET /api/accounts/trigger-scheduled-refresh`: `text/event-stream`
+- `GET /api/groups/<group_id>/export`: `text/plain` 文件下载
+- `GET /api/accounts/export`: `text/plain` 文件下载
+- `POST /api/accounts/export-selected`: `text/plain` 文件下载

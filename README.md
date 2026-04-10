@@ -1,15 +1,16 @@
-# Outlook 邮件管理工具
+# 多邮箱邮件管理工具
 
-一个功能完整的 Outlook 邮件管理解决方案，支持多种方式读取 Outlook 邮箱邮件，并提供 Web 界面进行邮箱账号管理和邮件查看。集成 GPTMail + DuckMail + Cloudflare Temp Email 多提供商临时邮箱（支持自建接入），支持一键生成或自定义域名/用户名临时邮箱
+一个面向多邮箱账号场景的邮件管理工具，支持通过 Outlook OAuth、Microsoft Graph API 和标准 IMAP 统一读取、管理和转发邮件，并提供 Web 界面用于分组管理、账号管理、邮件查看和对外 API 调用。当前支持 Outlook、Gmail、QQ、163、126、Yahoo、阿里邮箱以及自定义 IMAP 邮箱，同时集成 GPTMail、DuckMail、Cloudflare Temp Email 多提供商临时邮箱能力。
 
 ## ✨ 功能特性
 
 ### 邮件读取方式
-本工具支持三种方式读取 Outlook 邮箱邮件：
 
-1. **旧版 IMAP 方式** - 使用 `outlook.office365.com` 服务器
-2. **新版 IMAP 方式** - 使用 `outlook.live.com` 服务器
-3. **Graph API 方式** - 使用 Microsoft Graph API（推荐）
+本工具当前包含三类读取链路：
+
+1. **Outlook OAuth + Graph API** - 优先方式，适合 Outlook / Hotmail / Live 账号
+2. **Outlook OAuth + IMAP 回退** - `outlook.live.com` / `outlook.office365.com`
+3. **标准 IMAP** - 适用于 Gmail、QQ、163、126、Yahoo、阿里邮箱和自定义 IMAP
 
 ### Web 应用功能
 
@@ -17,25 +18,36 @@
 - 🔐 **登录验证** - 密码保护的 Web 界面，支持在线修改密码
 - 📁 **分组管理** - 支持创建、编辑、删除邮箱分组，自定义分组颜色，支持分组级别代理设置
 - 🌐 **分组代理** - 每个分组可配置 HTTP/SOCKS5 代理
-- 📧 **多邮箱管理** - 批量导入和管理多个 Outlook 邮箱账号
-- 📬 **邮件查看** - 查看收件箱、垃圾邮件和已删除邮件
+- 📧 **多邮箱管理** - 批量导入和管理 Outlook OAuth / IMAP 邮箱账号
+- 🪪 **别名管理** - 支持给单个邮箱配置多个别名邮箱，主邮箱和别名都可用于检索邮件和调用对外 API
+- 🔀 **别名高级用法** - 可将外部邮箱自动转发到本项目管理的邮箱 A，再把外部邮箱配置为 A 的别名，从而通过本项目统一读取邮件
+- 📬 **邮件查看** - Web 界面支持查看收件箱和垃圾邮件；API 支持 `inbox`、`junkemail`、`deleteditems`、`all`
 - 🔍 **全屏查看** - 支持全屏模式查看邮件
 - 📤 **导出功能** - 支持按分组或全部导出邮箱账号信息
-- 🎨 **现代化 UI** - 简洁美观的四栏式界面布局
-- ⚡ **性能优化** - 智能缓存机制，快速切换分组和邮箱
+- 🎨 **现代化 UI** - 四栏布局，账号列表、邮件列表、邮件详情分区清晰
+- ⚡ **性能优化** - 邮件列表与账号列表缓存，分组切换和账号切换更快
 - 📄 **分页加载** - 滚动到底部自动加载下一页（每页20封）
-- 🔥 **临时邮箱** - 集成 GPTMail + DuckMail + Cloudflare Temp Email 多提供商，支持一键生成或自定义域名/用户名
+- 🔥 **临时邮箱** - 集成 GPTMail + DuckMail + Cloudflare Temp Email，多提供商生成、导入、读取和查看详情
 - ⚙️ **系统设置** - 在线修改密码、API Key 等
 - 🔄 **OAuth2 助手** - 内置授权流程，快速获取 Refresh Token
 - 💾 **邮件缓存** - 智能缓存邮件列表，切换即时展示
 - 🏷️ **标签管理** - 支持给邮箱打标签、批量操作、按标签筛选
 - 📦 **批量移动分组** - 批量选择邮箱移动到指定分组
+- ✅ **批量选择** - 邮箱列表、邮件列表均支持全选当前列表与清空选择
 - 🗑️ **邮件删除** - 单封/批量永久删除邮件
 - 🔄 **API 优先级回退** - Graph API → IMAP(新) → IMAP(旧) 自动回退
-- 🔑 **对外 API** - 通过 API Key 直接获取邮件，无需登录（⭐ 新增 2026年02月23日23:52:46）
+- 🔑 **对外 API** - 通过 API Key 直接获取邮件，无需登录，支持别名邮箱、聚合文件夹和多条件筛选
+
+#### 邮件转发
+- 📮 **按账号开启转发** - 每个账号单独控制是否参与自动转发
+- 📨 **多渠道转发** - 支持 SMTP 邮件转发和 Telegram 转发
+- ⏱️ **时间窗口控制** - 支持仅转发最近 X 分钟内收到的邮件
+- 🗑️ **垃圾箱转发可选** - 可配置是否把垃圾邮件一起纳入转发
+- 📚 **转发历史** - 支持查看最近转发记录和失败记录
+- ▶️ **手动触发** - 支持从界面手动触发一次转发检查
 
 #### Token 刷新管理
-- 🔁 **全量刷新** - 一键刷新所有账号 Token
+- 🔁 **全量刷新** - 一键刷新所有 Outlook OAuth 账号 Token
 - ⏰ **定时刷新** - 支持按天数或 Cron 表达式配置，Docker / Docker Compose 启动也会自动生效
 - 📊 **刷新统计** - 实时显示失败邮箱数量
 - 📜 **刷新历史** - 近半年完整记录
@@ -44,6 +56,7 @@
 - 🛡️ XSS 防护 | 🔒 CSRF 防护 | 🔐 数据加密 | 🚦 速率限制 | 📋 审计日志 | 🔑 二次验证
 
 ### 界面布局
+
 Web 应用采用四栏式布局设计：
 1. **分组面板** - 显示所有邮箱分组，点击切换
 2. **邮箱面板** - 显示当前分组下的邮箱账号列表
@@ -68,6 +81,39 @@ Web 应用采用四栏式布局设计：
 ![标签管理](img/标签管理.png)
 
 ## 📦 快速开始
+
+## 🌿 版本管理与发布
+
+本项目采用轻量化双分支版本管理：
+
+- `main`：稳定分支，只保留可发布版本
+- `dev`：开发分支，日常功能开发与修复默认在这里进行
+
+版本号遵循语义化版本（Semantic Versioning）：
+
+- `v1.0.0`：首个稳定正式版
+- `v1.0.1`：向后兼容的问题修复
+- `v1.1.0`：向后兼容的新功能
+- `v2.0.0`：包含不兼容变更的大版本
+
+仓库中的版本相关文件：
+
+- `VERSION`：当前仓库内定义的版本号
+- `CHANGELOG.md`：版本变更记录
+- Git Tag：正式发布标签，如 `v1.0.0`
+
+推荐发布流程：
+
+1. 在 `dev` 分支完成开发与验证
+2. 合并到 `main`
+3. 更新 `VERSION` 与 `CHANGELOG.md`
+4. 在 `main` 上打正式标签，例如 `v1.0.0`
+
+Docker 镜像标签约定：
+
+- `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
+- `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
+- `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像
 
 ### 方式一：使用 Docker（推荐）
 
@@ -176,32 +222,109 @@ docker-compose up -d
 
 ### 2. 导入邮箱账号
 
-在 Web 界面中，点击「导入邮箱」按钮，按以下格式输入账号信息：
+在 Web 界面中点击「导入邮箱」后，可根据邮箱类型选择对应导入格式。
 
-```
+#### Outlook OAuth
+
+支持两种格式：
+
+```txt
 邮箱----密码----client_id----refresh_token
+邮箱----密码----refresh_token----client_id
 ```
 
 示例：
-```
+
+```txt
 user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...
 ```
 
-支持批量导入，每行一个账号。**注意：导入邮箱时不能选择临时邮箱分组。**
+#### 标准 IMAP 邮箱
+
+适用于 Gmail、QQ、163、126、Yahoo、阿里邮箱等：
+
+```txt
+邮箱----IMAP授权码/应用密码
+```
+
+示例：
+
+```txt
+user@gmail.com----app-password
+user@qq.com----imap-auth-code
+```
+
+#### 自定义 IMAP
+
+支持两种格式：
+
+```txt
+邮箱----IMAP密码
+邮箱----IMAP密码----imap_host----imap_port
+```
+
+示例：
+
+```txt
+user@example.com----app-password
+user@example.com----app-password----imap.example.com----993
+```
+
+支持批量导入，每行一个账号。导入时可选择是否立即开启邮件转发。普通邮箱导入时不能选择临时邮箱分组。
 
 ### 3. 查看邮件
 
 1. 从左侧选择分组
 2. 选择邮箱账号
 3. 点击「获取邮件」按钮
-4. 切换「收件箱」、「垃圾邮件」或「已删除」标签查看不同文件夹的邮件
-5. 滚动到邮件列表底部自动加载下一页（每页20封）
-6. 点击邮件查看详情（支持 HTML 渲染）
-7. 点击「🔍 全屏查看」按钮查看完整邮件内容
+4. 在 Web 界面切换「收件箱」「垃圾邮件」查看邮件
+5. 滚动到邮件列表底部自动加载下一页（每页 20 封）
+6. 点击邮件查看详情，支持 HTML 渲染与全屏查看
+7. 需要查看 `deleteditems` 或 `all` 聚合结果时，建议使用对外 API 或内部 API
 
-### 4. 对外 API（⭐ 新增）
+### 4. 别名管理
+
+1. 打开某个邮箱账号的「编辑账号」
+2. 在「别名邮箱」中按行填写多个别名
+3. 保存后，主邮箱和别名都会指向同一个账号
+
+适合这些场景：
+
+- 同一账号有多个注册邮箱名称
+- 某些站点使用了 `user+tag@example.com`
+- 外部邮箱自动转发到本项目管理邮箱后，希望继续用原邮箱名来取信
+
+### 5. 邮件转发
+
+邮件转发分成两层控制：
+
+1. **账号级开关**
+   在导入账号或编辑账号时，选择是否为该账号开启转发
+2. **全局转发设置**
+   在「设置 -> 邮件转发设置」中配置：
+   - 轮询间隔
+   - 转发邮件时间范围
+   - 是否转发垃圾箱邮件
+   - 转发渠道（SMTP / Telegram）
+   - SMTP / Telegram 的具体参数
+
+补充说明：
+
+- 转发轮询只处理“账号里已开启转发”的邮箱
+- 可以手动触发一次转发检查
+- 可以查看最近转发历史和失败记录
+
+### 6. 对外 API
 
 通过 API Key 直接获取邮件，无需登录 Web 界面。
+
+当前额外支持：
+
+- 使用主邮箱或别名邮箱取信
+- `folder=all` 一次聚合收件箱和垃圾邮件并按时间排序，`top` 按每个文件夹分别计算
+- 支持按主题、发件人、关键词筛选列表
+- 支持特殊字符别名，例如 `user+alias@example.com`
+- 默认 `top=1`
 
 **配置步骤：**
 1. 点击「⚙️ 设置」→ 在「对外 API Key」处点击「🔑 随机生成」→ 保存
@@ -210,7 +333,24 @@ user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXE
 ```bash
 curl -H "X-API-Key: your-api-key" \
   "http://localhost:5000/api/external/emails?email=user@outlook.com&folder=inbox"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=alias@example.com&folder=all&top=10&subject_contains=verify&from_contains=github&keyword=reset"
+
+curl -H "X-API-Key: your-api-key" \
+  "http://localhost:5000/api/external/emails?email=user%2Balias%40example.com"
 ```
+
+如果邮箱或别名里带特殊字符：
+
+- `@` 可以直接传
+- `+` 建议编码成 `%2B`
+- `&` 必须编码成 `%26`
+
+如果你把外部邮箱 B 自动转发到本项目管理的邮箱 A，再把 B 配成 A 的别名，那么后续可以直接用 B 作为 `email` 参数调用对外 API。
 
 详细文档见 [API 文档](docs/api.md)。
 
@@ -222,16 +362,20 @@ curl -H "X-API-Key: your-api-key" \
 | [🔐 安全配置](docs/security.md) | XSS/CSRF 防护、数据加密、速率限制、审计日志 |
 | [📡 API 文档](docs/api.md) | 对外 API、内部 API 端点、代理配置 |
 | [🛠️ 故障排查](docs/troubleshooting.md) | 常见问题、故障排查步骤 |
-| [📋 更新日志](docs/changelog.md) | 版本更新历史 |
+| [📋 更新日志](CHANGELOG.md) | 版本更新历史 |
+| [🚢 发版说明](RELEASE.md) | 标准发版步骤、版本号规则、GitHub Release 说明 |
+| [🛡️ 分支保护建议](BRANCH_PROTECTION.md) | main/dev 使用边界、保护规则与构建触发建议 |
 
 ## 🏗️ 技术架构
 
 ### 后端技术栈
 - **Flask 3.0+** - Web 框架
 - **SQLite 3** - 数据库
-- **Requests** - HTTP 客户端
+- **Requests / requests[socks]** - HTTP 客户端与代理支持
 - **IMAP4_SSL** - IMAP 协议支持
 - **Microsoft Graph API** - Outlook 邮件 API
+- **APScheduler + croniter** - 定时刷新与转发轮询
+- **bcrypt + cryptography** - 密码哈希与敏感字段加密
 
 ### 前端技术栈
 - **原生 JavaScript** - 无框架依赖
@@ -240,7 +384,7 @@ curl -H "X-API-Key: your-api-key" \
 - **DOMPurify 3.0.8** - HTML 净化
 
 ### 系统要求
-- Python 3.8+
+- Python 3.9+
 - SQLite 3
 - Docker（可选）
 - 2GB+ 内存
@@ -251,12 +395,16 @@ curl -H "X-API-Key: your-api-key" \
 flask>=3.0.0
 flask-wtf>=1.2.0          # CSRF 防护（推荐安装）
 werkzeug>=3.0.0
-requests>=2.25.0
+requests[socks]>=2.25.0   # HTTP 请求与代理支持
 APScheduler>=3.10.0       # 定时任务
 croniter>=1.3.0           # Cron 表达式解析
 bcrypt>=4.0.0             # 密码哈希
 cryptography>=41.0.0      # 数据加密
 ```
+## 常见问题
+### Gmail怎么获取应用密码
+开启二验，然后在这里创建应用密码
+https://support.google.com/mail/answer/185833?hl=zh-Hans
 
 ## 🤝 贡献
 
@@ -276,6 +424,7 @@ python web_outlook_app.py
 MIT License - 详见 [LICENSE](LICENSE)
 
 ## 🙏 致谢
+本项目已在 [LINUX DO 社区](https://linux.do/) 发布，感谢社区的支持与反馈。
 
 - [Microsoft Graph API](https://docs.microsoft.com/graph/)
 - [GPTMail](https://mail.chatgpt.org.uk)
@@ -288,3 +437,6 @@ MIT License - 详见 [LICENSE](LICENSE)
 ---
 
 **⭐ 如果这个项目对你有帮助，请给个 Star 支持一下！你的 Star 是我持续更新的动力！** ⭐
+
+
+
