@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 def get_cloudflare_admin_password() -> str:
     """获取 Cloudflare Temp Email 管理密码"""
     password = get_setting('cloudflare_admin_password')
@@ -1095,4 +1106,3 @@ def parse_account_import(account_str: str, account_format: str = 'client_id_refr
     if provider_key == 'outlook':
         return parse_outlook_account_string(account_str, account_format)
     return parse_imap_account_string(account_str, provider_key, imap_host, imap_port)
-

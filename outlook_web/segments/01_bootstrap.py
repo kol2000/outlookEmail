@@ -111,6 +111,7 @@ TOKEN_URL_IMAP = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 IMAP_SERVER_OLD = "outlook.office365.com"
 IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
+IMAP_TIMEOUT = int(os.getenv("IMAP_TIMEOUT", "45"))
 
 try:
     with open('VERSION', 'r', encoding='utf-8') as version_file:
@@ -1293,5 +1294,4 @@ def get_cloudflare_email_domains() -> List[str]:
     raw_domains = get_setting('cloudflare_email_domains')
     value = raw_domains if raw_domains is not None else CLOUDFLARE_EMAIL_DOMAINS
     return [domain.strip() for domain in value.split(',') if domain.strip()]
-
 

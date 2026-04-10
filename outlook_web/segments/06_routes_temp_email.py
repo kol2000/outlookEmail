@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 # ==================== GPTMail 临时邮箱 API ====================
 
 def gptmail_request(method: str, endpoint: str, params: dict = None, json_data: dict = None) -> Optional[Dict]:
@@ -1167,5 +1178,4 @@ def api_refresh_temp_email_messages(email_addr):
             })
         else:
             return jsonify({'success': False, 'error': '获取邮件失败'})
-
 

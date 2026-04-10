@@ -38,6 +38,7 @@ TOKEN_URL_IMAP = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 IMAP_SERVER_OLD = "outlook.office365.com"
 IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
+IMAP_TIMEOUT = int(os.getenv("IMAP_TIMEOUT", "45"))
 
 
 def print_separator(title: str):
@@ -150,7 +151,7 @@ def read_emails_imap_old(account: str, client_id: str, refresh_token: str, top: 
     connection = None
     try:
         print(f"  📡 正在连接 IMAP 服务器: {IMAP_SERVER_OLD}...")
-        connection = imaplib.IMAP4_SSL(IMAP_SERVER_OLD, IMAP_PORT)
+        connection = imaplib.IMAP4_SSL(IMAP_SERVER_OLD, IMAP_PORT, timeout=IMAP_TIMEOUT)
 
         # 3. XOAUTH2 认证
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1"
@@ -256,7 +257,7 @@ def read_emails_imap_new(account: str, client_id: str, refresh_token: str, top: 
     connection = None
     try:
         print(f"  📡 正在连接 IMAP 服务器: {IMAP_SERVER_NEW}...")
-        connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT)
+        connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT, timeout=IMAP_TIMEOUT)
 
         # 3. XOAUTH2 认证
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')

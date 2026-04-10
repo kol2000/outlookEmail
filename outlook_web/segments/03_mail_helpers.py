@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 def build_proxies(proxy_url: str) -> Optional[Dict[str, str]]:
     """构建 requests 的 proxies 参数"""
     if not proxy_url:
@@ -283,7 +294,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
     connection = None
     try:
         with proxy_socket_context(proxy_url):
-            connection = imaplib.IMAP4_SSL(server, IMAP_PORT)
+            connection = imaplib.IMAP4_SSL(server, IMAP_PORT, timeout=IMAP_TIMEOUT)
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
@@ -333,6 +344,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                 if status == 'OK' and msg_data and msg_data[0]:
                     raw_email = msg_data[0][1]
                     msg = email.message_from_bytes(raw_email)
+                    body_preview = get_email_body(msg)
 
                     emails.append({
                         'id': msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id),
@@ -340,7 +352,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                         'from': decode_header_value(msg.get("From", "未知发件人")),
                         'to': decode_header_value(msg.get("To", "")),
                         'date': msg.get("Date", "未知时间"),
-                        'body_preview': get_email_body(msg)[:200] + "..." if len(get_email_body(msg)) > 200 else get_email_body(msg)
+                        'body_preview': body_preview[:200] + "..." if len(body_preview) > 200 else body_preview
                     })
             except Exception:
                 continue
@@ -374,7 +386,7 @@ def get_email_detail_imap(account: str, client_id: str, refresh_token: str, mess
     connection = None
     try:
         with proxy_socket_context(proxy_url):
-            connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT)
+            connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT, timeout=IMAP_TIMEOUT)
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
 
@@ -476,10 +488,10 @@ def create_imap_connection(imap_host: str, imap_port: int = 993, proxy_url: str 
         raise ValueError('IMAP host 不能为空')
     try:
         with proxy_socket_context(proxy_url):
-            return imaplib.IMAP4_SSL(host, port, timeout=30)
+            return imaplib.IMAP4_SSL(host, port, timeout=IMAP_TIMEOUT)
     except TypeError:
         old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(30)
+        socket.setdefaulttimeout(IMAP_TIMEOUT)
         try:
             with proxy_socket_context(proxy_url):
                 return imaplib.IMAP4_SSL(host, port)

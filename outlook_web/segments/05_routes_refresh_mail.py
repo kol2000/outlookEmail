@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 def log_refresh_result(account_id: int, account_email: str, refresh_type: str, status: str, error_message: str = None):
     """记录刷新结果到数据库"""
     db = get_db()
@@ -944,7 +955,7 @@ def delete_emails_imap(email_addr: str, client_id: str, refresh_token: str, mess
         
         # 连接 IMAP
         with proxy_socket_context(proxy_url):
-            imap = imaplib.IMAP4_SSL(server, IMAP_PORT)
+            imap = imaplib.IMAP4_SSL(server, IMAP_PORT, timeout=IMAP_TIMEOUT)
         imap.authenticate('XOAUTH2', lambda x: auth_string.encode('utf-8'))
         
         # 选择文件夹

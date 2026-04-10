@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 # ==================== 定时任务调度器 ====================
 
 def get_bool_setting(key: str, default: bool = False) -> bool:

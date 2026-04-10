@@ -1,3 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List
+
+if TYPE_CHECKING:
+    # These segmented files are executed into the shared `web_outlook_app`
+    # globals at runtime. Importing from the assembled module keeps IDE
+    # inspections from flagging the shared names as unresolved.
+    from web_outlook_app import *  # noqa: F403
+
+
 @app.route('/login', methods=['GET', 'POST'])
 @csrf_exempt  # 登录接口排除CSRF保护（用户未登录时无法获取token）
 def login():
