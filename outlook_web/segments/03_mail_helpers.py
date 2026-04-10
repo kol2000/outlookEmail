@@ -135,7 +135,7 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
         params = {
             "$top": top,
             "$skip": skip,
-            "$select": "id,subject,from,receivedDateTime,isRead,hasAttachments,bodyPreview",
+            "$select": "id,subject,from,toRecipients,receivedDateTime,isRead,hasAttachments,bodyPreview",
             "$orderby": "receivedDateTime desc"
         }
         headers = {
@@ -338,6 +338,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                         'id': msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id),
                         'subject': decode_header_value(msg.get("Subject", "无主题")),
                         'from': decode_header_value(msg.get("From", "未知发件人")),
+                        'to': decode_header_value(msg.get("To", "")),
                         'date': msg.get("Date", "未知时间"),
                         'body_preview': get_email_body(msg)[:200] + "..." if len(get_email_body(msg)) > 200 else get_email_body(msg)
                     })
@@ -767,6 +768,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                     'id': uid.decode('utf-8', errors='ignore') if isinstance(uid, (bytes, bytearray)) else str(uid),
                     'subject': decode_header_value(msg.get('Subject', '无主题')),
                     'from': decode_header_value(msg.get('From', '未知')),
+                    'to': decode_header_value(msg.get('To', '')),
                     'date': msg.get('Date', ''),
                     'is_read': '\\Seen' in (flags_text or ''),
                     'has_attachments': has_message_attachments(msg),
@@ -940,4 +942,3 @@ def api_key_required(f):
 
 
 # ==================== Flask 路由 ====================
-

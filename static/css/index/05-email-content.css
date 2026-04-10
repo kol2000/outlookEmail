@@ -176,6 +176,13 @@
             min-width: 0;
         }
 
+        .email-sender-block {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
         .email-item.unread .email-subject {
             font-weight: 700;
         }
@@ -184,6 +191,15 @@
             font-size: 13px;
             font-weight: 600;
             color: #111827;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .email-recipient {
+            font-size: 11px;
+            color: #64748b;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;

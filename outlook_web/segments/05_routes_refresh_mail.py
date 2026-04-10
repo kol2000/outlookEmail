@@ -985,26 +985,39 @@ def get_query_arg_preserve_plus(name: str, default: str = '') -> str:
     return request.args.get(name, default)
 
 
+def normalize_email_list_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
+    row = dict(item or {})
+    row['subject'] = row.get('subject', '无主题')
+    row['from'] = row.get('from', '未知')
+    row['to'] = str(row.get('to', '') or '')
+    row['date'] = row.get('date', '')
+    row['is_read'] = bool(row.get('is_read', False))
+    row['has_attachments'] = bool(row.get('has_attachments', False))
+    row['body_preview'] = row.get('body_preview', '')
+    row['folder'] = row.get('folder') or folder
+    return row
+
+
 def format_graph_email_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
-    return {
+    return normalize_email_list_item({
         'id': item.get('id'),
         'subject': item.get('subject', '无主题'),
         'from': item.get('from', {}).get('emailAddress', {}).get('address', '未知'),
+        'to': ', '.join([
+            recipient.get('emailAddress', {}).get('address', '')
+            for recipient in (item.get('toRecipients') or [])
+            if recipient.get('emailAddress', {}).get('address', '')
+        ]),
         'date': item.get('receivedDateTime', ''),
         'is_read': item.get('isRead', False),
         'has_attachments': item.get('hasAttachments', False),
         'body_preview': item.get('bodyPreview', ''),
         'folder': folder,
-    }
+    }, folder)
 
 
 def format_email_items(items: List[Dict[str, Any]], folder: str) -> List[Dict[str, Any]]:
-    formatted = []
-    for item in items:
-        row = dict(item)
-        row['folder'] = row.get('folder') or folder
-        formatted.append(row)
-    return formatted
+    return [normalize_email_list_item(item, folder) for item in items]
 
 
 def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int) -> Dict[str, Any]:

@@ -474,17 +474,7 @@ def api_external_get_emails():
     graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top, proxy_url)
     if graph_result.get('success'):
         emails = graph_result.get('emails', [])
-        formatted = []
-        for e in emails:
-            formatted.append({
-                'id': e.get('id'),
-                'subject': e.get('subject', '无主题'),
-                'from': e.get('from', {}).get('emailAddress', {}).get('address', '未知'),
-                'date': e.get('receivedDateTime', ''),
-                'is_read': e.get('isRead', False),
-                'has_attachments': e.get('hasAttachments', False),
-                'body_preview': e.get('bodyPreview', '')
-            })
+        formatted = [format_graph_email_item(e, folder) for e in emails]
         return jsonify({
             'success': True,
             'emails': formatted,

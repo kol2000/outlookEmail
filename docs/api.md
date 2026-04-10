@@ -497,6 +497,22 @@ curl -H "X-API-Key: your-api-key" \
 
 当 `folder=all` 时，行为与对外 API 一致：同时抓取 `inbox` 与 `junkemail`，按时间合并排序。
 
+#### 列表项字段
+
+`emails` 数组中的每个对象至少包含以下字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 邮件 ID |
+| `subject` | string | 邮件主题 |
+| `from` | string | 发件人地址 |
+| `to` | string | 收件人地址，多个地址用 `, ` 拼接 |
+| `date` | string | 收件时间 |
+| `is_read` | bool | 是否已读 |
+| `has_attachments` | bool | 是否有附件 |
+| `body_preview` | string | 邮件预览 |
+| `folder` | string | 所属文件夹 |
+
 ### GET `/api/email/<email>/<message_id>`
 
 获取单封邮件详情。`email` 参数同样支持传主邮箱或别名邮箱。

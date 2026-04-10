@@ -1,4 +1,4 @@
-        /* global adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, formatDate, handleApiError, isTempEmailGroup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
+        /* global accountsCache, adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, emailListCache, escapeHtml, formatDate, handleApiError, isTempEmailGroup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
 
         // ==================== 邮件相关 ====================
 
@@ -110,6 +110,57 @@
         let selectedEmailIds = new Set();
         let isBatchSelectMode = false;
 
+        function getCurrentAccountAliases() {
+            const normalizedCurrentAccount = String(currentAccount || '').trim().toLowerCase();
+            if (!normalizedCurrentAccount) {
+                return [];
+            }
+
+            const accountSources = [];
+            if (Array.isArray(currentAccountListSource) && currentAccountListSource.length > 0) {
+                accountSources.push(...currentAccountListSource);
+            }
+            if (currentGroupId && Array.isArray(accountsCache[currentGroupId])) {
+                accountSources.push(...accountsCache[currentGroupId]);
+            }
+
+            const matchedAccount = accountSources.find(account =>
+                String(account?.email || '').trim().toLowerCase() === normalizedCurrentAccount
+            );
+
+            if (!matchedAccount || !Array.isArray(matchedAccount.aliases)) {
+                return [];
+            }
+
+            return matchedAccount.aliases
+                .map(alias => String(alias || '').trim().toLowerCase())
+                .filter(Boolean);
+        }
+
+        function getAliasRecipientLabel(emailItem) {
+            if (isTempEmailGroup) {
+                return '';
+            }
+
+            const aliases = getCurrentAccountAliases();
+            const toValue = String(emailItem?.to || '').trim();
+            if (!aliases.length || !toValue) {
+                return '';
+            }
+
+            const recipientCandidates = toValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+            const normalizedRecipients = recipientCandidates.length > 0
+                ? recipientCandidates.map(recipient => recipient.trim().toLowerCase())
+                : [toValue.toLowerCase()];
+            const matchedAliases = aliases.filter(alias => normalizedRecipients.includes(alias));
+
+            if (!matchedAliases.length) {
+                return '';
+            }
+
+            return `to: ${matchedAliases.join(', ')}`;
+        }
+
         function renderEmailList(emails) {
             const container = document.getElementById('emailList');
 
@@ -133,6 +184,7 @@
             container.innerHTML = emails.map((email, index) => {
                 const isChecked = selectedEmailIds.has(email.id);
                 const isActive = currentEmailId === email.id;
+                const aliasRecipientLabel = getAliasRecipientLabel(email);
                 return `
                 <div class="email-item ${email.is_read === false ? 'unread' : ''} ${isActive ? 'active' : ''}"
                      onclick="${clickHandler}('${email.id}', ${index})">
@@ -142,7 +194,10 @@
                     <div class="email-body">
                         <div class="email-top-row">
                             <div class="email-top-main">
-                                <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
+                                <div class="email-sender-block">
+                                    <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
+                                    ${aliasRecipientLabel ? `<div class="email-recipient" title="${escapeHtml(aliasRecipientLabel)}">${escapeHtml(aliasRecipientLabel)}</div>` : ''}
+                                </div>
                             </div>
                             <div class="email-date">${formatDate(email.date)}</div>
                         </div>
