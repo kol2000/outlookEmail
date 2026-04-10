@@ -339,6 +339,7 @@ def process_forwarding_job():
                 if include_junkemail:
                     folders_to_scan.append('junkemail')
                 emails = []
+                had_processing_failure = False
                 for folder_name in folders_to_scan:
                     folder_result = fetch_forward_candidates(account, 20, folder_name)
                     if not folder_result.get('success'):

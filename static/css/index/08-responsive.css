@@ -88,6 +88,8 @@
             .main-container {
                 margin-top: 56px;
                 height: calc(100dvh - 56px);
+                min-height: calc(100dvh - 56px);
+                overflow: hidden;
             }
 
             .group-panel,
@@ -102,6 +104,7 @@
                 transform: translateX(-104%);
                 transition: transform 0.24s ease, box-shadow 0.24s ease;
                 box-shadow: none;
+                overflow: hidden;
             }
 
             .group-panel.show,
@@ -183,8 +186,11 @@
             }
 
             .content-area {
+                flex: 1;
                 flex-direction: column;
                 min-width: 0;
+                min-height: 0;
+                overflow: hidden;
             }
 
             .mobile-quickbar {
@@ -194,6 +200,7 @@
                 padding: 12px;
                 border-bottom: 1px solid #e5e7eb;
                 background: linear-gradient(180deg, #fcfcfd 0%, #f4f6f9 100%);
+                flex-shrink: 0;
             }
 
             .mobile-panel-scrim.show {
@@ -211,6 +218,7 @@
             .email-detail-panel {
                 width: 100%;
                 border-right: none;
+                min-height: 0;
             }
 
             .email-list-panel {
@@ -227,10 +235,12 @@
 
             .email-list-panel.hidden + .email-detail-panel {
                 display: flex;
+                flex: 1;
             }
 
             .email-list-header {
                 padding: 14px 14px 12px;
+                flex-shrink: 0;
             }
 
             .email-list-header-top {
@@ -287,6 +297,7 @@
                 position: sticky;
                 top: 0;
                 z-index: 5;
+                flex-shrink: 0;
             }
 
             .toggle-list-btn {
@@ -335,6 +346,15 @@
 
             .email-detail-body {
                 padding: 18px 16px 24px;
+            }
+
+            .group-list,
+            .account-list,
+            .email-list,
+            #emailDetail,
+            .email-detail-body {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
             }
 
             .email-detail-body iframe {

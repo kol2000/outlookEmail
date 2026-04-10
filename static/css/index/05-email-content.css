@@ -3,6 +3,8 @@
             flex: 1;
             display: flex;
             overflow: hidden;
+            min-width: 0;
+            min-height: 0;
         }
 
         /* 邮件列表面板 */
@@ -14,6 +16,7 @@
             flex-direction: column;
             flex-shrink: 0;
             min-width: 0;
+            min-height: 0;
             position: relative;
         }
 
@@ -99,6 +102,9 @@
             overflow-y: auto;
             background-color: #f7f8fb;
             padding: 8px 0 16px;
+            min-height: 0;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .email-list-panel.batch-toolbar-active .email-list {
@@ -311,6 +317,8 @@
             overflow-y: auto;
             background-color: #ffffff;
             min-height: 0;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .email-detail-body iframe {
@@ -383,6 +391,8 @@
             overflow-y: auto;
             background-color: #ffffff;
             padding: 32px;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .fullscreen-email-content iframe {
@@ -467,4 +477,3 @@
                 transform: rotate(360deg);
             }
         }
-
