@@ -585,6 +585,8 @@
         // 键盘快捷键
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
+                closeNavbarActionsMenu();
+                closeMobilePanels();
                 closeAccountActionMenus();
                 closeTagFilterDropdown();
                 closeAllModals();

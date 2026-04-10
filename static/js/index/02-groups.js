@@ -50,6 +50,8 @@
                             selectGroup(currentGroupId);
                         }
                     }
+
+                    updateMobileContext();
                 }
             } catch (error) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
@@ -400,6 +402,8 @@
             }
             // 更新账号面板头部动作
             updateAccountPanelActions();
+            const shouldAdvanceToAccounts = isMobileLayout()
+                && document.getElementById('groupPanel')?.classList.contains('show');
 
             // 加载该分组的邮箱
             if (isTempEmailGroup) {
@@ -407,6 +411,11 @@
             } else {
                 await loadAccountsByGroup(groupId);
             }
+
+            if (shouldAdvanceToAccounts) {
+                openMobilePanel('account');
+            }
+            updateMobileContext();
         }
 
         // 更新账号面板头部动作按钮
@@ -734,6 +743,8 @@
                     <div class="empty-state-text">选择一封邮件查看详情</div>
                 </div>
             `;
+            showEmailList();
+            updateMobileContext();
         }
 
         function resetSelectedAccountViewIfDeleted(deletedEmails) {
@@ -1288,4 +1299,3 @@
                 showToast('删除失败', 'error');
             }
         }
-

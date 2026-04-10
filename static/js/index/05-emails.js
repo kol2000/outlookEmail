@@ -302,6 +302,7 @@
             document.getElementById('emailDetailToolbar').style.display = 'flex';
             const deleteBtn = document.querySelector('#emailDetailToolbar .batch-btn.danger');
             if (deleteBtn) deleteBtn.style.display = '';
+            showMobileEmailDetail();
 
             // 加载邮件详情
             const container = document.getElementById('emailDetail');
@@ -492,6 +493,10 @@
                 panel.classList.add('hidden');
                 toggleText.textContent = '显示列表';
             }
+
+            closeMobilePanels();
+            closeNavbarActionsMenu();
+            updateMobileContext();
         }
 
         // 全屏查看邮件
@@ -641,6 +646,9 @@
             document.getElementById('emailListPanel').classList.remove('hidden');
             isListVisible = true;
             document.getElementById('toggleListText').textContent = '隐藏列表';
+            closeMobilePanels();
+            closeNavbarActionsMenu();
+            updateMobileContext();
         }
 
         // 刷新邮件
@@ -690,4 +698,3 @@
                 window.location.href = '/logout';
             }
         }
-

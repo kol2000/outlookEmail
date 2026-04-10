@@ -27,6 +27,153 @@
         let oauthPreviewAccount = null;
         let selectedTagFilters = new Set();
         let tagFilterKeyword = '';
+        let responsiveUiResizeTimer = null;
+
+        function isMobileLayout() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function updateMobileQuickbarState() {
+            const groupBtn = document.getElementById('mobileGroupBtn');
+            const accountBtn = document.getElementById('mobileAccountBtn');
+            const listBtn = document.getElementById('mobileListBtn');
+            const groupOpen = document.getElementById('groupPanel')?.classList.contains('show');
+            const accountOpen = document.getElementById('accountPanel')?.classList.contains('show');
+            const listHidden = document.getElementById('emailListPanel')?.classList.contains('hidden');
+
+            groupBtn?.classList.toggle('is-active', !!groupOpen);
+            accountBtn?.classList.toggle('is-active', !!accountOpen);
+            listBtn?.classList.toggle('is-active', !groupOpen && !accountOpen && !listHidden);
+        }
+
+        function updateMobileContext() {
+            const groupText = document.getElementById('mobileCurrentGroup');
+            const accountText = document.getElementById('mobileCurrentAccount');
+            const listText = document.getElementById('mobileListButtonHint');
+            const listHidden = document.getElementById('emailListPanel')?.classList.contains('hidden');
+            const currentGroup = Array.isArray(groups) ? groups.find(group => group.id === currentGroupId) : null;
+
+            if (groupText) {
+                groupText.textContent = currentGroup ? currentGroup.name : '未选择';
+            }
+
+            if (accountText) {
+                accountText.textContent = currentAccount
+                    ? `${currentAccount}${isTempEmailGroup ? ' (临时)' : ''}`
+                    : '未选择';
+            }
+
+            if (listText) {
+                listText.textContent = listHidden ? '返回列表' : '当前列表';
+            }
+
+            updateMobileQuickbarState();
+        }
+
+        function syncMobilePanels() {
+            const scrim = document.getElementById('mobilePanelScrim');
+            const hasOpenPanel = isMobileLayout()
+                && !!document.querySelector('#groupPanel.show, #accountPanel.show');
+
+            scrim?.classList.toggle('show', hasOpenPanel);
+            document.body.classList.toggle('mobile-panels-open', hasOpenPanel);
+            updateMobileQuickbarState();
+        }
+
+        function closeMobilePanels() {
+            document.getElementById('groupPanel')?.classList.remove('show');
+            document.getElementById('accountPanel')?.classList.remove('show');
+            syncMobilePanels();
+        }
+
+        function openMobilePanel(panelName) {
+            if (!isMobileLayout()) return;
+
+            const targetPanel = document.getElementById(panelName === 'account' ? 'accountPanel' : 'groupPanel');
+            const otherPanel = document.getElementById(panelName === 'account' ? 'groupPanel' : 'accountPanel');
+            if (!targetPanel) return;
+
+            closeNavbarActionsMenu();
+            otherPanel?.classList.remove('show');
+            targetPanel.classList.add('show');
+            syncMobilePanels();
+        }
+
+        function toggleMobilePanel(panelName) {
+            if (!isMobileLayout()) return;
+
+            const targetPanel = document.getElementById(panelName === 'account' ? 'accountPanel' : 'groupPanel');
+            if (!targetPanel) return;
+
+            if (targetPanel.classList.contains('show')) {
+                closeMobilePanels();
+                return;
+            }
+
+            openMobilePanel(panelName);
+        }
+
+        function closeNavbarActionsMenu() {
+            const container = document.querySelector('.navbar-actions');
+            if (!container) return;
+
+            container.classList.remove('is-open');
+            document.getElementById('mobileNavMenuBtn')?.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleNavbarActionsMenu() {
+            if (!isMobileLayout()) return;
+
+            const container = document.querySelector('.navbar-actions');
+            if (!container) return;
+
+            const willOpen = !container.classList.contains('is-open');
+            closeMobilePanels();
+            container.classList.toggle('is-open', willOpen);
+            document.getElementById('mobileNavMenuBtn')?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        }
+
+        function handleGlobalChromeClick(event) {
+            if (!event.target.closest('.navbar-actions')) {
+                closeNavbarActionsMenu();
+            }
+        }
+
+        function showMobileEmailDetail() {
+            if (!isMobileLayout()) return;
+
+            const panel = document.getElementById('emailListPanel');
+            if (!panel) return;
+
+            panel.classList.add('hidden');
+            isListVisible = false;
+            const toggleText = document.getElementById('toggleListText');
+            if (toggleText) {
+                toggleText.textContent = '显示列表';
+            }
+            closeMobilePanels();
+            closeNavbarActionsMenu();
+            updateMobileContext();
+        }
+
+        function syncResponsiveUI() {
+            if (!isMobileLayout()) {
+                closeMobilePanels();
+                closeNavbarActionsMenu();
+
+                const listPanel = document.getElementById('emailListPanel');
+                if (listPanel) {
+                    listPanel.classList.remove('hidden');
+                }
+                isListVisible = true;
+                const toggleText = document.getElementById('toggleListText');
+                if (toggleText) {
+                    toggleText.textContent = '隐藏列表';
+                }
+            }
+
+            updateMobileContext();
+        }
 
         // ==================== CSRF 防护 ====================
 
@@ -68,12 +215,22 @@
             ensureForwardingSettingsUI();
             bindPersistentButtonHandlers();
             document.addEventListener('click', closeAccountActionMenus);
+            document.addEventListener('click', handleGlobalChromeClick);
             document.addEventListener('click', handleGlobalTagFilterClick);
             document.getElementById('importImapHost')?.addEventListener('input', updateImportHint);
             document.getElementById('importImapPort')?.addEventListener('input', updateImportHint);
             document.getElementById('oauthEmailInput')?.addEventListener('input', invalidateRefreshTokenPreview);
             document.getElementById('oauthPasswordInput')?.addEventListener('input', invalidateRefreshTokenPreview);
             document.getElementById('redirectUrlInput')?.addEventListener('input', invalidateRefreshTokenPreview);
+            document.getElementById('navbarActionsMenu')?.addEventListener('click', function (event) {
+                if (event.target.closest('.navbar-btn')) {
+                    closeNavbarActionsMenu();
+                }
+            });
+            window.addEventListener('resize', function () {
+                clearTimeout(responsiveUiResizeTimer);
+                responsiveUiResizeTimer = window.setTimeout(syncResponsiveUI, 120);
+            });
 
             closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadGroups();
@@ -95,6 +252,8 @@
                 }, 300);
                 searchInput.addEventListener('input', debouncedSearch);
             }
+
+            syncResponsiveUI();
         });
 
         function closeAccountActionMenus() {
@@ -406,6 +565,8 @@
         }
 
         function showModal(modalId) {
+            closeNavbarActionsMenu();
+            closeMobilePanels();
             closeAllModals();
             return setModalVisible(modalId, true);
         }
@@ -808,4 +969,3 @@ ${details}
             idBadgeEl.textContent = `groupId ${group.id}`;
             idBadgeEl.style.display = 'inline-flex';
         }
-

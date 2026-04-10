@@ -340,6 +340,9 @@
 
             document.getElementById('currentAccount').classList.add('show');
             document.getElementById('currentAccountEmail').textContent = email + ' (临时)';
+            showEmailList();
+            closeMobilePanels();
+            updateMobileContext();
 
             document.querySelectorAll('.account-item').forEach(item => {
                 item.classList.remove('active');
@@ -447,6 +450,8 @@
                                 <div class="empty-state-text">选择一封邮件查看详情</div>
                             </div>
                         `;
+                        showEmailList();
+                        updateMobileContext();
                     }
 
                     loadTempEmails(true);
@@ -529,6 +534,7 @@
             document.getElementById('emailDetailToolbar').style.display = 'flex';
             const deleteBtn = document.querySelector('#emailDetailToolbar .batch-btn.danger');
             if (deleteBtn) deleteBtn.style.display = 'none';
+            showMobileEmailDetail();
 
             const container = document.getElementById('emailDetail');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
@@ -557,4 +563,3 @@
                 `;
             }
         }
-
