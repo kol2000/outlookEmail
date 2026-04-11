@@ -65,28 +65,28 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           export VERSION TAG GITHUB_OUTPUT
           python3 - <<'PY'
-from pathlib import Path
-import os
-import re
+          from pathlib import Path
+          import os
+          import re
 
-version = os.environ['VERSION']
-tag = os.environ['TAG']
-out = Path(os.environ['GITHUB_OUTPUT'])
-changelog = Path('CHANGELOG.md')
-text = changelog.read_text(encoding='utf-8') if changelog.exists() else ''
-pattern = re.compile(r'^## \[' + re.escape(version) + r'\].*?(?=^## \[|\Z)', re.M | re.S)
-m = pattern.search(text)
-if m:
-    body = m.group(0).strip() + '\n'
-else:
-    body = f'## {tag}\n\nRelease {tag}.\n'
-with out.open('a', encoding='utf-8') as f:
-    f.write('body<<EOF\n')
-    f.write(body)
-    if not body.endswith('\n'):
-        f.write('\n')
-    f.write('EOF\n')
-PY
+          version = os.environ['VERSION']
+          tag = os.environ['TAG']
+          out = Path(os.environ['GITHUB_OUTPUT'])
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text(encoding='utf-8') if changelog.exists() else ''
+          pattern = re.compile(r'^## \[' + re.escape(version) + r'\].*?(?=^## \[|\Z)', re.M | re.S)
+          m = pattern.search(text)
+          if m:
+              body = m.group(0).strip() + '\n'
+          else:
+              body = f'## {tag}\n\nRelease {tag}.\n'
+          with out.open('a', encoding='utf-8') as f:
+              f.write('body<<EOF\n')
+              f.write(body)
+              if not body.endswith('\n'):
+                  f.write('\n')
+              f.write('EOF\n')
+          PY
 
       - name: Download packaged executable
         uses: actions/download-artifact@v4
