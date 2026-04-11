@@ -168,14 +168,14 @@ docker-compose up -d
 
 ## 📖 使用说明
 
-### 1. 获取 OAuth2 凭证
+### 1. 获取 OAuth2 凭证（这一步非必须，买的账号如果是带令牌的可以跳过这一步）
 
 要使用本工具，您需要获取以下 OAuth2 凭证：
 
 1. **Client ID** - Microsoft Azure 应用注册的客户端 ID
 2. **Refresh Token** - OAuth2 刷新令牌
 
-#### 步骤 1：注册 Azure 应用
+#### 步骤 1：注册 Azure 应用（这一步看目前的情况得E3 或者 E5 或者其他的开发者账号才能创建）
 
 访问 [Azure Portal](https://portal.azure.com/)，进入「应用注册」：
 
