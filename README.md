@@ -29,7 +29,7 @@ Docker 镜像标签约定：
 - `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
 - `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像（例如 v1.0.0）
 
-### 方式一：下载 Windows `exe`
+### 方式一：下载 Windows `exe`(还在测试阶段，暂时请勿用)
 
 从 GitHub Releases 下载对应版本的 `OutlookEmail-windows-x64-*.zip`，解压后直接运行 `OutlookEmail.exe` 即可。
 
