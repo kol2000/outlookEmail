@@ -549,6 +549,20 @@
             return `<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
         }
 
+        function renderAccountGroupSummary(account, showGroupInfo = false) {
+            if (!showGroupInfo) return '';
+
+            const groupName = String(account.group_name || '默认分组').trim() || '默认分组';
+            const groupColor = account.group_color || '#666666';
+            return `
+                <div class="account-group-summary" title="所属分组: ${escapeHtml(groupName)}">
+                    <span class="account-group-dot" style="background-color: ${escapeHtml(groupColor)}"></span>
+                    <span class="account-group-label">分组:</span>
+                    <span class="account-group-name">${escapeHtml(groupName)}</span>
+                </div>
+            `;
+        }
+
         function isAccountRowInteractiveTarget(target) {
             if (!target || typeof target.closest !== 'function') {
                 return false;
@@ -572,12 +586,13 @@
         // 渲染邮箱列表
         function renderAccountList(accounts) {
             const container = document.getElementById('accountList');
+            const isSearchMode = !!(document.getElementById('globalSearch')?.value || '').trim();
 
             if (accounts.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">该分组暂无邮箱</div>
+                        <div class="empty-state-text">${isSearchMode ? '未找到匹配邮箱' : '该分组暂无邮箱'}</div>
                     </div>
                 `;
                 updateBatchActionBar();
@@ -611,6 +626,7 @@
                             ${acc.status === 'inactive' ? '<span class="account-status-pill muted">已停用</span>' : ''}
                             ${acc.last_refresh_status === 'failed' ? '<span class="account-status-pill danger">刷新失败</span>' : ''}
                         </div>
+                        ${renderAccountGroupSummary(acc, isSearchMode)}
                         ${renderAccountAliasSummary(acc.aliases)}
                         ${acc.remark && acc.remark.trim() ? `<div class="account-remark" title="${escapeHtml(acc.remark)}">${escapeHtml(acc.remark)}</div>` : ''}
                         ${(acc.tags || []).length ? `<div class="account-tags">${renderAccountTagSummary(acc.tags)}</div>` : ''}
