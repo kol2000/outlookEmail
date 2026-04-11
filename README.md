@@ -1,6 +1,78 @@
 # 多邮箱邮件管理工具
 
 一个面向多邮箱账号场景的邮件管理工具，支持通过 Outlook OAuth、Microsoft Graph API 和标准 IMAP 统一读取、管理和转发邮件，并提供 Web 界面用于分组管理、账号管理、邮件查看和对外 API 调用。当前支持 Outlook、Gmail、QQ、163、126、Yahoo、阿里邮箱以及自定义 IMAP 邮箱，同时集成 GPTMail、DuckMail、Cloudflare Temp Email 多提供商临时邮箱能力。
+## 📦 快速开始
+
+## 🌿 版本管理与发布
+
+本项目采用轻量化双分支版本管理：
+
+- `main`：稳定分支，只保留可发布版本
+- `dev`：开发分支，日常功能开发与修复默认在这里进行
+
+推荐发布流程：
+
+1. 在 `dev` 分支完成开发与验证
+2. 合并到 `main`
+3. 更新 `VERSION` 与 `CHANGELOG.md`
+4. 在 `main` 上打正式标签，例如 `v1.0.0`
+
+Docker 镜像标签约定：
+
+- `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
+- `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
+- `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像（例如 v1.0.0）
+
+### 方式一：使用 Docker（推荐）
+
+```bash
+# 拉取最新镜像
+docker pull ghcr.io/assast/outlookemail:latest
+
+# 运行容器
+docker run -d \
+  --name outlook-mail-reader \
+  -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -e LOGIN_PASSWORD=admin123 \
+  -e SECRET_KEY=your-secret-key-here \
+  ghcr.io/assast/outlookemail:latest
+```
+
+### 方式二：使用 Python 直接运行
+
+```bash
+git clone https://github.com/assast/outlookEmail.git
+cd outlookEmail
+pip install -r requirements.txt
+export SECRET_KEY=your-secret-key-here
+python web_outlook_app.py
+```
+
+访问 `http://localhost:5000` 即可使用。
+
+### 使用 Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  outlook-mail-reader:
+    image: ghcr.io/assast/outlookemail:latest
+    container_name: outlook-mail-reader
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - LOGIN_PASSWORD=admin123
+      - SECRET_KEY=your-secret-key-here
+      - FLASK_ENV=production
+    restart: unless-stopped
+```
+
+```bash
+docker-compose up -d
+```
 
 ## ✨ 功能特性
 
@@ -79,92 +151,6 @@ Web 应用采用四栏式布局设计：
 
 ### 标签管理功能
 ![标签管理](img/标签管理.png)
-
-## 📦 快速开始
-
-## 🌿 版本管理与发布
-
-本项目采用轻量化双分支版本管理：
-
-- `main`：稳定分支，只保留可发布版本
-- `dev`：开发分支，日常功能开发与修复默认在这里进行
-
-版本号遵循语义化版本（Semantic Versioning）：
-
-- `v1.0.0`：首个稳定正式版
-- `v1.0.1`：向后兼容的问题修复
-- `v1.1.0`：向后兼容的新功能
-- `v2.0.0`：包含不兼容变更的大版本
-
-仓库中的版本相关文件：
-
-- `VERSION`：当前仓库内定义的版本号
-- `CHANGELOG.md`：版本变更记录
-- Git Tag：正式发布标签，如 `v1.0.0`
-
-推荐发布流程：
-
-1. 在 `dev` 分支完成开发与验证
-2. 合并到 `main`
-3. 更新 `VERSION` 与 `CHANGELOG.md`
-4. 在 `main` 上打正式标签，例如 `v1.0.0`
-
-Docker 镜像标签约定：
-
-- `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
-- `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
-- `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像
-
-### 方式一：使用 Docker（推荐）
-
-```bash
-# 拉取最新镜像
-docker pull ghcr.io/assast/outlookemail:latest
-
-# 运行容器
-docker run -d \
-  --name outlook-mail-reader \
-  -p 5000:5000 \
-  -v $(pwd)/data:/app/data \
-  -e LOGIN_PASSWORD=admin123 \
-  -e SECRET_KEY=your-secret-key-here \
-  ghcr.io/assast/outlookemail:latest
-```
-
-### 方式二：使用 Python 直接运行
-
-```bash
-git clone https://github.com/assast/outlookEmail.git
-cd outlookEmail
-pip install -r requirements.txt
-export SECRET_KEY=your-secret-key-here
-python web_outlook_app.py
-```
-
-访问 `http://localhost:5000` 即可使用。
-
-### 使用 Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  outlook-mail-reader:
-    image: ghcr.io/assast/outlookemail:latest
-    container_name: outlook-mail-reader
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - LOGIN_PASSWORD=admin123
-      - SECRET_KEY=your-secret-key-here
-      - FLASK_ENV=production
-    restart: unless-stopped
-```
-
-```bash
-docker-compose up -d
-```
 
 ## 📖 使用说明
 
