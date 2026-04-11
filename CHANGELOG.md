@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-04-11
+
+### Fixed
+- Fixed additional Windows tray startup crashes by replacing more `ctypes.wintypes` handle annotations with compatibility-safe Win32 handle definitions.
+
 ## [2.0.5] - 2026-04-11
 
 ### Fixed

@@ -40,10 +40,15 @@ shell32 = ctypes.windll.shell32
 kernel32 = ctypes.windll.kernel32
 
 
+HANDLE = ctypes.c_void_p
+HWND = getattr(wintypes, "HWND", HANDLE)
+HINSTANCE = getattr(wintypes, "HINSTANCE", HANDLE)
+HICON = getattr(wintypes, "HICON", HANDLE)
+HCURSOR = getattr(wintypes, "HCURSOR", HANDLE)
 LRESULT = ctypes.c_ssize_t
 WNDPROC = ctypes.WINFUNCTYPE(
     LRESULT,
-    wintypes.HWND,
+    HWND,
     wintypes.UINT,
     wintypes.WPARAM,
     wintypes.LPARAM,
@@ -56,7 +61,7 @@ class POINT(ctypes.Structure):
 
 class MSG(ctypes.Structure):
     _fields_ = [
-        ("hwnd", wintypes.HWND),
+        ("hwnd", HWND),
         ("message", wintypes.UINT),
         ("wParam", wintypes.WPARAM),
         ("lParam", wintypes.LPARAM),
@@ -71,9 +76,9 @@ class WNDCLASSW(ctypes.Structure):
         ("lpfnWndProc", WNDPROC),
         ("cbClsExtra", ctypes.c_int),
         ("cbWndExtra", ctypes.c_int),
-        ("hInstance", wintypes.HINSTANCE),
-        ("hIcon", wintypes.HICON),
-        ("hCursor", wintypes.HCURSOR),
+        ("hInstance", HINSTANCE),
+        ("hIcon", HICON),
+        ("hCursor", HCURSOR),
         ("hbrBackground", ctypes.c_void_p),
         ("lpszMenuName", wintypes.LPCWSTR),
         ("lpszClassName", wintypes.LPCWSTR),
@@ -83,11 +88,11 @@ class WNDCLASSW(ctypes.Structure):
 class NOTIFYICONDATAW(ctypes.Structure):
     _fields_ = [
         ("cbSize", wintypes.DWORD),
-        ("hWnd", wintypes.HWND),
+        ("hWnd", HWND),
         ("uID", wintypes.UINT),
         ("uFlags", wintypes.UINT),
         ("uCallbackMessage", wintypes.UINT),
-        ("hIcon", wintypes.HICON),
+        ("hIcon", HICON),
         ("szTip", wintypes.WCHAR * 128),
         ("dwState", wintypes.DWORD),
         ("dwStateMask", wintypes.DWORD),
@@ -96,7 +101,7 @@ class NOTIFYICONDATAW(ctypes.Structure):
         ("szInfoTitle", wintypes.WCHAR * 64),
         ("dwInfoFlags", wintypes.DWORD),
         ("guidItem", ctypes.c_byte * 16),
-        ("hBalloonIcon", wintypes.HICON),
+        ("hBalloonIcon", HICON),
     ]
 
 
