@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-04-11
+
+### Changed
+- Switched the packaged desktop build to GUI mode and auto-open the local web UI in the browser on startup.
+
+### Fixed
+- Fixed packaged startup diagnostics so desktop launch failures are written to `startup-error.log` and surfaced to Windows users with a dialog instead of silently exiting.
+- Fixed the packaged desktop default bind host to use `127.0.0.1`, avoiding local browser access issues on some Windows machines.
+
 ## [2.0.1] - 2026-04-11
 
 ### Added

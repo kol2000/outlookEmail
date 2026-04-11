@@ -7,12 +7,14 @@ from __future__ import annotations
 import os
 import secrets
 import sys
+import traceback
 from pathlib import Path
 
 
 APP_NAME = "OutlookEmail"
 SECRET_KEY_FILE = "secret_key.txt"
 DATABASE_FILE = "outlook_accounts.db"
+STARTUP_LOG_FILE = "startup-error.log"
 
 
 def is_frozen() -> bool:
@@ -54,6 +56,10 @@ def default_database_path() -> Path:
     return bundle_root() / "data" / DATABASE_FILE
 
 
+def startup_log_path() -> Path:
+    return runtime_root() / STARTUP_LOG_FILE
+
+
 def resolve_secret_key() -> str | None:
     secret_key = os.getenv("SECRET_KEY")
     if secret_key:
@@ -71,3 +77,29 @@ def resolve_secret_key() -> str | None:
     generated = secrets.token_hex(32)
     secret_key_path.write_text(generated, encoding="utf-8")
     return generated
+
+
+def record_startup_error(exc: BaseException) -> Path:
+    log_path = startup_log_path()
+    error_text = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    log_path.write_text(error_text, encoding="utf-8")
+    return log_path
+
+
+def notify_startup_error(log_path: Path) -> None:
+    message = (
+        "OutlookEmail 启动失败。\n\n"
+        f"错误日志已写入:\n{log_path}\n\n"
+        "请把这个日志发给开发者。"
+    )
+
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(None, message, "OutlookEmail", 0x10)
+            return
+        except Exception:
+            pass
+
+    print(message, file=sys.stderr)
