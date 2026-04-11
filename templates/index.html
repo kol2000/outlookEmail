@@ -5,10 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Outlook 邮件管理</title>
-    <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+    <link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">
     <!-- DOMPurify for XSS protection -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
-    <link rel="stylesheet" href="/static/index.css">
+    <link rel="stylesheet" href="{{ url_for('bundled_index_css') }}">
 </head>
 
 <body>
@@ -20,16 +20,16 @@
     <!-- 消息提示 -->
     <div class="toast" id="toast"></div>
 
-    <script src="/static/js/index/01-core.js"></script>
-    <script src="/static/js/index/02-groups.js"></script>
-    <script src="/static/js/index/03-temp-emails.js"></script>
-    <script src="/static/js/index/04-accounts.js"></script>
-    <script src="/static/js/index/05-emails.js"></script>
-    <script src="/static/js/index/06-utils-oauth.js"></script>
-    <script src="/static/js/index/07-settings.js"></script>
-    <script src="/static/js/index/08-refresh.js"></script>
-    <script src="/static/js/index/09-tags.js"></script>
-    <script src="/static/js/index/10-batch-actions.js"></script>
+    <script src="{{ url_for('static', filename='js/index/01-core.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/02-groups.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/03-temp-emails.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/04-accounts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/05-emails.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/06-utils-oauth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/07-settings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/08-refresh.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/09-tags.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/index/10-batch-actions.js') }}"></script>
 
     <!-- 全屏查看邮件模态框 -->
     <div id="fullscreenEmailModal" class="fullscreen-email-modal" onclick="closeFullscreenEmailOnBackdrop(event)">

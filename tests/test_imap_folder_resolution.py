@@ -393,5 +393,34 @@ class BatchForwardingApiTests(unittest.TestCase):
         self.assertEqual(enabled_account['forward_last_checked_at'], self.enabled_cursor_before)
 
 
+class AssetRenderingTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+        self.client = self.app.test_client()
+
+    def test_index_uses_bundled_stylesheet_route(self):
+        with self.client.session_transaction() as session:
+            session['logged_in'] = True
+
+        response = self.client.get('/')
+        html = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('href="/assets/index.css"', html)
+        self.assertNotIn('href="/static/index.css"', html)
+
+    def test_bundled_stylesheet_contains_combined_css_without_imports(self):
+        response = self.client.get('/assets/index.css')
+        css = response.get_data(as_text=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, 'text/css')
+        self.assertNotIn('@import', css)
+        self.assertIn('.toast', css)
+        self.assertIn('.group-panel', css)
+        self.assertIn('.account-panel', css)
+
+
 if __name__ == '__main__':
     unittest.main()

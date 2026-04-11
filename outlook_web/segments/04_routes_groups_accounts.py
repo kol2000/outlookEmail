@@ -76,6 +76,28 @@ def favicon():
     return response
 
 
+@app.route('/assets/index.css')
+def bundled_index_css():
+    """返回合并后的首页样式，避免代理层拦截 CSS @import 子请求。"""
+    css_root = Path(app.static_folder) / 'css' / 'index'
+    css_parts = (
+        '01-base.css',
+        '02-navbar.css',
+        '03-layout.css',
+        '04-account-panel.css',
+        '05-email-content.css',
+        '06-modals-toast.css',
+        '07-meta.css',
+        '08-responsive.css',
+    )
+
+    combined_css = '\n\n'.join(
+        (css_root / filename).read_text(encoding='utf-8')
+        for filename in css_parts
+    )
+    return Response(combined_css, mimetype='text/css')
+
+
 @app.route('/')
 @login_required
 def index():
