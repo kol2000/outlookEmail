@@ -1,9 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import ast
 from pathlib import Path
 
 
 project_root = Path(SPECPATH).resolve()
+segments_root = project_root / "outlook_web" / "segments"
 
 datas = [
     (str(project_root / "templates"), "templates"),
@@ -12,10 +14,27 @@ datas = [
     (str(project_root / "VERSION"), "."),
 ]
 
-hiddenimports = [
-    "outlook_web.runtime",
-    "socks",
-]
+
+def collect_segment_hiddenimports():
+    hidden = set()
+    for segment_path in segments_root.glob("*.py"):
+        tree = ast.parse(segment_path.read_text(encoding="utf-8"), filename=str(segment_path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name != "__future__":
+                        hidden.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if not node.module or node.module == "__future__":
+                    continue
+                if node.module == "web_outlook_app":
+                    continue
+                hidden.add(node.module)
+    hidden.add("outlook_web.runtime")
+    return sorted(hidden)
+
+
+hiddenimports = collect_segment_hiddenimports()
 
 
 a = Analysis(

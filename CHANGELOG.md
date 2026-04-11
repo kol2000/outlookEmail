@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-04-11
+
+### Fixed
+- Fixed Windows `exe` packaging to include Python modules imported from dynamically executed segmented files, preventing startup crashes such as `ModuleNotFoundError: No module named 'imaplib'`.
+- Made the PyInstaller hidden-import list derive automatically from the segmented source files so future segment imports are included in packaged builds.
+
 ## [2.0.2] - 2026-04-11
 
 ### Changed
