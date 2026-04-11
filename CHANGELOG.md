@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-04-11
+
+### Changed
+- Replaced the custom Windows tray implementation with a `pystray`-based tray menu and generated application icon.
+
+### Fixed
+- Fixed the packaged Windows desktop app tray menu labels and icon rendering issues.
+- Removed the brittle dependency on low-level Win32 `ctypes` tray bindings that caused repeated Windows-specific startup failures.
+
 ## [2.0.6] - 2026-04-11
 
 ### Fixed
