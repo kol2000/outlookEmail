@@ -40,8 +40,9 @@ shell32 = ctypes.windll.shell32
 kernel32 = ctypes.windll.kernel32
 
 
+LRESULT = ctypes.c_ssize_t
 WNDPROC = ctypes.WINFUNCTYPE(
-    wintypes.LRESULT,
+    LRESULT,
     wintypes.HWND,
     wintypes.UINT,
     wintypes.WPARAM,
@@ -67,7 +68,7 @@ class MSG(ctypes.Structure):
 class WNDCLASSW(ctypes.Structure):
     _fields_ = [
         ("style", wintypes.UINT),
-        ("lpfnWndProc", wintypes.WNDPROC),
+        ("lpfnWndProc", WNDPROC),
         ("cbClsExtra", ctypes.c_int),
         ("cbWndExtra", ctypes.c_int),
         ("hInstance", wintypes.HINSTANCE),
