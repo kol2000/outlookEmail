@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-11
+
+### Added
+- Added automated Windows `exe` packaging in the tag-based GitHub Release workflow.
+- Added a PyInstaller spec and packaged-runtime resource handling for the desktop build.
+
+### Changed
+- Documented the Windows desktop distribution flow in the README, deployment guide, and release guide.
+
+### Fixed
+- Fixed packaged execution so templates, static assets, database storage, and `SECRET_KEY` persistence work correctly after bundling.
+
 ## [2.0.0] - 2026-04-09
 
 ### Changed

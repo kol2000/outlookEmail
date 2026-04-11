@@ -79,6 +79,11 @@ The GitHub Actions workflow publishes these image tags:
 - `ghcr.io/assast/outlookemail:dev` → latest `dev`
 - `ghcr.io/assast/outlookemail:vX.Y.Z` → tagged release image
 
+## Windows executable
+
+When you push a `v*` tag, GitHub Actions also builds a Windows `exe` with PyInstaller and attaches
+`OutlookEmail-windows-x64-vX.Y.Z.zip` to the GitHub Release.
+
 ## GitHub Release
 
-When you push a `v*` tag, GitHub Actions automatically creates a GitHub Release using the matching section from `CHANGELOG.md` when available.
+When you push a `v*` tag, GitHub Actions automatically creates a GitHub Release using the matching section from `CHANGELOG.md` when available, and uploads the Windows package as a release asset.

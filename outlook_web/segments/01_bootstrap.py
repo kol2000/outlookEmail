@@ -36,6 +36,7 @@ import requests
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from outlook_web.runtime import default_database_path, resource_path, resolve_secret_key, runtime_root
 
 # 尝试导入 Flask-WTF CSRF 保护
 try:
@@ -50,12 +51,16 @@ try:
 except ImportError:
     socks = None
 
-app = Flask(__name__)
-# 强制从环境变量读取 secret_key，不提供默认值以防止安全漏洞
-secret_key = os.getenv("SECRET_KEY")
+app = Flask(
+    __name__,
+    template_folder=str(resource_path("templates")),
+    static_folder=str(resource_path("static")),
+)
+# 优先使用环境变量；打包后的桌面版会在首次启动时生成并持久化 secret_key
+secret_key = resolve_secret_key()
 if not secret_key:
     raise RuntimeError(
-        "SECRET_KEY environment variable is required. "
+        "SECRET_KEY environment variable is required for server deployments. "
         "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
     )
 app.secret_key = secret_key
@@ -114,7 +119,7 @@ IMAP_PORT = 993
 IMAP_TIMEOUT = int(os.getenv("IMAP_TIMEOUT", "45"))
 
 try:
-    with open('VERSION', 'r', encoding='utf-8') as version_file:
+    with resource_path('VERSION').open('r', encoding='utf-8') as version_file:
         APP_VERSION = version_file.read().strip() or '1.0.0'
 except Exception:
     APP_VERSION = '1.0.0'
@@ -241,7 +246,7 @@ FORWARD_CHANNEL_TG_SETTING = "telegram"
 SMTP_FORWARD_PROVIDERS = ('outlook', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom')
 
 # 数据库文件
-DATABASE = os.getenv("DATABASE_PATH", "data/outlook_accounts.db")
+DATABASE = os.getenv("DATABASE_PATH", str(default_database_path()))
 
 # GPTMail API 配置
 GPTMAIL_BASE_URL = os.getenv("GPTMAIL_BASE_URL", "https://mail.chatgpt.org.uk")
@@ -533,7 +538,7 @@ def get_encryption_key() -> bytes:
     从 SECRET_KEY 派生加密密钥
     使用 PBKDF2 从 SECRET_KEY 派生 32 字节密钥
     """
-    secret_key = os.getenv("SECRET_KEY")
+    secret_key = resolve_secret_key()
     if not secret_key:
         raise RuntimeError("SECRET_KEY is required for encryption")
 
@@ -1179,9 +1184,6 @@ def migrate_sensitive_data(conn):
 
 def init_app():
     """初始化应用（确保目录和数据库存在）"""
-    # 确保 templates 目录存在
-    os.makedirs('templates', exist_ok=True)
-    
     # 确保数据目录存在
     data_dir = os.path.dirname(DATABASE)
     if data_dir:
@@ -1193,6 +1195,7 @@ def init_app():
     print("=" * 60)
     print("Outlook 邮件 Web 应用已初始化")
     print(f"数据库文件: {DATABASE}")
+    print(f"运行目录: {runtime_root()}")
     print(f"GPTMail API: {GPTMAIL_BASE_URL}")
     print(f"DuckMail API: {DUCKMAIL_BASE_URL}")
     print(f"Cloudflare Temp Email Worker: {CLOUDFLARE_WORKER_DOMAIN or '未配置'}")
@@ -1294,4 +1297,3 @@ def get_cloudflare_email_domains() -> List[str]:
     raw_domains = get_setting('cloudflare_email_domains')
     value = raw_domains if raw_domains is not None else CLOUDFLARE_EMAIL_DOMAINS
     return [domain.strip() for domain in value.split(',') if domain.strip()]
-

@@ -54,7 +54,9 @@ pip install flask-wtf>=1.2.0
 - 100,000 次迭代，SHA256 算法
 
 **重要提示：**
-- SECRET_KEY 必须设置且保持不变
+- SECRET_KEY 必须保持不变
+- Windows `exe` 首次启动会自动生成并持久化 SECRET_KEY
+- Docker、Python 直跑和生产环境应显式设置固定 SECRET_KEY
 - 更改 SECRET_KEY 会导致无法解密已存储的数据
 - 如需更改，请先导出账号，更改后重新导入
 
@@ -118,7 +120,7 @@ location / {
 ## 9. 使用强密码
 
 - 登录密码至少 8 位，包含大小写字母、数字和特殊字符
-- **SECRET_KEY 必须设置**，使用随机生成的长字符串（至少 32 字节）
+- **SECRET_KEY 应使用随机生成的长字符串（至少 32 字节）**
 - 生成方法：`python -c 'import secrets; print(secrets.token_hex(32))'`
 - 定期更换密码
 
@@ -134,7 +136,7 @@ cp data/outlook_accounts.db data/outlook_accounts.db.backup
 
 ## 安全最佳实践
 
-1. **必须设置 SECRET_KEY**：使用随机生成的强密钥
+1. **固定 SECRET_KEY**：服务器部署必须显式设置，桌面版需保留自动生成的密钥文件
 2. **启用 HTTPS**：生产环境使用 SSL/TLS 加密
 3. **定期更新**：及时更新到最新版本
 4. **监控日志**：定期查看审计日志和应用日志

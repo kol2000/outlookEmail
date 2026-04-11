@@ -6,7 +6,47 @@ on:
       - 'v*'
 
 jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Windows executable
+        shell: bash
+        run: pyinstaller --noconfirm --clean outlookEmail.spec
+
+      - name: Package release asset
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $assetName = "OutlookEmail-windows-x64-$version.zip"
+          Compress-Archive -Path "dist/OutlookEmail.exe", "README.md" -DestinationPath $assetName -Force
+          "asset_name=$assetName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload packaged executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: ${{ steps.package.outputs.asset_name }}
+
   release:
+    needs: build-windows-exe
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -48,6 +88,12 @@ with out.open('a', encoding='utf-8') as f:
     f.write('EOF\n')
 PY
 
+      - name: Download packaged executable
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: release-assets
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -56,3 +102,4 @@ PY
           body: ${{ steps.notes.outputs.body }}
           draft: false
           prerelease: false
+          files: release-assets/*

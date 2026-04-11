@@ -89,12 +89,14 @@ sudo systemctl reload nginx
 
 ### Session 过期问题
 
-1. **设置 SECRET_KEY 环境变量（必须）**
+1. **服务器部署时设置固定 SECRET_KEY**
    ```yaml
    environment:
      - SECRET_KEY=your-fixed-secret-key-here
    ```
    使用 `python -c 'import secrets; print(secrets.token_hex(32))'` 生成
+
+   如果使用 Windows `exe`，程序会在首次启动时自动生成并保存固定 `SECRET_KEY`，不要删除对应数据目录下的密钥文件。
 
 2. 默认 Session 有效期为 7 天，重启应用不会导致 Session 失效（使用固定 SECRET_KEY）
 

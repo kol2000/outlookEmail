@@ -17,13 +17,34 @@
 3. 更新 `VERSION` 与 `CHANGELOG.md`
 4. 在 `main` 上打正式标签，例如 `v1.0.0`
 
+推送 `v*` 标签后，GitHub Actions 会自动：
+
+- 发布 Docker 镜像
+- 创建 GitHub Release
+- 构建并上传 Windows `exe` 压缩包
+
 Docker 镜像标签约定：
 
 - `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
 - `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
 - `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像（例如 v1.0.0）
 
-### 方式一：使用 Docker（推荐）
+### 方式一：下载 Windows `exe`
+
+从 GitHub Releases 下载对应版本的 `OutlookEmail-windows-x64-*.zip`，解压后直接运行 `OutlookEmail.exe` 即可。
+
+桌面版首次启动会自动：
+
+- 生成并持久化 `SECRET_KEY`
+- 创建本地数据目录和 SQLite 数据库
+- 启动 Web 服务，默认地址 `http://127.0.0.1:5000`
+
+说明：
+
+- Windows 数据默认保存在 `%APPDATA%\OutlookEmail`
+- 默认登录密码仍然是 `admin123`，首次登录后建议立即修改
+
+### 方式二：使用 Docker（推荐服务器部署）
 
 ```bash
 # 拉取最新镜像
@@ -39,7 +60,7 @@ docker run -d \
   ghcr.io/assast/outlookemail:latest
 ```
 
-### 方式二：使用 Python 直接运行
+### 方式三：使用 Python 直接运行
 
 ```bash
 git clone https://github.com/assast/outlookEmail.git
@@ -50,6 +71,7 @@ python web_outlook_app.py
 ```
 
 访问 `http://localhost:5000` 即可使用。
+如果是服务器部署，仍然建议显式设置固定 `SECRET_KEY`。
 
 ### 使用 Docker Compose
 
@@ -425,6 +447,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 **⭐ 如果这个项目对你有帮助，请给个 Star 支持一下！你的 Star 是我持续更新的动力！** ⭐
 
 初次维护一个项目，2026年04月11日15:45:33才发现有几个pull没合并，非常抱歉，这是我的TG如果我没看到的话，可以提醒我一下，有好的建议也可以提，感谢~
-https://t.me/ergouza
-
-
+https://t.me/amdfhy
