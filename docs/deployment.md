@@ -1,6 +1,20 @@
 # 🚀 部署指南
 
-## 方式一：使用 Docker（推荐）
+## 方式一：使用 Windows `exe`
+
+从 GitHub Releases 下载对应版本的 `OutlookEmail-windows-x64-*.zip`，解压后直接运行 `OutlookEmail.exe`。
+
+**桌面版首次启动会自动：**
+- 创建本地数据目录
+- 初始化数据库
+- 自动生成并持久化 `SECRET_KEY`
+
+**Windows 默认数据目录：**
+- `%APPDATA%\OutlookEmail`
+
+默认访问地址仍为 `http://127.0.0.1:5000`。
+
+## 方式二：使用 Docker（推荐服务器部署）
 
 直接使用 GitHub Actions 自动构建的镜像，无需本地构建：
 
@@ -31,7 +45,7 @@ docker rm outlook-mail-reader
 - 创建默认分组和临时邮箱分组
 - 设置默认密码（admin123）
 
-## 方式二：使用 Python 直接运行
+## 方式三：使用 Python 直接运行
 
 ```bash
 # 克隆仓库
@@ -41,7 +55,7 @@ cd outlookEmail
 # 安装依赖
 pip install -r requirements.txt
 
-# 设置环境变量（可选）
+# 设置环境变量
 export LOGIN_PASSWORD=admin123
 export SECRET_KEY=your-secret-key-here
 export PORT=5000
@@ -51,6 +65,7 @@ python web_outlook_app.py
 ```
 
 访问 `http://localhost:5000` 即可使用。
+服务器部署建议始终显式设置固定 `SECRET_KEY`。
 
 ## 使用 Docker Compose
 
@@ -94,7 +109,7 @@ docker-compose down
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `SECRET_KEY` | Session 密钥（**必须设置**） | 无默认值，必须提供，请勿随意修改，数据库会基于这个加密，如果要改请先导出邮箱账号，改之后再重新导入账号 |
+| `SECRET_KEY` | Session 密钥（服务器部署强烈建议固定设置） | Windows `exe` 首次启动会自动生成并持久化；Docker / Python / 生产环境请显式设置固定值，不要随意修改，否则会导致已存储敏感数据无法解密 |
 | `LOGIN_PASSWORD` | 登录密码 | `admin123` |
 | `FLASK_ENV` | 运行环境 | `production` |
 | `PORT` | 应用端口 | `5000` |
