@@ -1,6 +1,6 @@
 # API 文档
 
-本文档基于当前代码实现整理，重点覆盖对外 API、账号别名、聚合取信、验证码提取，以及和本次改动相关的内部接口。
+本文档基于当前代码实现整理，重点覆盖对外 API、账号别名、聚合取信、验证码提取，以及和本次改动相关的完整接口。
 
 ## 认证
 
@@ -13,9 +13,9 @@
 
 可在 Web 界面 `设置 -> 对外 API Key` 中配置。
 
-### 内部 API
+### 完整 API
 
-内部 API 需要先登录 Web 界面并携带 Session Cookie。
+完整 API 需要先登录 Web 界面并携带 Session Cookie。
 
 ### GET `/api/csrf-token`
 
@@ -395,6 +395,35 @@ curl -H "X-API-Key: your-api-key" \
 }
 ```
 
+### POST `/api/accounts/batch-update-forwarding`
+
+批量开启或关闭账号转发。
+
+#### 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `account_ids` | array<int> | 是 | 账号 ID 列表 |
+| `forward_enabled` | bool | 是 | `true` 表示开启转发，`false` 表示关闭转发 |
+
+#### 请求示例
+
+```json
+{
+  "account_ids": [1, 2, 3],
+  "forward_enabled": true
+}
+```
+
+#### 响应重点字段
+
+| 字段 | 说明 |
+| --- | --- |
+| `updated_count` | 实际状态发生变化的账号数量 |
+| `updated_accounts` | 被更新的账号列表 |
+| `unchanged_count` | 原本就处于目标状态的账号数量 |
+| `missing_ids` | 未命中的账号 ID |
+
 ### GET `/api/accounts/<id>/aliases`
 
 获取某个账号的别名列表。
@@ -422,6 +451,26 @@ curl -H "X-API-Key: your-api-key" \
 
 按邮箱地址删除账号。
 
+### POST `/api/accounts/batch-delete`
+
+批量删除账号。
+
+#### 请求体
+
+```json
+{
+  "account_ids": [1, 2, 3]
+}
+```
+
+#### 响应重点字段
+
+| 字段 | 说明 |
+| --- | --- |
+| `deleted_count` | 实际删除数量 |
+| `deleted_accounts` | 已删除账号列表 |
+| `missing_ids` | 请求中存在但未命中的账号 ID |
+
 ## 标签管理
 
 | 方法 | 路径 | 参数 | 说明 |
@@ -448,6 +497,7 @@ curl -H "X-API-Key: your-api-key" \
 | 方法 | 路径 | 参数 | 说明 |
 | --- | --- | --- | --- |
 | POST | `/api/accounts/<account_id>/refresh` | 路径参数 `account_id` | 刷新单个 Outlook 账号 Token |
+| POST | `/api/accounts/refresh-selected` | JSON: `account_ids: number[]` | 刷新选中的 Outlook 账号，自动跳过 IMAP 或不存在的账号 |
 | GET | `/api/accounts/refresh-all` | 无 | 刷新全部 Outlook 账号，返回 `text/event-stream` |
 | POST | `/api/accounts/<account_id>/retry-refresh` | 路径参数 `account_id` | 重试单个失败账号刷新 |
 | POST | `/api/accounts/refresh-failed` | 无 | 重试最近一次刷新失败的账号 |
@@ -459,6 +509,24 @@ curl -H "X-API-Key: your-api-key" \
 - `progress`
 - `delay`
 - `complete`
+
+`POST /api/accounts/refresh-selected` 请求示例：
+
+```json
+{
+  "account_ids": [1, 2, 3]
+}
+```
+
+该接口会返回：
+
+- `requested_count`
+- `processed_count`
+- `success_count`
+- `failed_count`
+- `skipped_count`
+- `failed_list`
+- `skipped_list`
 
 ### 刷新日志与统计
 
@@ -477,6 +545,24 @@ curl -H "X-API-Key: your-api-key" \
 | GET | `/api/accounts/forwarding-logs/failed` | Query: `limit` | 获取最近失败转发记录 |
 | GET | `/api/accounts/<account_id>/forwarding-logs` | Query: `limit`、`offset`、`failed_only` | 获取单个账号转发记录 |
 | POST | `/api/accounts/trigger-forwarding-check` | 无 | 立即触发一次转发检查 |
+| POST | `/api/accounts/<account_id>/forwarding/reset-cursor` | JSON: `mode?`、`lookback_minutes?`、`trigger_check?` | 回退或清空单个账号的转发游标，并可选立即触发一次重扫 |
+
+`POST /api/accounts/<account_id>/forwarding/reset-cursor` 请求示例：
+
+```json
+{
+  "mode": "window",
+  "lookback_minutes": 30,
+  "trigger_check": true
+}
+```
+
+字段说明：
+
+- `mode=window`：按回看窗口重置游标
+- `mode=clear`：清空游标
+- `lookback_minutes`：回看分钟数，未传时按系统窗口逻辑处理
+- `trigger_check`：是否在重置后立即触发一次转发检查，默认 `true`
 
 ## 邮件接口
 
