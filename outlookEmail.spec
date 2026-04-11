@@ -3,7 +3,7 @@
 from pathlib import Path
 
 
-project_root = Path(__file__).resolve().parent
+project_root = Path(SPECPATH).resolve()
 
 datas = [
     (str(project_root / "templates"), "templates"),
