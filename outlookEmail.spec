@@ -31,6 +31,7 @@ def collect_segment_hiddenimports():
                     continue
                 hidden.add(node.module)
     hidden.add("outlook_web.runtime")
+    hidden.add("outlook_web.windows_tray")
     return sorted(hidden)
 
 

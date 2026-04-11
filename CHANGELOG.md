@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-04-11
+
+### Added
+- Added a Windows system tray controller for the packaged desktop app with `打开界面` and `退出` actions.
+
+### Changed
+- Switched the packaged Windows desktop runtime to a controllable background server so the tray can exit the app cleanly.
+
+### Fixed
+- Fixed the Windows packaged app having no visible way to quit after launching the browser UI.
+
 ## [2.0.3] - 2026-04-11
 
 ### Fixed

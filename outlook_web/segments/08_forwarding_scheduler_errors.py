@@ -768,6 +768,20 @@ def init_scheduler():
             return None
 
 
+def shutdown_scheduler():
+    """关闭定时任务调度器。"""
+    global scheduler_instance
+
+    with scheduler_lock:
+        if scheduler_instance is None:
+            return
+        try:
+            scheduler_instance.shutdown(wait=False)
+        except Exception:
+            pass
+        scheduler_instance = None
+
+
 def ensure_scheduler_started():
     """确保调度器已启动（兼容 gunicorn / docker compose）"""
     if os.getenv('WERKZEUG_RUN_MAIN') == 'false':
