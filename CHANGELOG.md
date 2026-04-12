@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-04-12
+
+### Added
+- Added per-group proxy failover settings with `主代理 -> 回退代理 1 -> 回退代理 2` order for Outlook Graph/token requests.
+
+### Changed
+- Moved proxy failover configuration from system-wide settings into each mailbox group so different groups can use different fallback chains.
+
+### Fixed
+- Fixed Outlook token refresh and Graph requests failing immediately when the primary group proxy was unreachable by retrying through configured fallback proxies in order.
+- Fixed the group settings dialog copy to document that `回退代理 1` and `回退代理 2` both support `direct` / `直连` as explicit direct-connect fallbacks.
+
 ## [2.0.7] - 2026-04-11
 
 ### Changed
