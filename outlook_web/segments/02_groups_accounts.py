@@ -107,16 +107,19 @@ def set_group_position(group_id: int, sort_position: Optional[int], db=None) -> 
 
 
 def add_group(name: str, description: str = '', color: str = '#1a1a1a',
-              proxy_url: str = '', sort_position: Optional[int] = None) -> Optional[int]:
+              proxy_url: str = '', fallback_proxy_url_1: str = '',
+              fallback_proxy_url_2: str = '', sort_position: Optional[int] = None) -> Optional[int]:
     """添加分组"""
     db = get_db()
     try:
         cursor = db.execute(
             '''
-            INSERT INTO groups (name, description, color, proxy_url, sort_order)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO groups (
+                name, description, color, proxy_url, fallback_proxy_url_1, fallback_proxy_url_2, sort_order
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ''',
-            (name, description, color, proxy_url or '', 999999)
+            (name, description, color, proxy_url or '', fallback_proxy_url_1 or '', fallback_proxy_url_2 or '', 999999)
         )
         group_id = cursor.lastrowid
         set_group_position(group_id, sort_position, db)
@@ -129,14 +132,16 @@ def add_group(name: str, description: str = '', color: str = '#1a1a1a',
 
 
 def update_group(group_id: int, name: str, description: str, color: str,
-                 proxy_url: str = '', sort_position: Optional[int] = None) -> bool:
+                 proxy_url: str = '', fallback_proxy_url_1: str = '',
+                 fallback_proxy_url_2: str = '', sort_position: Optional[int] = None) -> bool:
     """更新分组"""
     db = get_db()
     try:
         db.execute('''
-            UPDATE groups SET name = ?, description = ?, color = ?, proxy_url = ?
+            UPDATE groups
+            SET name = ?, description = ?, color = ?, proxy_url = ?, fallback_proxy_url_1 = ?, fallback_proxy_url_2 = ?
             WHERE id = ?
-        ''', (name, description, color, proxy_url or '', group_id))
+        ''', (name, description, color, proxy_url or '', fallback_proxy_url_1 or '', fallback_proxy_url_2 or '', group_id))
         if not set_group_position(group_id, sort_position, db):
             return False
         db.commit()
@@ -443,12 +448,52 @@ def resolve_account_by_address(email_addr: str) -> Optional[Dict]:
 
 
 def get_account_proxy_url(account: Optional[Dict[str, Any]]) -> str:
+    proxy_config = get_account_proxy_config(account)
+    return proxy_config.get('proxy_url', '') or ''
+
+
+def get_account_proxy_config(account: Optional[Dict[str, Any]]) -> Dict[str, str]:
     if not account or not account.get('group_id'):
-        return ''
+        return {
+            'proxy_url': '',
+            'fallback_proxy_url_1': '',
+            'fallback_proxy_url_2': '',
+        }
     group = get_group_by_id(account['group_id'])
     if not group:
+        return {
+            'proxy_url': '',
+            'fallback_proxy_url_1': '',
+            'fallback_proxy_url_2': '',
+        }
+    return {
+        'proxy_url': group.get('proxy_url', '') or '',
+        'fallback_proxy_url_1': group.get('fallback_proxy_url_1', '') or '',
+        'fallback_proxy_url_2': group.get('fallback_proxy_url_2', '') or '',
+    }
+
+
+def get_account_proxy_failover_urls(account: Optional[Dict[str, Any]]) -> List[str]:
+    proxy_config = get_account_proxy_config(account)
+    return [
+        proxy_config.get('fallback_proxy_url_1', '') or '',
+        proxy_config.get('fallback_proxy_url_2', '') or '',
+    ]
+
+
+def get_group_proxy_failover_urls(group_row: Optional[Dict[str, Any]]) -> List[str]:
+    if not group_row:
+        return ['', '']
+    return [
+        group_row.get('fallback_proxy_url_1', '') or '',
+        group_row.get('fallback_proxy_url_2', '') or '',
+    ]
+
+
+def get_group_proxy_url(group_row: Optional[Dict[str, Any]]) -> str:
+    if not group_row:
         return ''
-    return group.get('proxy_url', '') or ''
+    return group_row.get('proxy_url', '') or ''
 
 
 

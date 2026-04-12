@@ -308,7 +308,6 @@
                     document.getElementById('refreshDelaySeconds').value = data.settings.refresh_delay_seconds || '5';
                     document.getElementById('refreshCron').value = data.settings.refresh_cron || '0 2 * * *';
                     document.getElementById('enableScheduledRefresh').checked = data.settings.enable_scheduled_refresh !== 'false';
-
                     document.getElementById('forwardCheckIntervalMinutes').value = data.settings.forward_check_interval_minutes || '5';
                     document.getElementById('forwardEmailWindowMinutes').value = data.settings.forward_email_window_minutes || '0';
                     document.getElementById('forwardIncludeJunkemail').checked = String(data.settings.forward_include_junkemail) === 'true';

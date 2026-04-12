@@ -1149,6 +1149,8 @@
             document.getElementById('customColorInput').value = selectedColor;
             document.getElementById('customColorHex').value = selectedColor;
             document.getElementById('groupProxyUrl').value = '';
+            document.getElementById('groupFallbackProxyUrl1').value = '';
+            document.getElementById('groupFallbackProxyUrl2').value = '';
             setModalVisible('addGroupModal', true);
         }
 
@@ -1188,6 +1190,8 @@
 
                     // 填充代理设置
                     document.getElementById('groupProxyUrl').value = data.group.proxy_url || '';
+                    document.getElementById('groupFallbackProxyUrl1').value = data.group.fallback_proxy_url_1 || '';
+                    document.getElementById('groupFallbackProxyUrl2').value = data.group.fallback_proxy_url_2 || '';
 
                     showModal('addGroupModal');
                 }
@@ -1219,6 +1223,8 @@
                         description,
                         color: selectedColor,
                         proxy_url: document.getElementById('groupProxyUrl').value.trim(),
+                        fallback_proxy_url_1: document.getElementById('groupFallbackProxyUrl1').value.trim(),
+                        fallback_proxy_url_2: document.getElementById('groupFallbackProxyUrl2').value.trim(),
                         sort_position: sortPosition
                     })
                 });

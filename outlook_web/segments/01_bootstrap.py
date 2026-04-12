@@ -908,6 +908,10 @@ def init_db():
         cursor.execute('ALTER TABLE groups ADD COLUMN is_system INTEGER DEFAULT 0')
     if 'proxy_url' not in group_columns:
         cursor.execute('ALTER TABLE groups ADD COLUMN proxy_url TEXT')
+    if 'fallback_proxy_url_1' not in group_columns:
+        cursor.execute('ALTER TABLE groups ADD COLUMN fallback_proxy_url_1 TEXT')
+    if 'fallback_proxy_url_2' not in group_columns:
+        cursor.execute('ALTER TABLE groups ADD COLUMN fallback_proxy_url_2 TEXT')
 
     # 检查 temp_emails 表是否有 DuckMail 相关列
     cursor.execute("PRAGMA table_info(temp_emails)")

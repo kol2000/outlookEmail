@@ -472,17 +472,22 @@ def api_external_get_emails():
         return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
 
     # 获取分组代理设置
-    proxy_url = ''
-    if account.get('group_id'):
-        group = get_group_by_id(account['group_id'])
-        if group:
-            proxy_url = group.get('proxy_url', '') or ''
+    proxy_url = get_account_proxy_url(account)
+    fallback_proxy_urls = get_account_proxy_failover_urls(account)
 
     # 收集所有错误信息
     all_errors = {}
 
     # 1. 尝试 Graph API
-    graph_result = get_emails_graph(account['client_id'], account['refresh_token'], folder, skip, top, proxy_url)
+    graph_result = get_emails_graph(
+        account['client_id'],
+        account['refresh_token'],
+        folder,
+        skip,
+        top,
+        proxy_url,
+        fallback_proxy_urls,
+    )
     if graph_result.get('success'):
         emails = graph_result.get('emails', [])
         formatted = [format_graph_email_item(e, folder) for e in emails]
@@ -501,7 +506,7 @@ def api_external_get_emails():
     # 2. 尝试新版 IMAP
     imap_new_result = get_emails_imap_with_server(
         account['email'], account['client_id'], account['refresh_token'],
-        folder, skip, top, IMAP_SERVER_NEW
+        folder, skip, top, IMAP_SERVER_NEW, proxy_url, fallback_proxy_urls
     )
     if imap_new_result.get('success'):
         return jsonify({
@@ -516,7 +521,7 @@ def api_external_get_emails():
     # 3. 尝试旧版 IMAP
     imap_old_result = get_emails_imap_with_server(
         account['email'], account['client_id'], account['refresh_token'],
-        folder, skip, top, IMAP_SERVER_OLD
+        folder, skip, top, IMAP_SERVER_OLD, proxy_url, fallback_proxy_urls
     )
     if imap_old_result.get('success'):
         return jsonify({

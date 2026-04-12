@@ -16,6 +16,135 @@ def build_proxies(proxy_url: str) -> Optional[Dict[str, str]]:
     return {"http": proxy_url, "https": proxy_url}
 
 
+def build_direct_proxies() -> Dict[str, None]:
+    """显式禁用 requests 的环境代理，确保走直连"""
+    return {"http": None, "https": None, "all": None}
+
+
+DIRECT_PROXY_SENTINEL = "__DIRECT__"
+
+
+def normalize_proxy_candidate(proxy_value: Any) -> str:
+    value = str(proxy_value or '').strip()
+    if not value:
+        return ''
+    if value.lower() == 'direct' or value == '直连':
+        return DIRECT_PROXY_SENTINEL
+    return value
+
+
+def get_proxy_failover_candidates(primary_proxy_url: str = '',
+                                  fallback_proxy_urls: Optional[List[str]] = None) -> List[tuple[str, str]]:
+    primary = normalize_proxy_candidate(primary_proxy_url)
+    if not primary:
+        return []
+
+    candidates: List[tuple[str, str]] = [('primary', primary)]
+    seen = {primary}
+
+    for index, raw_candidate in enumerate(fallback_proxy_urls or [], start=1):
+        candidate = normalize_proxy_candidate(raw_candidate)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        candidates.append((f'fallback{index}', candidate))
+
+    return candidates
+
+
+def is_proxy_connection_error(exc: Exception) -> bool:
+    if isinstance(exc, requests.exceptions.ProxyError):
+        return True
+    if isinstance(exc, requests.exceptions.ConnectTimeout):
+        return True
+    if not isinstance(exc, requests.exceptions.ConnectionError):
+        return False
+    message = str(exc).lower()
+    return any(marker in message for marker in (
+        'socks',
+        'proxy',
+        'tunnel connection failed',
+        'connection refused',
+        'host unreachable',
+    ))
+
+
+def should_retry_next_proxy(exc: Exception, proxy_candidate: str) -> bool:
+    if proxy_candidate == DIRECT_PROXY_SENTINEL:
+        return isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout))
+    return is_proxy_connection_error(exc)
+
+
+def build_request_kwargs_for_proxy(kwargs: Dict[str, Any], proxy_candidate: str) -> Dict[str, Any]:
+    request_kwargs = dict(kwargs)
+    if proxy_candidate == DIRECT_PROXY_SENTINEL:
+        request_kwargs['proxies'] = build_direct_proxies()
+        return request_kwargs
+
+    proxies = build_proxies(proxy_candidate)
+    if proxies:
+        request_kwargs['proxies'] = proxies
+    return request_kwargs
+
+
+def request_with_proxy_failover(method: str, url: str, *, proxy_url: str = None,
+                                fallback_proxy_urls: Optional[List[str]] = None, **kwargs):
+    candidates = get_proxy_failover_candidates(proxy_url or '', fallback_proxy_urls)
+    if not candidates:
+        return requests.request(method, url, **kwargs)
+
+    last_exc = None
+    for index, (label, candidate) in enumerate(candidates):
+        request_kwargs = build_request_kwargs_for_proxy(kwargs, candidate)
+        try:
+            response = requests.request(method, url, **request_kwargs)
+            if index > 0:
+                app.logger.warning(
+                    "Proxy candidate %s succeeded for %s %s after previous failures",
+                    label,
+                    method.upper(),
+                    url,
+                )
+            return response
+        except Exception as exc:
+            last_exc = exc
+            if index == len(candidates) - 1 or not should_retry_next_proxy(exc, candidate):
+                raise
+            app.logger.warning(
+                "Proxy candidate %s failed for %s %s: %s",
+                label,
+                method.upper(),
+                url,
+                sanitize_error_details(str(exc)),
+            )
+
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f"请求失败: {method.upper()} {url}")
+
+
+def post_with_proxy_fallback(url: str, *, proxy_url: str = None,
+                             fallback_proxy_urls: Optional[List[str]] = None, **kwargs):
+    return request_with_proxy_failover(
+        'post',
+        url,
+        proxy_url=proxy_url,
+        fallback_proxy_urls=fallback_proxy_urls,
+        **kwargs
+    )
+
+
+def get_with_proxy_fallback(url: str, *, proxy_url: str = None,
+                            fallback_proxy_urls: Optional[List[str]] = None, **kwargs):
+    return request_with_proxy_failover(
+        'get',
+        url,
+        proxy_url=proxy_url,
+        fallback_proxy_urls=fallback_proxy_urls,
+        **kwargs
+    )
+
+
 @contextmanager
 def proxy_socket_context(proxy_url: str):
     if not proxy_url or not socks:
@@ -58,11 +187,11 @@ def proxy_socket_context(proxy_url: str):
             socks.set_default_proxy()
 
 
-def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url: str = None) -> Dict[str, Any]:
+def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url: str = None,
+                                  fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
     """获取 Graph API access_token（包含错误详情）"""
     try:
-        proxies = build_proxies(proxy_url)
-        res = requests.post(
+        res = post_with_proxy_fallback(
             TOKEN_URL_GRAPH,
             data={
                 "client_id": client_id,
@@ -71,7 +200,8 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
                 "scope": "https://graph.microsoft.com/.default"
             },
             timeout=30,
-            proxies=proxies
+            proxy_url=proxy_url,
+            fallback_proxy_urls=fallback_proxy_urls,
         )
 
         if res.status_code != 200:
@@ -115,17 +245,20 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
         }
 
 
-def get_access_token_graph(client_id: str, refresh_token: str, proxy_url: str = None) -> Optional[str]:
+def get_access_token_graph(client_id: str, refresh_token: str, proxy_url: str = None,
+                           fallback_proxy_urls: Optional[List[str]] = None) -> Optional[str]:
     """获取 Graph API access_token"""
-    result = get_access_token_graph_result(client_id, refresh_token, proxy_url)
+    result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if result.get("success"):
         return result.get("access_token")
     return None
 
 
-def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20, proxy_url: str = None) -> Dict[str, Any]:
+def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0,
+                     top: int = 20, proxy_url: str = None,
+                     fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
     """使用 Graph API 获取邮件列表（支持分页和文件夹选择）"""
-    token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url)
+    token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
 
@@ -154,8 +287,14 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
             "Prefer": "outlook.body-content-type='text'"
         }
 
-        proxies = build_proxies(proxy_url)
-        res = requests.get(url, headers=headers, params=params, timeout=30, proxies=proxies)
+        res = get_with_proxy_fallback(
+            url,
+            headers=headers,
+            params=params,
+            timeout=30,
+            proxy_url=proxy_url,
+            fallback_proxy_urls=fallback_proxy_urls,
+        )
 
         if res.status_code != 200:
             details = get_response_details(res)
@@ -184,9 +323,10 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
         }
 
 
-def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None) -> Optional[Dict]:
+def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None,
+                           fallback_proxy_urls: Optional[List[str]] = None) -> Optional[Dict]:
     """使用 Graph API 获取邮件详情"""
-    access_token = get_access_token_graph(client_id, refresh_token, proxy_url)
+    access_token = get_access_token_graph(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return None
     
@@ -200,8 +340,14 @@ def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, 
             "Prefer": "outlook.body-content-type='html'"
         }
         
-        proxies = build_proxies(proxy_url)
-        res = requests.get(url, headers=headers, params=params, timeout=30, proxies=proxies)
+        res = get_with_proxy_fallback(
+            url,
+            headers=headers,
+            params=params,
+            timeout=30,
+            proxy_url=proxy_url,
+            fallback_proxy_urls=fallback_proxy_urls,
+        )
         
         if res.status_code != 200:
             return None
@@ -213,11 +359,11 @@ def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, 
 
 # ==================== IMAP 方式 ====================
 
-def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: str = None) -> Dict[str, Any]:
+def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: str = None,
+                                 fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
     """获取 IMAP access_token（包含错误详情）"""
     try:
-        proxies = build_proxies(proxy_url)
-        res = requests.post(
+        res = post_with_proxy_fallback(
             TOKEN_URL_IMAP,
             data={
                 "client_id": client_id,
@@ -226,7 +372,8 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
                 "scope": "https://outlook.office.com/IMAP.AccessAsUser.All offline_access"
             },
             timeout=30,
-            proxies=proxies
+            proxy_url=proxy_url,
+            fallback_proxy_urls=fallback_proxy_urls,
         )
 
         if res.status_code != 200:
@@ -270,22 +417,40 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
         }
 
 
-def get_access_token_imap(client_id: str, refresh_token: str, proxy_url: str = None) -> Optional[str]:
+def get_access_token_imap(client_id: str, refresh_token: str, proxy_url: str = None,
+                          fallback_proxy_urls: Optional[List[str]] = None) -> Optional[str]:
     """获取 IMAP access_token"""
-    result = get_access_token_imap_result(client_id, refresh_token, proxy_url)
+    result = get_access_token_imap_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if result.get("success"):
         return result.get("access_token")
     return None
 
 
-def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20, proxy_url: str = None) -> Dict[str, Any]:
+def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0,
+                    top: int = 20, proxy_url: str = None,
+                    fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
     """使用 IMAP 获取邮件列表（支持分页和文件夹选择）- 默认使用新版服务器"""
-    return get_emails_imap_with_server(account, client_id, refresh_token, folder, skip, top, IMAP_SERVER_NEW, proxy_url)
+    return get_emails_imap_with_server(
+        account,
+        client_id,
+        refresh_token,
+        folder,
+        skip,
+        top,
+        IMAP_SERVER_NEW,
+        proxy_url,
+        fallback_proxy_urls,
+    )
 
 
 def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0, top: int = 20, server: str = IMAP_SERVER_NEW, proxy_url: str = None) -> Dict[str, Any]:
     """使用 IMAP 获取邮件列表（支持分页、文件夹选择和服务器选择）"""
-    token_result = get_access_token_imap_result(client_id, refresh_token, proxy_url)
+def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str, folder: str = 'inbox',
+                                skip: int = 0, top: int = 20, server: str = IMAP_SERVER_NEW,
+                                proxy_url: str = None,
+                                fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
+    """使用 IMAP 获取邮件列表（支持分页、文件夹选择和服务器选择）"""
+    token_result = get_access_token_imap_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
 
@@ -377,9 +542,11 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                 pass
 
 
-def get_email_detail_imap(account: str, client_id: str, refresh_token: str, message_id: str, folder: str = 'inbox', proxy_url: str = None) -> Optional[Dict]:
+def get_email_detail_imap(account: str, client_id: str, refresh_token: str, message_id: str,
+                          folder: str = 'inbox', proxy_url: str = None,
+                          fallback_proxy_urls: Optional[List[str]] = None) -> Optional[Dict]:
     """使用 IMAP 获取邮件详情"""
-    access_token = get_access_token_imap(client_id, refresh_token, proxy_url)
+    access_token = get_access_token_imap(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return None
 
