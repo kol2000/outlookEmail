@@ -422,5 +422,132 @@ class AssetRenderingTests(unittest.TestCase):
         self.assertIn('.account-panel', css)
 
 
+class RefreshTokenProxyFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+        self.client = self.app.test_client()
+
+        with self.client.session_transaction() as sess:
+            sess['logged_in'] = True
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('DELETE FROM account_refresh_logs')
+            db.execute('DELETE FROM accounts')
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.commit()
+
+            group_id = web_outlook_app.add_group(
+                '代理刷新组',
+                '测试代理失败后直连重试',
+                '#225588',
+                'socks5://127.0.0.1:1080',
+                'http://127.0.0.1:7891',
+                'direct',
+            )
+            self.assertIsNotNone(group_id)
+            self.group_id = group_id
+
+            added = web_outlook_app.add_account(
+                'proxy-refresh@outlook.com',
+                'password123',
+                '24d9a0ed-8787-4584-883c-2fd79308940a',
+                '0.AXEA_refresh',
+                group_id=group_id,
+                remark='代理刷新测试账号',
+                forward_enabled=False,
+            )
+            self.assertTrue(added)
+
+            account = web_outlook_app.get_account_by_email('proxy-refresh@outlook.com')
+            self.assertIsNotNone(account)
+            self.account_id = account['id']
+
+    def test_refresh_account_retries_with_fallback_proxies_in_order(self):
+        class FakeResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {'access_token': 'access-token'}
+
+        proxy_error = web_outlook_app.requests.exceptions.ConnectionError(
+            'SOCKSHTTPSConnectionPool(host=\'login.microsoftonline.com\', port=443): '
+            'Max retries exceeded with url: /common/oauth2/v2.0/token '
+            '(Caused by NewConnectionError("SOCKSHTTPSConnection(host=\'login.microsoftonline.com\', '
+            'port=443): Failed to establish a new connection: 0x04: Host unreachable"))'
+        )
+
+        http_proxy_error = web_outlook_app.requests.exceptions.ProxyError(
+            'HTTPSConnectionPool(host=\'login.microsoftonline.com\', port=443): '
+            'Max retries exceeded with url: /common/oauth2/v2.0/token '
+            '(Caused by ProxyError(\'Unable to connect to proxy\', OSError(\'proxy connect failed\')))'
+        )
+
+        with patch.object(web_outlook_app.requests, 'request', side_effect=[proxy_error, http_proxy_error, FakeResponse()]) as mocked_request:
+            response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['message'], 'Token 刷新成功')
+        self.assertEqual(mocked_request.call_count, 3)
+        self.assertEqual(
+            mocked_request.call_args_list[0].kwargs['proxies'],
+            {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'},
+        )
+        self.assertEqual(
+            mocked_request.call_args_list[1].kwargs['proxies'],
+            {'http': 'http://127.0.0.1:7891', 'https': 'http://127.0.0.1:7891'},
+        )
+        self.assertEqual(
+            mocked_request.call_args_list[2].kwargs['proxies'],
+            {'http': None, 'https': None, 'all': None},
+        )
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            log_row = db.execute(
+                '''
+                SELECT status, error_message
+                FROM account_refresh_logs
+                WHERE account_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                ''',
+                (self.account_id,),
+            ).fetchone()
+
+        self.assertIsNotNone(log_row)
+        self.assertEqual(log_row['status'], 'success')
+        self.assertIsNone(log_row['error_message'])
+
+    def test_group_api_persists_proxy_failover_fields(self):
+        response = self.client.put(
+            f'/api/groups/{self.group_id}',
+            json={
+                'name': '代理刷新组',
+                'description': '测试代理失败后直连重试',
+                'color': '#225588',
+                'proxy_url': 'socks5://127.0.0.1:1080',
+                'fallback_proxy_url_1': 'socks5://127.0.0.1:2080',
+                'fallback_proxy_url_2': '直连',
+                'sort_position': 1,
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        response = self.client.get(f'/api/groups/{self.group_id}')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['group']['fallback_proxy_url_1'], 'socks5://127.0.0.1:2080')
+        self.assertEqual(payload['group']['fallback_proxy_url_2'], '直连')
+
+
 if __name__ == '__main__':
     unittest.main()

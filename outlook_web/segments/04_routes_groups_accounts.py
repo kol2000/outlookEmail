@@ -158,6 +158,8 @@ def api_add_group():
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
     proxy_url = data.get('proxy_url', '').strip()
+    fallback_proxy_url_1 = data.get('fallback_proxy_url_1', '').strip()
+    fallback_proxy_url_2 = data.get('fallback_proxy_url_2', '').strip()
     sort_position_raw = data.get('sort_position')
 
     if not name:
@@ -168,7 +170,7 @@ def api_add_group():
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': '排序位置无效'})
 
-    group_id = add_group(name, description, color, proxy_url, sort_position)
+    group_id = add_group(name, description, color, proxy_url, fallback_proxy_url_1, fallback_proxy_url_2, sort_position)
     if group_id:
         return jsonify({'success': True, 'message': '分组创建成功', 'group_id': group_id})
     else:
@@ -184,6 +186,8 @@ def api_update_group(group_id):
     description = sanitize_input(data.get('description', ''), max_length=500)
     color = data.get('color', '#1a1a1a')
     proxy_url = data.get('proxy_url', '').strip()
+    fallback_proxy_url_1 = data.get('fallback_proxy_url_1', '').strip()
+    fallback_proxy_url_2 = data.get('fallback_proxy_url_2', '').strip()
     sort_position_raw = data.get('sort_position')
 
     if not name:
@@ -194,7 +198,7 @@ def api_update_group(group_id):
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': '排序位置无效'})
 
-    if update_group(group_id, name, description, color, proxy_url, sort_position):
+    if update_group(group_id, name, description, color, proxy_url, fallback_proxy_url_1, fallback_proxy_url_2, sort_position):
         return jsonify({'success': True, 'message': '分组更新成功'})
     else:
         return jsonify({'success': False, 'error': '更新失败'})

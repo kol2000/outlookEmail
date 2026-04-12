@@ -51,7 +51,19 @@
                     <label class="form-label">代理设置</label>
                     <input type="text" class="form-input" id="groupProxyUrl"
                         placeholder="http://host:port 或 socks5://user:pass@host:port">
-                    <div class="form-hint">可选，设置后该分组下所有邮箱获取邮件时走此代理（支持 HTTP/SOCKS5）</div>
+                    <div class="form-hint">主代理，可选。该分组下 Outlook 的 Graph/Token 请求优先走这里。</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">回退代理 1</label>
+                    <input type="text" class="form-input" id="groupFallbackProxyUrl1"
+                        placeholder="http://host:port、socks5://host:port 或 direct">
+                    <div class="form-hint">仅当主代理连接失败时尝试。填写 <code>direct</code> 或 <code>直连</code> 表示显式直连。</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">回退代理 2</label>
+                    <input type="text" class="form-input" id="groupFallbackProxyUrl2"
+                        placeholder="http://host:port、socks5://host:port 或 direct">
+                    <div class="form-hint">在主代理、回退代理 1 之后继续尝试。填写 <code>direct</code> 或 <code>直连</code> 表示显式直连；留空表示不启用第二级回退。</div>
                 </div>
                 <div class="form-group">
                     <div class="form-hint">账号级转发请在“编辑邮箱账号”里开启，这里不再提供无效的分组级开关。</div>
@@ -268,4 +280,3 @@
             </div>
         </div>
     </div>
-
