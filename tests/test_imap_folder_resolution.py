@@ -2,6 +2,7 @@ import importlib
 import json
 import os
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -184,6 +185,43 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertIn('"name" "outlookEmail"', payload)
         self.assertIn('"version"', payload)
 
+    def test_fetch_account_emails_all_fetches_in_parallel(self):
+        account = {
+            'email': 'user@outlook.com',
+            'account_type': 'oauth',
+        }
+        barrier = threading.Barrier(2, timeout=1)
+
+        def fake_fetch(target_account, folder, skip, top, proxy_url='', fallback_proxy_urls=None):
+            self.assertIs(target_account, account)
+            self.assertEqual(skip, 0)
+            self.assertEqual(top, 20)
+            self.assertEqual(proxy_url, 'socks5://primary')
+            self.assertEqual(fallback_proxy_urls, ['socks5://fallback'])
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError as exc:
+                raise AssertionError('folder=all 仍然是串行抓取') from exc
+            return {
+                'success': True,
+                'emails': [{
+                    'id': folder,
+                    'folder': folder,
+                    'date': '2026-01-01T00:00:00Z' if folder == 'inbox' else '2026-01-02T00:00:00Z',
+                }],
+                'method': f'method-{folder}',
+                'has_more': False,
+            }
+
+        with patch.object(web_outlook_app, 'get_account_proxy_url', return_value='socks5://primary'):
+            with patch.object(web_outlook_app, 'get_account_proxy_failover_urls', return_value=['socks5://fallback']):
+                with patch.object(web_outlook_app, 'fetch_account_folder_emails', side_effect=fake_fetch):
+                    result = web_outlook_app.fetch_account_emails(account, 'all', 0, 20)
+
+        self.assertTrue(result['success'])
+        self.assertEqual([email['folder'] for email in result['emails']], ['junkemail', 'inbox'])
+        self.assertEqual(result['method'], 'method-inbox / method-junkemail')
+
 
 class ExternalAccountsApiTests(unittest.TestCase):
     def setUp(self):
@@ -296,6 +334,33 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertNotIn('client_id', account)
         self.assertNotIn('imap_host', account)
         self.assertNotIn('imap_port', account)
+
+    def test_external_emails_supports_all_folder(self):
+        expected_result = {
+            'success': True,
+            'emails': [
+                {'id': 'junk-1', 'folder': 'junkemail', 'date': '2026-01-02T00:00:00Z'},
+                {'id': 'inbox-1', 'folder': 'inbox', 'date': '2026-01-01T00:00:00Z'},
+            ],
+            'method': 'Graph API / IMAP (New)',
+            'has_more': False,
+        }
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value=expected_result) as fetch_mock:
+            response = self.client.get(
+                '/api/external/emails?email=user@outlook.com&folder=all&skip=0&top=20',
+                headers={'X-API-Key': 'test-external-key'}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload, expected_result)
+
+        called_account, called_folder, called_skip, called_top = fetch_mock.call_args.args
+        self.assertEqual(called_account['email'], 'user@outlook.com')
+        self.assertEqual(called_folder, 'all')
+        self.assertEqual(called_skip, 0)
+        self.assertEqual(called_top, 20)
 
 
 class BatchForwardingApiTests(unittest.TestCase):
