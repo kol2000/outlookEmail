@@ -62,13 +62,36 @@ git add VERSION CHANGELOG.md
 git commit -m "chore: release v1.0.1"
 ```
 
-### 4. Create and push the tag
+### 4. Push `main`
+
+```bash
+git push origin main
+```
+
+### 5. Create and push the tag
 
 ```bash
 git tag -a v1.0.1 -m "Release v1.0.1"
-git push origin main
 git push origin v1.0.1
 ```
+
+### 6. Trigger the GitHub Release workflow manually
+
+The repository now creates GitHub Releases through the `Create GitHub Release`
+workflow (`.github/workflows/release.yml`) via `workflow_dispatch`.
+
+Trigger it from GitHub Actions and provide the version number without the `v`
+prefix, for example:
+
+```txt
+1.0.1
+```
+
+This workflow will:
+
+- create and push tag `vX.Y.Z`
+- build the Windows executable package
+- create the GitHub Release using the matching `CHANGELOG.md` section when available
 
 ## Docker image tags
 
@@ -81,9 +104,12 @@ The GitHub Actions workflow publishes these image tags:
 
 ## Windows executable
 
-When you push a `v*` tag, GitHub Actions also builds a Windows `exe` with PyInstaller and attaches
-`OutlookEmail-windows-x64-vX.Y.Z.zip` to the GitHub Release.
+When you manually trigger the release workflow, GitHub Actions builds a Windows
+`exe` with PyInstaller and attaches `OutlookEmail-windows-x64-vX.Y.Z.zip` to the
+GitHub Release.
 
 ## GitHub Release
 
-When you push a `v*` tag, GitHub Actions automatically creates a GitHub Release using the matching section from `CHANGELOG.md` when available, and uploads the Windows package as a release asset.
+GitHub Release creation is manual through the `Create GitHub Release` workflow.
+The workflow uses the matching section from `CHANGELOG.md` when available and
+uploads the Windows package as a release asset.
