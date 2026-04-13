@@ -1,4 +1,4 @@
-        /* global adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, formatDate, handleApiError, isTempEmailGroup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
+        /* global adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, formatDate, getFolderDisplayName, handleApiError, isTempEmailGroup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
 
         // ==================== 邮件相关 ====================
 
@@ -133,14 +133,24 @@
             return `to: ${toValue}`;
         }
 
+        function getEmailSourceLabel(emailItem) {
+            if (isTempEmailGroup || currentFolder !== 'all' || !emailItem?.folder) {
+                return '';
+            }
+            return getFolderDisplayName(emailItem?.folder);
+        }
+
         function renderEmailList(emails) {
             const container = document.getElementById('emailList');
 
             if (emails.length === 0) {
+                const emptyStateText = isTempEmailGroup
+                    ? '暂无邮件'
+                    : `${getFolderDisplayName(currentFolder)}为空`;
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <div class="empty-state-text">收件箱为空</div>
+                        <div class="empty-state-text">${emptyStateText}</div>
                     </div>
                 `;
                 // Reset selection
@@ -157,6 +167,7 @@
                 const isChecked = selectedEmailIds.has(email.id);
                 const isActive = currentEmailId === email.id;
                 const recipientDisplayLabel = getRecipientDisplayLabel(email);
+                const sourceLabel = getEmailSourceLabel(email);
                 return `
                 <div class="email-item ${email.is_read === false ? 'unread' : ''} ${isActive ? 'active' : ''}"
                      onclick="${clickHandler}('${email.id}', ${index})">
@@ -170,6 +181,7 @@
                                     <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
                                     ${recipientDisplayLabel ? `<div class="email-recipient" title="${escapeHtml(recipientDisplayLabel)}">${escapeHtml(recipientDisplayLabel)}</div>` : ''}
                                 </div>
+                                ${sourceLabel ? `<span class="email-folder-badge email-folder-badge--${escapeHtml(String(email.folder || '').toLowerCase())}">${escapeHtml(sourceLabel)}</span>` : ''}
                             </div>
                             <div class="email-date">${formatDate(email.date)}</div>
                         </div>
@@ -316,6 +328,10 @@
         // 选择邮件
         async function selectEmail(messageId, index) {
             currentEmailId = messageId;
+            const selectedEmail = currentEmails.find(email => email.id === messageId);
+            const requestFolder = currentFolder === 'all'
+                ? (selectedEmail?.folder || 'inbox')
+                : currentFolder;
             // 更新 UI
             document.querySelectorAll('.email-item').forEach((item, i) => {
                 item.classList.toggle('active', i === index);
@@ -340,12 +356,12 @@
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
 
             try {
-                const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${currentFolder}`);
+                const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${requestFolder}`);
                 const data = await response.json();
 
                 if (data.success) {
-                    currentEmailDetail = data.email;
-                    renderEmailDetail(data.email);
+                    currentEmailDetail = { ...data.email, folder: requestFolder };
+                    renderEmailDetail(currentEmailDetail);
                 } else {
                     handleApiError(data, '加载邮件详情失败');
                     container.innerHTML = `

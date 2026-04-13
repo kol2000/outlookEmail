@@ -6,7 +6,7 @@
         function selectAccount(email) {
             currentAccount = email;
             isTempEmailGroup = false;
-            currentFolder = 'inbox'; // 重置为收件箱
+            currentFolder = 'all'; // 重置为全部邮件
             currentEmailId = null;
             currentEmailDetail = null;
 
@@ -28,13 +28,13 @@
             const folderTabs = document.getElementById('folderTabs');
             if (folderTabs) {
                 folderTabs.style.display = 'flex';
-                // 重置为收件箱
+                // 重置为全部邮件
                 document.querySelectorAll('.folder-tab').forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.folder === 'inbox');
+                    tab.classList.toggle('active', tab.dataset.folder === 'all');
                 });
             }
 
-            const cacheKey = `${email}_inbox`;
+            const cacheKey = `${email}_all`;
 
             // 检查缓存
             if (emailListCache[cacheKey]) {
@@ -55,7 +55,7 @@
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">正在自动刷新收件箱...</div>
+                        <div class="empty-state-text">正在自动刷新全部邮件...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';
@@ -71,7 +71,7 @@
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
 
-            // 选中账号后自动刷新收件箱
+            // 选中账号后自动刷新全部邮件
             loadEmails(email, true);
         }
 
