@@ -15,13 +15,19 @@
 1. 在 `dev` 分支完成开发与验证
 2. 合并到 `main`
 3. 更新 `VERSION` 与 `CHANGELOG.md`
-4. 在 `main` 上打正式标签，例如 `v1.0.0`
+4. 推送 `main`
+5. 在 `main` 上打正式标签，例如 `v1.0.0`
+6. 手动触发 GitHub Actions 的 `Create GitHub Release` 工作流，并传入版本号
 
 推送 `v*` 标签后，GitHub Actions 会自动：
 
 - 发布 Docker 镜像
-- 创建 GitHub Release
-- 构建并上传 Windows `exe` 压缩包
+
+GitHub Release 和 Windows `exe` 压缩包改为手动触发：
+
+- GitHub Actions: `Create GitHub Release`
+- 输入版本号，例如 `2.0.10`
+- 工作流会创建对应 tag 的 GitHub Release，并构建上传 Windows `exe` 压缩包
 
 Docker 镜像标签约定：
 
