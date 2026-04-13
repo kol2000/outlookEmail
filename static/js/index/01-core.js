@@ -6,7 +6,7 @@
         let currentGroupId = null;
         let currentEmails = [];
         let currentMethod = 'graph';
-        let currentFolder = 'inbox'; // 当前文件夹：inbox 或 deleteditems
+        let currentFolder = 'all'; // 当前文件夹：all / inbox / junkemail / deleteditems
         let isListVisible = true;
         let groups = [];
         let accountsCache = {}; // 缓存各分组的邮箱列表
@@ -33,6 +33,16 @@
 
         function isMobileLayout() {
             return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function getFolderDisplayName(folder) {
+            const names = {
+                all: '全部邮件',
+                inbox: '收件箱',
+                junkemail: '垃圾邮件',
+                deleteditems: '已删除邮件'
+            };
+            return names[String(folder || '').trim().toLowerCase()] || '邮件';
         }
 
         function updateMobileQuickbarState() {
@@ -480,7 +490,7 @@
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">正在自动刷新${folder === 'inbox' ? '收件箱' : '垃圾邮件'}...</div>
+                        <div class="empty-state-text">正在自动刷新${getFolderDisplayName(folder)}...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';

@@ -183,7 +183,10 @@
                         <button class="refresh-btn" onclick="refreshEmails()">获取邮件</button>
                     </div>
                     <div class="folder-tabs" id="folderTabs" style="display: none;">
-                        <button class="folder-tab active" data-folder="inbox" onclick="switchFolder('inbox')">
+                        <button class="folder-tab active" data-folder="all" onclick="switchFolder('all')">
+                            📥 全部邮件
+                        </button>
+                        <button class="folder-tab" data-folder="inbox" onclick="switchFolder('inbox')">
                             📨 收件箱
                         </button>
                         <button class="folder-tab" data-folder="junkemail" onclick="switchFolder('junkemail')">

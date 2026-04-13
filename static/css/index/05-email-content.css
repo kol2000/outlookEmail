@@ -174,6 +174,7 @@
             align-items: flex-start;
             gap: 8px;
             min-width: 0;
+            flex-wrap: wrap;
         }
 
         .email-sender-block {
@@ -204,6 +205,31 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             min-width: 0;
+        }
+
+        .email-folder-badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 20px;
+            padding: 0 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .email-folder-badge--inbox {
+            color: #166534;
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+        }
+
+        .email-folder-badge--junkemail {
+            color: #9a3412;
+            background: #fff7ed;
+            border-color: #fed7aa;
         }
 
         .email-subject {
