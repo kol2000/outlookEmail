@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
@@ -1208,11 +1209,27 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
 
     if folder_name == 'all':
         merged_top = max(1, min(100, top * 2))
+        folder_jobs = ('inbox', 'junkemail')
+        results = {}
+
+        with ThreadPoolExecutor(max_workers=len(folder_jobs), thread_name_prefix='mail-folder-fetch') as executor:
+            future_map = {
+                folder_job: executor.submit(
+                    fetch_account_folder_emails,
+                    account,
+                    folder_job,
+                    skip,
+                    top,
+                    proxy_url,
+                    fallback_proxy_urls,
+                )
+                for folder_job in folder_jobs
+            }
+            for folder_job, future in future_map.items():
+                results[folder_job] = future.result()
+
         return merge_folder_results(
-            {
-                'inbox': fetch_account_folder_emails(account, 'inbox', skip, top, proxy_url),
-                'junkemail': fetch_account_folder_emails(account, 'junkemail', skip, top, proxy_url, fallback_proxy_urls),
-            },
+            results,
             0,
             merged_top
         )

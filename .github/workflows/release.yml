@@ -1,9 +1,12 @@
 name: Create GitHub Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 2.0.10，不带 v 前缀）'
+        required: true
+        type: string
 
 jobs:
   build-windows-exe:
@@ -34,7 +37,7 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "${{ inputs.version }}"
           $assetName = "OutlookEmail-windows-x64-$version.zip"
           Compress-Archive -Path "dist/OutlookEmail.exe", "README.md" -DestinationPath $assetName -Force
           "asset_name=$assetName" >> $env:GITHUB_OUTPUT
@@ -57,12 +60,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git push origin "v${{ inputs.version }}"
+
       - name: Build release notes from changelog
         id: notes
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          TAG="${GITHUB_REF_NAME}"
+          VERSION="${{ inputs.version }}"
+          TAG="v${VERSION}"
           export VERSION TAG GITHUB_OUTPUT
           python3 - <<'PY'
           from pathlib import Path
@@ -97,8 +107,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
           body: ${{ steps.notes.outputs.body }}
           draft: false
           prerelease: false
