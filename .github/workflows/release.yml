@@ -48,11 +48,13 @@ jobs:
           name: windows-exe
           path: ${{ steps.package.outputs.asset_name }}
 
-  release:
+  prepare-release:
     needs: build-windows-exe
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      body: ${{ steps.notes.outputs.body }}
 
     steps:
       - name: Checkout repository
@@ -112,6 +114,26 @@ jobs:
               f.write('EOF\n')
           PY
 
+  docker-release:
+    needs: prepare-release
+    uses: ./.github/workflows/docker-build-push.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      ref: refs/tags/v${{ inputs.version }}
+      version: ${{ inputs.version }}
+
+  publish-release:
+    needs:
+      - build-windows-exe
+      - prepare-release
+      - docker-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
       - name: Download packaged executable
         uses: actions/download-artifact@v4
         with:
@@ -123,7 +145,7 @@ jobs:
         with:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
-          body: ${{ steps.notes.outputs.body }}
+          body: ${{ needs.prepare-release.outputs.body }}
           draft: false
           prerelease: false
           files: release-assets/*

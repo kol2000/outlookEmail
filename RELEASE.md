@@ -90,6 +90,7 @@ prefix, for example:
 This workflow will:
 
 - create and push tag `vX.Y.Z`
+- publish the matching Docker image `ghcr.io/assast/outlookemail:vX.Y.Z`
 - build the Windows executable package
 - create the GitHub Release using the matching `CHANGELOG.md` section when available
 
