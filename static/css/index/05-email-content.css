@@ -376,9 +376,13 @@
         }
 
         .email-detail-meta-value {
+            display: block;
             color: #1a1a1a;
             flex: 1;
             min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .email-detail-meta-inline {
