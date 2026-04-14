@@ -1,6 +1,6 @@
 # 多邮箱邮件管理工具
 
-一个面向多邮箱账号场景的邮件管理工具，支持通过 Outlook OAuth、Microsoft Graph API 和标准 IMAP 统一读取、管理和转发邮件，并提供 Web 界面用于分组管理、账号管理、邮件查看和对外 API 调用。当前支持 Outlook、Gmail、QQ、163、126、Yahoo、阿里邮箱以及自定义 IMAP 邮箱，同时集成 GPTMail、DuckMail、Cloudflare Temp Email 多提供商临时邮箱能力。
+一个面向多邮箱账号场景的邮件管理工具，支持通过 Outlook/Hotmail OAuth、Microsoft Graph API 和标准 IMAP 统一读取、管理和转发邮件，并提供 Web 界面用于分组管理、账号管理、邮件查看和对外 API 调用。当前支持 Outlook/Hotmail、Gmail、QQ、163、126、Yahoo、阿里邮箱以及自定义 IMAP 邮箱，同时集成 GPTMail、DuckMail、Cloudflare Temp Email 多提供商临时邮箱能力。
 ## 📦 快速开始
 ### 体验站点
 https://aso.de5.net
@@ -112,8 +112,8 @@ docker-compose up -d
 
 本工具当前包含三类读取链路：
 
-1. **Outlook OAuth + Graph API** - 优先方式，适合 Outlook / Hotmail / Live 账号
-2. **Outlook OAuth + IMAP 回退** - `outlook.live.com` / `outlook.office365.com`
+1. **Outlook/Hotmail OAuth + Graph API** - 优先方式，适合 Outlook / Hotmail / Live 账号
+2. **Outlook/Hotmail OAuth + IMAP 回退** - `outlook.live.com` / `outlook.office365.com`
 3. **标准 IMAP** - 适用于 Gmail、QQ、163、126、Yahoo、阿里邮箱和自定义 IMAP
 
 ### Web 应用功能
@@ -122,7 +122,7 @@ docker-compose up -d
 - 🔐 **登录验证** - 密码保护的 Web 界面，支持在线修改密码
 - 📁 **分组管理** - 支持创建、编辑、删除邮箱分组，自定义分组颜色，支持分组级别代理设置
 - 🌐 **分组代理** - 每个分组可配置 HTTP/SOCKS5 代理
-- 📧 **多邮箱管理** - 批量导入和管理 Outlook OAuth / IMAP 邮箱账号
+- 📧 **多邮箱管理** - 批量导入和管理 Outlook/Hotmail OAuth / IMAP 邮箱账号
 - 🪪 **别名管理** - 支持给单个邮箱配置多个别名邮箱，主邮箱和别名都可用于检索邮件和调用对外 API
 - 🔀 **别名高级用法** - 可将外部邮箱自动转发到本项目管理的邮箱 A，再把外部邮箱配置为 A 的别名，从而通过本项目统一读取邮件
 - 📬 **邮件查看** - Web 界面支持查看收件箱和垃圾邮件；API 支持 `inbox`、`junkemail`、`deleteditems`、`all`
@@ -151,7 +151,7 @@ docker-compose up -d
 - ▶️ **手动触发** - 支持从界面手动触发一次转发检查
 
 #### Token 刷新管理
-- 🔁 **全量刷新** - 一键刷新所有 Outlook OAuth 账号 Token
+- 🔁 **全量刷新** - 一键刷新所有 Outlook/Hotmail OAuth 账号 Token
 - ⏰ **定时刷新** - 支持按天数或 Cron 表达式配置，Docker / Docker Compose 启动也会自动生效
 - 📊 **刷新统计** - 实时显示失败邮箱数量
 - 📜 **刷新历史** - 近半年完整记录
@@ -242,7 +242,7 @@ Web 应用采用四栏式布局设计：
 
 在 Web 界面中点击「导入邮箱」后，可根据邮箱类型选择对应导入格式。
 
-#### Outlook OAuth
+#### Outlook/Hotmail OAuth
 
 支持两种格式：
 
@@ -391,7 +391,7 @@ curl -H "X-API-Key: your-api-key" \
 - **SQLite 3** - 数据库
 - **Requests / requests[socks]** - HTTP 客户端与代理支持
 - **IMAP4_SSL** - IMAP 协议支持
-- **Microsoft Graph API** - Outlook 邮件 API
+- **Microsoft Graph API** - Outlook/Hotmail 邮件 API
 - **APScheduler + croniter** - 定时刷新与转发轮询
 - **bcrypt + cryptography** - 密码哈希与敏感字段加密
 
