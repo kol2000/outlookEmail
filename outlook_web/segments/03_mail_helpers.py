@@ -1093,7 +1093,8 @@ def parse_email_datetime(value: str) -> Optional[datetime]:
         return None
     try:
         value_str = str(value).strip()
-        if 'T' in value_str:
+        value_str = re.sub(r'\s+\([A-Za-z0-9_./+-]+\)$', '', value_str)
+        if re.match(r'^\d{4}-\d{2}-\d{2}T', value_str):
             normalized = value_str.replace('Z', '+00:00')
             dt = datetime.fromisoformat(normalized)
         elif re.match(r'^\d{1,2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}$', value_str):

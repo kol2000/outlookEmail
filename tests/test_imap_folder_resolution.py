@@ -173,6 +173,14 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertEqual(result['emails'][0]['date'], '14-Apr-2026 10:00:00 +0000')
         self.assertTrue(mail.logged_out)
 
+    def test_parse_email_datetime_accepts_parenthesized_timezone_name(self):
+        parsed = web_outlook_app.parse_email_datetime('Tue, 14 Apr 2026 08:20:50 +0000 (UTC)')
+
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.year, 2026)
+        self.assertEqual(parsed.month, 4)
+        self.assertEqual(parsed.day, 14)
+
     def test_fallback_from_examine_to_select_for_126_inbox(self):
         mail = FakeMail(
             selectable_by_mode={
