@@ -366,6 +366,7 @@
         .email-detail-meta-row {
             display: flex;
             margin-bottom: 4px;
+            min-width: 0;
         }
 
         .email-detail-meta-label {
@@ -376,6 +377,8 @@
 
         .email-detail-meta-value {
             color: #1a1a1a;
+            flex: 1;
+            min-width: 0;
         }
 
         .email-detail-meta-inline {

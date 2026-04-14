@@ -476,6 +476,8 @@
                 color: #64748b;
                 margin-bottom: 8px;
                 min-width: 0;
+                flex-wrap: wrap;
+                row-gap: 4px;
             }
 
             .email-detail-meta-inline__from,
@@ -489,7 +491,12 @@
             .email-detail-meta-inline__from {
                 color: #111827;
                 font-weight: 600;
-                flex: 1;
+                flex: 1 1 100%;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                overflow-wrap: anywhere;
+                word-break: break-word;
             }
 
             .email-detail-meta-inline__dot {
@@ -498,6 +505,20 @@
                 border-radius: 50%;
                 background: #cbd5e1;
                 flex-shrink: 0;
+                display: none;
+            }
+
+            .email-detail-meta-inline__time {
+                white-space: normal;
+            }
+
+            .email-detail-meta-row {
+                align-items: flex-start;
+            }
+
+            .email-detail-meta-value {
+                overflow-wrap: anywhere;
+                word-break: break-word;
             }
 
             .email-detail-meta-collapsible {
