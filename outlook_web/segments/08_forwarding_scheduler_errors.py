@@ -1081,7 +1081,7 @@ def api_external_get_emails_v2():
     if top > 50:
         top = 50
 
-    account = get_account_by_email(email_addr)
+    account = resolve_account_for_email_api(email_addr)
     if not account:
         return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
     result = fetch_account_emails(account, folder, skip, top)

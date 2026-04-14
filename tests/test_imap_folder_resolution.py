@@ -362,6 +362,109 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertEqual(called_skip, 0)
         self.assertEqual(called_top, 20)
 
+    def test_external_emails_plus_address_falls_back_to_base_email(self):
+        expected_result = {
+            'success': True,
+            'emails': [{'id': 'inbox-1', 'folder': 'inbox', 'date': '2026-01-01T00:00:00Z'}],
+            'method': 'Graph API',
+            'has_more': False,
+        }
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value=expected_result) as fetch_mock:
+            response = self.client.get(
+                '/api/external/emails?email=user+verify@outlook.com&folder=inbox&top=1',
+                headers={'X-API-Key': 'test-external-key'}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['requested_email'], 'user+verify@outlook.com')
+        self.assertEqual(payload['resolved_email'], 'user@outlook.com')
+
+        called_account, called_folder, called_skip, called_top = fetch_mock.call_args.args
+        self.assertEqual(called_account['email'], 'user@outlook.com')
+        self.assertEqual(called_folder, 'inbox')
+        self.assertEqual(called_skip, 0)
+        self.assertEqual(called_top, 1)
+
+    def test_external_emails_plus_address_prefers_exact_match(self):
+        with self.app.app_context():
+            added = web_outlook_app.add_account(
+                'user+vip@outlook.com',
+                'password456',
+                'client-id-plus',
+                'refresh-token-plus',
+                group_id=1,
+                remark='plus 账号'
+            )
+            self.assertTrue(added)
+
+        expected_result = {
+            'success': True,
+            'emails': [{'id': 'inbox-plus', 'folder': 'inbox', 'date': '2026-01-03T00:00:00Z'}],
+            'method': 'Graph API',
+            'has_more': False,
+        }
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value=expected_result) as fetch_mock:
+            response = self.client.get(
+                '/api/external/emails?email=user+vip@outlook.com&folder=inbox&top=1',
+                headers={'X-API-Key': 'test-external-key'}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['requested_email'], 'user+vip@outlook.com')
+        self.assertEqual(payload['resolved_email'], 'user+vip@outlook.com')
+
+        called_account, called_folder, called_skip, called_top = fetch_mock.call_args.args
+        self.assertEqual(called_account['email'], 'user+vip@outlook.com')
+        self.assertEqual(called_folder, 'inbox')
+        self.assertEqual(called_skip, 0)
+        self.assertEqual(called_top, 1)
+
+    def test_external_emails_plus_address_falls_back_to_alias_with_plus(self):
+        with self.app.app_context():
+            account = web_outlook_app.get_account_by_email('user@outlook.com')
+            self.assertIsNotNone(account)
+            alias_ok, _, alias_errors = web_outlook_app.replace_account_aliases(
+                account['id'],
+                account['email'],
+                ['alias@example.com', 'alias+team@example.com'],
+                web_outlook_app.get_db()
+            )
+            self.assertTrue(alias_ok, alias_errors)
+            web_outlook_app.get_db().commit()
+
+        expected_result = {
+            'success': True,
+            'emails': [{'id': 'inbox-alias-plus', 'folder': 'inbox', 'date': '2026-01-04T00:00:00Z'}],
+            'method': 'Graph API',
+            'has_more': False,
+        }
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value=expected_result) as fetch_mock:
+            response = self.client.get(
+                '/api/external/emails?email=alias+team+notice@example.com&folder=inbox&top=1',
+                headers={'X-API-Key': 'test-external-key'}
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['requested_email'], 'alias+team+notice@example.com')
+        self.assertEqual(payload['resolved_email'], 'user@outlook.com')
+        self.assertEqual(payload['matched_alias'], 'alias+team@example.com')
+
+        called_account, called_folder, called_skip, called_top = fetch_mock.call_args.args
+        self.assertEqual(called_account['email'], 'user@outlook.com')
+        self.assertEqual(called_account['matched_alias'], 'alias+team@example.com')
+        self.assertEqual(called_folder, 'inbox')
+        self.assertEqual(called_skip, 0)
+        self.assertEqual(called_top, 1)
+
 
 class BatchForwardingApiTests(unittest.TestCase):
     def setUp(self):

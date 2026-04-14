@@ -450,7 +450,7 @@ def api_update_settings():
 @api_key_required
 def api_external_get_emails():
     """对外 API：通过 API Key 获取邮件列表"""
-    email_addr = request.args.get('email', '').strip()
+    email_addr = get_query_arg_preserve_plus('email', '').strip()
     folder = request.args.get('folder', 'inbox').strip().lower()
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
@@ -467,7 +467,7 @@ def api_external_get_emails():
     if top > 50:
         top = 50
 
-    account = get_account_by_email(email_addr)
+    account = resolve_account_for_email_api(email_addr)
     if not account:
         return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
 

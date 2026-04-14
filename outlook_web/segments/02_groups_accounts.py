@@ -447,6 +447,37 @@ def resolve_account_by_address(email_addr: str) -> Optional[Dict]:
     return resolve_account_record(alias_row, matched_alias=alias_row['matched_alias'])
 
 
+def build_plus_fallback_emails(email_addr: str) -> List[str]:
+    normalized = normalize_email_address(email_addr)
+    if not normalized or '@' not in normalized:
+        return []
+
+    local_part, domain = normalized.split('@', 1)
+    segments = [segment for segment in local_part.split('+') if segment]
+    if len(segments) <= 1:
+        return []
+
+    # 从右往左逐级回退，优先保留更长的别名形式。
+    fallbacks = []
+    for size in range(len(segments) - 1, 0, -1):
+        candidate = f"{'+'.join(segments[:size])}@{domain}"
+        if candidate != normalized and candidate not in fallbacks:
+            fallbacks.append(candidate)
+    return fallbacks
+
+
+def resolve_account_for_email_api(email_addr: str) -> Optional[Dict]:
+    account = resolve_account_by_address(email_addr)
+    if account:
+        return account
+
+    for fallback_email in build_plus_fallback_emails(email_addr):
+        account = resolve_account_by_address(fallback_email)
+        if account:
+            return account
+    return None
+
+
 def get_account_proxy_url(account: Optional[Dict[str, Any]]) -> str:
     proxy_config = get_account_proxy_config(account)
     return proxy_config.get('proxy_url', '') or ''
