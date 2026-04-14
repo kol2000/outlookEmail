@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
@@ -78,7 +78,7 @@ def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None
                 "refresh_token": refresh_token,
                 "scope": "https://graph.microsoft.com/.default"
             },
-            timeout=30,
+            timeout=HTTP_REQUEST_TIMEOUT,
             proxy_url=proxy_url,
             fallback_proxy_urls=fallback_proxy_urls,
         )
@@ -1041,6 +1041,19 @@ def format_email_items(items: List[Dict[str, Any]], folder: str) -> List[Dict[st
     return [normalize_email_list_item(item, folder) for item in items]
 
 
+def is_transport_error_payload(error_payload: Any) -> bool:
+    if not isinstance(error_payload, dict):
+        return False
+    error_type = str(error_payload.get('type') or '').strip()
+    return error_type in {
+        'ProxyError',
+        'ConnectionError',
+        'ConnectTimeout',
+        'ReadTimeout',
+        'Timeout',
+    }
+
+
 def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int) -> Dict[str, Any]:
     successful = {folder: result for folder, result in results.items() if result.get('success')}
     if not successful:
@@ -1138,11 +1151,11 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
 
     graph_error = graph_result.get('error')
     all_errors['graph'] = graph_error
-    if isinstance(graph_error, dict) and graph_error.get('type') in ('ProxyError', 'ConnectionError'):
+    if is_transport_error_payload(graph_error):
         connection_error_message = (
-            '代理连接失败，请检查分组代理设置'
+            '代理连接失败或请求超时，请检查分组代理设置'
             if proxy_url
-            else '连接 Microsoft 服务失败，请检查服务器网络、DNS 或上游访问能力'
+            else '连接 Microsoft 服务失败或超时，请检查服务器网络、DNS 或上游访问能力'
         )
         return {
             'success': False,
@@ -1211,22 +1224,51 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
         merged_top = max(1, min(100, top * 2))
         folder_jobs = ('inbox', 'junkemail')
         results = {}
-
-        with ThreadPoolExecutor(max_workers=len(folder_jobs), thread_name_prefix='mail-folder-fetch') as executor:
-            future_map = {
-                folder_job: executor.submit(
-                    fetch_account_folder_emails,
-                    account,
-                    folder_job,
-                    skip,
-                    top,
-                    proxy_url,
-                    fallback_proxy_urls,
-                )
-                for folder_job in folder_jobs
-            }
+        executor = ThreadPoolExecutor(max_workers=len(folder_jobs), thread_name_prefix='mail-folder-fetch')
+        future_map = {
+            folder_job: executor.submit(
+                fetch_account_folder_emails,
+                account,
+                folder_job,
+                skip,
+                top,
+                proxy_url,
+                fallback_proxy_urls,
+            )
+            for folder_job in folder_jobs
+        }
+        try:
+            done, not_done = wait(future_map.values(), timeout=MAIL_FETCH_OVERALL_TIMEOUT)
             for folder_job, future in future_map.items():
-                results[folder_job] = future.result()
+                if future in done:
+                    try:
+                        results[folder_job] = future.result()
+                    except Exception as exc:
+                        results[folder_job] = {
+                            'success': False,
+                            'error': build_error_payload(
+                                'EMAIL_FETCH_FAILED',
+                                '获取邮件失败，请检查账号配置',
+                                type(exc).__name__,
+                                500,
+                                str(exc)
+                            )
+                        }
+                    continue
+
+                future.cancel()
+                results[folder_job] = {
+                    'success': False,
+                    'error': build_error_payload(
+                        'EMAIL_FETCH_TIMEOUT',
+                        '获取邮件超时，请稍后重试',
+                        'TimeoutError',
+                        504,
+                        f'folder={folder_job}, timeout={MAIL_FETCH_OVERALL_TIMEOUT}s'
+                    )
+                }
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         return merge_folder_results(
             results,

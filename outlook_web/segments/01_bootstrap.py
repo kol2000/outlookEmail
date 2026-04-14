@@ -116,7 +116,11 @@ TOKEN_URL_IMAP = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 IMAP_SERVER_OLD = "outlook.office365.com"
 IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
+HTTP_REQUEST_TIMEOUT = int(os.getenv("HTTP_REQUEST_TIMEOUT", "30"))
 IMAP_TIMEOUT = int(os.getenv("IMAP_TIMEOUT", "45"))
+MAIL_FETCH_OVERALL_TIMEOUT = int(
+    os.getenv("MAIL_FETCH_OVERALL_TIMEOUT", str(max(HTTP_REQUEST_TIMEOUT, IMAP_TIMEOUT) + 5))
+)
 
 try:
     with resource_path('VERSION').open('r', encoding='utf-8') as version_file:

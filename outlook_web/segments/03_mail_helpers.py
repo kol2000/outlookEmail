@@ -199,7 +199,7 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
                 "refresh_token": refresh_token,
                 "scope": "https://graph.microsoft.com/.default"
             },
-            timeout=30,
+            timeout=HTTP_REQUEST_TIMEOUT,
             proxy_url=proxy_url,
             fallback_proxy_urls=fallback_proxy_urls,
         )
@@ -291,7 +291,7 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
             url,
             headers=headers,
             params=params,
-            timeout=30,
+            timeout=HTTP_REQUEST_TIMEOUT,
             proxy_url=proxy_url,
             fallback_proxy_urls=fallback_proxy_urls,
         )
@@ -344,7 +344,7 @@ def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, 
             url,
             headers=headers,
             params=params,
-            timeout=30,
+            timeout=HTTP_REQUEST_TIMEOUT,
             proxy_url=proxy_url,
             fallback_proxy_urls=fallback_proxy_urls,
         )
@@ -371,7 +371,7 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
                 "refresh_token": refresh_token,
                 "scope": "https://outlook.office.com/IMAP.AccessAsUser.All offline_access"
             },
-            timeout=30,
+            timeout=HTTP_REQUEST_TIMEOUT,
             proxy_url=proxy_url,
             fallback_proxy_urls=fallback_proxy_urls,
         )
@@ -505,9 +505,10 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
         emails = []
         for msg_id in paged_ids:
             try:
-                status, msg_data = connection.fetch(msg_id, '(RFC822)')
+                status, msg_data = connection.fetch(msg_id, '(INTERNALDATE RFC822)')
                 if status == 'OK' and msg_data and msg_data[0]:
                     raw_email = msg_data[0][1]
+                    internal_date = extract_imap_internaldate(msg_data[0][0])
                     msg = email.message_from_bytes(raw_email)
                     body_preview = get_email_body(msg)
 
@@ -516,12 +517,13 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                         'subject': decode_header_value(msg.get("Subject", "无主题")),
                         'from': decode_header_value(msg.get("From", "未知发件人")),
                         'to': decode_header_value(msg.get("To", "")),
-                        'date': msg.get("Date", "未知时间"),
+                        'date': internal_date or msg.get("Date", "未知时间"),
                         'body_preview': body_preview[:200] + "..." if len(body_preview) > 200 else body_preview
                     })
             except Exception:
                 continue
 
+        emails.sort(key=lambda item: parse_email_datetime(item.get('date')) or datetime.min, reverse=True)
         return {"success": True, "emails": emails}
     except Exception as exc:
         return {
@@ -588,6 +590,18 @@ def get_email_detail_imap(account: str, client_id: str, refresh_token: str, mess
 
 
 # ==================== 登录验证 ====================
+
+def extract_imap_internaldate(fetch_metadata: Any) -> str:
+    if isinstance(fetch_metadata, (bytes, bytearray)):
+        metadata_text = fetch_metadata.decode('utf-8', errors='ignore')
+    else:
+        metadata_text = str(fetch_metadata or '')
+
+    match = re.search(r'INTERNALDATE "([^"]+)"', metadata_text)
+    if not match:
+        return ''
+    return match.group(1).strip()
+
 
 def strip_html_content(html_text: str) -> str:
     if not html_text:
@@ -924,16 +938,18 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
         emails_data = []
         for uid in paged_uids:
             try:
-                f_status, f_data = mail.uid('FETCH', uid, '(FLAGS RFC822)')
+                f_status, f_data = mail.uid('FETCH', uid, '(FLAGS INTERNALDATE RFC822)')
                 if f_status != 'OK' or not f_data:
                     continue
                 raw_email = None
                 flags_text = ''
+                internal_date = ''
                 for item in f_data:
                     if not item:
                         continue
                     if isinstance(item, tuple) and len(item) >= 2:
                         flags_text = item[0].decode('utf-8', errors='ignore') if isinstance(item[0], (bytes, bytearray)) else str(item[0])
+                        internal_date = extract_imap_internaldate(item[0])
                         raw_email = item[1]
                         break
                 if not raw_email:
@@ -948,7 +964,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                     'subject': decode_header_value(msg.get('Subject', '无主题')),
                     'from': decode_header_value(msg.get('From', '未知')),
                     'to': decode_header_value(msg.get('To', '')),
-                    'date': msg.get('Date', ''),
+                    'date': internal_date or msg.get('Date', ''),
                     'is_read': '\\Seen' in (flags_text or ''),
                     'has_attachments': has_message_attachments(msg),
                     'body_preview': preview,
@@ -956,6 +972,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
             except Exception:
                 continue
 
+        emails_data.sort(key=lambda item: parse_email_datetime(item.get('date')) or datetime.min, reverse=True)
         return {
             'success': True,
             'emails': emails_data,
@@ -1075,11 +1092,14 @@ def parse_email_datetime(value: str) -> Optional[datetime]:
     if not value:
         return None
     try:
-        if 'T' in str(value):
-            normalized = str(value).replace('Z', '+00:00')
+        value_str = str(value).strip()
+        if 'T' in value_str:
+            normalized = value_str.replace('Z', '+00:00')
             dt = datetime.fromisoformat(normalized)
+        elif re.match(r'^\d{1,2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}$', value_str):
+            dt = datetime.strptime(value_str, '%d-%b-%Y %H:%M:%S %z')
         else:
-            dt = parsedate_to_datetime(str(value))
+            dt = parsedate_to_datetime(value_str)
         if dt.tzinfo is not None:
             return dt.astimezone().replace(tzinfo=None)
         return dt

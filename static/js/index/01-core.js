@@ -30,9 +30,79 @@
         let selectedTagFilters = new Set();
         let tagFilterKeyword = '';
         let responsiveUiResizeTimer = null;
+        const EMAIL_LIST_REQUEST_TIMEOUT_MS = 70000;
+        const EMAIL_DETAIL_REQUEST_TIMEOUT_MS = 45000;
+        const TOKEN_REFRESH_REQUEST_TIMEOUT_MS = 70000;
+        const BULK_REFRESH_BASE_TIMEOUT_MS = 30000;
+        const BULK_REFRESH_PER_ACCOUNT_TIMEOUT_MS = 35000;
+        const BULK_REFRESH_MAX_TIMEOUT_MS = 180000;
+        const REFRESH_STREAM_STALL_TIMEOUT_MS = 70000;
 
         function isMobileLayout() {
             return window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function isTimeoutAbortError(error) {
+            return error?.name === 'AbortError';
+        }
+
+        function fetchWithTimeout(url, options = {}) {
+            const fetchOptions = { ...(options || {}) };
+            const timeoutMs = Number(fetchOptions.timeoutMs || 0);
+            const timeoutMessage = fetchOptions.timeoutMessage || '请求超时，请稍后重试';
+            delete fetchOptions.timeoutMs;
+            delete fetchOptions.timeoutMessage;
+
+            if (!timeoutMs || timeoutMs <= 0) {
+                return window.fetch(url, fetchOptions);
+            }
+
+            const controller = new AbortController();
+            const originalSignal = fetchOptions.signal;
+            const timer = window.setTimeout(() => {
+                controller.abort(new DOMException(timeoutMessage, 'AbortError'));
+            }, timeoutMs);
+
+            if (originalSignal) {
+                if (originalSignal.aborted) {
+                    controller.abort(originalSignal.reason);
+                } else {
+                    originalSignal.addEventListener('abort', () => controller.abort(originalSignal.reason), { once: true });
+                }
+            }
+
+            fetchOptions.signal = controller.signal;
+            return window.fetch(url, fetchOptions).finally(() => {
+                window.clearTimeout(timer);
+            });
+        }
+
+        function createEventSourceWatchdog(eventSource, timeoutMs, onTimeout) {
+            let timer = null;
+
+            function stop() {
+                if (timer) {
+                    window.clearTimeout(timer);
+                    timer = null;
+                }
+            }
+
+            function reset() {
+                stop();
+                timer = window.setTimeout(() => {
+                    try {
+                        eventSource.close();
+                    } catch (error) {
+                        console.warn('关闭超时 EventSource 失败:', error);
+                    }
+                    if (typeof onTimeout === 'function') {
+                        onTimeout();
+                    }
+                }, timeoutMs);
+            }
+
+            reset();
+            return { reset, stop };
         }
 
         function getFolderDisplayName(folder) {
@@ -404,8 +474,12 @@
             folderTabs.forEach(tab => tab.disabled = true);
 
             try {
-                const response = await fetch(
-                    `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${currentSkip}&top=20`
+                const response = await fetchWithTimeout(
+                    `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${currentSkip}&top=20`,
+                    {
+                        timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
+                        timeoutMessage: '加载更多邮件超时，请稍后重试'
+                    }
                 );
                 const data = await response.json();
 
@@ -444,7 +518,7 @@
             } catch (error) {
                 const loadingEl = document.getElementById('loadingMore');
                 if (loadingEl) loadingEl.remove();
-                showToast('加载失败', 'error');
+                showToast(isTimeoutAbortError(error) ? '加载更多邮件超时' : '加载失败', 'error');
             } finally {
                 isLoadingMore = false;
                 // 启用按钮

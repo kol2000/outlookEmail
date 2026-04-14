@@ -119,6 +119,60 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertEqual(details['available_folders'], ['INBOX', 'INBOX.Archive'])
         self.assertTrue(mail.logged_out)
 
+    def test_gmail_imap_list_uses_internaldate_for_sorting(self):
+        raw_old_header = (
+            b"Subject: older-header\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@gmail.com\r\n"
+            b"Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n"
+            b"\r\n"
+            b"body old\r\n"
+        )
+        raw_new_header = (
+            b"Subject: newer-header\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@gmail.com\r\n"
+            b"Date: Mon, 01 Jan 2026 00:00:00 +0000\r\n"
+            b"\r\n"
+            b"body new\r\n"
+        )
+
+        class GmailListMail(FakeMail):
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'OK', [b'1 2']
+                if command == 'FETCH':
+                    uid = args[0]
+                    uid_text = uid.decode('utf-8') if isinstance(uid, (bytes, bytearray)) else str(uid)
+                    if uid_text == '1':
+                        return 'OK', [(
+                            b'1 (FLAGS () INTERNALDATE "14-Apr-2026 10:00:00 +0000" RFC822 {128}',
+                            raw_old_header,
+                        )]
+                    if uid_text == '2':
+                        return 'OK', [(
+                            b'2 (FLAGS () INTERNALDATE "13-Apr-2026 10:00:00 +0000" RFC822 {128}',
+                            raw_new_header,
+                        )]
+                return super().uid(command, *args, **kwargs)
+
+        mail = GmailListMail(selectable={'INBOX'})
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@gmail.com',
+                imap_password='app-password',
+                imap_host='imap.gmail.com',
+                provider='gmail',
+                folder='inbox',
+                top=20,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual([item['id'] for item in result['emails']], ['1', '2'])
+        self.assertEqual(result['emails'][0]['date'], '14-Apr-2026 10:00:00 +0000')
+        self.assertTrue(mail.logged_out)
+
     def test_fallback_from_examine_to_select_for_126_inbox(self):
         mail = FakeMail(
             selectable_by_mode={

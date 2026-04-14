@@ -1,4 +1,4 @@
-        /* global adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, formatDate, getFolderDisplayName, handleApiError, isTempEmailGroup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
+        /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getFolderDisplayName, handleApiError, isTempEmailGroup, isTimeoutAbortError, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
 
         // ==================== 邮件相关 ====================
 
@@ -46,8 +46,12 @@
 
             try {
                 // 每次只查询20封邮件
-                const response = await fetch(
-                    `/api/emails/${encodeURIComponent(email)}?method=${currentMethod}&folder=${currentFolder}&skip=0&top=20`
+                const response = await fetchWithTimeout(
+                    `/api/emails/${encodeURIComponent(email)}?method=${currentMethod}&folder=${currentFolder}&skip=0&top=20`,
+                    {
+                        timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
+                        timeoutMessage: '获取邮件超时，请检查网络、代理或账号配置后重试'
+                    }
                 );
                 const data = await response.json();
 
@@ -89,10 +93,13 @@
                     window._lastFetchErrorDetails = fetchErrorDetails;
                 }
             } catch (error) {
+                const errorMessage = isTimeoutAbortError(error)
+                    ? '获取邮件超时，请重试'
+                    : '网络错误，请重试';
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
-                        <div class="empty-state-text">网络错误，请重试</div>
+                        <div class="empty-state-text">${errorMessage}</div>
                     </div>
                 `;
             } finally {
@@ -356,7 +363,13 @@
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
 
             try {
-                const response = await fetch(`/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${requestFolder}`);
+                const response = await fetchWithTimeout(
+                    `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(messageId)}?method=${currentMethod}&folder=${requestFolder}`,
+                    {
+                        timeoutMs: EMAIL_DETAIL_REQUEST_TIMEOUT_MS,
+                        timeoutMessage: '加载邮件详情超时，请稍后重试'
+                    }
+                );
                 const data = await response.json();
 
                 if (data.success) {
@@ -372,10 +385,13 @@
                     `;
                 }
             } catch (error) {
+                const errorMessage = isTimeoutAbortError(error)
+                    ? '加载邮件详情超时，请重试'
+                    : '网络错误，请重试';
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
-                        <div class="empty-state-text">网络错误，请重试</div>
+                        <div class="empty-state-text">${errorMessage}</div>
                     </div>
                 `;
             }
