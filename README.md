@@ -20,24 +20,26 @@ admin123
 2. 合并到 `main`
 3. 更新 `VERSION` 与 `CHANGELOG.md`
 4. 推送 `main`
-5. 在 `main` 上打正式标签，例如 `v1.0.0`
-6. 手动触发 GitHub Actions 的 `Create GitHub Release` 工作流，并传入版本号
+5. 手动触发 GitHub Actions 的 `Create GitHub Release` 工作流，并传入版本号，例如 `2.0.14`
 
-推送 `v*` 标签后，GitHub Actions 会自动：
+手动触发发布工作流后，GitHub Actions 会自动：
 
+- 创建并推送对应 tag（如 `v2.0.14`）
 - 发布 Docker 镜像
+- 构建并上传 Windows `exe` 压缩包
+- 使用 `CHANGELOG.md` 中匹配版本的条目生成 GitHub Release 正文
 
 GitHub Release 和 Windows `exe` 压缩包改为手动触发：
 
 - GitHub Actions: `Create GitHub Release`
-- 输入版本号，例如 `2.0.10`
+- 输入版本号，例如 `2.0.14`
 - 工作流会创建对应 tag 的 GitHub Release，并构建上传 Windows `exe` 压缩包
 
 Docker 镜像标签约定：
 
 - `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
 - `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
-- `ghcr.io/assast/outlookemail:v1.0.0`：正式版本镜像（例如 v1.0.0）
+- `ghcr.io/assast/outlookemail:v2.0.14`：正式版本镜像（例如 v2.0.14）
 
 ### 方式一：下载 Windows `exe`(win可用)
 
@@ -339,7 +341,7 @@ user@example.com----app-password----imap.example.com----993
 当前额外支持：
 
 - 使用主邮箱或别名邮箱取信
-- `folder=all` 一次聚合收件箱和垃圾邮件并按时间排序，`top` 按每个文件夹分别计算
+- `folder=all` 一次聚合收件箱和垃圾邮件并按标准化后的邮件时间倒序排序，`top` 按每个文件夹分别计算
 - 支持按主题、发件人、关键词筛选列表
 - 支持特殊字符别名，例如 `user+alias@example.com`
 - 默认 `top=1`

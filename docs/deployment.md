@@ -160,7 +160,7 @@ ports:
 - `ghcr.io/assast/outlookemail:latest` - 默认稳定版（默认分支）
 - `ghcr.io/assast/outlookemail:main` - main 分支最新版本
 - `ghcr.io/assast/outlookemail:dev` - dev 分支最新开发版
-- `ghcr.io/assast/outlookemail:v1.0.0` - 指定正式版本镜像
+- `ghcr.io/assast/outlookemail:v2.0.14` - 指定正式版本镜像
 
 ### 更新镜像
 
