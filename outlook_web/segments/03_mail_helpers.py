@@ -930,6 +930,28 @@ def build_sequence_message_ids(total_messages: int) -> List[bytes]:
     return [str(index).encode('utf-8') for index in range(1, total_messages + 1)]
 
 
+def has_imap_fetch_payload(data: Any) -> bool:
+    if not data:
+        return False
+
+    items = data if isinstance(data, (list, tuple)) else [data]
+    for item in items:
+        if not isinstance(item, tuple) or len(item) < 2:
+            continue
+        payload = item[1]
+        if payload is None:
+            continue
+        if isinstance(payload, memoryview):
+            payload = payload.tobytes()
+        if isinstance(payload, (bytes, bytearray)):
+            if payload:
+                return True
+            continue
+        if str(payload):
+            return True
+    return False
+
+
 def fetch_imap_message(mail, message_id: Any, query: str, preferred_mode: str = 'uid') -> tuple[str, Any, str, List[Dict[str, Any]]]:
     message_text = message_id.decode('utf-8', errors='ignore') if isinstance(message_id, (bytes, bytearray)) else str(message_id)
     modes = [preferred_mode]
@@ -945,12 +967,14 @@ def fetch_imap_message(mail, message_id: Any, query: str, preferred_mode: str = 
                 status, data = mail.uid('FETCH', message_id, query)
             else:
                 status, data = mail.fetch(message_text, query)
+            payload_present = has_imap_fetch_payload(data)
             attempts.append({
                 'mode': mode,
                 'status': str(status),
                 'response': sanitize_error_details(str(data or ''))[:200],
+                'payload_present': payload_present,
             })
-            if status == 'OK' and data:
+            if status == 'OK' and payload_present:
                 return status, data, mode, attempts
         except Exception as exc:
             attempts.append({
@@ -1170,7 +1194,22 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
             mail, str(message_id), '(RFC822)', preferred_mode='uid'
         )
         if status != 'OK' or not msg_data:
-            return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_FETCH_FAILED', '获取邮件详情失败', 'IMAPFetchError', 502, status)}
+            return {
+                'success': False,
+                'error': build_error_payload(
+                    'EMAIL_DETAIL_FETCH_FAILED',
+                    '获取邮件详情失败',
+                    'IMAPFetchError',
+                    502,
+                    {
+                        'status': status,
+                        'provider': provider,
+                        'folder': selected,
+                        'message_id': str(message_id),
+                        'fetch_attempts': _fetch_attempts[:10],
+                    }
+                )
+            }
 
         raw_email = None
         for item in msg_data:
@@ -1178,7 +1217,21 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 raw_email = item[1]
                 break
         if not raw_email:
-            return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_FETCH_FAILED', '获取邮件详情失败', 'IMAPFetchError', 502, '')}
+            return {
+                'success': False,
+                'error': build_error_payload(
+                    'EMAIL_DETAIL_FETCH_FAILED',
+                    '获取邮件详情失败',
+                    'IMAPFetchError',
+                    502,
+                    {
+                        'provider': provider,
+                        'folder': selected,
+                        'message_id': str(message_id),
+                        'fetch_attempts': _fetch_attempts[:10],
+                    }
+                )
+            }
 
         msg = email.message_from_bytes(raw_email)
         body_text, body_html = extract_text_and_html(msg)

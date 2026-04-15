@@ -341,6 +341,47 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertEqual(result['email']['subject'], 'detail message')
         self.assertIn('detail body', result['email']['body'])
 
+    def test_custom_imap_detail_falls_back_when_uid_fetch_returns_ok_without_payload(self):
+        raw_email = (
+            b"Subject: detail fallback payload\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"detail body from sequence fetch\r\n"
+        )
+
+        class EmptyUidFetchMail(FakeMail):
+            def uid(self, command, *args, **kwargs):
+                if command == 'FETCH':
+                    return 'OK', [None]
+                return super().uid(command, *args, **kwargs)
+
+            def fetch(self, message_id, _query):
+                if str(message_id) == '9':
+                    return 'OK', [(
+                        b'9 (RFC822 {128}',
+                        raw_email,
+                    )]
+                return 'NO', [b'not found']
+
+        mail = EmptyUidFetchMail(selectable={'INBOX'}, list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_email_detail_imap_generic_result(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                message_id='9',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['email']['id'], '9')
+        self.assertEqual(result['email']['subject'], 'detail fallback payload')
+        self.assertIn('detail body from sequence fetch', result['email']['body'])
+
     def test_custom_imap_uses_exists_count_when_search_returns_empty(self):
         raw_email = (
             b"Subject: exists fallback\r\n"
