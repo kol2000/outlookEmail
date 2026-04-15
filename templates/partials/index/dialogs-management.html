@@ -1,47 +1,95 @@
     <!-- 设置模态框 -->
     <div class="modal" id="settingsModal" onclick="if(event.target === this) hideSettingsModal()">
-        <div class="modal-content" style="width: min(560px, calc(100vw - 32px));">
+        <div class="modal-content settings-modal-content">
             <div class="modal-header">
                 <h3>⚙️ 系统设置</h3>
                 <button class="modal-close" onclick="hideSettingsModal()">&times;</button>
             </div>
-            <div class="modal-body">
-                <section class="settings-section settings-section--first">
-                    <div class="settings-section-head">
-                        <span class="settings-section-kicker">Access</span>
-                        <h4>访问与 API</h4>
-                        <p>统一管理登录鉴权、临时邮箱服务凭证以及对外接口访问密钥。</p>
-                    </div>
-                    <div class="settings-panel">
-                        <div class="form-group">
-                            <label class="form-label">登录密码</label>
-                            <input type="password" class="form-input" id="settingsPassword" placeholder="输入新密码（留空则不修改）">
-                            <div class="form-hint">用于登录当前系统。</div>
+            <div class="modal-body settings-modal-body">
+                <div class="settings-shell">
+                    <aside class="settings-sidebar">
+                        <div class="settings-sidebar-card settings-sidebar-card--hero">
+                            <span class="settings-sidebar-kicker">Control Center</span>
+                            <h4>桌面端设置中心</h4>
+                            <p>右侧按功能分区集中编辑，减少在窄弹窗里来回滚动和反复查找字段。</p>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">GPTMail API Key</label>
-                            <input type="text" class="form-input" id="settingsApiKey" placeholder="输入 GPTMail API Key">
-                            <div class="form-hint">用于临时邮箱功能，可从 <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> 获取。</div>
+                        <div class="settings-sidebar-card">
+                            <span class="settings-sidebar-title">当前包含</span>
+                            <ul class="settings-sidebar-list">
+                                <li>
+                                    <button type="button" class="settings-sidebar-link is-active" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
+                                        <strong>访问与 API</strong>
+                                        <span>登录密码、GPTMail Key、对外 API Key</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsDuckMailSection" onclick="scrollSettingsSection('settingsDuckMailSection', this)">
+                                        <strong>DuckMail 临时邮箱</strong>
+                                        <span>自部署实例地址与私有域名 API Key</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsCloudflareSection" onclick="scrollSettingsSection('settingsCloudflareSection', this)">
+                                        <strong>Cloudflare 临时邮箱</strong>
+                                        <span>Worker 域名、邮箱域名列表和管理员密码</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsRefreshSection" onclick="scrollSettingsSection('settingsRefreshSection', this)">
+                                        <strong>刷新策略</strong>
+                                        <span>定时刷新开关、周期策略与请求节奏</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="forwardingSettingsSection" onclick="scrollSettingsSection('forwardingSettingsSection', this)">
+                                        <strong>邮件转发</strong>
+                                        <span>SMTP、Telegram 渠道及历史记录</span>
+                                    </button>
+                                </li>
+                            </ul>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">对外 API Key</label>
-                            <div class="settings-inline-action">
-                                <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="输入或生成对外 API Key">
-                                <button class="btn btn-secondary" onclick="generateExternalApiKey()">🔑 随机生成</button>
+                        <div class="settings-sidebar-card settings-sidebar-card--compact">
+                            <span class="settings-sidebar-title">保存提醒</span>
+                            <p>右下角统一保存。现有字段含义和接口不变，只调整桌面端排版与信息密度。</p>
+                        </div>
+                    </aside>
+                    <div class="settings-content">
+                        <section class="settings-section settings-section--first" id="settingsAccessSection">
+                            <div class="settings-section-head">
+                                <span class="settings-section-kicker">Access</span>
+                                <h4>访问与 API</h4>
+                                <p>统一管理登录鉴权、临时邮箱服务凭证以及对外接口访问密钥。</p>
                             </div>
-                            <div class="form-hint">用于对外 API 认证，调用时在 Header 中传递 <code>X-API-Key</code>。</div>
-                            <div class="settings-note"><code>GET /api/external/emails?email=xxx&folder=inbox</code></div>
-                        </div>
-                    </div>
-                </section>
+                            <div class="settings-panel settings-panel-grid">
+                                <div class="form-group">
+                                    <label class="form-label">登录密码</label>
+                                    <input type="password" class="form-input" id="settingsPassword" placeholder="输入新密码（留空则不修改）">
+                                    <div class="form-hint">用于登录当前系统。</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">GPTMail API Key</label>
+                                    <input type="text" class="form-input" id="settingsApiKey" placeholder="输入 GPTMail API Key">
+                                    <div class="form-hint">用于临时邮箱功能，可从 <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> 获取。</div>
+                                </div>
+                                <div class="form-group settings-form-span-full">
+                                    <label class="form-label">对外 API Key</label>
+                                    <div class="settings-inline-action">
+                                        <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="输入或生成对外 API Key">
+                                        <button class="btn btn-secondary" onclick="generateExternalApiKey()">🔑 随机生成</button>
+                                    </div>
+                                    <div class="form-hint">用于对外 API 认证，调用时在 Header 中传递 <code>X-API-Key</code>。</div>
+                                    <div class="settings-note"><code>GET /api/external/emails?email=xxx&folder=inbox</code></div>
+                                </div>
+                            </div>
+                        </section>
 
-                <section class="settings-section">
+                <section class="settings-section" id="settingsDuckMailSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">Temp Mail</span>
                         <h4>DuckMail 临时邮箱设置</h4>
                         <p>用于接入自部署或私有能力的 DuckMail 服务。</p>
                     </div>
-                    <div class="settings-panel">
+                    <div class="settings-panel settings-panel-grid">
                         <div class="form-group">
                             <label class="form-label">DuckMail API 地址</label>
                             <input type="text" class="form-input" id="settingsDuckmailBaseUrl" placeholder="https://api.duckmail.sbs">
@@ -55,19 +103,19 @@
                     </div>
                 </section>
 
-                <section class="settings-section">
+                <section class="settings-section" id="settingsCloudflareSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">Cloudflare</span>
                         <h4>Cloudflare 临时邮箱设置</h4>
                         <p>配置自建 Cloudflare Temp Email 实例的连接信息与管理凭证。</p>
                     </div>
-                    <div class="settings-panel">
+                    <div class="settings-panel settings-panel-grid">
                         <div class="form-group">
                             <label class="form-label">Worker 域名</label>
                             <input type="text" class="form-input" id="settingsCloudflareWorkerDomain" placeholder="your-worker.example.workers.dev">
                             <div class="form-hint">只填写域名部分，不带 <code>https://</code>。</div>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group settings-form-span-full">
                             <label class="form-label">邮箱域名列表</label>
                             <input type="text" class="form-input" id="settingsCloudflareEmailDomains" placeholder="mail1.example.com, mail2.example.com">
                             <div class="form-hint">多个域名使用英文逗号分隔。</div>
@@ -80,19 +128,29 @@
                     </div>
                 </section>
 
-                <section class="settings-section">
+                <section class="settings-section" id="settingsRefreshSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">Scheduler</span>
                         <h4>Token 刷新设置</h4>
                         <p>控制定时刷新任务的启停、执行策略与邮箱间请求节奏。</p>
                     </div>
-                    <div class="settings-panel">
-                        <div class="form-group">
-                            <label class="settings-toggle">
-                                <input type="checkbox" id="enableScheduledRefresh" checked>
-                                <span class="form-label">启用定时刷新</span>
-                            </label>
-                            <div class="form-hint">关闭后将不会自动执行定时刷新任务。</div>
+                    <div class="settings-panel settings-panel-stack">
+                        <div class="settings-panel-grid settings-panel-grid--compact">
+                            <div class="form-group">
+                                <label class="settings-toggle settings-toggle--card">
+                                    <input type="checkbox" id="enableScheduledRefresh" checked>
+                                    <span class="form-label">启用定时刷新</span>
+                                </label>
+                                <div class="form-hint">关闭后将不会自动执行定时刷新任务。</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">邮箱间刷新间隔</label>
+                                <div class="input-inline">
+                                    <input type="number" class="form-input" id="refreshDelaySeconds" min="0" max="60" value="5" placeholder="5">
+                                    <span>秒</span>
+                                </div>
+                                <div class="form-hint">建议设置为 5-10 秒，避免频繁请求触发 API 限流。</div>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -149,16 +207,6 @@
                                 <div id="cronValidationResult" class="settings-note" style="display: none;"></div>
                             </div>
                         </div>
-
-                        <div class="form-group" style="margin-top: 14px;">
-                            <label class="form-label">邮箱间刷新间隔</label>
-                            <div class="input-inline">
-                                <input type="number" class="form-input" id="refreshDelaySeconds" min="0" max="60" value="5" placeholder="5">
-                                <span>秒</span>
-                            </div>
-                            <div class="form-hint">建议设置为 5-10 秒，避免频繁请求触发 API 限流。</div>
-                        </div>
-
                     </div>
                 </section>
 
@@ -168,32 +216,42 @@
                         <h4>邮件转发设置</h4>
                         <p>这里配置全局转发渠道；实际是否参与转发，仍以每个账号单独开启的状态为准。</p>
                     </div>
-                    <div class="settings-panel">
-                        <div class="form-group">
-                            <label class="form-label">轮询间隔</label>
-                            <div class="input-inline">
-                                <input type="number" class="form-input" id="forwardCheckIntervalMinutes" min="1" max="60" value="5">
-                                <span>分钟</span>
+                    <div class="settings-panel settings-panel-stack forwarding-console">
+                        <div class="forwarding-toolbar">
+                            <div class="forwarding-toolbar__controls">
+                                <div class="forwarding-inline-control">
+                                    <label class="form-label">轮询间隔</label>
+                                    <div class="input-inline">
+                                        <input type="number" class="form-input" id="forwardCheckIntervalMinutes" min="1" max="60" value="5">
+                                        <span>分钟</span>
+                                    </div>
+                                    <div class="form-hint">系统会按该频率扫描已开启转发的邮箱。</div>
+                                </div>
+                                <div class="forwarding-inline-control">
+                                    <label class="form-label">时间窗口</label>
+                                    <div class="input-inline">
+                                        <input type="number" class="form-input" id="forwardEmailWindowMinutes" min="0" max="10080" value="0">
+                                        <span>分钟</span>
+                                    </div>
+                                    <div class="form-hint">`0` 表示不限制最近邮件范围。</div>
+                                </div>
+                                <div class="forwarding-inline-control forwarding-inline-control--toggle">
+                                    <label class="settings-toggle settings-toggle--inline forwarding-inline-toggle">
+                                        <input type="checkbox" id="forwardIncludeJunkemail">
+                                        <span class="form-label">转发垃圾箱邮件</span>
+                                    </label>
+                                    <div class="form-hint">开启后，垃圾箱的新邮件也会进入轮询。</div>
+                                </div>
                             </div>
-                            <div class="form-hint">系统会按该频率扫描“已在账号里开启转发”的邮箱。</div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">转发邮件时间范围</label>
-                            <div class="input-inline">
-                                <input type="number" class="form-input" id="forwardEmailWindowMinutes" min="0" max="10080" value="0">
-                                <span>分钟</span>
+                            <div class="settings-action-row settings-action-row--toolbar">
+                                <button class="btn btn-primary" type="button" id="triggerForwardingCheckBtn" onclick="triggerForwardingCheck()">手动触发转发检查</button>
                             </div>
-                            <div class="form-hint">仅转发最近 X 分钟内收到的邮件。`0` 表示不限制。</div>
                         </div>
-                        <div class="form-group">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" id="forwardIncludeJunkemail">
-                                <span class="form-label" style="margin: 0;">转发垃圾箱邮件</span>
-                            </label>
-                            <div class="form-hint">开启后，垃圾箱中的新邮件也会纳入转发轮询。</div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">转发渠道</label>
+                        <div class="form-group forwarding-channel-group">
+                            <div class="forwarding-channel-group__head">
+                                <label class="form-label">转发渠道</label>
+                                <div class="form-hint">支持多选；不选渠道时不会执行自动转发。</div>
+                            </div>
                             <div class="forward-channel-picker" id="forwardChannelPicker">
                                 <label class="forward-channel-option">
                                     <input type="checkbox" id="forwardChannelSmtp" onchange="syncForwardChannelUI()">
@@ -210,29 +268,28 @@
                                     </span>
                                 </label>
                             </div>
-                            <div class="form-hint">支持多选；不选渠道时不会执行自动转发。</div>
                         </div>
                         <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
                             当前未选择任何转发渠道。保存后，即使账号已开启转发，也不会向外发送通知。
                         </div>
                         <div class="forward-channel-panels" id="forwardChannelPanels">
-                            <section class="forward-channel-panel" data-channel="smtp" hidden>
+                            <section class="forward-channel-panel forward-channel-panel--smtp" data-channel="smtp" hidden>
                                 <div class="forward-channel-panel__header">
-                                    <div>
+                                    <div class="forward-channel-panel__heading">
                                         <h5 class="forward-channel-panel__title">SMTP 转发</h5>
                                         <p class="forward-channel-panel__desc">配置接收邮箱与 SMTP 服务器，用于邮件形式的二次转发。</p>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="forward-channel-panel__actions">
                                         <button class="btn btn-sm btn-secondary" type="button" id="testSmtpBtn" onclick="testForwardChannel('smtp')">发送测试消息</button>
                                         <span class="forward-channel-panel__tag">SMTP</span>
                                     </div>
                                 </div>
-                                <div class="forward-grid">
-                                    <div class="form-group">
+                                <div class="forward-grid forward-grid--smtp">
+                                    <div class="form-group forward-field forward-field--wide">
                                         <label class="form-label">转发到邮箱</label>
                                         <input type="text" class="form-input" id="settingsEmailForwardRecipient" placeholder="main@example.com">
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field">
                                         <label class="form-label">邮箱类型</label>
                                         <select class="form-select" id="settingsSmtpProvider" onchange="syncSmtpProviderUI(true)">
                                             <option value="outlook">Outlook</option>
@@ -245,63 +302,63 @@
                                         </select>
                                         <div class="form-hint" id="settingsSmtpProviderHint">选择后会自动带出 SMTP 主机、端口和连接方式，你仍然可以继续手动修改。</div>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field forward-field--wide">
+                                        <label class="form-label">SMTP 主机</label>
+                                        <input type="text" class="form-input" id="settingsSmtpHost" placeholder="smtp.example.com">
+                                    </div>
+                                    <div class="form-group forward-field">
                                         <label class="form-label">发件人邮箱</label>
                                         <input type="text" class="form-input" id="settingsSmtpFromEmail" placeholder="noreply@example.com">
                                         <div class="form-hint" id="settingsSmtpFromEmailHint">可选。留空时默认使用 SMTP 用户名作为发件人邮箱。</div>
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field">
                                         <label class="form-label">SMTP 用户名</label>
                                         <input type="text" class="form-input" id="settingsSmtpUsername" placeholder="username">
                                     </div>
-                                    <div class="form-group">
-                                        <label class="form-label">SMTP 主机</label>
-                                        <input type="text" class="form-input" id="settingsSmtpHost" placeholder="smtp.example.com">
-                                    </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field forward-field--port">
                                         <label class="form-label">SMTP 端口</label>
                                         <input type="number" class="form-input" id="settingsSmtpPort" value="465" min="1" max="65535">
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field forward-field--password">
                                         <label class="form-label">SMTP 密码</label>
                                         <input type="password" class="form-input" id="settingsSmtpPassword" placeholder="密码或授权码">
                                     </div>
-                                </div>
-                                <div class="form-group" style="margin-top: 14px;">
-                                    <label class="form-label">连接选项</label>
-                                    <div class="forward-toggle-list">
-                                        <label class="forward-checkbox">
-                                            <input type="checkbox" id="settingsSmtpUseSsl" checked>
-                                            <span class="form-label">使用 SSL</span>
-                                        </label>
-                                        <label class="forward-checkbox">
-                                            <input type="checkbox" id="settingsSmtpUseTls">
-                                            <span class="form-label">使用 TLS / STARTTLS</span>
-                                        </label>
+                                    <div class="form-group forward-field forward-field--toggles">
+                                        <label class="form-label">连接选项</label>
+                                        <div class="forward-toggle-list forward-toggle-list--inline">
+                                            <label class="forward-checkbox">
+                                                <input type="checkbox" id="settingsSmtpUseSsl" checked>
+                                                <span class="form-label">使用 SSL</span>
+                                            </label>
+                                            <label class="forward-checkbox">
+                                                <input type="checkbox" id="settingsSmtpUseTls">
+                                                <span class="form-label">使用 TLS / STARTTLS</span>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
-                            <section class="forward-channel-panel" data-channel="telegram" hidden>
+                            <section class="forward-channel-panel forward-channel-panel--telegram" data-channel="telegram" hidden>
                                 <div class="forward-channel-panel__header">
-                                    <div>
+                                    <div class="forward-channel-panel__heading">
                                         <h5 class="forward-channel-panel__title">Telegram 转发</h5>
                                         <p class="forward-channel-panel__desc">使用 Bot Token 与 Chat ID，把新邮件摘要推送到指定 TG 会话。</p>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="forward-channel-panel__actions">
                                         <button class="btn btn-sm btn-secondary" type="button" id="testTelegramBtn" onclick="testForwardChannel('telegram')">发送测试消息</button>
                                         <span class="forward-channel-panel__tag">TG</span>
                                     </div>
                                 </div>
-                                <div class="forward-grid">
-                                    <div class="form-group">
+                                <div class="forward-grid forward-grid--telegram">
+                                    <div class="form-group forward-field">
                                         <label class="form-label">Telegram Bot Token</label>
                                         <input type="password" class="form-input" id="settingsTelegramBotToken" placeholder="123456:ABCDEF...">
                                     </div>
-                                    <div class="form-group">
+                                    <div class="form-group forward-field">
                                         <label class="form-label">Telegram Chat ID</label>
                                         <input type="text" class="form-input" id="settingsTelegramChatId" placeholder="-1001234567890">
                                     </div>
-                                    <div class="form-group" style="grid-column: 1 / -1;">
+                                    <div class="form-group forward-field forward-field--full">
                                         <label class="form-label">Telegram 代理</label>
                                         <input type="text" class="form-input" id="settingsTelegramProxyUrl" placeholder="http://host:port、socks5://host:port 或 direct">
                                         <div class="form-hint">可选。仅用于 Telegram 转发与测试发送，支持 `http://`、`socks5://`、`direct` / `直连`。</div>
@@ -309,33 +366,42 @@
                                 </div>
                             </section>
                         </div>
-                        <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" type="button" id="triggerForwardingCheckBtn" onclick="triggerForwardingCheck()">手动触发转发检查</button>
-                            <button class="btn btn-secondary" type="button" onclick="loadForwardingLogs()">查看转发历史</button>
-                            <button class="btn btn-secondary" type="button" onclick="loadFailedForwardingLogs()">查看转发失败</button>
-                        </div>
-                        <div id="forwardingLogsContainer" style="display: none; margin-top: 16px;">
-                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #f8f9fa; border-radius: 6px;">
-                                <span style="display: flex; align-items: center; gap: 6px;">
-                                    <span>📨</span>
-                                    <span>最近转发历史</span>
-                                </span>
-                                <button class="btn btn-sm btn-secondary" type="button" onclick="hideForwardingLogs()">隐藏</button>
-                            </div>
-                            <div id="forwardingLogsList" style="max-height: 320px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;"></div>
-                        </div>
-                        <div id="failedForwardingLogsContainer" style="display: none; margin-top: 16px;">
-                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #fff5f5; border-radius: 6px;">
-                                <span style="display: flex; align-items: center; gap: 6px; color: #dc3545;">
-                                    <span>❌</span>
-                                    <span>最近转发失败</span>
-                                </span>
-                                <button class="btn btn-sm btn-secondary" type="button" onclick="hideFailedForwardingLogs()">隐藏</button>
-                            </div>
-                            <div id="failedForwardingLogsList" style="max-height: 320px; overflow-y: auto; border: 1px solid #f3d6d6; border-radius: 6px; background-color: white;"></div>
+                        <div class="settings-log-drawers">
+                            <section class="settings-log-drawer" id="forwardingLogsDrawer">
+                                <div class="settings-log-drawer__summary">
+                                    <div class="settings-log-drawer__copy">
+                                        <span class="settings-log-title">
+                                            <span>📨</span>
+                                            <span>最近转发历史</span>
+                                        </span>
+                                        <p class="settings-log-drawer__meta">默认折叠，展开后显示最近 100 条转发记录。</p>
+                                    </div>
+                                    <button class="btn btn-sm btn-secondary" type="button" id="forwardingLogsToggleBtn" onclick="toggleForwardingLogsDrawer()">查看历史</button>
+                                </div>
+                                <div id="forwardingLogsContainer" class="settings-log-block" hidden>
+                                    <div id="forwardingLogsList" class="settings-log-list"></div>
+                                </div>
+                            </section>
+                            <section class="settings-log-drawer settings-log-drawer--danger" id="failedForwardingLogsDrawer">
+                                <div class="settings-log-drawer__summary">
+                                    <div class="settings-log-drawer__copy">
+                                        <span class="settings-log-title settings-log-title--danger">
+                                            <span>❌</span>
+                                            <span>最近转发失败</span>
+                                        </span>
+                                        <p class="settings-log-drawer__meta">默认折叠，展开后显示最近 100 条失败记录。</p>
+                                    </div>
+                                    <button class="btn btn-sm btn-secondary" type="button" id="failedForwardingLogsToggleBtn" onclick="toggleFailedForwardingLogsDrawer()">查看失败</button>
+                                </div>
+                                <div id="failedForwardingLogsContainer" class="settings-log-block" hidden>
+                                    <div id="failedForwardingLogsList" class="settings-log-list settings-log-list--danger"></div>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </section>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="hideSettingsModal()">取消</button>

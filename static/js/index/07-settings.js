@@ -1,11 +1,16 @@
         /* global accountsCache, closeAllModals, currentGroupId, currentGroupName, deleteCurrentAccount, ensureForwardingSettingsUI, getSelectedForwardChannels, groups, handleApiError, hideEditAccountModal, hideModal, hideSettingsModal, isTempEmailGroup, isTempImportGroup, loadAccountsByGroup, loadGroups, loadTempEmails, normalizeSmtpForwardProvider, setModalVisible, setSelectedForwardChannels, showModal, showToast, syncSmtpProviderUI, toggleRefreshStrategy, updateEditAccountFields, updateImportHint */
 
         // ==================== 设置相关 ====================
+        let settingsScrollSyncBound = false;
+        let settingsScrollSyncFrame = 0;
 
         // 显示设置模态框
         async function showSettingsModal() {
+            ensureSettingsScrollSync();
             showModal('settingsModal');
+            scrollSettingsSection('settingsAccessSection');
             await loadSettings();
+            scheduleSettingsSidebarSync();
         }
 
         // 隐藏设置模态框
@@ -15,6 +20,114 @@
             const passwordInput = document.getElementById('settingsPassword');
             if (passwordInput) {
                 passwordInput.value = '';
+            }
+        }
+
+        function updateSettingsSidebarActive(sectionId) {
+            document.querySelectorAll('#settingsModal .settings-sidebar-link').forEach(link => {
+                link.classList.toggle('is-active', link.dataset.target === sectionId);
+            });
+        }
+
+        function getSettingsSidebarSectionIds() {
+            return Array.from(document.querySelectorAll('#settingsModal .settings-sidebar-link'))
+                .map(link => link.dataset.target)
+                .filter(Boolean);
+        }
+
+        function syncSettingsSidebarActiveByScroll() {
+            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
+            if (!modalContent) {
+                return;
+            }
+
+            const sectionIds = getSettingsSidebarSectionIds();
+            if (!sectionIds.length) {
+                return;
+            }
+
+            const header = modalContent.querySelector('.modal-header');
+            const headerHeight = header ? header.offsetHeight : 0;
+            const anchorTop = modalContent.getBoundingClientRect().top + headerHeight + 28;
+            let activeSectionId = sectionIds[0];
+            let closestAboveId = '';
+            let closestAboveOffset = Number.NEGATIVE_INFINITY;
+            let closestBelowId = '';
+            let closestBelowOffset = Number.POSITIVE_INFINITY;
+
+            sectionIds.forEach(sectionId => {
+                const section = document.getElementById(sectionId);
+                if (!section) {
+                    return;
+                }
+
+                const offset = section.getBoundingClientRect().top - anchorTop;
+                if (offset <= 0 && offset > closestAboveOffset) {
+                    closestAboveOffset = offset;
+                    closestAboveId = sectionId;
+                }
+                if (offset > 0 && offset < closestBelowOffset) {
+                    closestBelowOffset = offset;
+                    closestBelowId = sectionId;
+                }
+            });
+
+            if (closestAboveId) {
+                activeSectionId = closestAboveId;
+            } else if (closestBelowId) {
+                activeSectionId = closestBelowId;
+            }
+
+            updateSettingsSidebarActive(activeSectionId);
+        }
+
+        function scheduleSettingsSidebarSync() {
+            if (settingsScrollSyncFrame) {
+                return;
+            }
+
+            settingsScrollSyncFrame = window.requestAnimationFrame(() => {
+                settingsScrollSyncFrame = 0;
+                syncSettingsSidebarActiveByScroll();
+            });
+        }
+
+        function ensureSettingsScrollSync() {
+            if (settingsScrollSyncBound) {
+                return;
+            }
+
+            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
+            if (!modalContent) {
+                return;
+            }
+
+            modalContent.addEventListener('scroll', scheduleSettingsSidebarSync, { passive: true });
+            window.addEventListener('resize', scheduleSettingsSidebarSync);
+            settingsScrollSyncBound = true;
+        }
+
+        function scrollSettingsSection(sectionId, triggerEl = null) {
+            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
+            const section = document.getElementById(sectionId);
+            if (!modalContent || !section) {
+                return;
+            }
+
+            const header = modalContent.querySelector('.modal-header');
+            const headerHeight = header ? header.offsetHeight : 0;
+            const sectionTop = section.getBoundingClientRect().top - modalContent.getBoundingClientRect().top + modalContent.scrollTop;
+            const targetTop = Math.max(sectionTop - headerHeight - 18, 0);
+
+            modalContent.scrollTo({
+                top: targetTop,
+                behavior: 'smooth'
+            });
+
+            if (triggerEl?.dataset?.target) {
+                updateSettingsSidebarActive(triggerEl.dataset.target);
+            } else {
+                updateSettingsSidebarActive(sectionId);
             }
         }
 

@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
+- 桌面端设置界面重构
+
 
 ## [2.0.15] - 2026-04-15
 

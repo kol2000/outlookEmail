@@ -393,6 +393,7 @@
         }
 
         async function loadForwardingLogs() {
+            const drawer = document.getElementById('forwardingLogsDrawer');
             const container = document.getElementById('forwardingLogsContainer');
             const listEl = document.getElementById('forwardingLogsList');
             hideFailedForwardingLogs();
@@ -426,7 +427,16 @@
                         });
                         listEl.innerHTML = html;
                     }
-                    container.style.display = 'block';
+                    if (container) {
+                        container.hidden = false;
+                    }
+                    if (drawer) {
+                        drawer.classList.add('is-open');
+                    }
+                    const toggleBtn = document.getElementById('forwardingLogsToggleBtn');
+                    if (toggleBtn) {
+                        toggleBtn.textContent = '收起历史';
+                    }
                 }
             } catch (error) {
                 showToast('加载转发历史失败', 'error');
@@ -434,6 +444,7 @@
         }
 
         async function loadFailedForwardingLogs() {
+            const drawer = document.getElementById('failedForwardingLogsDrawer');
             const container = document.getElementById('failedForwardingLogsContainer');
             const listEl = document.getElementById('failedForwardingLogsList');
             hideForwardingLogs();
@@ -465,11 +476,38 @@
                         });
                         listEl.innerHTML = html;
                     }
-                    container.style.display = 'block';
+                    if (container) {
+                        container.hidden = false;
+                    }
+                    if (drawer) {
+                        drawer.classList.add('is-open');
+                    }
+                    const toggleBtn = document.getElementById('failedForwardingLogsToggleBtn');
+                    if (toggleBtn) {
+                        toggleBtn.textContent = '收起失败';
+                    }
                 }
             } catch (error) {
                 showToast('加载转发失败记录失败', 'error');
             }
+        }
+
+        function toggleForwardingLogsDrawer() {
+            const container = document.getElementById('forwardingLogsContainer');
+            if (container?.hidden) {
+                loadForwardingLogs();
+                return;
+            }
+            hideForwardingLogs();
+        }
+
+        function toggleFailedForwardingLogsDrawer() {
+            const container = document.getElementById('failedForwardingLogsContainer');
+            if (container?.hidden) {
+                loadFailedForwardingLogs();
+                return;
+            }
+            hideFailedForwardingLogs();
         }
 
         // 隐藏刷新历史
@@ -481,16 +519,32 @@
         }
 
         function hideForwardingLogs() {
+            const drawer = document.getElementById('forwardingLogsDrawer');
             const container = document.getElementById('forwardingLogsContainer');
             if (container) {
-                container.style.display = 'none';
+                container.hidden = true;
+            }
+            if (drawer) {
+                drawer.classList.remove('is-open');
+            }
+            const toggleBtn = document.getElementById('forwardingLogsToggleBtn');
+            if (toggleBtn) {
+                toggleBtn.textContent = '查看历史';
             }
         }
 
         function hideFailedForwardingLogs() {
+            const drawer = document.getElementById('failedForwardingLogsDrawer');
             const container = document.getElementById('failedForwardingLogsContainer');
             if (container) {
-                container.style.display = 'none';
+                container.hidden = true;
+            }
+            if (drawer) {
+                drawer.classList.remove('is-open');
+            }
+            const toggleBtn = document.getElementById('failedForwardingLogsToggleBtn');
+            if (toggleBtn) {
+                toggleBtn.textContent = '查看失败';
             }
         }
 
