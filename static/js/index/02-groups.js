@@ -945,7 +945,10 @@
                 email: 'smtp',
                 smtp: 'smtp',
                 tg: 'telegram',
-                telegram: 'telegram'
+                telegram: 'telegram',
+                wecom: 'wecom',
+                wechatwork: 'wecom',
+                qywx: 'wecom'
             };
             const values = Array.isArray(rawChannels)
                 ? rawChannels
@@ -959,8 +962,13 @@
         }
 
         function getSelectedForwardChannels() {
-            return ['smtp', 'telegram'].filter(channel =>
-                document.getElementById(`forwardChannel${channel === 'smtp' ? 'Smtp' : 'Telegram'}`)?.checked
+            const checkboxMap = {
+                smtp: 'forwardChannelSmtp',
+                telegram: 'forwardChannelTelegram',
+                wecom: 'forwardChannelWecom',
+            };
+            return Object.keys(checkboxMap).filter(channel =>
+                document.getElementById(checkboxMap[channel])?.checked
             );
         }
 
@@ -968,8 +976,10 @@
             const channels = normalizeForwardChannels(rawChannels);
             const smtpCheckbox = document.getElementById('forwardChannelSmtp');
             const telegramCheckbox = document.getElementById('forwardChannelTelegram');
+            const wecomCheckbox = document.getElementById('forwardChannelWecom');
             if (smtpCheckbox) smtpCheckbox.checked = channels.includes('smtp');
             if (telegramCheckbox) telegramCheckbox.checked = channels.includes('telegram');
+            if (wecomCheckbox) wecomCheckbox.checked = channels.includes('wecom');
             syncForwardChannelUI();
         }
 

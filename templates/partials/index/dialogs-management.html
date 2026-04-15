@@ -267,6 +267,13 @@
                                         <span class="forward-channel-option__meta">转发到 Telegram，适合即时提醒。</span>
                                     </span>
                                 </label>
+                                <label class="forward-channel-option">
+                                    <input type="checkbox" id="forwardChannelWecom" onchange="syncForwardChannelUI()">
+                                    <span class="forward-channel-option__content">
+                                        <span class="forward-channel-option__title">企业微信</span>
+                                        <span class="forward-channel-option__meta">通过群机器人 Webhook 推送到企业微信群。</span>
+                                    </span>
+                                </label>
                             </div>
                         </div>
                         <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
@@ -362,6 +369,25 @@
                                         <label class="form-label">Telegram 代理</label>
                                         <input type="text" class="form-input" id="settingsTelegramProxyUrl" placeholder="http://host:port、socks5://host:port 或 direct">
                                         <div class="form-hint">可选。仅用于 Telegram 转发与测试发送，支持 `http://`、`socks5://`、`direct` / `直连`。</div>
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="forward-channel-panel forward-channel-panel--wecom" data-channel="wecom" hidden>
+                                <div class="forward-channel-panel__header">
+                                    <div class="forward-channel-panel__heading">
+                                        <h5 class="forward-channel-panel__title">企业微信机器人转发</h5>
+                                        <p class="forward-channel-panel__desc">只填写群机器人的 Webhook 地址，系统会以文本消息推送新邮件摘要。</p>
+                                    </div>
+                                    <div class="forward-channel-panel__actions">
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testWecomBtn" onclick="testForwardChannel('wecom')">发送测试消息</button>
+                                        <span class="forward-channel-panel__tag">企微</span>
+                                    </div>
+                                </div>
+                                <div class="forward-grid forward-grid--telegram">
+                                    <div class="form-group forward-field forward-field--full">
+                                        <label class="form-label">Webhook 地址</label>
+                                        <input type="text" class="form-input" id="settingsWecomWebhookUrl" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
+                                        <div class="form-hint">在企业微信群机器人里复制完整 Webhook 地址即可，无需额外配置 Bot Token 或 Chat ID。</div>
                                     </div>
                                 </div>
                             </section>

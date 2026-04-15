@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
+
+
+## [2.0.17] - 2026-04-15
+
+### Added
+- 新增企业微信群机器人 Webhook 转发渠道，只需填写 Webhook 地址即可作为独立转发通道使用。
+- 为企业微信转发补充设置持久化、测试发送和基础回归测试，覆盖设置保存与实际发送调用。
+
+### Changed
 - 修改发布流程，支持推送 `vX.Y.Z` 版本标签后自动触发 GitHub Release 工作流，手动触发改为兜底方案。
+- 调整 Docker 构建参数，关闭 provenance / SBOM attestation，避免 GHCR 发布版本额外显示 `unknown/unknown` 平台条目。
 
 
 ## [2.0.16] - 2026-04-15

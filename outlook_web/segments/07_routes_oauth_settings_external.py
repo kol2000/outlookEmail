@@ -171,6 +171,7 @@ def api_get_settings():
     settings['telegram_bot_token'] = get_setting_decrypted('telegram_bot_token', '')
     settings['telegram_chat_id'] = get_setting('telegram_chat_id', '')
     settings['telegram_proxy_url'] = get_setting('telegram_proxy_url', '')
+    settings['wecom_webhook_url'] = get_setting_decrypted('wecom_webhook_url', '')
     return jsonify({'success': True, 'settings': settings})
 
 
@@ -440,6 +441,12 @@ def api_update_settings():
             updated.append('Telegram 代理')
         else:
             errors.append('保存 Telegram 代理失败')
+
+    if 'wecom_webhook_url' in data:
+        if set_setting_encrypted('wecom_webhook_url', data['wecom_webhook_url'].strip()):
+            updated.append('企业微信 Webhook')
+        else:
+            errors.append('保存企业微信 Webhook 失败')
 
     if errors:
         return jsonify({'success': False, 'error': '；'.join(errors)})

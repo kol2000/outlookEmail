@@ -30,6 +30,9 @@ def normalize_forward_channel_settings(raw_channels: Any) -> list[str]:
         'smtp': FORWARD_CHANNEL_SMTP_SETTING,
         'tg': FORWARD_CHANNEL_TG_SETTING,
         'telegram': FORWARD_CHANNEL_TG_SETTING,
+        'wecom': FORWARD_CHANNEL_WECOM_SETTING,
+        'wechatwork': FORWARD_CHANNEL_WECOM_SETTING,
+        'qywx': FORWARD_CHANNEL_WECOM_SETTING,
     }
 
     for item in values:
@@ -52,6 +55,8 @@ def get_configured_forward_channels() -> list[str]:
         channels.append(FORWARD_CHANNEL_SMTP_SETTING)
     if get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip():
         channels.append(FORWARD_CHANNEL_TG_SETTING)
+    if get_setting_decrypted('wecom_webhook_url', '').strip():
+        channels.append(FORWARD_CHANNEL_WECOM_SETTING)
     return channels
 
 
@@ -215,6 +220,40 @@ def send_forward_telegram_with_config(config: Dict[str, Any], text: str) -> bool
     return response.ok
 
 
+def send_forward_wecom(text: str) -> bool:
+    webhook_url = get_setting_decrypted('wecom_webhook_url', '').strip()
+    if not webhook_url:
+        return False
+    response = post_with_proxy_fallback(
+        webhook_url,
+        json={
+            'msgtype': 'text',
+            'text': {
+                'content': text[:1800],
+            },
+        },
+        timeout=15,
+    )
+    return response.ok
+
+
+def send_forward_wecom_with_config(config: Dict[str, Any], text: str) -> bool:
+    webhook_url = str(config.get('webhook_url', '') or '').strip()
+    if not webhook_url:
+        return False
+    response = post_with_proxy_fallback(
+        webhook_url,
+        json={
+            'msgtype': 'text',
+            'text': {
+                'content': text[:1800],
+            },
+        },
+        timeout=15,
+    )
+    return response.ok
+
+
 def build_forward_payload(account: Dict[str, Any], email_detail: Dict[str, Any]) -> tuple[str, str, str, str]:
     subject = email_detail.get('subject') or '无主题'
     sender = email_detail.get('from') or '未知'
@@ -323,13 +362,16 @@ def process_forwarding_job():
             telegram_enabled = FORWARD_CHANNEL_TG_SETTING in forward_channels and bool(
                 get_setting_decrypted('telegram_bot_token', '').strip() and get_setting('telegram_chat_id', '').strip()
             )
+            wecom_enabled = FORWARD_CHANNEL_WECOM_SETTING in forward_channels and bool(
+                get_setting_decrypted('wecom_webhook_url', '').strip()
+            )
             include_junkemail = get_bool_setting('forward_include_junkemail', False)
             try:
                 forward_window_minutes = max(0, min(10080, int(get_setting('forward_email_window_minutes', '0') or '0')))
             except (TypeError, ValueError):
                 forward_window_minutes = 0
             forward_window_start = datetime.now() - timedelta(minutes=forward_window_minutes) if forward_window_minutes > 0 else None
-            if not email_enabled and not telegram_enabled:
+            if not email_enabled and not telegram_enabled and not wecom_enabled:
                 print('[forward] skip job: no active channels configured')
                 return
 
@@ -337,7 +379,7 @@ def process_forwarding_job():
                 "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
             ).fetchall()
             print(
-                f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled}"
+                f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled} wecom_enabled={wecom_enabled}"
             )
             for row in accounts:
                 account = dict(row)
@@ -389,6 +431,7 @@ def process_forwarding_job():
                 skipped_before_cursor = 0
                 email_success_count = 0
                 telegram_success_count = 0
+                wecom_success_count = 0
                 latest_success_time = cursor_time
                 for item in emails:
                     dt = parse_email_datetime(item.get('date', ''))
@@ -562,6 +605,65 @@ def process_forwarding_job():
                                     str(exc),
                                 )
 
+                    if wecom_enabled:
+                        if has_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_WECOM):
+                            app.logger.info(
+                                '[forward] skip already forwarded email: account=%s message_id=%s channel=%s',
+                                account.get('email', ''),
+                                detail.get('id', ''),
+                                FORWARD_CHANNEL_WECOM,
+                            )
+                            message_processed = True
+                        else:
+                            try:
+                                if send_forward_wecom(telegram_text):
+                                    record_forward_log(conn, account['id'], detail['id'], FORWARD_CHANNEL_WECOM)
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_WECOM,
+                                        'success',
+                                        db_conn=conn,
+                                    )
+                                    wecom_success_count += 1
+                                    message_processed = True
+                                else:
+                                    message_failed = True
+                                    log_forwarding_result(
+                                        account['id'],
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_WECOM,
+                                        'failed',
+                                        '企业微信转发返回失败',
+                                        db_conn=conn,
+                                    )
+                                    app.logger.warning(
+                                        '[forward] send wecom returned false: account=%s message_id=%s channel=%s',
+                                        account.get('email', ''),
+                                        detail.get('id', ''),
+                                        FORWARD_CHANNEL_WECOM,
+                                    )
+                            except Exception as exc:
+                                message_failed = True
+                                log_forwarding_result(
+                                    account['id'],
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_WECOM,
+                                    'failed',
+                                    str(exc),
+                                    db_conn=conn,
+                                )
+                                app.logger.warning(
+                                    '[forward] send wecom failed: account=%s message_id=%s channel=%s error=%s',
+                                    account.get('email', ''),
+                                    detail.get('id', ''),
+                                    FORWARD_CHANNEL_WECOM,
+                                    str(exc),
+                                )
+
                     if message_failed:
                         had_processing_failure = True
                         continue
@@ -584,7 +686,7 @@ def process_forwarding_job():
                     )
                 conn.commit()
                 print(
-                    f"[forward] account done: account={account.get('email', '')} email_success={email_success_count} telegram_success={telegram_success_count} cursor_updated={cursor_updated} cursor={cursor_value} had_failure={had_processing_failure}"
+                    f"[forward] account done: account={account.get('email', '')} email_success={email_success_count} telegram_success={telegram_success_count} wecom_success={wecom_success_count} cursor_updated={cursor_updated} cursor={cursor_value} had_failure={had_processing_failure}"
                 )
         except Exception as exc:
             print(f"[forward] job failed: {str(exc)}")
@@ -675,6 +777,12 @@ def api_test_forward_channel():
             if not send_forward_telegram_with_config(telegram_config, telegram_text):
                 return jsonify({'success': False, 'error': 'Telegram 测试发送失败，请检查当前表单配置'})
             return jsonify({'success': True, 'message': 'Telegram 测试消息已发送，请检查目标会话'})
+
+        if channel == 'wecom':
+            wecom_config = config.get('wecom', {}) if isinstance(config, dict) else {}
+            if not send_forward_wecom_with_config(wecom_config, telegram_text):
+                return jsonify({'success': False, 'error': '企业微信测试发送失败，请检查当前表单配置'})
+            return jsonify({'success': True, 'message': '企业微信测试消息已发送，请检查群机器人所在会话'})
 
         return jsonify({'success': False, 'error': '未知转发渠道'})
     except Exception as exc:

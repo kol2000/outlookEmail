@@ -436,6 +436,7 @@
                     document.getElementById('settingsTelegramBotToken').value = data.settings.telegram_bot_token || '';
                     document.getElementById('settingsTelegramChatId').value = data.settings.telegram_chat_id || '';
                     document.getElementById('settingsTelegramProxyUrl').value = data.settings.telegram_proxy_url || '';
+                    document.getElementById('settingsWecomWebhookUrl').value = data.settings.wecom_webhook_url || '';
                     setSelectedForwardChannels(data.settings.forward_channels || []);
 
                     const useCron = data.settings.use_cron_schedule === 'true';
@@ -488,6 +489,7 @@
             const telegramBotToken = document.getElementById('settingsTelegramBotToken').value.trim();
             const telegramChatId = document.getElementById('settingsTelegramChatId').value.trim();
             const telegramProxyUrl = document.getElementById('settingsTelegramProxyUrl').value.trim();
+            const wecomWebhookUrl = document.getElementById('settingsWecomWebhookUrl').value.trim();
 
             if (Number.isNaN(days) || days < 1 || days > 90) {
                 showToast('刷新周期必须在 1-90 天之间', 'error');
@@ -529,6 +531,10 @@
                 showToast('启用 TG 转发时必须填写 Telegram Chat ID', 'error');
                 return;
             }
+            if (forwardChannels.includes('wecom') && !wecomWebhookUrl) {
+                showToast('启用企业微信转发时必须填写 Webhook 地址', 'error');
+                return;
+            }
 
             settings.refresh_interval_days = days;
             settings.refresh_delay_seconds = delay;
@@ -550,6 +556,7 @@
             settings.telegram_bot_token = telegramBotToken;
             settings.telegram_chat_id = telegramChatId;
             settings.telegram_proxy_url = telegramProxyUrl;
+            settings.wecom_webhook_url = wecomWebhookUrl;
 
             if (strategy === 'cron') {
                 if (!refreshCron) {
@@ -597,12 +604,19 @@
                     bot_token: document.getElementById('settingsTelegramBotToken').value.trim(),
                     chat_id: document.getElementById('settingsTelegramChatId').value.trim(),
                     proxy_url: document.getElementById('settingsTelegramProxyUrl').value.trim(),
+                },
+                wecom: {
+                    webhook_url: document.getElementById('settingsWecomWebhookUrl').value.trim(),
                 }
             };
         }
 
         async function testForwardChannel(channel) {
-            const btn = document.getElementById(channel === 'smtp' ? 'testSmtpBtn' : 'testTelegramBtn');
+            const btn = document.getElementById(
+                channel === 'smtp'
+                    ? 'testSmtpBtn'
+                    : (channel === 'telegram' ? 'testTelegramBtn' : 'testWecomBtn')
+            );
             if (!btn || btn.disabled) return;
 
             const draft = buildForwardingDraftConfig();
@@ -630,6 +644,11 @@
                 }
                 if (!draft.telegram.chat_id) {
                     showToast('请先填写 Telegram Chat ID', 'error');
+                    return;
+                }
+            } else if (channel === 'wecom') {
+                if (!draft.wecom.webhook_url) {
+                    showToast('请先填写企业微信 Webhook 地址', 'error');
                     return;
                 }
             } else {

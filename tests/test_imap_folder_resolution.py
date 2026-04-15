@@ -831,6 +831,180 @@ class TelegramForwardingProxySettingsTests(unittest.TestCase):
             {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'},
         )
 
+    def test_settings_api_persists_wecom_webhook_url(self):
+        response = self.client.put(
+            '/api/settings',
+            json={
+                'wecom_webhook_url': 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-key',
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        response = self.client.get('/api/settings')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(
+            payload['settings']['wecom_webhook_url'],
+            'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-key',
+        )
+
+    def test_send_forward_wecom_uses_configured_webhook(self):
+        class FakeResponse:
+            ok = True
+
+        with self.app.app_context():
+            self.assertTrue(
+                web_outlook_app.set_setting_encrypted(
+                    'wecom_webhook_url',
+                    'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-key',
+                )
+            )
+
+        with self.app.app_context():
+            with patch.object(web_outlook_app.requests, 'request', return_value=FakeResponse()) as mocked_request:
+                success = web_outlook_app.send_forward_wecom('wecom webhook test')
+
+        self.assertTrue(success)
+        self.assertEqual(mocked_request.call_count, 1)
+        self.assertEqual(
+            mocked_request.call_args.args[:2],
+            ('post', 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-key'),
+        )
+        self.assertEqual(
+            mocked_request.call_args.kwargs['json'],
+            {'msgtype': 'text', 'text': {'content': 'wecom webhook test'}},
+        )
+
+
+class MultiChannelForwardingTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('DELETE FROM forward_logs')
+            db.execute('DELETE FROM forwarding_logs')
+            db.execute('DELETE FROM account_tags')
+            db.execute('DELETE FROM account_aliases')
+            db.execute('DELETE FROM account_refresh_logs')
+            db.execute('DELETE FROM accounts')
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.commit()
+
+            self.assertTrue(web_outlook_app.set_setting('forward_channels', 'smtp,telegram'))
+            self.assertTrue(web_outlook_app.set_setting('email_forward_recipient', 'main@example.com'))
+            self.assertTrue(web_outlook_app.set_setting('smtp_host', 'smtp.example.com'))
+            self.assertTrue(web_outlook_app.set_setting_encrypted('telegram_bot_token', '123456:abcdef'))
+            self.assertTrue(web_outlook_app.set_setting('telegram_chat_id', '-1001234567890'))
+
+            self.assertTrue(web_outlook_app.add_account(
+                'multi-channel@example.com',
+                'password123',
+                'client-id',
+                'refresh-token',
+                group_id=1,
+                forward_enabled=True
+            ))
+            account = web_outlook_app.get_account_by_email('multi-channel@example.com')
+            self.assertIsNotNone(account)
+            self.account_id = account['id']
+            db.execute(
+                'UPDATE accounts SET forward_last_checked_at = NULL WHERE id = ?',
+                (self.account_id,),
+            )
+            db.commit()
+
+    def test_process_forwarding_job_sends_to_all_enabled_channels(self):
+        email_item = {
+            'id': 'message-1',
+            'folder': 'inbox',
+            'date': '2026-04-15T07:00:00Z',
+        }
+        email_detail = {
+            'id': 'message-1',
+            'subject': 'test subject',
+            'from': 'sender@example.com',
+            'date': '2026-04-15T07:00:00Z',
+            'body': 'hello world',
+            'body_type': 'text',
+        }
+
+        with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={'success': True, 'emails': [email_item], 'error': ''}):
+            with patch.object(web_outlook_app, 'fetch_forward_detail', return_value=email_detail):
+                with patch.object(web_outlook_app, 'send_forward_email', return_value=True) as email_mock:
+                    with patch.object(web_outlook_app, 'send_forward_telegram', return_value=True) as tg_mock:
+                        web_outlook_app.process_forwarding_job()
+
+        self.assertEqual(email_mock.call_count, 1)
+        self.assertEqual(tg_mock.call_count, 1)
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            rows = db.execute(
+                '''
+                SELECT channel, status
+                FROM forwarding_logs
+                WHERE account_id = ? AND message_id = ?
+                ORDER BY channel
+                ''',
+                (self.account_id, 'message-1'),
+            ).fetchall()
+            forward_log_rows = db.execute(
+                '''
+                SELECT channel
+                FROM forward_logs
+                WHERE account_id = ? AND message_id = ?
+                ORDER BY channel
+                ''',
+                (self.account_id, 'message-1'),
+            ).fetchall()
+
+        self.assertEqual(
+            [(row['channel'], row['status']) for row in rows],
+            [('email', 'success'), ('telegram', 'success')],
+        )
+        self.assertEqual(
+            [row['channel'] for row in forward_log_rows],
+            ['email', 'telegram'],
+        )
+
+    def test_process_forwarding_job_keeps_retrying_missing_channel_when_other_channel_already_logged(self):
+        email_item = {
+            'id': 'message-2',
+            'folder': 'inbox',
+            'date': '2026-04-15T08:00:00Z',
+        }
+        email_detail = {
+            'id': 'message-2',
+            'subject': 'retry tg',
+            'from': 'sender@example.com',
+            'date': '2026-04-15T08:00:00Z',
+            'body': 'hello retry',
+            'body_type': 'text',
+        }
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute(
+                'INSERT OR IGNORE INTO forward_logs (account_id, message_id, channel) VALUES (?, ?, ?)',
+                (self.account_id, 'message-2', 'email'),
+            )
+            db.commit()
+
+        with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={'success': True, 'emails': [email_item], 'error': ''}):
+            with patch.object(web_outlook_app, 'fetch_forward_detail', return_value=email_detail):
+                with patch.object(web_outlook_app, 'send_forward_email', return_value=True) as email_mock:
+                    with patch.object(web_outlook_app, 'send_forward_telegram', return_value=True) as tg_mock:
+                        web_outlook_app.process_forwarding_job()
+
+        self.assertEqual(email_mock.call_count, 0)
+        self.assertEqual(tg_mock.call_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

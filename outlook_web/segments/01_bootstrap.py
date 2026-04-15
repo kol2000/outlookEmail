@@ -245,8 +245,10 @@ IMAP_FOLDER_MATCH_ALIASES = {
 
 FORWARD_CHANNEL_EMAIL = "email"
 FORWARD_CHANNEL_TELEGRAM = "telegram"
+FORWARD_CHANNEL_WECOM = "wecom"
 FORWARD_CHANNEL_SMTP_SETTING = "smtp"
 FORWARD_CHANNEL_TG_SETTING = "telegram"
+FORWARD_CHANNEL_WECOM_SETTING = "wecom"
 SMTP_FORWARD_PROVIDERS = ('outlook', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom')
 
 # 数据库文件
@@ -1100,6 +1102,10 @@ def init_db():
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
         VALUES ('telegram_proxy_url', '')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('wecom_webhook_url', '')
     ''')
 
     # 创建索引以优化查询性能
