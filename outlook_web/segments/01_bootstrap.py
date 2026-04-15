@@ -876,6 +876,103 @@ def init_db():
         )
     ''')
 
+    # 创建项目表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            project_key TEXT UNIQUE NOT NULL,
+            description TEXT DEFAULT '',
+            scope_mode TEXT NOT NULL DEFAULT 'all',
+            status TEXT NOT NULL DEFAULT 'active',
+            last_scope_synced_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 创建项目分组范围表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS project_group_scopes (
+            project_id INTEGER NOT NULL,
+            group_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (project_id, group_id)
+        )
+    ''')
+
+    # 创建项目账号关系表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS project_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            account_id INTEGER,
+            normalized_email TEXT NOT NULL,
+            email_snapshot TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'toClaim',
+            deleted_from_status TEXT DEFAULT '',
+            source_group_id INTEGER,
+            caller_id TEXT DEFAULT '',
+            task_id TEXT DEFAULT '',
+            claim_token TEXT,
+            claimed_at TIMESTAMP,
+            lease_expires_at TIMESTAMP,
+            last_result TEXT DEFAULT '',
+            last_result_detail TEXT DEFAULT '',
+            claim_count INTEGER NOT NULL DEFAULT 0,
+            first_claimed_at TIMESTAMP,
+            last_claimed_at TIMESTAMP,
+            done_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(project_id, normalized_email)
+        )
+    ''')
+
+    # 创建项目账号事件表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS project_account_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            account_id INTEGER,
+            normalized_email TEXT NOT NULL,
+            project_account_id INTEGER,
+            action TEXT NOT NULL,
+            from_status TEXT,
+            to_status TEXT,
+            caller_id TEXT DEFAULT '',
+            task_id TEXT DEFAULT '',
+            claim_token TEXT,
+            detail TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_accounts_project_status
+        ON project_accounts(project_id, status)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_accounts_project_lease
+        ON project_accounts(project_id, lease_expires_at)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_accounts_account_id
+        ON project_accounts(account_id)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_accounts_project_email
+        ON project_accounts(project_id, normalized_email)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_group_scopes_group_id
+        ON project_group_scopes(group_id)
+    ''')
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_project_events_project_created
+        ON project_account_events(project_id, created_at)
+    ''')
+
     # 检查并添加缺失的列（数据库迁移）
     cursor.execute("PRAGMA table_info(accounts)")
     columns = [col[1] for col in cursor.fetchall()]
@@ -934,6 +1031,74 @@ def init_db():
         cursor.execute('ALTER TABLE temp_emails ADD COLUMN cloudflare_jwt TEXT')
     if 'cloudflare_address_id' not in temp_columns:
         cursor.execute('ALTER TABLE temp_emails ADD COLUMN cloudflare_address_id TEXT')
+
+    cursor.execute("PRAGMA table_info(project_accounts)")
+    project_account_columns = [col[1] for col in cursor.fetchall()]
+    if project_account_columns:
+        if 'account_id' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN account_id INTEGER')
+        if 'normalized_email' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN normalized_email TEXT DEFAULT ''")
+        if 'email_snapshot' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN email_snapshot TEXT DEFAULT ''")
+        if 'status' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN status TEXT DEFAULT 'toClaim'")
+        if 'deleted_from_status' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN deleted_from_status TEXT DEFAULT ''")
+        if 'source_group_id' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN source_group_id INTEGER')
+        if 'caller_id' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN caller_id TEXT DEFAULT ''")
+        if 'task_id' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN task_id TEXT DEFAULT ''")
+        if 'claim_token' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN claim_token TEXT')
+        if 'claimed_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN claimed_at TIMESTAMP')
+        if 'lease_expires_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN lease_expires_at TIMESTAMP')
+        if 'last_result' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN last_result TEXT DEFAULT ''")
+        if 'last_result_detail' not in project_account_columns:
+            cursor.execute("ALTER TABLE project_accounts ADD COLUMN last_result_detail TEXT DEFAULT ''")
+        if 'claim_count' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN claim_count INTEGER DEFAULT 0')
+        if 'first_claimed_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN first_claimed_at TIMESTAMP')
+        if 'last_claimed_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN last_claimed_at TIMESTAMP')
+        if 'done_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN done_at TIMESTAMP')
+        if 'created_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        if 'updated_at' not in project_account_columns:
+            cursor.execute('ALTER TABLE project_accounts ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+
+    cursor.execute("PRAGMA table_info(project_account_events)")
+    project_event_columns = [col[1] for col in cursor.fetchall()]
+    if project_event_columns:
+        if 'account_id' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN account_id INTEGER')
+        if 'normalized_email' not in project_event_columns:
+            cursor.execute("ALTER TABLE project_account_events ADD COLUMN normalized_email TEXT DEFAULT ''")
+        if 'project_account_id' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN project_account_id INTEGER')
+        if 'action' not in project_event_columns:
+            cursor.execute("ALTER TABLE project_account_events ADD COLUMN action TEXT DEFAULT ''")
+        if 'from_status' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN from_status TEXT')
+        if 'to_status' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN to_status TEXT')
+        if 'caller_id' not in project_event_columns:
+            cursor.execute("ALTER TABLE project_account_events ADD COLUMN caller_id TEXT DEFAULT ''")
+        if 'task_id' not in project_event_columns:
+            cursor.execute("ALTER TABLE project_account_events ADD COLUMN task_id TEXT DEFAULT ''")
+        if 'claim_token' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN claim_token TEXT')
+        if 'detail' not in project_event_columns:
+            cursor.execute("ALTER TABLE project_account_events ADD COLUMN detail TEXT DEFAULT ''")
+        if 'created_at' not in project_event_columns:
+            cursor.execute('ALTER TABLE project_account_events ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     
     # 创建默认分组
     cursor.execute('''

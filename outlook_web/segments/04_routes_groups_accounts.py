@@ -570,6 +570,186 @@ def api_external_get_accounts():
     })
 
 
+# ==================== 项目 API ====================
+
+@app.route('/api/projects', methods=['GET'])
+@login_required
+def api_get_projects():
+    return jsonify({'success': True, 'data': {'projects': load_projects()}})
+
+
+@app.route('/api/projects/<project_key>', methods=['GET'])
+@login_required
+def api_get_project(project_key):
+    project = get_project_by_key(project_key)
+    if not project:
+        return jsonify({'success': False, 'error': '项目不存在'}), 404
+    return jsonify({'success': True, 'data': {'project': project}})
+
+
+@app.route('/api/projects/start', methods=['POST'])
+@login_required
+def api_start_project():
+    data = request.get_json(silent=True) or {}
+    project_key = data.get('project_key', '')
+    name = data['name'] if 'name' in data else None
+    description = data['description'] if 'description' in data else None
+    group_ids_provided = 'group_ids' in data
+    group_ids = data.get('group_ids', []) if group_ids_provided else None
+
+    try:
+        project = start_project(
+            project_key,
+            name=name,
+            description=description,
+            group_ids=group_ids,
+            group_ids_provided=group_ids_provided,
+        )
+        log_audit(
+            'start',
+            'project',
+            project.get('project_key'),
+            json.dumps(
+                {
+                    'created': bool(project.get('created')),
+                    'added_count': int(project.get('added_count', 0)),
+                    'deleted_count': int(project.get('deleted_count', 0)),
+                },
+                ensure_ascii=False,
+            ),
+        )
+        return jsonify({'success': True, 'message': '项目已启动', 'data': project})
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 500
+
+
+@app.route('/api/projects/<project_key>/accounts', methods=['GET'])
+@login_required
+def api_get_project_accounts(project_key):
+    status = request.args.get('status', '').strip()
+    group_id = request.args.get('group_id', type=int)
+    provider = request.args.get('provider', '').strip()
+    keyword = request.args.get('keyword', '').strip()
+    result = load_project_accounts(project_key, status=status, group_id=group_id, provider=provider, keyword=keyword)
+    if not result:
+        return jsonify({'success': False, 'error': '项目不存在'}), 404
+    return jsonify({'success': True, 'data': result})
+
+
+@app.route('/api/projects/<project_key>/claim-random', methods=['POST'])
+@login_required
+def api_claim_project_account(project_key):
+    data = request.get_json(silent=True) or {}
+    caller_id = (data.get('caller_id') or '').strip()
+    task_id = (data.get('task_id') or '').strip()
+    lease_seconds = data.get('lease_seconds', 600)
+    try:
+        account = claim_project_account(project_key, caller_id, task_id, lease_seconds)
+    except ValueError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+    except Exception as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 500
+
+    if not account:
+        return jsonify({'success': False, 'error': '没有可领取的项目邮箱'}), 200
+    return jsonify({'success': True, 'data': account})
+
+
+@app.route('/api/projects/<project_key>/complete-success', methods=['POST'])
+@login_required
+def api_complete_project_success(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    claim_token = (data.get('claim_token') or '').strip()
+    caller_id = (data.get('caller_id') or '').strip()
+    task_id = (data.get('task_id') or '').strip()
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id or not claim_token:
+        return jsonify({'success': False, 'error': '缺少 account_id 或 claim_token'}), 400
+
+    if complete_project_account_success(project_key, int(account_id), claim_token, caller_id, task_id, detail):
+        return jsonify({'success': True, 'message': '项目账号已标记成功'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配'}), 400
+
+
+@app.route('/api/projects/<project_key>/complete-failed', methods=['POST'])
+@login_required
+def api_complete_project_failed(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    claim_token = (data.get('claim_token') or '').strip()
+    caller_id = (data.get('caller_id') or '').strip()
+    task_id = (data.get('task_id') or '').strip()
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id or not claim_token:
+        return jsonify({'success': False, 'error': '缺少 account_id 或 claim_token'}), 400
+
+    if complete_project_account_failed(project_key, int(account_id), claim_token, caller_id, task_id, detail):
+        return jsonify({'success': True, 'message': '项目账号已标记失败'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配'}), 400
+
+
+@app.route('/api/projects/<project_key>/release', methods=['POST'])
+@login_required
+def api_release_project_account(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    claim_token = (data.get('claim_token') or '').strip()
+    caller_id = (data.get('caller_id') or '').strip()
+    task_id = (data.get('task_id') or '').strip()
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id or not claim_token:
+        return jsonify({'success': False, 'error': '缺少 account_id 或 claim_token'}), 400
+
+    if release_project_account(project_key, int(account_id), claim_token, caller_id, task_id, detail):
+        return jsonify({'success': True, 'message': '项目账号已释放'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配'}), 400
+
+
+@app.route('/api/projects/<project_key>/reset-failed', methods=['POST'])
+@login_required
+def api_reset_project_failed(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id:
+        return jsonify({'success': False, 'error': '缺少 account_id'}), 400
+
+    if reset_project_account_failed(project_key, int(account_id), detail):
+        return jsonify({'success': True, 'message': '失败邮箱已重置为可领取'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配'}), 400
+
+
+@app.route('/api/projects/<project_key>/remove-account', methods=['POST'])
+@login_required
+def api_remove_project_account(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id:
+        return jsonify({'success': False, 'error': '缺少 account_id'}), 400
+
+    if remove_project_account(project_key, int(account_id), detail):
+        return jsonify({'success': True, 'message': '项目邮箱已移除'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配或正在领取中'}), 400
+
+
+@app.route('/api/projects/<project_key>/restore-account', methods=['POST'])
+@login_required
+def api_restore_project_account(project_key):
+    data = request.get_json(silent=True) or {}
+    account_id = data.get('account_id')
+    detail = sanitize_input(data.get('detail', ''), max_length=500)
+    if not account_id:
+        return jsonify({'success': False, 'error': '缺少 account_id'}), 400
+
+    if restore_project_account(project_key, int(account_id), detail):
+        return jsonify({'success': True, 'message': '项目邮箱已恢复'})
+    return jsonify({'success': False, 'error': '项目账号状态不匹配'}), 400
+
+
 # ==================== 标签 API ====================
 
 @app.route('/api/tags', methods=['GET'])

@@ -491,6 +491,359 @@ curl -H "X-API-Key: your-api-key" \
 }
 ```
 
+## 项目管理
+
+项目接口用于按 `project_key` 管理“邮箱在某个项目下的独立状态”。
+
+- 同一个邮箱可以同时存在于多个项目中
+- 项目内状态独立维护，互不影响
+- 当前项目状态包括：
+  - `toClaim`：可领取
+  - `claiming`：领取中
+  - `done`：已成功消费，不再自动分配
+  - `failed`：最近一次消费失败，需人工重置后才可再次分配
+  - `removed`：人工移出项目范围
+  - `deleted`：系统主表里的账号已删除，但项目历史仍保留
+
+### GET `/api/projects`
+
+获取项目列表。
+
+#### 成功响应示例
+
+```json
+{
+  "success": true,
+  "data": {
+    "projects": [
+      {
+        "id": 1,
+        "name": "GPT 注册",
+        "project_key": "gpt",
+        "description": "GPT 注册项目",
+        "scope_mode": "groups",
+        "status": "active",
+        "group_ids": [1, 2],
+        "total_count": 500,
+        "to_claim_count": 120,
+        "claiming_count": 5,
+        "failed_count": 8,
+        "done_count": 360,
+        "removed_count": 15,
+        "deleted_count": 3,
+        "last_scope_synced_at": "2026-04-15T09:30:00+00:00",
+        "created_at": "2026-04-10 08:00:00",
+        "updated_at": "2026-04-15T09:30:00+00:00"
+      }
+    ]
+  }
+}
+```
+
+### GET `/api/projects/<project_key>`
+
+获取单个项目详情。
+
+### POST `/api/projects/start`
+
+启动项目。
+
+这个接口合并了“创建项目”和“补全项目范围”两种语义：
+
+- 如果 `project_key` 不存在：
+  - 创建新项目
+  - 保存项目范围
+  - 把范围内邮箱补入项目
+- 如果 `project_key` 已存在：
+  - 视为再次启动同一项目
+  - 默认沿用原有范围
+  - 如果本次显式传了 `group_ids`，会更新范围后再补全
+  - 只补新增邮箱，不会重置已有项目状态
+
+删除补偿规则：
+
+- 启动项目时会检查项目历史中已失联的账号
+- 若项目记录对应的账号已从 `accounts` 主表删除，则该项目记录会标为 `deleted`
+- 若同一个邮箱地址后来被重新导入系统，启动项目时会按邮箱地址复用旧项目记录，而不是把它当成全新邮箱
+
+#### 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `project_key` | string | 是 | 项目标识，内部会转成小写并去掉首尾空格 |
+| `name` | string | 否 | 项目名称。首次创建时不传则默认使用 `project_key` |
+| `description` | string | 否 | 项目描述 |
+| `group_ids` | array<int> | 否 | 项目范围分组列表；不传时首次创建默认为全量邮箱范围 |
+
+#### 请求示例
+
+首次创建分组范围项目：
+
+```json
+{
+  "project_key": "gpt",
+  "name": "GPT 注册",
+  "description": "GPT 注册项目",
+  "group_ids": [1, 2]
+}
+```
+
+首次创建全量范围项目：
+
+```json
+{
+  "project_key": "google",
+  "name": "Google 注册"
+}
+```
+
+再次启动已有项目：
+
+```json
+{
+  "project_key": "gpt"
+}
+```
+
+#### 成功响应示例
+
+```json
+{
+  "success": true,
+  "message": "项目已启动",
+  "data": {
+    "id": 1,
+    "name": "GPT 注册",
+    "project_key": "gpt",
+    "description": "GPT 注册项目",
+    "scope_mode": "groups",
+    "status": "active",
+    "group_ids": [1, 2],
+    "total_count": 560,
+    "to_claim_count": 120,
+    "claiming_count": 5,
+    "failed_count": 8,
+    "done_count": 360,
+    "removed_count": 15,
+    "deleted_count": 3,
+    "created": false,
+    "added_count": 128
+  }
+}
+```
+
+#### 返回重点字段
+
+| 字段 | 说明 |
+| --- | --- |
+| `created` | 本次是否首次创建该项目 |
+| `added_count` | 本次启动新补入的邮箱数量 |
+| `deleted_count` | 本次启动过程中被标记为 `deleted` 的项目邮箱数量 |
+
+### GET `/api/projects/<project_key>/accounts`
+
+获取某个项目下的邮箱列表。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `status` | string | 否 | 按项目状态过滤，如 `toClaim`、`failed`、`done` |
+| `group_id` | int | 否 | 按当前分组或项目来源分组过滤 |
+| `provider` | string | 否 | 按邮箱 provider 过滤 |
+| `keyword` | string | 否 | 在邮箱地址、备注里做模糊搜索 |
+
+#### 成功响应示例
+
+```json
+{
+  "success": true,
+  "data": {
+    "project": {
+      "id": 1,
+      "name": "GPT 注册",
+      "project_key": "gpt",
+      "description": "GPT 注册项目",
+      "scope_mode": "groups",
+      "status": "active",
+      "group_ids": [1, 2],
+      "total_count": 560,
+      "to_claim_count": 120,
+      "claiming_count": 5,
+      "failed_count": 8,
+      "done_count": 360,
+      "removed_count": 15,
+      "deleted_count": 3
+    },
+    "accounts": [
+      {
+        "project_account_id": 101,
+        "account_id": 12,
+        "email": "user@example.com",
+        "normalized_email": "user@example.com",
+        "provider": "outlook",
+        "account_type": "outlook",
+        "group_id": 1,
+        "group_name": "默认分组",
+        "remark": "",
+        "project_status": "failed",
+        "account_status": "active",
+        "caller_id": "",
+        "task_id": "",
+        "claim_token": "",
+        "claimed_at": "",
+        "lease_expires_at": "",
+        "last_result": "failed",
+        "last_result_detail": "provider blocked",
+        "claim_count": 2,
+        "first_claimed_at": "2026-04-15T09:30:00+00:00",
+        "last_claimed_at": "2026-04-15T09:35:00+00:00",
+        "done_at": "",
+        "created_at": "2026-04-15T09:20:00+00:00",
+        "updated_at": "2026-04-15T09:36:00+00:00"
+      }
+    ]
+  }
+}
+```
+
+### POST `/api/projects/<project_key>/claim-random`
+
+从项目里随机领取一个可用邮箱。
+
+当前实现会从项目内 `status='toClaim'` 的邮箱中选取一个，并确保该邮箱没有被其他项目中的 `claiming` 记录占用。
+
+#### 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `caller_id` | string | 是 | 调用方标识 |
+| `task_id` | string | 是 | 当前任务标识 |
+| `lease_seconds` | int | 否 | 租期秒数，默认 `600`，最大 `3600` |
+
+#### 请求示例
+
+```json
+{
+  "caller_id": "worker-1",
+  "task_id": "task-001",
+  "lease_seconds": 600
+}
+```
+
+#### 成功响应示例
+
+```json
+{
+  "success": true,
+  "data": {
+    "project_key": "gpt",
+    "project_account_id": 101,
+    "account_id": 12,
+    "email": "user@example.com",
+    "group_id": 1,
+    "provider": "outlook",
+    "account_type": "outlook",
+    "remark": "",
+    "claim_token": "pclm_xxx",
+    "claimed_at": "2026-04-15T10:00:00+00:00",
+    "lease_expires_at": "2026-04-15T10:10:00+00:00"
+  }
+}
+```
+
+无可领取邮箱时，当前实现返回：
+
+```json
+{
+  "success": false,
+  "error": "没有可领取的项目邮箱"
+}
+```
+
+### POST `/api/projects/<project_key>/complete-success`
+
+把当前领取中的项目邮箱标记为成功。
+
+#### 请求体
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `account_id` | int | 是 | 账号 ID |
+| `claim_token` | string | 是 | 领取时返回的 token |
+| `caller_id` | string | 否 | 调用方标识 |
+| `task_id` | string | 否 | 任务标识 |
+| `detail` | string | 否 | 成功说明 |
+
+### POST `/api/projects/<project_key>/complete-failed`
+
+把当前领取中的项目邮箱标记为失败。
+
+- 状态会从 `claiming` 变成 `failed`
+- `failed` 不会自动再次参与分配
+- 需要人工调用 `/reset-failed` 后才能再次领取
+
+#### 请求示例
+
+```json
+{
+  "account_id": 12,
+  "claim_token": "pclm_xxx",
+  "caller_id": "worker-1",
+  "task_id": "task-001",
+  "detail": "provider blocked"
+}
+```
+
+### POST `/api/projects/<project_key>/release`
+
+主动释放领取中的项目邮箱。
+
+- 状态会从 `claiming` 回到 `toClaim`
+- 适合任务中断、主动放弃等场景
+
+### POST `/api/projects/<project_key>/reset-failed`
+
+人工把 `failed` 邮箱重置回 `toClaim`。
+
+#### 请求示例
+
+```json
+{
+  "account_id": 12,
+  "detail": "人工允许重试"
+}
+```
+
+### POST `/api/projects/<project_key>/remove-account`
+
+人工把项目邮箱移出项目范围。
+
+- 目标状态变成 `removed`
+- 若当前状态是 `claiming`，会拒绝移出
+
+#### 请求示例
+
+```json
+{
+  "account_id": 12,
+  "detail": "人工移出项目"
+}
+```
+
+### POST `/api/projects/<project_key>/restore-account`
+
+人工把 `removed` 项目邮箱恢复回 `toClaim`。
+
+#### 请求示例
+
+```json
+{
+  "account_id": 12,
+  "detail": "人工恢复到项目"
+}
+```
+
 ## 刷新与转发运维
 
 ### Token 刷新
