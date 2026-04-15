@@ -422,7 +422,28 @@ cryptography>=41.0.0      # 数据加密
 ## 常见问题
 ### Gmail怎么获取应用密码
 开启二验，然后在这里创建应用密码
+
 https://support.google.com/mail/answer/185833?hl=zh-Hans
+
+
+### 怎么获取tg的群组id 和 用户id
+#### 获取个人 ID (User ID)
+在 Telegram 搜索框搜索 @userinfobot 或 @getmyid_bot。
+
+点击 Start。
+
+机器人会立即回复你的 User ID（一串数字）。
+
+如果你想知道别人的 ID：只需将对方发给你的消息转发给这个机器人，它就会显示该用户的 ID。
+
+#### 获取群组 ID (Group ID)
+将上述机器人（如 @getmyid_bot）拉进你的群组。
+
+在群组里输入 /myid（或者机器人指定的指令）。
+
+机器人会返回该群组的 ID。
+
+注意： 普通群组 ID 通常以数字开头，而**超级群组（Supergroup）或频道（Channel）**的 ID 通常以 -100 开头。
 
 ## 🤝 贡献
 
