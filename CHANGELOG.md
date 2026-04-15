@@ -7,6 +7,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.19] - 2026-04-15
+
+### Added
+- 新增内置 `2925邮箱` 类型，默认使用 `imap.2925.com:993`，并补充域名到 provider 的自动识别和前端导入/编辑下拉项。
+
+### Fixed
+- 修复部分自定义 IMAP / 2925 IMAP 服务端无法正确返回 `SEARCH` / `UID SEARCH` 结果时，收件箱明明有邮件却列表为空的问题。
+- 为 IMAP 列表与详情查询增加 `UID SEARCH -> SEARCH -> 按 EXISTS 数量直接 FETCH` 的多层回退，兼容实现不标准的服务器。
+
 ## [2.0.18] - 2026-04-15
 
 ### Added

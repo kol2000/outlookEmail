@@ -44,12 +44,25 @@ class FakeMail:
     def uid(self, *_args, **_kwargs):
         return 'OK', [b'']
 
+    def search(self, *_args, **_kwargs):
+        return 'OK', [b'']
+
+    def fetch(self, *_args, **_kwargs):
+        return 'OK', [b'']
+
     def logout(self):
         self.logged_out = True
         return 'BYE', [b'logout']
 
 
 class ImapFolderResolutionTests(unittest.TestCase):
+    def test_2925_domain_maps_to_builtin_provider(self):
+        meta = web_outlook_app.get_provider_meta('custom', 'user@2925.com')
+
+        self.assertEqual(meta['key'], '2925')
+        self.assertEqual(meta['imap_host'], 'imap.2925.com')
+        self.assertEqual(meta['imap_port'], 993)
+
     def test_parse_outlook_import_default_order(self):
         parsed = web_outlook_app.parse_outlook_account_string(
             'user@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA_refresh',
@@ -246,6 +259,136 @@ class ImapFolderResolutionTests(unittest.TestCase):
         payload = mail.xatom_calls[0][1][0]
         self.assertIn('"name" "outlookEmail"', payload)
         self.assertIn('"version"', payload)
+
+    def test_custom_imap_list_falls_back_to_plain_search_when_uid_search_fails(self):
+        raw_email = (
+            b"Subject: inbox message\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"hello\r\n"
+        )
+
+        class SearchFallbackMail(FakeMail):
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'BAD', [b'UID SEARCH unsupported']
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                return 'OK', [b'7']
+
+            def fetch(self, message_id, _query):
+                self.select_calls.append((f'FETCH:{message_id}', False))
+                return 'OK', [(
+                    b'7 (FLAGS (\\Seen) INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                    raw_email,
+                )]
+
+        mail = SearchFallbackMail(selectable={'INBOX'}, list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(len(result['emails']), 1)
+        self.assertEqual(result['emails'][0]['id'], '7')
+        self.assertEqual(result['emails'][0]['subject'], 'inbox message')
+
+    def test_custom_imap_detail_falls_back_to_plain_fetch_when_uid_fetch_fails(self):
+        raw_email = (
+            b"Subject: detail message\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"detail body\r\n"
+        )
+
+        class FetchFallbackMail(FakeMail):
+            def uid(self, command, *args, **kwargs):
+                if command == 'FETCH':
+                    return 'BAD', [b'UID FETCH unsupported']
+                return super().uid(command, *args, **kwargs)
+
+            def fetch(self, message_id, _query):
+                return 'OK', [(
+                    b'9 (RFC822 {128}',
+                    raw_email,
+                )]
+
+        mail = FetchFallbackMail(selectable={'INBOX'}, list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_email_detail_imap_generic_result(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                message_id='9',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['email']['id'], '9')
+        self.assertEqual(result['email']['subject'], 'detail message')
+        self.assertIn('detail body', result['email']['body'])
+
+    def test_custom_imap_uses_exists_count_when_search_returns_empty(self):
+        raw_email = (
+            b"Subject: exists fallback\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"exists body\r\n"
+        )
+
+        class ExistsFallbackMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'1']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'OK', [b'']
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                raise web_outlook_app.imaplib.IMAP4.error("SEARCH command error")
+
+            def fetch(self, message_id, _query):
+                if str(message_id) == '1':
+                    return 'OK', [(
+                        b'1 (FLAGS () INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                        raw_email,
+                    )]
+                return 'NO', [b'not found']
+
+        mail = ExistsFallbackMail(list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(len(result['emails']), 1)
+        self.assertEqual(result['emails'][0]['id'], '1')
+        self.assertEqual(result['emails'][0]['subject'], 'exists fallback')
 
     def test_fetch_account_emails_all_fetches_in_parallel(self):
         account = {

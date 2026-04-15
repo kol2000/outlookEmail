@@ -927,6 +927,7 @@
             '126': '126',
             yahoo: 'Yahoo',
             aliyun: 'Aliyun',
+            '2925': '2925邮箱',
             custom: 'Custom IMAP'
         };
 

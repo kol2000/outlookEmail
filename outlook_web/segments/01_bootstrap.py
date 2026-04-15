@@ -178,6 +178,12 @@ MAIL_PROVIDERS = {
         "imap_port": 993,
         "account_type": "imap",
     },
+    "2925": {
+        "label": "2925邮箱",
+        "imap_host": "imap.2925.com",
+        "imap_port": 993,
+        "account_type": "imap",
+    },
     "custom": {
         "label": "自定义 IMAP",
         "imap_host": "",
@@ -202,6 +208,7 @@ DOMAIN_PROVIDER_MAP = {
     "yahoo.co.uk": "yahoo",
     "aliyun.com": "aliyun",
     "alimail.com": "aliyun",
+    "2925.com": "2925",
 }
 
 PROVIDER_FOLDER_MAP = {
@@ -229,6 +236,11 @@ PROVIDER_FOLDER_MAP = {
         "inbox": ["INBOX", "Inbox"],
         "junkemail": ["Bulk Mail", "Spam"],
         "deleteditems": ["Trash"],
+    },
+    "2925": {
+        "inbox": ["INBOX", "Inbox"],
+        "junkemail": ["&V4NXPnux-", "Junk", "Junk Email", "Spam", "SPAM"],
+        "deleteditems": ["&XfJT0ZAB-", "Trash", "Deleted", "Deleted Items", "Deleted Messages"],
     },
     "_default": {
         "inbox": ["INBOX", "Inbox"],
@@ -293,6 +305,10 @@ def infer_provider_from_email(email_addr: str) -> str:
 
 def normalize_provider(provider: str, email_addr: str = '') -> str:
     provider = (provider or '').strip().lower()
+    if provider == 'custom':
+        inferred = infer_provider_from_email(email_addr) if email_addr else 'custom'
+        if inferred == '2925':
+            provider = inferred
     if provider == 'auto':
         provider = infer_provider_from_email(email_addr)
     if provider not in MAIL_PROVIDERS:

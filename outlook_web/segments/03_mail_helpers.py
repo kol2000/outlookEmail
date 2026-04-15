@@ -776,6 +776,28 @@ def try_select_imap_folder(mail, folder_name: str, readonly: bool = True) -> tup
     return None, attempts
 
 
+def extract_imap_exists_count(select_response: Any) -> int:
+    if isinstance(select_response, (list, tuple)):
+        for item in select_response:
+            if isinstance(item, (bytes, bytearray)):
+                text = item.decode('utf-8', errors='ignore').strip()
+            else:
+                text = str(item or '').strip()
+            if text.isdigit():
+                try:
+                    return int(text)
+                except ValueError:
+                    continue
+    text = str(select_response or '')
+    match = re.search(r"\b(\d+)\b", text)
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return 0
+    return 0
+
+
 def resolve_imap_folder(mail, provider: str, folder: str, readonly: bool = True) -> tuple[Optional[str], Dict[str, Any]]:
     candidates = []
     for folder_name in get_imap_folder_candidates(provider, folder):
@@ -862,6 +884,83 @@ def get_imap_access_block_error(provider: str, folder: str, diagnostics: Dict[st
     )
 
 
+def search_imap_message_ids(mail) -> tuple[Optional[List[bytes]], str, List[Dict[str, Any]]]:
+    attempts: List[Dict[str, Any]] = []
+
+    try:
+        status, data = mail.uid('SEARCH', None, 'ALL')
+        attempts.append({
+            'mode': 'uid',
+            'status': str(status),
+            'response': sanitize_error_details(str(data or ''))[:200],
+        })
+        if status == 'OK':
+            payload = data[0] if data else b''
+            return payload.split() if payload else [], 'uid', attempts
+    except Exception as exc:
+        attempts.append({
+            'mode': 'uid',
+            'status': type(exc).__name__,
+            'response': sanitize_error_details(str(exc))[:200],
+        })
+
+    try:
+        status, data = mail.search(None, 'ALL')
+        attempts.append({
+            'mode': 'sequence',
+            'status': str(status),
+            'response': sanitize_error_details(str(data or ''))[:200],
+        })
+        if status == 'OK':
+            payload = data[0] if data else b''
+            return payload.split() if payload else [], 'sequence', attempts
+    except Exception as exc:
+        attempts.append({
+            'mode': 'sequence',
+            'status': type(exc).__name__,
+            'response': sanitize_error_details(str(exc))[:200],
+        })
+
+    return None, '', attempts
+
+
+def build_sequence_message_ids(total_messages: int) -> List[bytes]:
+    if total_messages <= 0:
+        return []
+    return [str(index).encode('utf-8') for index in range(1, total_messages + 1)]
+
+
+def fetch_imap_message(mail, message_id: Any, query: str, preferred_mode: str = 'uid') -> tuple[str, Any, str, List[Dict[str, Any]]]:
+    message_text = message_id.decode('utf-8', errors='ignore') if isinstance(message_id, (bytes, bytearray)) else str(message_id)
+    modes = [preferred_mode]
+    if preferred_mode != 'uid':
+        modes.append('uid')
+    if preferred_mode != 'sequence':
+        modes.append('sequence')
+
+    attempts: List[Dict[str, Any]] = []
+    for mode in modes:
+        try:
+            if mode == 'uid':
+                status, data = mail.uid('FETCH', message_id, query)
+            else:
+                status, data = mail.fetch(message_text, query)
+            attempts.append({
+                'mode': mode,
+                'status': str(status),
+                'response': sanitize_error_details(str(data or ''))[:200],
+            })
+            if status == 'OK' and data:
+                return status, data, mode, attempts
+        except Exception as exc:
+            attempts.append({
+                'mode': mode,
+                'status': type(exc).__name__,
+                'response': sanitize_error_details(str(exc))[:200],
+            })
+    return 'NO', None, '', attempts
+
+
 def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                             imap_port: int = 993, folder: str = 'inbox',
                             provider: str = 'custom', skip: int = 0, top: int = 20,
@@ -915,30 +1014,47 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 'error_code': 'IMAP_FOLDER_NOT_FOUND'
             }
 
-        status, data = mail.uid('SEARCH', None, 'ALL')
-        if status != 'OK':
+        selected_exists = 0
+        for attempt in reversed(folder_diagnostics.get('select_attempts') or []):
+            if str(attempt.get('status') or '') == 'OK':
+                selected_exists = extract_imap_exists_count(attempt.get('response'))
+                if selected_exists > 0:
+                    break
+
+        message_ids, search_mode, search_attempts = search_imap_message_ids(mail)
+        if message_ids is None:
             return {
                 'success': False,
-                'error': build_error_payload('IMAP_SEARCH_FAILED', 'IMAP 搜索邮件失败', 'IMAPSearchError', 502, status),
+                'error': build_error_payload(
+                    'IMAP_SEARCH_FAILED',
+                    'IMAP 搜索邮件失败',
+                    'IMAPSearchError',
+                    502,
+                    {'attempts': search_attempts[:10]}
+                ),
                 'error_code': 'IMAP_SEARCH_FAILED'
             }
 
-        uid_bytes = data[0] if data else b''
-        if not uid_bytes:
+        if not message_ids and selected_exists > 0:
+            message_ids = build_sequence_message_ids(selected_exists)
+            search_mode = 'sequence'
+
+        if not message_ids:
             return {'success': True, 'emails': [], 'method': 'IMAP (Generic)', 'has_more': False}
 
-        uids = uid_bytes.split()
-        total = len(uids)
+        total = len(message_ids)
         start_idx = max(0, total - skip - top)
         end_idx = total - skip
         if start_idx >= end_idx:
             return {'success': True, 'emails': [], 'method': 'IMAP (Generic)', 'has_more': False}
 
-        paged_uids = uids[start_idx:end_idx][::-1]
+        paged_uids = message_ids[start_idx:end_idx][::-1]
         emails_data = []
         for uid in paged_uids:
             try:
-                f_status, f_data = mail.uid('FETCH', uid, '(FLAGS INTERNALDATE RFC822)')
+                f_status, f_data, fetch_mode, _fetch_attempts = fetch_imap_message(
+                    mail, uid, '(FLAGS INTERNALDATE RFC822)', preferred_mode=search_mode or 'uid'
+                )
                 if f_status != 'OK' or not f_data:
                     continue
                 raw_email = None
@@ -1050,7 +1166,9 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 )
             }
 
-        status, msg_data = mail.uid('FETCH', str(message_id), '(RFC822)')
+        status, msg_data, _fetch_mode, _fetch_attempts = fetch_imap_message(
+            mail, str(message_id), '(RFC822)', preferred_mode='uid'
+        )
         if status != 'OK' or not msg_data:
             return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_FETCH_FAILED', '获取邮件详情失败', 'IMAPFetchError', 502, status)}
 
