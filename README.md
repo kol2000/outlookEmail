@@ -436,6 +436,7 @@ https://support.google.com/mail/answer/185833?hl=zh-Hans
 
 如果你想知道别人的 ID：只需将对方发给你的消息转发给这个机器人，它就会显示该用户的 ID。
 
+
 #### 获取群组 ID (Group ID)
 将上述机器人（如 @getmyid_bot）拉进你的群组。
 
