@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.15] - 2026-04-15
+
+### 文档
+- 新增中文发版说明，补充版本号规则、标准发布流程、GitHub Actions 行为和发版后核对清单。
+- 新增升级指南，覆盖 Docker、Windows `exe`、Python 直跑场景的升级、回滚与注意事项。
+- 调整 `README.md` 与部署文档中的镜像标签说明和发布流程描述，使其与当前工作流保持一致。
+
 ## [2.0.14] - 2026-04-14
 
 ### Added

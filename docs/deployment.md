@@ -157,10 +157,16 @@ ports:
 
 ### 可用镜像标签
 
-- `ghcr.io/assast/outlookemail:latest` - 默认稳定版（默认分支）
-- `ghcr.io/assast/outlookemail:main` - main 分支最新版本
-- `ghcr.io/assast/outlookemail:dev` - dev 分支最新开发版
-- `ghcr.io/assast/outlookemail:v2.0.14` - 指定正式版本镜像
+- `ghcr.io/assast/outlookemail:latest` - 默认分支最近一次符合条件的稳定构建
+- `ghcr.io/assast/outlookemail:main` - `main` 分支最近一次符合条件的构建
+- `ghcr.io/assast/outlookemail:dev` - `dev` 分支最近一次符合条件的构建
+- `ghcr.io/assast/outlookemail:vX.Y.Z` - 指定正式版本镜像，由手动发版工作流生成
+
+补充说明：
+
+- 文档改动不会触发 Docker 镜像重建
+- 正式发版时建议优先使用 `vX.Y.Z` 明确版本标签
+- 具体发版流程见仓库根目录的 `RELEASE.md`
 
 ### 更新镜像
 

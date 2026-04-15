@@ -14,32 +14,29 @@ admin123
 - `main`：稳定分支，只保留可发布版本
 - `dev`：开发分支，日常功能开发与修复默认在这里进行
 
-推荐发布流程：
+标准发版流程：
 
 1. 在 `dev` 分支完成开发与验证
 2. 合并到 `main`
 3. 更新 `VERSION` 与 `CHANGELOG.md`
 4. 推送 `main`
-5. 手动触发 GitHub Actions 的 `Create GitHub Release` 工作流，并传入版本号，例如 `2.0.14`
+5. 手动触发 GitHub Actions 的 `Create GitHub Release` 工作流，并传入不带 `v` 的版本号，例如 `2.0.15`
 
-手动触发发布工作流后，GitHub Actions 会自动：
+手动发版工作流会自动：
 
-- 创建并推送对应 tag（如 `v2.0.14`）
-- 发布 Docker 镜像
-- 构建并上传 Windows `exe` 压缩包
-- 使用 `CHANGELOG.md` 中匹配版本的条目生成 GitHub Release 正文
-
-GitHub Release 和 Windows `exe` 压缩包改为手动触发：
-
-- GitHub Actions: `Create GitHub Release`
-- 输入版本号，例如 `2.0.14`
-- 工作流会创建对应 tag 的 GitHub Release，并构建上传 Windows `exe` 压缩包
+- 构建 Windows `exe` 并打包为 Release 附件
+- 创建并推送对应标签，例如 `v2.0.15`
+- 根据 `CHANGELOG.md` 中对应版本条目生成 GitHub Release 正文
+- 构建并发布正式版本镜像 `ghcr.io/assast/outlookemail:v2.0.15`
 
 Docker 镜像标签约定：
 
-- `ghcr.io/assast/outlookemail:latest`：默认稳定版（来自默认分支）
-- `ghcr.io/assast/outlookemail:dev`：开发分支最新构建
-- `ghcr.io/assast/outlookemail:v2.0.14`：正式版本镜像（例如 v2.0.14）
+- `ghcr.io/assast/outlookemail:latest`：默认分支最近一次符合条件的稳定构建
+- `ghcr.io/assast/outlookemail:main`：`main` 分支最近一次符合条件的构建
+- `ghcr.io/assast/outlookemail:dev`：`dev` 分支最近一次符合条件的构建
+- `ghcr.io/assast/outlookemail:vX.Y.Z`：正式版本镜像
+
+更完整的发版步骤、工作流行为和核对清单见 [发版说明](RELEASE.md)。
 
 ### 方式一：下载 Windows `exe`(win可用)
 
@@ -379,6 +376,7 @@ curl -H "X-API-Key: your-api-key" \
 | 文档 | 说明 |
 |------|------|
 | [🚀 部署指南](docs/deployment.md) | Docker、Docker Compose、Nginx/Caddy 部署、环境变量配置 |
+| [⬆️ 升级指南](docs/upgrade.md) | Windows、Docker、Python 直跑升级与回滚建议 |
 | [🔐 安全配置](docs/security.md) | XSS/CSRF 防护、数据加密、速率限制、审计日志 |
 | [📡 API 文档](docs/api.md) | 对外 API、内部 API 端点、代理配置 |
 | [🛠️ 故障排查](docs/troubleshooting.md) | 常见问题、故障排查步骤 |
