@@ -5,7 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
-- 桌面端设置界面重构
+
+
+## [2.0.16] - 2026-04-15
+
+### Changed
+- 重构桌面端设置界面，改为更宽的双栏布局，并为主要设置模块增加左侧快速定位导航。
+- 为设置导航增加点击定位与滚动联动高亮，减少在长设置表单中来回查找的成本。
+- 将“邮件转发设置”压缩为更偏控制台式的紧凑布局，把轮询参数、动作按钮和渠道配置整理为高密度桌面端面板。
+
+### Added
+- 为桌面端设置页左侧“当前包含”增加模块级快速跳转入口，支持直接跳到 Access、DuckMail、Cloudflare、刷新策略和邮件转发。
+- 为“最近转发历史”和“最近转发失败”增加默认折叠的抽屉式面板，按需展开日志列表，缩短默认页面高度。
 
 
 ## [2.0.15] - 2026-04-15
