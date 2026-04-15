@@ -421,7 +421,7 @@ cryptography>=41.0.0      # 数据加密
 ```
 ## 常见问题
 ### Gmail怎么获取应用密码
-开启二验，然后在这里创建应用密码
+开启2fa，然后在这里创建应用密码
 
 https://support.google.com/mail/answer/185833?hl=zh-Hans
 
