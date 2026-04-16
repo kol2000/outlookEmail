@@ -62,7 +62,11 @@
             document.getElementById('oauthPreviewEmail').value = oauthPreviewAccount.email || '';
             document.getElementById('oauthPreviewPassword').value = oauthPreviewAccount.password || '';
             document.getElementById('oauthPreviewClientId').value = oauthPreviewAccount.client_id || '';
-            document.getElementById('oauthPreviewGroup').value = group?.name || `分组 #${oauthPreviewAccount.group_id}`;
+            document.getElementById('oauthPreviewGroup').value = formatGroupDisplayText(
+                oauthPreviewAccount.group_id,
+                group?.name,
+                '未命名分组'
+            );
             document.getElementById('oauthPreviewRefreshToken').value = oauthPreviewAccount.refresh_token || '';
             if (resultEl) {
                 resultEl.style.display = 'block';

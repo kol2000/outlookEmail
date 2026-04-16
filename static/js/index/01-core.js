@@ -115,6 +115,19 @@
             return names[String(folder || '').trim().toLowerCase()] || '邮件';
         }
 
+        function normalizeGroupName(groupName, fallbackName = '未命名分组') {
+            const normalizedName = String(groupName || '').trim();
+            return normalizedName || fallbackName;
+        }
+
+        function formatGroupDisplayText(groupId, groupName, fallbackName = '未命名分组') {
+            const normalizedId = Number.parseInt(String(groupId ?? ''), 10);
+            const normalizedName = normalizeGroupName(groupName, fallbackName);
+            return Number.isFinite(normalizedId)
+                ? `${normalizedId}-${normalizedName}`
+                : normalizedName;
+        }
+
         function updateMobileQuickbarState() {
             const groupBtn = document.getElementById('mobileGroupBtn');
             const accountBtn = document.getElementById('mobileAccountBtn');
@@ -137,7 +150,9 @@
             const mobileActive = isMobileLayout();
 
             if (groupText) {
-                groupText.textContent = currentGroup ? currentGroup.name : '未选择';
+                groupText.textContent = currentGroup
+                    ? formatGroupDisplayText(currentGroup.id, currentGroup.name)
+                    : '未选择';
             }
 
             if (accountText) {
@@ -1176,7 +1191,7 @@ ${details}
                 return;
             }
 
-            nameEl.textContent = group.name || '未命名分组';
-            idBadgeEl.textContent = `groupId ${group.id}`;
-            idBadgeEl.style.display = 'inline-flex';
+            nameEl.textContent = formatGroupDisplayText(group.id, group.name);
+            idBadgeEl.textContent = '';
+            idBadgeEl.style.display = 'none';
         }
