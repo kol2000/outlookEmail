@@ -407,7 +407,7 @@
                 if (data.success) {
                     let html = '<option value="">请选择分组...</option>';
                     data.groups.filter(g => !g.is_system).forEach(group => {
-                        html += `<option value="${group.id}">${escapeHtml(formatGroupDisplayText(group.id, group.name))}</option>`;
+                        html += `<option value="${group.id}">${escapeHtml(normalizeGroupName(group.name))}</option>`;
                     });
                     select.innerHTML = html;
                 }

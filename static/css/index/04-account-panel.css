@@ -505,6 +505,10 @@
             font-weight: 600;
         }
 
+        .account-group-id-badge {
+            margin-left: 2px;
+        }
+
         .account-email {
             font-size: 13px;
             color: #111827;
