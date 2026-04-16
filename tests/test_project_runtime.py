@@ -71,6 +71,19 @@ class ProjectRuntimeTests(unittest.TestCase):
             db.commit()
             return int(cursor.lastrowid)
 
+    def _set_aliases(self, account_id: int, primary_email: str, aliases):
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            success, cleaned_aliases, errors = web_outlook_app.replace_account_aliases(
+                account_id,
+                primary_email,
+                list(aliases),
+                db,
+            )
+            self.assertTrue(success, msg='；'.join(errors))
+            db.commit()
+            return cleaned_aliases
+
     def _project_accounts(self, project_key: str):
         response = self.client.get(f'/api/projects/{project_key}/accounts')
         self.assertEqual(response.status_code, 200)
@@ -208,6 +221,65 @@ class ProjectRuntimeTests(unittest.TestCase):
             json={'caller_id': 'worker-2', 'task_id': 'task-2'}
         ).get_json()
         self.assertFalse(second_claim['success'])
+
+    def test_start_project_can_use_alias_emails(self):
+        alpha_id = self._insert_account('alpha@example.com')
+        self._set_aliases(alpha_id, 'alpha@example.com', ['alias-a@example.com', 'alias-b@example.com'])
+        self._insert_account('beta@example.com')
+
+        response = self.client.post(
+            '/api/projects/start',
+            json={'project_key': 'gpt', 'name': 'GPT Register', 'use_alias_email': True}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertTrue(payload['data']['use_alias_email'])
+        self.assertEqual(payload['data']['added_count'], 3)
+        self.assertEqual(payload['data']['total_count'], 3)
+
+        accounts = self._project_accounts('gpt')
+        self.assertEqual(
+            {item['email'] for item in accounts},
+            {'alias-a@example.com', 'alias-b@example.com', 'beta@example.com'}
+        )
+        alias_rows = [item for item in accounts if item['primary_email'] == 'alpha@example.com']
+        self.assertEqual(len(alias_rows), 2)
+
+        claim = self.client.post(
+            '/api/projects/gpt/claim-random',
+            json={'caller_id': 'worker-1', 'task_id': 'task-1'}
+        ).get_json()
+        self.assertTrue(claim['success'])
+        self.assertEqual(claim['data']['email'], 'alias-a@example.com')
+        self.assertEqual(claim['data']['primary_email'], 'alpha@example.com')
+
+    def test_restart_project_without_alias_flag_preserves_existing_alias_mode(self):
+        alpha_id = self._insert_account('alpha@example.com')
+        self._set_aliases(alpha_id, 'alpha@example.com', ['alias-a@example.com'])
+
+        first = self.client.post(
+            '/api/projects/start',
+            json={'project_key': 'gpt', 'name': 'GPT Register', 'use_alias_email': True}
+        ).get_json()
+        self.assertTrue(first['success'])
+        self.assertTrue(first['data']['use_alias_email'])
+        self.assertEqual(first['data']['added_count'], 1)
+
+        beta_id = self._insert_account('beta@example.com')
+        self._set_aliases(beta_id, 'beta@example.com', ['alias-b@example.com'])
+
+        restarted = self.client.post(
+            '/api/projects/start',
+            json={'project_key': 'gpt'}
+        ).get_json()
+        self.assertTrue(restarted['success'])
+        self.assertTrue(restarted['data']['use_alias_email'])
+        self.assertEqual(restarted['data']['added_count'], 1)
+
+        accounts = self._project_accounts('gpt')
+        self.assertEqual({item['email'] for item in accounts}, {'alias-a@example.com', 'alias-b@example.com'})
 
     def test_imap_attachment_detail_and_download_route(self):
         with self.app.app_context():

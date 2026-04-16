@@ -900,6 +900,7 @@ def init_db():
             project_key TEXT UNIQUE NOT NULL,
             description TEXT DEFAULT '',
             scope_mode TEXT NOT NULL DEFAULT 'all',
+            use_alias_email INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'active',
             last_scope_synced_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1089,6 +1090,12 @@ def init_db():
             cursor.execute('ALTER TABLE project_accounts ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
         if 'updated_at' not in project_account_columns:
             cursor.execute('ALTER TABLE project_accounts ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+
+    cursor.execute("PRAGMA table_info(projects)")
+    project_columns = [col[1] for col in cursor.fetchall()]
+    if project_columns:
+        if 'use_alias_email' not in project_columns:
+            cursor.execute('ALTER TABLE projects ADD COLUMN use_alias_email INTEGER NOT NULL DEFAULT 0')
 
     cursor.execute("PRAGMA table_info(project_account_events)")
     project_event_columns = [col[1] for col in cursor.fetchall()]

@@ -596,6 +596,8 @@ def api_start_project():
     description = data['description'] if 'description' in data else None
     group_ids_provided = 'group_ids' in data
     group_ids = data.get('group_ids', []) if group_ids_provided else None
+    use_alias_email_provided = 'use_alias_email' in data
+    use_alias_email = data.get('use_alias_email') if use_alias_email_provided else None
 
     try:
         project = start_project(
@@ -604,6 +606,8 @@ def api_start_project():
             description=description,
             group_ids=group_ids,
             group_ids_provided=group_ids_provided,
+            use_alias_email=use_alias_email,
+            use_alias_email_provided=use_alias_email_provided,
         )
         log_audit(
             'start',
@@ -614,6 +618,7 @@ def api_start_project():
                     'created': bool(project.get('created')),
                     'added_count': int(project.get('added_count', 0)),
                     'deleted_count': int(project.get('deleted_count', 0)),
+                    'use_alias_email': bool(project.get('use_alias_email', False)),
                 },
                 ensure_ascii=False,
             ),

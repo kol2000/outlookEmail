@@ -522,6 +522,7 @@ curl -H "X-API-Key: your-api-key" \
         "project_key": "gpt",
         "description": "GPT 注册项目",
         "scope_mode": "groups",
+        "use_alias_email": false,
         "status": "active",
         "group_ids": [1, 2],
         "total_count": 500,
@@ -566,6 +567,13 @@ curl -H "X-API-Key: your-api-key" \
 - 若项目记录对应的账号已从 `accounts` 主表删除，则该项目记录会标为 `deleted`
 - 若同一个邮箱地址后来被重新导入系统，启动项目时会按邮箱地址复用旧项目记录，而不是把它当成全新邮箱
 
+别名邮箱规则：
+
+- `use_alias_email=false` 时，项目按主邮箱地址入池
+- `use_alias_email=true` 时，优先按账号别名邮箱入池
+- 若某个账号没有配置别名，则在 `use_alias_email=true` 时仍会回退使用主邮箱地址
+- 再次启动已存在项目时，如果不显式传 `use_alias_email`，会沿用当前项目配置
+
 #### 请求体
 
 | 字段 | 类型 | 必填 | 说明 |
@@ -574,6 +582,7 @@ curl -H "X-API-Key: your-api-key" \
 | `name` | string | 否 | 项目名称。首次创建时不传则默认使用 `project_key` |
 | `description` | string | 否 | 项目描述 |
 | `group_ids` | array<int> | 否 | 项目范围分组列表；不传时首次创建默认为全量邮箱范围 |
+| `use_alias_email` | bool | 否 | 是否优先把别名邮箱加入项目；默认 `false` |
 
 #### 请求示例
 
@@ -584,7 +593,8 @@ curl -H "X-API-Key: your-api-key" \
   "project_key": "gpt",
   "name": "GPT 注册",
   "description": "GPT 注册项目",
-  "group_ids": [1, 2]
+  "group_ids": [1, 2],
+  "use_alias_email": true
 }
 ```
 
@@ -617,6 +627,7 @@ curl -H "X-API-Key: your-api-key" \
     "project_key": "gpt",
     "description": "GPT 注册项目",
     "scope_mode": "groups",
+    "use_alias_email": true,
     "status": "active",
     "group_ids": [1, 2],
     "total_count": 560,
@@ -639,6 +650,7 @@ curl -H "X-API-Key: your-api-key" \
 | `created` | 本次是否首次创建该项目 |
 | `added_count` | 本次启动新补入的邮箱数量 |
 | `deleted_count` | 本次启动过程中被标记为 `deleted` 的项目邮箱数量 |
+| `use_alias_email` | 当前项目是否按别名邮箱入池 |
 
 ### GET `/api/projects/<project_key>/accounts`
 
@@ -659,14 +671,15 @@ curl -H "X-API-Key: your-api-key" \
 {
   "success": true,
   "data": {
-    "project": {
-      "id": 1,
-      "name": "GPT 注册",
-      "project_key": "gpt",
-      "description": "GPT 注册项目",
-      "scope_mode": "groups",
-      "status": "active",
-      "group_ids": [1, 2],
+      "project": {
+        "id": 1,
+        "name": "GPT 注册",
+        "project_key": "gpt",
+        "description": "GPT 注册项目",
+        "scope_mode": "groups",
+        "use_alias_email": true,
+        "status": "active",
+        "group_ids": [1, 2],
       "total_count": 560,
       "to_claim_count": 120,
       "claiming_count": 5,
@@ -679,8 +692,9 @@ curl -H "X-API-Key: your-api-key" \
       {
         "project_account_id": 101,
         "account_id": 12,
-        "email": "user@example.com",
-        "normalized_email": "user@example.com",
+        "email": "alias@example.com",
+        "primary_email": "user@example.com",
+        "normalized_email": "alias@example.com",
         "provider": "outlook",
         "account_type": "outlook",
         "group_id": 1,
@@ -740,7 +754,8 @@ curl -H "X-API-Key: your-api-key" \
     "project_key": "gpt",
     "project_account_id": 101,
     "account_id": 12,
-    "email": "user@example.com",
+    "email": "alias@example.com",
+    "primary_email": "user@example.com",
     "group_id": 1,
     "provider": "outlook",
     "account_type": "outlook",

@@ -709,6 +709,22 @@ def normalize_project_group_ids(group_ids: Optional[List[int]]) -> List[int]:
     return normalize_account_ids(group_ids or [])
 
 
+def parse_bool_flag(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {'1', 'true', 'yes', 'on'}:
+            return True
+        if normalized in {'0', 'false', 'no', 'off', ''}:
+            return False
+    return bool(value)
+
+
 def serialize_project_event_detail(detail: Any) -> str:
     if detail in (None, ''):
         return ''
@@ -777,6 +793,7 @@ def load_project_group_ids(project_id: int, db=None) -> List[int]:
 def serialize_project_row(project_row: sqlite3.Row, db=None) -> Dict[str, Any]:
     project = dict(project_row)
     project['group_ids'] = load_project_group_ids(project['id'], db=db)
+    project['use_alias_email'] = bool(project.get('use_alias_email', 0))
     project['total_count'] = int(project.get('total_count') or 0)
     project['to_claim_count'] = int(project.get('to_claim_count') or 0)
     project['claiming_count'] = int(project.get('claiming_count') or 0)
@@ -839,14 +856,14 @@ def load_projects() -> List[Dict[str, Any]]:
 def get_project_scope_accounts(project_id: int, db=None) -> List[sqlite3.Row]:
     database = db or get_db()
     project_row = database.execute(
-        'SELECT id, scope_mode FROM projects WHERE id = ?',
+        'SELECT id, scope_mode, use_alias_email FROM projects WHERE id = ?',
         (project_id,)
     ).fetchone()
     if not project_row:
         return []
 
     if project_row['scope_mode'] == 'groups':
-        return database.execute(
+        account_rows = database.execute(
             '''
             SELECT DISTINCT a.id, a.email, a.group_id
             FROM accounts a
@@ -856,14 +873,39 @@ def get_project_scope_accounts(project_id: int, db=None) -> List[sqlite3.Row]:
             ''',
             (project_id,)
         ).fetchall()
+    else:
+        account_rows = database.execute(
+            '''
+            SELECT a.id, a.email, a.group_id
+            FROM accounts a
+            ORDER BY a.id ASC
+            '''
+        ).fetchall()
 
-    return database.execute(
-        '''
-        SELECT a.id, a.email, a.group_id
-        FROM accounts a
-        ORDER BY a.id ASC
-        '''
-    ).fetchall()
+    if not parse_bool_flag(project_row['use_alias_email'], False):
+        return [dict(row) for row in account_rows]
+
+    scope_accounts: List[Dict[str, Any]] = []
+    for row in account_rows:
+        aliases = get_account_aliases(int(row['id']))
+        if aliases:
+            for alias_email in aliases:
+                normalized_alias = normalize_email_address(alias_email)
+                if not normalized_alias:
+                    continue
+                scope_accounts.append({
+                    'id': row['id'],
+                    'email': normalized_alias,
+                    'group_id': row['group_id'],
+                })
+            continue
+        scope_accounts.append({
+            'id': row['id'],
+            'email': row['email'],
+            'group_id': row['group_id'],
+        })
+
+    return scope_accounts
 
 
 def update_project_group_scopes(project_id: int, group_ids: List[int], db=None) -> None:
@@ -1031,6 +1073,8 @@ def start_project(
     description: Optional[str] = None,
     group_ids: Optional[List[int]] = None,
     group_ids_provided: bool = False,
+    use_alias_email: Optional[bool] = None,
+    use_alias_email_provided: bool = False,
 ) -> Dict[str, Any]:
     db = get_db()
     normalized_key = normalize_project_key(project_key)
@@ -1040,6 +1084,7 @@ def start_project(
     clean_name = sanitize_input((name or '').strip(), max_length=100) if name is not None else ''
     clean_description = sanitize_input(description or '', max_length=500) if description is not None else ''
     normalized_group_ids = normalize_project_group_ids(group_ids)
+    normalized_use_alias_email = parse_bool_flag(use_alias_email, False)
 
     now_str = project_now_iso()
     created = False
@@ -1058,12 +1103,12 @@ def start_project(
             cursor = db.execute(
                 '''
                 INSERT INTO projects (
-                    name, project_key, description, scope_mode, status,
+                    name, project_key, description, scope_mode, use_alias_email, status,
                     last_scope_synced_at, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, 'active', ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
                 ''',
-                (clean_name, normalized_key, clean_description, scope_mode, now_str, now_str, now_str)
+                (clean_name, normalized_key, clean_description, scope_mode, int(normalized_use_alias_email), now_str, now_str, now_str)
             )
             project_id = cursor.lastrowid
             created = True
@@ -1072,9 +1117,12 @@ def start_project(
         else:
             project_id = existing['id']
             scope_mode = existing['scope_mode']
+            effective_use_alias_email = parse_bool_flag(existing['use_alias_email'], False)
             if group_ids_provided:
                 scope_mode = 'groups' if normalized_group_ids else 'all'
                 update_project_group_scopes(project_id, normalized_group_ids, db=db)
+            if use_alias_email_provided:
+                effective_use_alias_email = normalized_use_alias_email
 
             db.execute(
                 '''
@@ -1082,6 +1130,7 @@ def start_project(
                 SET name = ?,
                     description = ?,
                     scope_mode = ?,
+                    use_alias_email = ?,
                     status = 'active',
                     last_scope_synced_at = ?,
                     updated_at = ?
@@ -1091,6 +1140,7 @@ def start_project(
                     clean_name or existing['name'],
                     clean_description if description is not None else (existing['description'] or ''),
                     scope_mode,
+                    int(effective_use_alias_email),
                     now_str,
                     now_str,
                     project_id,
@@ -1203,6 +1253,7 @@ def claim_project_account(project_key: str, caller_id: str, task_id: str, lease_
                 pa.normalized_email,
                 pa.email_snapshot,
                 pa.source_group_id,
+                p.use_alias_email,
                 a.email,
                 a.group_id,
                 a.remark,
@@ -1210,6 +1261,7 @@ def claim_project_account(project_key: str, caller_id: str, task_id: str, lease_
                 a.provider,
                 a.account_type
             FROM project_accounts pa
+            JOIN projects p ON p.id = pa.project_id
             JOIN accounts a ON a.id = pa.account_id
             WHERE pa.project_id = ?
               AND pa.status = 'toClaim'
@@ -1272,11 +1324,13 @@ def claim_project_account(project_key: str, caller_id: str, task_id: str, lease_
             db=db,
         )
         db.commit()
+        use_alias_email = parse_bool_flag(row['use_alias_email'], False)
         return {
             'project_key': normalized_key,
             'project_account_id': row['project_account_id'],
             'account_id': row['account_id'],
-            'email': row['email'] or row['email_snapshot'],
+            'email': row['email_snapshot'] if use_alias_email else (row['email'] or row['email_snapshot']),
+            'primary_email': row['email'] or '',
             'group_id': row['group_id'] if row['group_id'] is not None else row['source_group_id'],
             'provider': row['provider'] or '',
             'account_type': row['account_type'] or '',
@@ -1611,19 +1665,21 @@ def load_project_accounts(project_key: str, status: str = '', group_id: Optional
         sql += ' AND COALESCE(a.provider, \'\') = ?'
         params.append(provider)
     if keyword:
-        sql += ' AND (COALESCE(a.email, pa.email_snapshot) LIKE ? OR COALESCE(a.remark, \'\') LIKE ?)'
+        sql += ' AND (COALESCE(a.email, \'\') LIKE ? OR pa.email_snapshot LIKE ? OR COALESCE(a.remark, \'\') LIKE ?)'
         like = f'%{keyword}%'
-        params.extend([like, like])
+        params.extend([like, like, like])
 
     sql += ' ORDER BY pa.updated_at DESC, pa.id DESC'
 
     rows = db.execute(sql, params).fetchall()
     accounts = []
+    use_alias_email = parse_bool_flag(project.get('use_alias_email'), False)
     for row in rows:
         accounts.append({
             'project_account_id': row['project_account_id'],
             'account_id': row['account_id'],
-            'email': row['current_email'] or row['email_snapshot'],
+            'email': row['email_snapshot'] if use_alias_email else (row['current_email'] or row['email_snapshot']),
+            'primary_email': row['current_email'] or '',
             'normalized_email': row['normalized_email'],
             'provider': row['provider'] or '',
             'account_type': row['account_type'] or '',
