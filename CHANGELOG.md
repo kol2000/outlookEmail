@@ -7,6 +7,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.20] - 2026-04-16
+
+### Added
+- 左侧账号列表新增“复制邮箱+别名”批量操作，可一次复制所选账号的主邮箱和全部别名邮箱，并自动去重后写入剪贴板。
+
 ## [2.0.19] - 2026-04-15
 
 ### Added

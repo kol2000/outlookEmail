@@ -761,20 +761,32 @@
             }
         }
 
-        // 复制邮箱地址
-        function copyEmail(email) {
-            navigator.clipboard.writeText(email).then(() => {
-                showToast('邮箱地址已复制', 'success');
-            }).catch(() => {
-                // 降级方案
+        function copyTextToClipboard(text, successMessage = '内容已复制') {
+            const fallbackCopy = () => {
                 const textarea = document.createElement('textarea');
-                textarea.value = email;
+                textarea.value = text;
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast('邮箱地址已复制', 'success');
-            });
+                showToast(successMessage, 'success');
+            };
+
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                return navigator.clipboard.writeText(text).then(() => {
+                    showToast(successMessage, 'success');
+                }).catch(() => {
+                    fallbackCopy();
+                });
+            }
+
+            fallbackCopy();
+            return Promise.resolve();
+        }
+
+        // 复制邮箱地址
+        function copyEmail(email) {
+            copyTextToClipboard(email, '邮箱地址已复制');
         }
 
         // 复制当前邮箱

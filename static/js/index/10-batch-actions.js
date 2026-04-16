@@ -1,4 +1,4 @@
-        /* global accountsCache, clearEmailSelection, closeModal, currentGroupId, currentAccount, currentEmailDetail, deleteAccount, getSelectedForwardChannels, handleApiError, hideModal, invalidateAccountCaches, isTempEmailGroup, loadAccountsByGroup, loadGroups, loadTags, refreshVisibleAccountList, renderEmailList, selectedEmailIds, setModalVisible, showModal, showToast, updateBatchActionBar */
+        /* global accountsCache, clearEmailSelection, closeModal, copyTextToClipboard, currentAccount, currentAccountListSource, currentEmailDetail, currentGroupId, deleteAccount, getSelectedForwardChannels, handleApiError, hideModal, invalidateAccountCaches, isTempEmailGroup, loadAccountsByGroup, loadGroups, loadTags, refreshVisibleAccountList, renderEmailList, selectedEmailIds, setModalVisible, showModal, showToast, updateBatchActionBar */
 
         // ==================== 批量操作 ====================
 
@@ -10,6 +10,7 @@
             const countSpan = document.getElementById('selectedCount');
             const selectAllBtn = document.getElementById('accountSelectAllBtn');
             const batchRefreshBtn = document.getElementById('batchRefreshTokensBtn');
+            const batchCopyBtn = document.getElementById('batchCopyEmailsBtn');
             const batchEnableForwardingBtn = document.getElementById('batchEnableForwardingBtn');
             const batchDisableForwardingBtn = document.getElementById('batchDisableForwardingBtn');
             const batchDeleteBtn = document.getElementById('batchDeleteAccountsBtn');
@@ -41,6 +42,13 @@
                         batchRefreshBtn.textContent = refreshableChecked.length > 0
                             ? `刷新 Token${refreshableChecked.length !== checked.length ? ` (${refreshableChecked.length})` : ''}`
                             : '刷新 Token';
+                    }
+                }
+                if (batchCopyBtn) {
+                    const isCopying = batchCopyBtn.dataset.loading === 'true';
+                    batchCopyBtn.disabled = checked.length === 0 || isCopying;
+                    if (!isCopying) {
+                        batchCopyBtn.textContent = checked.length > 1 ? `复制邮箱+别名 (${checked.length})` : '复制邮箱+别名';
                     }
                 }
                 if (batchEnableForwardingBtn) {
@@ -81,6 +89,12 @@
                     batchRefreshBtn.textContent = '刷新 Token';
                     batchRefreshBtn.title = '';
                 }
+                if (batchCopyBtn) {
+                    batchCopyBtn.disabled = false;
+                    batchCopyBtn.dataset.loading = 'false';
+                    batchCopyBtn.textContent = '复制邮箱+别名';
+                    batchCopyBtn.title = '';
+                }
                 if (batchEnableForwardingBtn) {
                     batchEnableForwardingBtn.disabled = false;
                     batchEnableForwardingBtn.dataset.loading = 'false';
@@ -119,14 +133,65 @@
             updateBatchActionBar();
         }
 
+        function getSelectedAccountIds() {
+            return Array.from(document.querySelectorAll('#accountList .account-select-checkbox:checked'))
+                .map(cb => parseInt(cb.value, 10))
+                .filter(Number.isFinite);
+        }
+
+        function getSelectedAccounts() {
+            const selectedIds = new Set(getSelectedAccountIds());
+            if (!selectedIds.size) {
+                return [];
+            }
+
+            return (Array.isArray(currentAccountListSource) ? currentAccountListSource : [])
+                .filter(account => selectedIds.has(parseInt(account.id, 10)));
+        }
+
+        async function copySelectedAccountsWithAliases() {
+            const btn = document.getElementById('batchCopyEmailsBtn');
+            if (!btn || btn.disabled) return;
+
+            const selectedAccounts = getSelectedAccounts();
+            if (!selectedAccounts.length) {
+                showToast('请先选择要复制的邮箱', 'error');
+                return;
+            }
+
+            const emailSet = new Set();
+            selectedAccounts.forEach(account => {
+                const candidates = [account.email].concat(Array.isArray(account.aliases) ? account.aliases : []);
+                candidates
+                    .map(value => String(value || '').trim())
+                    .filter(Boolean)
+                    .forEach(email => emailSet.add(email));
+            });
+
+            const emailList = Array.from(emailSet);
+            if (!emailList.length) {
+                showToast('所选账号没有可复制的邮箱', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.dataset.loading = 'true';
+            btn.textContent = '复制中...';
+
+            try {
+                await copyTextToClipboard(emailList.join('\n'), `已复制 ${emailList.length} 个邮箱地址`);
+            } finally {
+                btn.dataset.loading = 'false';
+                updateBatchActionBar();
+            }
+        }
+
         async function refreshSelectedAccounts() {
             const btn = document.getElementById('batchRefreshTokensBtn');
             if (!btn || btn.disabled) return;
 
             const checked = Array.from(document.querySelectorAll('#accountList .account-select-checkbox:checked'));
-            const accountIds = checked
-                .map(cb => parseInt(cb.value, 10))
-                .filter(Number.isFinite);
+            const accountIds = getSelectedAccountIds();
             const refreshableCount = checked.filter(cb => cb.dataset.refreshable === 'true').length;
 
             if (!accountIds.length) {
