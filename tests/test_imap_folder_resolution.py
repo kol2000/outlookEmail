@@ -4,6 +4,7 @@ import os
 import tempfile
 import threading
 import unittest
+from email.message import EmailMessage
 from unittest.mock import patch
 
 
@@ -1188,6 +1189,28 @@ class MultiChannelForwardingTests(unittest.TestCase):
 
         self.assertEqual(email_mock.call_count, 0)
         self.assertEqual(tg_mock.call_count, 1)
+
+    def test_extract_message_attachments_returns_metadata_and_content(self):
+        message = EmailMessage()
+        message['Subject'] = 'Attachment Test'
+        message['From'] = 'sender@example.com'
+        message['To'] = 'user@example.com'
+        message.set_content('body text')
+        message.add_attachment(
+            b'hello attachment',
+            maintype='text',
+            subtype='plain',
+            filename='report.txt',
+        )
+
+        parsed = web_outlook_app.email.message_from_bytes(message.as_bytes())
+        attachments = web_outlook_app.extract_message_attachments(parsed, include_content=True)
+
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0]['id'], 'attachment-1')
+        self.assertEqual(attachments[0]['name'], 'report.txt')
+        self.assertEqual(attachments[0]['content_type'], 'text/plain')
+        self.assertEqual(attachments[0]['content'], b'hello attachment')
 
 
 if __name__ == '__main__':

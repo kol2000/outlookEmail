@@ -225,6 +225,20 @@
             white-space: nowrap;
         }
 
+        .email-attachment-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            font-size: 11px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
         .email-folder-badge--inbox {
             color: #166534;
             background: #ecfdf5;
@@ -422,6 +436,103 @@
             font-size: 15px;
             line-height: 1.7;
             color: #333;
+        }
+
+        .email-attachments {
+            margin-bottom: 20px;
+            padding: 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fafbff 0%, #f8fafc 100%);
+        }
+
+        .email-attachments__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .email-attachments__title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .email-attachments__count {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .email-attachments__list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .email-attachment-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid #dbe3ef;
+            background: #ffffff;
+            color: inherit;
+            text-decoration: none;
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+
+        .email-attachment-item:hover {
+            border-color: #94a3b8;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .email-attachment-item__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            flex-shrink: 0;
+        }
+
+        .email-attachment-item__content {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .email-attachment-item__name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+            word-break: break-word;
+        }
+
+        .email-attachment-item__meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .email-attachment-item__badge {
+            display: inline-flex;
+            align-items: center;
+            min-height: 20px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+            font-weight: 600;
         }
 
         /* 全屏查看邮件 */

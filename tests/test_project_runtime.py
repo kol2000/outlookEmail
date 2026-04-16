@@ -3,6 +3,8 @@ import os
 import sys
 import tempfile
 import unittest
+from email.message import EmailMessage
+from unittest.mock import patch
 
 
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
@@ -20,6 +22,7 @@ class ProjectRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.app = web_outlook_app.app
         self.app.config['TESTING'] = True
+        self.app.config['WTF_CSRF_ENABLED'] = False
         self.client = self.app.test_client()
         with self.client.session_transaction() as sess:
             sess['logged_in'] = True
@@ -205,6 +208,82 @@ class ProjectRuntimeTests(unittest.TestCase):
             json={'caller_id': 'worker-2', 'task_id': 'task-2'}
         ).get_json()
         self.assertFalse(second_claim['success'])
+
+    def test_imap_attachment_detail_and_download_route(self):
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute(
+                '''
+                INSERT INTO accounts (
+                    email, password, client_id, refresh_token,
+                    group_id, remark, status, account_type, provider,
+                    imap_host, imap_port, imap_password, forward_enabled
+                )
+                VALUES (?, '', '', '', 1, '', 'active', 'imap', 'custom', 'imap.example.com', 993, 'secret', 0)
+                ''',
+                ('user@example.com',)
+            )
+            db.commit()
+
+        message = EmailMessage()
+        message['Subject'] = 'Attachment Detail'
+        message['From'] = 'sender@example.com'
+        message['To'] = 'user@example.com'
+        message.set_content('body line 1\nbody line 2')
+        message.add_attachment(
+            b'attachment body',
+            maintype='text',
+            subtype='plain',
+            filename='report.txt',
+        )
+        raw_email = message.as_bytes()
+
+        class AttachmentMail:
+            def __init__(self):
+                self.logged_out = False
+
+            def login(self, *_args, **_kwargs):
+                return 'OK', [b'logged in']
+
+            def xatom(self, *_args, **_kwargs):
+                return 'OK', [b'ID completed']
+
+            def select(self, name, readonly=True):
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'1']
+                return 'NO', [b'folder not found']
+
+            def list(self):
+                return 'OK', [b'(\\HasNoChildren) "." "INBOX"']
+
+            def uid(self, command, *args, **_kwargs):
+                if command == 'FETCH':
+                    return 'OK', [(b'1 (RFC822 {256}', raw_email)]
+                if command == 'SEARCH':
+                    return 'OK', [b'1']
+                return 'OK', [b'']
+
+            def fetch(self, *_args, **_kwargs):
+                return 'OK', [(b'1 (RFC822 {256}', raw_email)]
+
+            def logout(self):
+                self.logged_out = True
+                return 'BYE', [b'logout']
+
+        mail = AttachmentMail()
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            detail_response = self.client.get('/api/email/user@example.com/msg-1?method=imap&folder=inbox')
+            self.assertEqual(detail_response.status_code, 200)
+            detail_payload = detail_response.get_json()
+            self.assertTrue(detail_payload['success'])
+            self.assertEqual(detail_payload['email']['attachments'][0]['id'], 'attachment-1')
+            self.assertEqual(detail_payload['email']['attachments'][0]['name'], 'report.txt')
+            self.assertEqual(detail_payload['email']['body'], 'body line 1\nbody line 2\n')
+
+            download_response = self.client.get('/api/email/user@example.com/msg-1/attachments/attachment-1?method=imap&folder=inbox')
+            self.assertEqual(download_response.status_code, 200)
+            self.assertEqual(download_response.data, b'attachment body')
+            self.assertIn("filename*=UTF-8''report.txt", download_response.headers.get('Content-Disposition', ''))
 
 
 if __name__ == '__main__':

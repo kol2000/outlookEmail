@@ -7,6 +7,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.21] - 2026-04-17
+
+### Added
+- 为邮件详情增加附件列表展示与下载能力，支持 Graph 和 IMAP 邮箱直接查看并下载邮件附件。
+
+### Fixed
+- 修复 IMAP 纯文本邮件详情被错误拼接为带字面量 `<br>` 的正文内容问题，现按纯文本正确返回。
+
 ## [2.0.20] - 2026-04-16
 
 ### Added

@@ -964,6 +964,44 @@ curl -H "X-API-Key: your-api-key" \
 | `folder` | string | 否 | 当前邮件所在文件夹，默认 `inbox` |
 | `method` | string | 否 | 优先取详情的方式，常见为 `graph` |
 
+#### 返回字段
+
+`email` 对象至少包含以下字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 邮件 ID |
+| `subject` | string | 邮件主题 |
+| `from` | string | 发件人 |
+| `to` | string | 收件人，多个地址用 `, ` 拼接 |
+| `cc` | string | 抄送，可能为空 |
+| `date` | string | 收件时间 |
+| `body` | string | 邮件正文 |
+| `body_type` | string | `html` 或 `text` |
+| `attachments` | array<object> | 附件列表 |
+
+`attachments` 中每个对象包含：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 附件 ID，下载附件时使用 |
+| `name` | string | 附件文件名 |
+| `content_type` | string | MIME 类型 |
+| `size` | int | 附件大小，单位字节 |
+| `is_inline` | bool | 是否为内联附件 |
+| `content_id` | string | 内联附件的 Content-ID，没有时为空 |
+
+### GET `/api/email/<email>/<message_id>/attachments/<attachment_id>`
+
+下载单个邮件附件。返回文件流，并带 `Content-Disposition: attachment` 响应头。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `folder` | string | 否 | 当前邮件所在文件夹，默认 `inbox` |
+| `method` | string | 否 | Outlook 账号优先使用 `graph`，传 `imap` 时走 IMAP 下载 |
+
 ### POST `/api/emails/delete`
 
 批量删除邮件。

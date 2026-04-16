@@ -148,6 +148,56 @@
             return getFolderDisplayName(emailItem?.folder);
         }
 
+        function formatAttachmentSize(size) {
+            const numericSize = Number(size) || 0;
+            if (numericSize < 1024) {
+                return `${numericSize} B`;
+            }
+            if (numericSize < 1024 * 1024) {
+                return `${(numericSize / 1024).toFixed(1).replace(/\\.0$/, '')} KB`;
+            }
+            return `${(numericSize / (1024 * 1024)).toFixed(1).replace(/\\.0$/, '')} MB`;
+        }
+
+        function buildAttachmentDownloadUrl(email, attachment) {
+            const folder = encodeURIComponent(email?.folder || currentFolder || 'inbox');
+            const method = encodeURIComponent(currentMethod || 'graph');
+            return `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(email.id)}/attachments/${encodeURIComponent(attachment.id)}?method=${method}&folder=${folder}`;
+        }
+
+        function renderAttachmentSection(email) {
+            const attachments = Array.isArray(email?.attachments) ? email.attachments : [];
+            if (attachments.length === 0) {
+                return '';
+            }
+
+            return `
+                <section class="email-attachments" aria-label="邮件附件">
+                    <div class="email-attachments__header">
+                        <div class="email-attachments__title">附件</div>
+                        <div class="email-attachments__count">${attachments.length} 个</div>
+                    </div>
+                    <div class="email-attachments__list">
+                        ${attachments.map(attachment => `
+                            <a class="email-attachment-item"
+                               href="${buildAttachmentDownloadUrl(email, attachment)}"
+                               download="${escapeHtml(attachment.name || 'attachment')}">
+                                <span class="email-attachment-item__icon" aria-hidden="true">📎</span>
+                                <span class="email-attachment-item__content">
+                                    <span class="email-attachment-item__name">${escapeHtml(attachment.name || 'attachment')}</span>
+                                    <span class="email-attachment-item__meta">
+                                        ${attachment.is_inline ? '<span class="email-attachment-item__badge">内联</span>' : ''}
+                                        <span>${formatAttachmentSize(attachment.size)}</span>
+                                        <span>${escapeHtml(attachment.content_type || 'application/octet-stream')}</span>
+                                    </span>
+                                </span>
+                            </a>
+                        `).join('')}
+                    </div>
+                </section>
+            `;
+        }
+
         function renderEmailList(emails) {
             const container = document.getElementById('emailList');
 
@@ -174,6 +224,7 @@
                 const isActive = currentEmailId === email.id;
                 const recipientDisplayLabel = getRecipientDisplayLabel(email);
                 const sourceLabel = getEmailSourceLabel(email);
+                const hasAttachments = Boolean(email.has_attachments);
                 return `
                 <div class="email-item ${email.is_read === false ? 'unread' : ''} ${isActive ? 'active' : ''}"
                      onclick="${clickHandler}('${email.id}', ${index})">
@@ -187,6 +238,7 @@
                                     <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
                                     ${recipientDisplayLabel ? `<div class="email-recipient" title="${escapeHtml(recipientDisplayLabel)}">${escapeHtml(recipientDisplayLabel)}</div>` : ''}
                                 </div>
+                                ${hasAttachments ? '<span class="email-attachment-indicator" title="含附件" aria-label="含附件">📎</span>' : ''}
                                 ${sourceLabel ? `<span class="email-folder-badge email-folder-badge--${escapeHtml(String(email.folder || '').toLowerCase())}">${escapeHtml(sourceLabel)}</span>` : ''}
                             </div>
                             <div class="email-date">${formatDate(email.date)}</div>
@@ -458,6 +510,7 @@
             container.innerHTML = `
                 ${detailHeader}
                 <div class="email-detail-body">
+                    ${renderAttachmentSection(email)}
                     ${bodyContent}
                 </div>
             `;
