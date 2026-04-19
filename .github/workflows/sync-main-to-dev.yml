@@ -1,0 +1,42 @@
+name: Sync Main Into Dev
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-main-to-dev
+  cancel-in-progress: false
+
+jobs:
+  merge-main-into-dev:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch target branches
+        run: |
+          git fetch origin main dev
+
+      - name: Merge main into dev
+        run: |
+          git checkout -B dev origin/dev
+          git merge --no-ff --no-edit origin/main
+
+      - name: Push dev branch
+        run: |
+          git push origin dev
