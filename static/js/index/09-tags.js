@@ -1,4 +1,4 @@
-        /* global handleApiError, hideModal, loadAccountsByGroup, renderFilteredAccountList, selectedTagFilters, showModal, showToast, updateBatchTagTagOptions, updateCurrentGroupHeader */
+        /* global accountsCache, currentAccountListSource, currentGroupId, handleApiError, hideModal, isTempEmailGroup, loadAccountsByGroup, loadTempEmails, refreshVisibleAccountList, renderFilteredAccountList, renderTempEmailList, selectedTagFilters, showModal, showToast, updateBatchTagTagOptions, updateCurrentGroupHeader */
 
         // ==================== 标签管理 ====================
 
@@ -102,7 +102,17 @@
             });
             updateTagFilterSummary();
             if (currentAccountListSource.length) {
-                renderFilteredAccountList(currentAccountListSource);
+                if (isTempEmailGroup) {
+                    renderTempEmailList(currentAccountListSource);
+                } else {
+                    renderFilteredAccountList(currentAccountListSource);
+                }
+            } else if (currentGroupId) {
+                if (isTempEmailGroup) {
+                    loadTempEmails();
+                } else {
+                    loadAccountsByGroup(currentGroupId);
+                }
             }
         }
 
@@ -117,8 +127,7 @@
                 return;
             }
 
-            container.style.display = isTempEmailGroup ? 'none' : 'flex';
-            if (isTempEmailGroup) return;
+            container.style.display = 'flex';
 
             const optionsHtml = allTags.map(tag => `
                 <label class="tag-filter-option ${selectedTagFilters.has(tag.id) ? 'is-checked' : ''}" data-tag-name="${escapeHtml(tag.name)}">
@@ -228,10 +237,7 @@
                 if (data.success) {
                     showToast('标签已删除', 'success');
                     await loadTags();
-                    // 刷新账号列表以更新标签显示
-                    if (currentGroupId) {
-                        loadAccountsByGroup(currentGroupId, true);
-                    }
+                    await refreshVisibleAccountList(true);
                 } else {
                     showToast(data.error || '删除失败', 'error');
                 }

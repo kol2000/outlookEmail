@@ -843,6 +843,92 @@ class BatchForwardingApiTests(unittest.TestCase):
         self.assertEqual(enabled_account['forward_last_checked_at'], self.enabled_cursor_before)
 
 
+class TempEmailTagsApiTests(unittest.TestCase):
+    def setUp(self):
+        self.app = web_outlook_app.app
+        self.app.config['TESTING'] = True
+        self.app.config['WTF_CSRF_ENABLED'] = False
+        self.client = self.app.test_client()
+
+        with self.client.session_transaction() as sess:
+            sess['logged_in'] = True
+
+        with self.app.app_context():
+            web_outlook_app.init_db()
+            db = web_outlook_app.get_db()
+            db.execute('DELETE FROM temp_email_tags')
+            db.execute('DELETE FROM temp_email_messages')
+            db.execute('DELETE FROM temp_emails')
+            db.execute('DELETE FROM account_tags')
+            db.execute('DELETE FROM tags')
+            db.commit()
+
+            self.primary_tag_id = web_outlook_app.add_tag('临时重点', '#111111')
+            self.secondary_tag_id = web_outlook_app.add_tag('待清理', '#ff6600')
+            self.assertTrue(web_outlook_app.add_temp_email('case-one@example.com', provider='gptmail'))
+            self.assertTrue(web_outlook_app.add_temp_email('case-two@example.com', provider='duckmail'))
+
+            self.temp_email_one = web_outlook_app.get_temp_email_by_address('case-one@example.com')
+            self.temp_email_two = web_outlook_app.get_temp_email_by_address('case-two@example.com')
+            self.assertIsNotNone(self.temp_email_one)
+            self.assertIsNotNone(self.temp_email_two)
+
+    def test_get_temp_emails_returns_tags(self):
+        with self.app.app_context():
+            self.assertTrue(web_outlook_app.add_temp_email_tag(self.temp_email_one['id'], self.primary_tag_id))
+
+        response = self.client.get('/api/temp-emails')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        email_map = {item['email']: item for item in payload['emails']}
+        self.assertIn('case-one@example.com', email_map)
+        self.assertEqual(email_map['case-one@example.com']['tags'][0]['name'], '临时重点')
+        self.assertEqual(email_map['case-two@example.com']['tags'], [])
+
+    def test_batch_manage_temp_email_tags_add_and_remove(self):
+        add_response = self.client.post(
+            '/api/temp-emails/tags',
+            json={
+                'temp_email_ids': [self.temp_email_one['id'], self.temp_email_two['id']],
+                'tag_id': self.secondary_tag_id,
+                'action': 'add',
+            }
+        )
+
+        self.assertEqual(add_response.status_code, 200)
+        add_payload = add_response.get_json()
+        self.assertTrue(add_payload['success'])
+
+        with self.app.app_context():
+            first_tags = web_outlook_app.get_temp_email_tags(self.temp_email_one['id'])
+            second_tags = web_outlook_app.get_temp_email_tags(self.temp_email_two['id'])
+
+        self.assertEqual([tag['name'] for tag in first_tags], ['待清理'])
+        self.assertEqual([tag['name'] for tag in second_tags], ['待清理'])
+
+        remove_response = self.client.post(
+            '/api/temp-emails/tags',
+            json={
+                'temp_email_ids': [self.temp_email_one['id']],
+                'tag_id': self.secondary_tag_id,
+                'action': 'remove',
+            }
+        )
+
+        self.assertEqual(remove_response.status_code, 200)
+        remove_payload = remove_response.get_json()
+        self.assertTrue(remove_payload['success'])
+
+        with self.app.app_context():
+            first_tags = web_outlook_app.get_temp_email_tags(self.temp_email_one['id'])
+            second_tags = web_outlook_app.get_temp_email_tags(self.temp_email_two['id'])
+
+        self.assertEqual(first_tags, [])
+        self.assertEqual([tag['name'] for tag in second_tags], ['待清理'])
+
+
 class AssetRenderingTests(unittest.TestCase):
     def setUp(self):
         self.app = web_outlook_app.app

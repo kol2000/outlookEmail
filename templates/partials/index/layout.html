@@ -174,9 +174,9 @@
                         <button class="batch-btn batch-btn-accent" id="batchCopyEmailsBtn" onclick="copySelectedAccountsWithAliases()">复制邮箱+别名</button>
                         <button class="batch-btn batch-btn-accent" id="batchEnableForwardingBtn" onclick="enableForwardingForSelectedAccounts()">开启转发</button>
                         <button class="batch-btn batch-btn-accent" id="batchDisableForwardingBtn" onclick="disableForwardingForSelectedAccounts()">取消转发</button>
-                        <button class="batch-btn batch-btn-accent" onclick="showBatchTagModal('add')">标签+</button>
-                        <button class="batch-btn batch-btn-accent" onclick="showBatchTagModal('remove')">标签-</button>
-                        <button class="batch-btn batch-btn-accent" onclick="showBatchMoveGroupModal()">移动</button>
+                        <button class="batch-btn batch-btn-accent" id="batchAddTagBtn" onclick="showBatchTagModal('add')">标签+</button>
+                        <button class="batch-btn batch-btn-accent" id="batchRemoveTagBtn" onclick="showBatchTagModal('remove')">标签-</button>
+                        <button class="batch-btn batch-btn-accent" id="batchMoveGroupBtn" onclick="showBatchMoveGroupModal()">移动</button>
                         <button class="batch-btn batch-btn-danger" id="batchDeleteAccountsBtn" onclick="deleteSelectedAccounts()">删除</button>
                     </div>
                 </div>

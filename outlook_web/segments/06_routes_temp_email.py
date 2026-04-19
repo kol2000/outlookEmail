@@ -352,7 +352,20 @@ def load_temp_emails() -> List[Dict]:
     db = get_db()
     cursor = db.execute('SELECT * FROM temp_emails ORDER BY created_at DESC')
     rows = cursor.fetchall()
-    return [dict(row) for row in rows]
+    emails = []
+    for row in rows:
+        item = dict(row)
+        item['tags'] = get_temp_email_tags(item['id'])
+        emails.append(item)
+    return emails
+
+
+def get_temp_email_by_id(temp_email_id: int) -> Optional[Dict]:
+    """根据 ID 获取临时邮箱"""
+    db = get_db()
+    cursor = db.execute('SELECT * FROM temp_emails WHERE id = ?', (temp_email_id,))
+    row = cursor.fetchone()
+    return dict(row) if row else None
 
 
 def get_temp_email_by_address(email_addr: str) -> Optional[Dict]:
@@ -361,6 +374,47 @@ def get_temp_email_by_address(email_addr: str) -> Optional[Dict]:
     cursor = db.execute('SELECT * FROM temp_emails WHERE email = ?', (email_addr,))
     row = cursor.fetchone()
     return dict(row) if row else None
+
+
+def get_temp_email_tags(temp_email_id: int) -> List[Dict]:
+    """获取临时邮箱的标签"""
+    db = get_db()
+    cursor = db.execute('''
+        SELECT t.*
+        FROM tags t
+        JOIN temp_email_tags tet ON t.id = tet.tag_id
+        WHERE tet.temp_email_id = ?
+        ORDER BY t.created_at DESC
+    ''', (temp_email_id,))
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def add_temp_email_tag(temp_email_id: int, tag_id: int) -> bool:
+    """给临时邮箱添加标签"""
+    db = get_db()
+    try:
+        db.execute(
+            'INSERT OR IGNORE INTO temp_email_tags (temp_email_id, tag_id) VALUES (?, ?)',
+            (temp_email_id, tag_id)
+        )
+        db.commit()
+        return True
+    except Exception:
+        return False
+
+
+def remove_temp_email_tag(temp_email_id: int, tag_id: int) -> bool:
+    """移除临时邮箱标签"""
+    db = get_db()
+    try:
+        db.execute(
+            'DELETE FROM temp_email_tags WHERE temp_email_id = ? AND tag_id = ?',
+            (temp_email_id, tag_id)
+        )
+        db.commit()
+        return True
+    except Exception:
+        return False
 
 
 def add_temp_email(email_addr: str, provider: str = 'gptmail',
@@ -408,6 +462,23 @@ def delete_temp_email(email_addr: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def cleanup_temp_email_provider_resource(temp_email: Optional[Dict]) -> None:
+    """删除临时邮箱前同步清理上游资源"""
+    if not temp_email:
+        return
+
+    provider = temp_email.get('provider')
+    email_addr = temp_email.get('email', '')
+
+    if provider == 'duckmail':
+        token = get_duckmail_token_for_email(email_addr)
+        account_id = temp_email.get('duckmail_account_id', '')
+        if token and account_id:
+            duckmail_delete_account(token, account_id)
+    elif provider == 'cloudflare':
+        cloudflare_delete_address(temp_email.get('cloudflare_address_id', ''))
 
 
 def save_temp_email_messages(email_addr: str, messages: List[Dict]) -> int:
@@ -484,6 +555,74 @@ def api_get_temp_emails():
     """获取所有临时邮箱"""
     emails = load_temp_emails()
     return jsonify({'success': True, 'emails': emails})
+
+
+@app.route('/api/temp-emails/tags', methods=['POST'])
+@login_required
+def api_batch_manage_temp_email_tags():
+    """批量管理临时邮箱标签"""
+    data = request.json or {}
+    temp_email_ids = data.get('temp_email_ids', [])
+    tag_id = data.get('tag_id')
+    action = data.get('action')
+
+    if not temp_email_ids or not tag_id or action not in {'add', 'remove'}:
+        return jsonify({'success': False, 'error': '参数不完整'})
+
+    count = 0
+    for temp_email_id in temp_email_ids:
+        try:
+            normalized_id = int(temp_email_id)
+        except (TypeError, ValueError):
+            continue
+
+        if action == 'add':
+            if add_temp_email_tag(normalized_id, tag_id):
+                count += 1
+        elif action == 'remove':
+            if remove_temp_email_tag(normalized_id, tag_id):
+                count += 1
+
+    return jsonify({'success': True, 'message': f'成功处理 {count} 个临时邮箱'})
+
+
+@app.route('/api/temp-emails/batch-delete', methods=['POST'])
+@login_required
+def api_batch_delete_temp_emails():
+    """批量删除临时邮箱"""
+    data = request.json or {}
+    temp_email_ids = data.get('temp_email_ids', [])
+
+    if not temp_email_ids:
+        return jsonify({'success': False, 'error': '请选择要删除的临时邮箱'})
+
+    deleted_emails = []
+    missing_ids = []
+
+    for temp_email_id in temp_email_ids:
+        try:
+            normalized_id = int(temp_email_id)
+        except (TypeError, ValueError):
+            continue
+
+        temp_email = get_temp_email_by_id(normalized_id)
+        if not temp_email:
+            missing_ids.append(normalized_id)
+            continue
+
+        cleanup_temp_email_provider_resource(temp_email)
+        if delete_temp_email(temp_email['email']):
+            deleted_emails.append({'id': temp_email['id'], 'email': temp_email['email']})
+
+    if not deleted_emails:
+        return jsonify({'success': False, 'error': '没有可删除的临时邮箱', 'missing_ids': missing_ids})
+
+    return jsonify({
+        'success': True,
+        'message': f'已删除 {len(deleted_emails)} 个临时邮箱',
+        'deleted_emails': deleted_emails,
+        'missing_ids': missing_ids,
+    })
 
 
 @app.route('/api/temp-emails/import', methods=['POST'])
@@ -747,15 +886,7 @@ def api_generate_temp_email():
 def api_delete_temp_email(email_addr):
     """删除临时邮箱"""
     temp_email = get_temp_email_by_address(email_addr)
-
-    # DuckMail: 额外调用删除账户 API
-    if temp_email and temp_email.get('provider') == 'duckmail':
-        token = get_duckmail_token_for_email(email_addr)
-        account_id = temp_email.get('duckmail_account_id', '')
-        if token and account_id:
-            duckmail_delete_account(token, account_id)
-    elif temp_email and temp_email.get('provider') == 'cloudflare':
-        cloudflare_delete_address(temp_email.get('cloudflare_address_id', ''))
+    cleanup_temp_email_provider_resource(temp_email)
 
     if delete_temp_email(email_addr):
         return jsonify({'success': True, 'message': '临时邮箱已删除'})
@@ -1178,4 +1309,3 @@ def api_refresh_temp_email_messages(email_addr):
             })
         else:
             return jsonify({'success': False, 'error': '获取邮件失败'})
-

@@ -1133,6 +1133,18 @@ def init_db():
         )
     ''')
 
+    # 创建临时邮箱标签关联表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS temp_email_tags (
+            temp_email_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (temp_email_id, tag_id),
+            FOREIGN KEY (temp_email_id) REFERENCES temp_emails (id) ON DELETE CASCADE,
+            FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
+        )
+    ''')
+
     # 创建账号别名表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS account_aliases (

@@ -13,6 +13,9 @@
             const batchCopyBtn = document.getElementById('batchCopyEmailsBtn');
             const batchEnableForwardingBtn = document.getElementById('batchEnableForwardingBtn');
             const batchDisableForwardingBtn = document.getElementById('batchDisableForwardingBtn');
+            const batchAddTagBtn = document.getElementById('batchAddTagBtn');
+            const batchRemoveTagBtn = document.getElementById('batchRemoveTagBtn');
+            const batchMoveGroupBtn = document.getElementById('batchMoveGroupBtn');
             const batchDeleteBtn = document.getElementById('batchDeleteAccountsBtn');
             const panel = document.getElementById('accountPanel');
             const refreshableChecked = checked.filter(cb => cb.dataset.refreshable === 'true');
@@ -20,13 +23,24 @@
             const disableForwardingChecked = checked.filter(cb => cb.dataset.forwardEnabled === 'true');
             const isForwardingUpdating = batchEnableForwardingBtn?.dataset.loading === 'true'
                 || batchDisableForwardingBtn?.dataset.loading === 'true';
+            const isTempContext = !!isTempEmailGroup;
+
+            if (batchRefreshBtn) batchRefreshBtn.style.display = isTempContext ? 'none' : 'inline-flex';
+            if (batchEnableForwardingBtn) batchEnableForwardingBtn.style.display = isTempContext ? 'none' : 'inline-flex';
+            if (batchDisableForwardingBtn) batchDisableForwardingBtn.style.display = isTempContext ? 'none' : 'inline-flex';
+            if (batchMoveGroupBtn) batchMoveGroupBtn.style.display = isTempContext ? 'none' : 'inline-flex';
+            if (batchAddTagBtn) batchAddTagBtn.style.display = 'inline-flex';
+            if (batchRemoveTagBtn) batchRemoveTagBtn.style.display = 'inline-flex';
+            if (batchDeleteBtn) batchDeleteBtn.style.display = 'inline-flex';
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
                 panel?.classList.add('batch-toolbar-active');
-                countSpan.textContent = refreshableChecked.length > 0 && refreshableChecked.length !== checked.length
+                countSpan.textContent = isTempContext
+                    ? `已选 ${checked.length} 项`
+                    : (refreshableChecked.length > 0 && refreshableChecked.length !== checked.length
                     ? `已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项`
-                    : `已选 ${checked.length} 项`;
+                    : `已选 ${checked.length} 项`);
                 if (selectAllBtn) {
                     selectAllBtn.textContent = allCheckboxes.length > 0 && checked.length === allCheckboxes.length
                         ? '取消全选'
@@ -48,7 +62,9 @@
                     const isCopying = batchCopyBtn.dataset.loading === 'true';
                     batchCopyBtn.disabled = checked.length === 0 || isCopying;
                     if (!isCopying) {
-                        batchCopyBtn.textContent = checked.length > 1 ? `复制邮箱+别名 (${checked.length})` : '复制邮箱+别名';
+                        batchCopyBtn.textContent = isTempContext
+                            ? (checked.length > 1 ? `复制邮箱 (${checked.length})` : '复制邮箱')
+                            : (checked.length > 1 ? `复制邮箱+别名 (${checked.length})` : '复制邮箱+别名');
                     }
                 }
                 if (batchEnableForwardingBtn) {
@@ -92,7 +108,7 @@
                 if (batchCopyBtn) {
                     batchCopyBtn.disabled = false;
                     batchCopyBtn.dataset.loading = 'false';
-                    batchCopyBtn.textContent = '复制邮箱+别名';
+                    batchCopyBtn.textContent = isTempContext ? '复制邮箱' : '复制邮箱+别名';
                     batchCopyBtn.title = '';
                 }
                 if (batchEnableForwardingBtn) {
@@ -328,13 +344,15 @@
             const accountEmails = checked
                 .map(cb => cb.dataset.accountEmail || '')
                 .filter(Boolean);
+            const isTempContext = !!isTempEmailGroup;
 
             if (!accountIds.length) {
-                showToast('请先选择要删除的邮箱', 'error');
+                showToast(isTempContext ? '请先选择要删除的临时邮箱' : '请先选择要删除的邮箱', 'error');
                 return;
             }
 
-            if (!(await showConfirmModal(`确定要删除所选 ${accountIds.length} 个邮箱吗？此操作不可恢复。`, { title: '批量删除邮箱', confirmText: '确认删除' }))) {
+            const resourceLabel = isTempContext ? '临时邮箱' : '邮箱';
+            if (!(await showConfirmModal(`确定要删除所选 ${accountIds.length} 个${resourceLabel}吗？此操作不可恢复。`, { title: `批量删除${resourceLabel}`, confirmText: '确认删除' }))) {
                 return;
             }
 
@@ -343,10 +361,12 @@
             btn.textContent = '删除中...';
 
             try {
-                const response = await fetch('/api/accounts/batch-delete', {
+                const response = await fetch(isTempContext ? '/api/temp-emails/batch-delete' : '/api/accounts/batch-delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_ids: accountIds })
+                    body: JSON.stringify(isTempContext
+                        ? { temp_email_ids: accountIds }
+                        : { account_ids: accountIds })
                 });
                 const data = await response.json();
 
@@ -355,12 +375,16 @@
                     return;
                 }
 
-                const deletedEmails = Array.isArray(data.deleted_accounts)
-                    ? data.deleted_accounts.map(item => item.email).filter(Boolean)
+                const deletedEmails = Array.isArray(isTempContext ? data.deleted_emails : data.deleted_accounts)
+                    ? (isTempContext ? data.deleted_emails : data.deleted_accounts).map(item => item.email).filter(Boolean)
                     : accountEmails;
 
-                showToast(data.message || `已删除 ${deletedEmails.length} 个账号`, 'success');
-                invalidateAccountCaches();
+                showToast(data.message || `已删除 ${deletedEmails.length} 个${resourceLabel}`, 'success');
+                if (isTempContext) {
+                    delete accountsCache.temp;
+                } else {
+                    invalidateAccountCaches();
+                }
                 resetSelectedAccountViewIfDeleted(deletedEmails);
                 clearAccountSelection();
                 loadGroups();
@@ -378,7 +402,10 @@
         // 显示批量打标模态框
         async function showBatchTagModal(type) {
             batchActionType = type;
-            document.getElementById('batchTagTitle').textContent = type === 'add' ? '批量添加标签' : '批量移除标签';
+            const resourceLabel = isTempEmailGroup ? '临时邮箱' : '账号';
+            document.getElementById('batchTagTitle').textContent = type === 'add'
+                ? `批量给${resourceLabel}添加标签`
+                : `批量移除${resourceLabel}标签`;
             showModal('batchTagModal');
 
             // 加载标签选项
@@ -423,14 +450,21 @@
             if (accountIds.length === 0) return;
 
             try {
-                const response = await fetch('/api/accounts/tags', {
+                const isTempContext = !!isTempEmailGroup;
+                const response = await fetch(isTempContext ? '/api/temp-emails/tags' : '/api/accounts/tags', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        account_ids: accountIds,
-                        tag_id: parseInt(tagId),
-                        action: batchActionType
-                    })
+                    body: JSON.stringify(isTempContext
+                        ? {
+                            temp_email_ids: accountIds,
+                            tag_id: parseInt(tagId, 10),
+                            action: batchActionType
+                        }
+                        : {
+                            account_ids: accountIds,
+                            tag_id: parseInt(tagId, 10),
+                            action: batchActionType
+                        })
                 });
 
                 const data = await response.json();

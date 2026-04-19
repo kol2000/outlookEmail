@@ -1,4 +1,4 @@
-        /* global accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatRelativeTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, openMobilePanel, renderEmptyStateMarkup, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
+        /* global accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatRelativeTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
 
         // ==================== 分组相关 ====================
 
@@ -432,9 +432,13 @@
         // 更新账号面板头部动作按钮
         function updateAccountPanelActions() {
             const actions = document.querySelector('.account-panel-header-actions');
+            const searchInput = document.getElementById('globalSearch');
             if (!actions) return;
             if (isTempEmailGroup) {
                 actions.innerHTML = `
+                    <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
+                        🏷️
+                    </button>
                     <button class="panel-action-btn panel-action-btn-accent" onclick="generateTempEmail()" title="生成临时邮箱">
                         ⚡
                     </button>
@@ -445,15 +449,18 @@
                         </svg>
                     </button>
                 `;
-                // 显示渠道筛选、隐藏排序和标签
+                // 显示渠道筛选、隐藏排序
                 document.getElementById('tempEmailProviderFilter').style.display = 'flex';
                 document.querySelector('.sort-control').style.display = 'none';
-                document.getElementById('tagFilterContainer').style.display = 'none';
+                updateTagFilter();
                 // 同步筛选按钮样式
                 const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
                 document.querySelectorAll('.provider-filter-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.provider === currentFilter);
                 });
+                if (searchInput) {
+                    searchInput.placeholder = '搜索临时邮箱地址或标签...';
+                }
             } else {
                 actions.innerHTML = `
                     <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
@@ -473,6 +480,9 @@
                 document.getElementById('tempEmailProviderFilter').style.display = 'none';
                 document.querySelector('.sort-control').style.display = 'flex';
                 updateTagFilter();
+                if (searchInput) {
+                    searchInput.placeholder = '搜索邮箱地址、别名、备注或标签...';
+                }
             }
         }
 
@@ -739,11 +749,15 @@
         }
 
         function refreshVisibleAccountList(forceRefresh = false) {
+            if (currentGroupId && isTempEmailGroup) {
+                return loadTempEmails(forceRefresh);
+            }
+
             const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
             if (searchQuery) {
                 return searchAccounts(searchQuery);
             }
-            if (currentGroupId && !isTempEmailGroup) {
+            if (currentGroupId) {
                 return loadAccountsByGroup(currentGroupId, forceRefresh);
             }
             return Promise.resolve();
@@ -852,9 +866,17 @@
             });
             updateTagFilterSummary();
             if (currentAccountListSource.length) {
-                renderFilteredAccountList(currentAccountListSource);
-            } else if (currentGroupId && !isTempEmailGroup) {
-                loadAccountsByGroup(currentGroupId);
+                if (isTempEmailGroup) {
+                    renderTempEmailList(currentAccountListSource);
+                } else {
+                    renderFilteredAccountList(currentAccountListSource);
+                }
+            } else if (currentGroupId) {
+                if (isTempEmailGroup) {
+                    loadTempEmails();
+                } else {
+                    loadAccountsByGroup(currentGroupId);
+                }
             }
         }
 
@@ -879,6 +901,15 @@
                     loadTempEmails();
                 } else {
                     loadAccountsByGroup(currentGroupId);
+                }
+                return;
+            }
+
+            if (isTempEmailGroup) {
+                if (accountsCache['temp']) {
+                    renderTempEmailList(accountsCache['temp']);
+                } else {
+                    await loadTempEmails();
                 }
                 return;
             }

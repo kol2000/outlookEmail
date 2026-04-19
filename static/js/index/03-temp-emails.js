@@ -1,4 +1,4 @@
-        /* global accountsCache, closeMobilePanels, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentMethod, currentGroupId, escapeHtml, formatDate, groups, handleApiError, loadGroups, loadTempEmails, refreshEmails, renderEmailDetail, renderEmailList, renderEmptyStateMarkup, showEmailList, showMobileEmailDetail, showToast, updateMobileContext, updateCurrentGroupHeader */
+        /* global accountsCache, closeMobilePanels, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentMethod, currentGroupId, escapeHtml, escapeJs, formatDate, groups, handleApiError, loadGroups, loadTempEmails, refreshEmails, renderAccountTagSummary, renderEmailDetail, renderEmailList, renderEmptyStateMarkup, selectedTagFilters, showEmailList, showMobileEmailDetail, showToast, updateBatchActionBar, updateMobileContext, updateCurrentGroupHeader */
 
         // ==================== 临时邮箱相关 ====================
 
@@ -43,30 +43,66 @@
         // 渲染临时邮箱列表
         function renderTempEmailList(emails) {
             const container = document.getElementById('accountList');
-            currentAccountListSource = [];
+            currentAccountListSource = Array.isArray(emails) ? [...emails] : [];
 
             // 渠道筛选
             const filter = localStorage.getItem('outlook_temp_email_filter') || 'all';
-            const filtered = filter === 'all' ? emails : emails.filter(e => e.provider === filter);
+            const searchQuery = (document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
+            const selectedTagIds = Array.from(selectedTagFilters);
+            let filtered = filter === 'all'
+                ? [...currentAccountListSource]
+                : currentAccountListSource.filter(e => e.provider === filter);
+
+            if (searchQuery) {
+                filtered = filtered.filter(email => {
+                    const emailText = String(email.email || '').toLowerCase();
+                    const tagText = Array.isArray(email.tags)
+                        ? email.tags.map(tag => String(tag.name || '')).join('\n').toLowerCase()
+                        : '';
+                    return emailText.includes(searchQuery) || tagText.includes(searchQuery);
+                });
+            }
+
+            if (selectedTagIds.length > 0) {
+                filtered = filtered.filter(email => Array.isArray(email.tags)
+                    && email.tags.some(tag => selectedTagIds.includes(tag.id)));
+            }
+
+            const currentGroup = groups.find(group => group.id === currentGroupId);
+            if (searchQuery) {
+                updateCurrentGroupHeader(null, `搜索结果 (${filtered.length})`);
+            } else if (currentGroup) {
+                updateCurrentGroupHeader(currentGroup);
+            }
 
             if (filtered.length === 0) {
                 const providerName = filter === 'duckmail' ? 'DuckMail' : (filter === 'cloudflare' ? 'Cloudflare' : 'GPTMail');
-                const hint = filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${providerName} 邮箱`;
+                const hasAdvancedFilters = !!searchQuery || selectedTagIds.length > 0;
+                const hint = hasAdvancedFilters
+                    ? '未找到匹配的临时邮箱'
+                    : (filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${providerName} 邮箱`);
                 container.innerHTML = renderEmptyStateMarkup('⚡', hint, {
-                    allowHtml: true,
+                    allowHtml: !hasAdvancedFilters,
                     onAction: 'loadTempEmails(true)',
                     actionTitle: '刷新临时邮箱列表'
                 });
+                updateBatchActionBar();
                 return;
             }
 
-            container.innerHTML = filtered.map(email => `
+            container.innerHTML = filtered.map((email, index) => `
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
                      onclick="handleAccountItemClick(event, '${escapeJs(email.email)}', true)">
-                    <div class="account-leading-icon">⚡</div>
+                    <input type="checkbox" class="account-select-checkbox" value="${email.id}"
+                           data-account-email="${escapeHtml(email.email)}"
+                           data-account-type="temp-email"
+                           data-refreshable="false"
+                           data-forward-enabled="false"
+                           onclick="event.stopPropagation(); updateBatchActionBar()">
                     <div class="account-body">
                         <div class="account-title-row">
                             <div class="account-email-wrap">
+                                <span class="account-email-index">${index + 1}.</span>
                                 <div class="account-email" title="${escapeHtml(email.email)}">${escapeHtml(email.email)}</div>
                             </div>
                         </div>
@@ -77,6 +113,7 @@
                             </span>
                             <span class="account-status-pill muted">临时邮箱</span>
                         </div>
+                        ${(email.tags || []).length ? `<div class="account-tags">${renderAccountTagSummary(email.tags)}</div>` : ''}
                     </div>
                     <div class="account-menu-wrap">
                         <button class="account-menu-trigger" type="button" data-account-menu-toggle="true" title="更多操作">⋯</button>

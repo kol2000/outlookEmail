@@ -480,6 +480,7 @@ curl -H "X-API-Key: your-api-key" \
 | POST | `/api/tags` | JSON: `name`、`color?` | 创建标签 |
 | DELETE | `/api/tags/<tag_id>` | 路径参数 `tag_id` | 删除标签 |
 | POST | `/api/accounts/tags` | JSON: `account_ids`、`tag_id`、`action` | 批量给账号加标签或移除标签 |
+| POST | `/api/temp-emails/tags` | JSON: `temp_email_ids`、`tag_id`、`action` | 批量给临时邮箱加标签或移除标签 |
 
 批量标签管理请求示例：
 
@@ -488,6 +489,16 @@ curl -H "X-API-Key: your-api-key" \
   "account_ids": [1, 2, 3],
   "tag_id": 8,
   "action": "add"
+}
+```
+
+临时邮箱批量标签请求示例：
+
+```json
+{
+  "temp_email_ids": [11, 12],
+  "tag_id": 8,
+  "action": "remove"
 }
 ```
 
@@ -1041,8 +1052,9 @@ curl -H "X-API-Key: your-api-key" \
 
 | 方法 | 路径 | 参数 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/api/temp-emails` | 无 | 获取所有临时邮箱 |
+| GET | `/api/temp-emails` | 无 | 获取所有临时邮箱，列表项包含 `tags` 字段 |
 | POST | `/api/temp-emails/import` | JSON: `account_string`、`provider` | 批量导入临时邮箱 |
+| POST | `/api/temp-emails/batch-delete` | JSON: `temp_email_ids` | 批量删除临时邮箱 |
 | GET | `/api/duckmail/domains` | 无 | 获取 DuckMail 可用域名 |
 | GET | `/api/cloudflare/domains` | 无 | 获取 Cloudflare 可用域名 |
 
