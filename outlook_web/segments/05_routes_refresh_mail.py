@@ -1006,6 +1006,54 @@ def get_query_arg_preserve_plus(name: str, default: str = '') -> str:
     return request.args.get(name, default)
 
 
+def normalize_email_action_items(raw_items: Any, fallback_folder: str = 'inbox') -> List[Dict[str, str]]:
+    normalized_items: List[Dict[str, str]] = []
+    for raw_item in raw_items or []:
+        if isinstance(raw_item, dict):
+            message_id = str(raw_item.get('id') or raw_item.get('message_id') or '').strip()
+            folder = normalize_folder_name(raw_item.get('folder', fallback_folder))
+            id_mode = str(raw_item.get('id_mode') or '').strip().lower()
+        else:
+            message_id = str(raw_item or '').strip()
+            folder = normalize_folder_name(fallback_folder)
+            id_mode = ''
+
+        if not message_id:
+            continue
+
+        normalized_items.append({
+            'id': message_id,
+            'folder': folder,
+            'id_mode': id_mode,
+        })
+    return normalized_items
+
+
+def merge_email_action_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    merged_updated_ids: List[str] = []
+    merged_errors: List[Any] = []
+    success_count = 0
+    failed_count = 0
+
+    for result in results or []:
+        success_count += int(result.get('success_count', 0) or 0)
+        failed_count += int(result.get('failed_count', 0) or 0)
+        merged_updated_ids.extend([str(item) for item in (result.get('updated_ids') or []) if str(item)])
+        merged_errors.extend(result.get('errors') or [])
+
+    deduped_updated_ids = list(dict.fromkeys(merged_updated_ids))
+    merged_result = {
+        'success': failed_count == 0,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'updated_ids': deduped_updated_ids,
+        'errors': merged_errors,
+    }
+    if merged_errors:
+        merged_result['error'] = merged_errors[0]
+    return merged_result
+
+
 def normalize_email_list_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
     row = dict(item or {})
     row['subject'] = row.get('subject', '无主题')
@@ -1016,6 +1064,7 @@ def normalize_email_list_item(item: Dict[str, Any], folder: str) -> Dict[str, An
     row['has_attachments'] = bool(row.get('has_attachments', False))
     row['body_preview'] = row.get('body_preview', '')
     row['folder'] = row.get('folder') or folder
+    row['id_mode'] = row.get('id_mode', '')
     return row
 
 
@@ -1034,6 +1083,7 @@ def format_graph_email_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]
         'has_attachments': item.get('hasAttachments', False),
         'body_preview': item.get('bodyPreview', ''),
         'folder': folder,
+        'id_mode': 'graph',
     }, folder)
 
 
@@ -1311,6 +1361,89 @@ def api_get_emails(email_addr):
         )
         db.commit()
     return jsonify(result)
+
+
+@app.route('/api/emails/mark-read', methods=['POST'])
+@login_required
+def api_mark_emails_read():
+    """批量标记邮件为已读"""
+    data = request.json or {}
+    email_addr = str(data.get('email') or '').strip()
+    method = str(data.get('method') or 'graph').strip().lower()
+    fallback_folder = normalize_folder_name(data.get('folder', 'inbox'))
+    raw_items = data.get('items')
+    if raw_items is None:
+        raw_items = data.get('ids', [])
+
+    items = normalize_email_action_items(raw_items, fallback_folder)
+    if not email_addr or not items:
+        return jsonify({'success': False, 'error': '参数不完整'})
+
+    account = get_account_by_email(email_addr)
+    if not account:
+        return jsonify({'success': False, 'error': '账号不存在'})
+
+    proxy_url = get_account_proxy_url(account)
+    fallback_proxy_urls = get_account_proxy_failover_urls(account)
+
+    if account.get('account_type') == 'imap':
+        result = mark_emails_read_imap_generic_result(
+            account['email'],
+            account.get('imap_password', ''),
+            account.get('imap_host', ''),
+            items,
+            account.get('imap_port', 993),
+            account.get('provider', 'custom'),
+            proxy_url
+        )
+        return jsonify(result)
+
+    graph_items = []
+    imap_items = []
+    for item in items:
+        id_mode = str(item.get('id_mode') or '').strip().lower()
+        if id_mode == 'graph':
+            graph_items.append(item)
+        elif id_mode in {'uid', 'sequence'}:
+            imap_items.append(item)
+        elif method == 'graph':
+            graph_items.append(item)
+        else:
+            imap_items.append(item)
+
+    results = []
+    if graph_items:
+        results.append(mark_emails_read_graph_result(
+            account['client_id'],
+            account['refresh_token'],
+            [item['id'] for item in graph_items],
+            proxy_url,
+            fallback_proxy_urls,
+        ))
+
+    if imap_items:
+        imap_result = mark_emails_read_imap_batch(
+            account['email'],
+            account['client_id'],
+            account['refresh_token'],
+            imap_items,
+            IMAP_SERVER_NEW,
+            proxy_url,
+            fallback_proxy_urls,
+        )
+        if not imap_result.get('success') and imap_result.get('success_count', 0) == 0:
+            imap_result = mark_emails_read_imap_batch(
+                account['email'],
+                account['client_id'],
+                account['refresh_token'],
+                imap_items,
+                IMAP_SERVER_OLD,
+                proxy_url,
+                fallback_proxy_urls,
+            )
+        results.append(imap_result)
+
+    return jsonify(merge_email_action_results(results))
 
 @app.route('/api/emails/delete', methods=['POST'])
 @login_required

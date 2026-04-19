@@ -119,6 +119,7 @@
         // 渲染邮件列表
         // Selected email IDs
         let selectedEmailIds = new Set();
+        let pendingReadEmailIds = new Set();
         let isBatchSelectMode = false;
 
         function getRecipientDisplayLabel(emailItem) {
@@ -237,6 +238,7 @@
                     <div class="email-body">
                         <div class="email-top-row">
                             <div class="email-top-main">
+                                ${email.is_read === false ? '<span class="email-unread-dot" title="未读" aria-label="未读"></span>' : ''}
                                 <div class="email-sender-block">
                                     <div class="email-from" title="${escapeHtml(email.from || '未知发件人')}">${escapeHtml(email.from || '未知发件人')}</div>
                                     ${recipientDisplayLabel ? `<div class="email-recipient" title="${escapeHtml(recipientDisplayLabel)}">${escapeHtml(recipientDisplayLabel)}</div>` : ''}
@@ -255,6 +257,125 @@
             updateEmailBatchActionBar();
         }
 
+        function getSelectedEmailItems() {
+            const selectedIds = new Set(Array.from(selectedEmailIds).map(id => String(id)));
+            if (!selectedIds.size) {
+                return [];
+            }
+
+            return currentEmails.filter(email => selectedIds.has(String(email.id)));
+        }
+
+        function applyEmailReadState(updatedIds, isRead = true) {
+            const normalizedIds = new Set((updatedIds || []).map(id => String(id)).filter(Boolean));
+            if (!normalizedIds.size) {
+                return;
+            }
+
+            const applyToEmailList = (emails) => {
+                if (!Array.isArray(emails)) {
+                    return;
+                }
+
+                emails.forEach(email => {
+                    if (normalizedIds.has(String(email.id))) {
+                        email.is_read = isRead;
+                    }
+                });
+            };
+
+            applyToEmailList(currentEmails);
+
+            const cachePrefix = `${currentAccount || ''}_`;
+            Object.entries(emailListCache).forEach(([cacheKey, cacheValue]) => {
+                if (!cacheKey.startsWith(cachePrefix)) {
+                    return;
+                }
+                applyToEmailList(cacheValue?.emails);
+            });
+
+            if (currentEmailDetail && normalizedIds.has(String(currentEmailDetail.id))) {
+                currentEmailDetail.is_read = isRead;
+            }
+        }
+
+        async function requestMarkEmailsAsRead(items, { silent = false } = {}) {
+            const normalizedItems = (items || [])
+                .map(item => {
+                    if (!item?.id) {
+                        return null;
+                    }
+                    return {
+                        id: String(item.id),
+                        folder: String(item.folder || currentFolder || 'inbox'),
+                        id_mode: String(item.id_mode || '')
+                    };
+                })
+                .filter(Boolean)
+                .filter(item => !pendingReadEmailIds.has(item.id));
+
+            if (!normalizedItems.length) {
+                return {
+                    success: true,
+                    success_count: 0,
+                    failed_count: 0,
+                    updated_ids: [],
+                    errors: []
+                };
+            }
+
+            normalizedItems.forEach(item => pendingReadEmailIds.add(item.id));
+
+            try {
+                const response = await fetch('/api/emails/mark-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: currentAccount,
+                        method: currentMethod,
+                        folder: currentFolder,
+                        items: normalizedItems
+                    })
+                });
+                const result = await response.json();
+                const updatedIds = Array.isArray(result.updated_ids) ? result.updated_ids : [];
+
+                if (updatedIds.length > 0) {
+                    applyEmailReadState(updatedIds, true);
+                    renderEmailList(currentEmails);
+                }
+
+                if (!silent) {
+                    if (result.success_count > 0 && result.failed_count === 0) {
+                        showToast(`已将 ${result.success_count} 封邮件设为已读`);
+                    } else if (result.success_count > 0) {
+                        showToast(`已设为已读 ${result.success_count} 封，失败 ${result.failed_count} 封`, 'warning');
+                    } else {
+                        handleApiError(result, '设为已读失败');
+                    }
+                }
+
+                if (result.failed_count > 0 && Array.isArray(result.errors) && result.errors.length > 0) {
+                    console.warn('Mark read errors:', result.errors);
+                }
+
+                return result;
+            } catch (error) {
+                if (!silent) {
+                    showToast('设为已读失败，请检查网络后重试', 'error');
+                }
+                return {
+                    success: false,
+                    success_count: 0,
+                    failed_count: normalizedItems.length,
+                    updated_ids: [],
+                    errors: [error]
+                };
+            } finally {
+                normalizedItems.forEach(item => pendingReadEmailIds.delete(item.id));
+            }
+        }
+
         function toggleEmailSelection(emailId) {
             if (selectedEmailIds.has(emailId)) {
                 selectedEmailIds.delete(emailId);
@@ -271,10 +392,19 @@
         function updateEmailBatchActionBar() {
             const bar = document.getElementById('emailBatchActionBar');
             const selectAllBtn = document.getElementById('emailSelectAllBtn');
+            const markReadBtn = document.getElementById('batchMarkReadBtn');
             const panel = document.getElementById('emailListPanel');
+            const selectedEmails = getSelectedEmailItems();
+            const unreadSelectedCount = selectedEmails.filter(email => email.is_read === false).length;
             if (isTempEmailGroup) {
                 bar.style.display = 'none';
                 panel?.classList.remove('batch-toolbar-active');
+                if (markReadBtn) {
+                    markReadBtn.disabled = false;
+                    markReadBtn.dataset.loading = 'false';
+                    markReadBtn.textContent = '设为已读';
+                    markReadBtn.title = '';
+                }
                 return;
             }
             if (selectedEmailIds.size > 0) {
@@ -286,9 +416,25 @@
                         ? '取消全选'
                         : '全选';
                 }
+                if (markReadBtn) {
+                    const isMarking = markReadBtn.dataset.loading === 'true';
+                    markReadBtn.disabled = unreadSelectedCount === 0 || isMarking;
+                    markReadBtn.title = unreadSelectedCount === 0 ? '所选邮件已全部为已读' : '';
+                    if (!isMarking) {
+                        markReadBtn.textContent = unreadSelectedCount > 0
+                            ? `设为已读${unreadSelectedCount !== selectedEmails.length ? ` (${unreadSelectedCount})` : ''}`
+                            : '设为已读';
+                    }
+                }
             } else {
                 bar.style.display = 'none';
                 panel?.classList.remove('batch-toolbar-active');
+                if (markReadBtn) {
+                    markReadBtn.disabled = false;
+                    markReadBtn.dataset.loading = 'false';
+                    markReadBtn.textContent = '设为已读';
+                    markReadBtn.title = '';
+                }
             }
         }
 
@@ -308,6 +454,35 @@
             if (selectedEmailIds.size === 0) return;
             selectedEmailIds.clear();
             renderEmailList(currentEmails);
+        }
+
+        async function markSelectedEmailsAsRead() {
+            const btn = document.getElementById('batchMarkReadBtn');
+            if (!btn || btn.disabled) return;
+
+            const unreadItems = getSelectedEmailItems()
+                .filter(email => email.is_read === false)
+                .map(email => ({
+                    id: email.id,
+                    folder: email.folder || currentFolder || 'inbox',
+                    id_mode: email.id_mode || ''
+                }));
+
+            if (!unreadItems.length) {
+                showToast('所选邮件已全部为已读');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.dataset.loading = 'true';
+            btn.textContent = '设置中...';
+
+            try {
+                await requestMarkEmailsAsRead(unreadItems);
+            } finally {
+                btn.dataset.loading = 'false';
+                updateEmailBatchActionBar();
+            }
         }
 
         async function confirmBatchDeleteEmails() {
@@ -429,6 +604,13 @@
                 if (data.success) {
                     currentEmailDetail = { ...data.email, folder: requestFolder };
                     renderEmailDetail(currentEmailDetail);
+                    if (selectedEmail?.is_read === false) {
+                        void requestMarkEmailsAsRead([{
+                            id: messageId,
+                            folder: requestFolder,
+                            id_mode: selectedEmail.id_mode || ''
+                        }], { silent: true });
+                    }
                 } else {
                     handleApiError(data, '加载邮件详情失败');
                     container.innerHTML = `

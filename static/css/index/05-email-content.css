@@ -155,6 +155,16 @@
             border-color: #d9e2f0;
         }
 
+        .email-unread-dot {
+            width: 9px;
+            height: 9px;
+            margin-top: 5px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            flex: 0 0 auto;
+        }
+
         .email-body {
             min-width: 0;
             display: flex;
