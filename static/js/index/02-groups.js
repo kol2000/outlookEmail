@@ -1114,7 +1114,7 @@
                     inputEl.placeholder = '邮箱----密码';
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = '示例：\\nuser@duck.com----mypassword\\nuser2@duck.com----password2';
+                        exampleEl.textContent = '示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2';
                     }
                     return;
                 }
@@ -1123,7 +1123,7 @@
                     inputEl.placeholder = '邮箱----JWT';
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = '示例：\\nuser@example.com----eyJhbGciOi...';
+                        exampleEl.textContent = '示例：\nuser@example.com----eyJhbGciOi...';
                     }
                     return;
                 }
@@ -1131,7 +1131,7 @@
                 inputEl.placeholder = '每行一个邮箱地址';
                 if (exampleEl) {
                     exampleEl.style.display = '';
-                    exampleEl.textContent = '示例：\\nuser1@gptmail.com\\nuser2@gptmail.com';
+                    exampleEl.textContent = '示例：\nuser1@gptmail.com\nuser2@gptmail.com';
                 }
                 return;
             }
@@ -1145,7 +1145,7 @@
                 hintEl.textContent = 'Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id。';
                 inputEl.placeholder = '邮箱----密码----client_id----refresh_token';
                 if (exampleEl) {
-                    exampleEl.textContent = '示例：\\nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...\\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a';
+                    exampleEl.textContent = '示例：\nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a';
                 }
                 return;
             }
@@ -1156,7 +1156,7 @@
                 if (exampleEl) {
                     const host = customHost?.value?.trim() || 'imap.example.com';
                     const port = customPort?.value?.trim() || '993';
-                    exampleEl.textContent = `示例：\\nuser@example.com----app-password\\nuser@example.com----app-password----${host}----${port}`;
+                    exampleEl.textContent = `示例：\nuser@example.com----app-password\nuser@example.com----app-password----${host}----${port}`;
                 }
                 return;
             }
@@ -1164,7 +1164,7 @@
             hintEl.textContent = `格式：邮箱----IMAP授权码/应用密码，每行一个。当前类型：${getProviderLabel(provider)}。`;
             inputEl.placeholder = '邮箱----IMAP授权码/应用密码';
             if (exampleEl) {
-                exampleEl.textContent = '示例：\\nuser@gmail.com----app-password\\nuser2@qq.com----imap-auth-code';
+                exampleEl.textContent = '示例：\nuser@gmail.com----app-password\nuser2@qq.com----imap-auth-code';
             }
         }
 
