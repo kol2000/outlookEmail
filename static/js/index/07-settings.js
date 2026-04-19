@@ -4,6 +4,11 @@
         let settingsScrollSyncBound = false;
         let settingsScrollSyncFrame = 0;
 
+        function getSettingsScrollContainer() {
+            return document.querySelector('#settingsModal .settings-modal-body')
+                || document.querySelector('#settingsModal .settings-modal-content');
+        }
+
         // 显示设置模态框
         async function showSettingsModal() {
             ensureSettingsScrollSync();
@@ -36,8 +41,8 @@
         }
 
         function syncSettingsSidebarActiveByScroll() {
-            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
-            if (!modalContent) {
+            const scrollContainer = getSettingsScrollContainer();
+            if (!scrollContainer) {
                 return;
             }
 
@@ -46,9 +51,10 @@
                 return;
             }
 
-            const header = modalContent.querySelector('.modal-header');
-            const headerHeight = header ? header.offsetHeight : 0;
-            const anchorTop = modalContent.getBoundingClientRect().top + headerHeight + 28;
+            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
+            const header = modalContent?.querySelector('.modal-header');
+            const headerHeight = scrollContainer === modalContent && header ? header.offsetHeight : 0;
+            const anchorTop = scrollContainer.getBoundingClientRect().top + headerHeight + 28;
             let activeSectionId = sectionIds[0];
             let closestAboveId = '';
             let closestAboveOffset = Number.NEGATIVE_INFINITY;
@@ -97,29 +103,30 @@
                 return;
             }
 
-            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
-            if (!modalContent) {
+            const scrollContainer = getSettingsScrollContainer();
+            if (!scrollContainer) {
                 return;
             }
 
-            modalContent.addEventListener('scroll', scheduleSettingsSidebarSync, { passive: true });
+            scrollContainer.addEventListener('scroll', scheduleSettingsSidebarSync, { passive: true });
             window.addEventListener('resize', scheduleSettingsSidebarSync);
             settingsScrollSyncBound = true;
         }
 
         function scrollSettingsSection(sectionId, triggerEl = null) {
-            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
+            const scrollContainer = getSettingsScrollContainer();
             const section = document.getElementById(sectionId);
-            if (!modalContent || !section) {
+            if (!scrollContainer || !section) {
                 return;
             }
 
+            const modalContent = document.querySelector('#settingsModal .settings-modal-content');
             const header = modalContent.querySelector('.modal-header');
-            const headerHeight = header ? header.offsetHeight : 0;
-            const sectionTop = section.getBoundingClientRect().top - modalContent.getBoundingClientRect().top + modalContent.scrollTop;
+            const headerHeight = scrollContainer === modalContent && header ? header.offsetHeight : 0;
+            const sectionTop = section.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop;
             const targetTop = Math.max(sectionTop - headerHeight - 18, 0);
 
-            modalContent.scrollTo({
+            scrollContainer.scrollTo({
                 top: targetTop,
                 behavior: 'smooth'
             });

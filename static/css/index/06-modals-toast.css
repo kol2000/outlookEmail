@@ -190,10 +190,24 @@
             width: min(1160px, calc(100vw - 40px));
             max-width: calc(100vw - 24px);
             max-height: min(92vh, 980px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            isolation: isolate;
         }
 
         .settings-modal-body {
+            flex: 1 1 auto;
             padding: 24px;
+            overflow-y: auto;
+            min-height: 0;
+            overscroll-behavior: contain;
+        }
+
+        .settings-modal-content .modal-header,
+        .settings-modal-content .modal-footer {
+            flex-shrink: 0;
+            z-index: 2;
         }
 
         .settings-shell {
@@ -868,7 +882,7 @@
 
             .settings-sidebar {
                 position: sticky;
-                top: 84px;
+                top: 0;
             }
         }
 
