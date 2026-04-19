@@ -7,6 +7,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.27] - 2026-04-20
+
+### Added
+- 邮件列表新增未读状态展示与批量“设为已读”操作，支持在前端选中多封邮件后统一更新已读状态。
+
+### Fixed
+- 修复 Docker 部署场景下保存设置或导入邮箱时偶发 `The CSRF session token is missing` 的问题，改为基于当前登录 session 获取不可缓存的 CSRF token，并在前端遇到 CSRF 失配时自动刷新重试一次。
+- 修复 Gmail 在 `IMAP (Generic)` 模式下因 `FETCH` 响应分段导致全部邮件长期显示为未读的问题，改为整包解析 IMAP `FLAGS` 与 `INTERNALDATE`。
+
 ## [2.0.26] - 2026-04-19
 
 ### Fixed
