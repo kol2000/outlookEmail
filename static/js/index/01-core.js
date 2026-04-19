@@ -456,41 +456,120 @@
 
         // ==================== CSRF 防护 ====================
 
+        const originalFetch = window.fetch.bind(window);
+
         // 初始化 CSRF Token
-        async function initCSRFToken() {
+        async function initCSRFToken(forceRefresh = false) {
+            if (csrfToken && !forceRefresh) {
+                return csrfToken;
+            }
+
             try {
-                const response = await fetch('/api/csrf-token');
+                const response = await originalFetch('/api/csrf-token', {
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`CSRF token request failed: ${response.status}`);
+                }
                 const data = await response.json();
-                csrfToken = data.csrf_token;
+                csrfToken = data.csrf_token || null;
                 if (data.csrf_disabled) {
                     console.warn('CSRF protection is disabled. Install flask-wtf for better security.');
                 }
+                return csrfToken;
             } catch (error) {
                 console.error('Failed to initialize CSRF token:', error);
+                return null;
             }
         }
 
-        // 包装 fetch 请求，自动添加 CSRF Token
-        const originalFetch = window.fetch;
-        window.fetch = function (url, options = {}) {
-            // 只对非 GET 请求添加 CSRF Token
-            if (options.method && options.method.toUpperCase() !== 'GET' && csrfToken) {
-                if (options.headers instanceof Headers) {
-                    options.headers.set('X-CSRFToken', csrfToken);
-                } else {
-                    options.headers = {
-                        ...(options.headers || {}),
-                        'X-CSRFToken': csrfToken
+        function appendCSRFHeader(options, token) {
+            if (!token) {
+                return;
+            }
+
+            if (options.headers instanceof Headers) {
+                options.headers.set('X-CSRFToken', token);
+                return;
+            }
+
+            options.headers = {
+                ...(options.headers || {}),
+                'X-CSRFToken': token
+            };
+        }
+
+        async function isCSRFFailureResponse(response) {
+            if (!response || response.status !== 400) {
+                return false;
+            }
+
+            try {
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const payload = await response.clone().json();
+                    const errorMessage = String(
+                        payload?.error || payload?.message || payload?.description || ''
+                    );
+                    return Boolean(payload?.csrf_error) || /csrf/i.test(errorMessage);
+                }
+
+                const bodyText = await response.clone().text();
+                return /csrf/i.test(bodyText);
+            } catch (error) {
+                console.warn('Failed to inspect CSRF error response:', error);
+                return false;
+            }
+        }
+
+        async function fetchWithCSRF(url, options = {}, retrying = false) {
+            const requestOptions = {
+                credentials: 'same-origin',
+                ...(options || {})
+            };
+            const method = String(requestOptions.method || 'GET').toUpperCase();
+
+            if (method !== 'GET') {
+                if (!csrfToken) {
+                    await initCSRFToken();
+                }
+                appendCSRFHeader(requestOptions, csrfToken);
+            }
+
+            const response = await originalFetch(url, requestOptions);
+            if (retrying || method === 'GET') {
+                return response;
+            }
+
+            if (await isCSRFFailureResponse(response)) {
+                csrfToken = null;
+                const refreshedToken = await initCSRFToken(true);
+                if (refreshedToken) {
+                    const retryOptions = {
+                        credentials: 'same-origin',
+                        ...(options || {})
                     };
+                    appendCSRFHeader(retryOptions, refreshedToken);
+                    return fetchWithCSRF(url, retryOptions, true);
                 }
             }
-            return originalFetch(url, options);
+
+            return response;
+        }
+
+        // 包装 fetch 请求，自动添加 CSRF Token
+        window.fetch = function (url, options = {}) {
+            return fetchWithCSRF(url, options);
         };
 
         // 初始化
         document.addEventListener('DOMContentLoaded', async function () {
             // 初始化 CSRF Token
-            initCSRFToken();
+            await initCSRFToken();
             ensureForwardingSettingsUI();
             bindPersistentButtonHandlers();
             document.addEventListener('click', closeAccountActionMenus);

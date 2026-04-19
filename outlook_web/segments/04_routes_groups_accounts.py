@@ -121,14 +121,23 @@ def api_get_version_status():
 
 
 @app.route('/api/csrf-token', methods=['GET'])
+@login_required
 @csrf_exempt  # CSRF token获取接口排除CSRF保护
 def get_csrf_token():
     """获取CSRF Token"""
+    response = None
     if CSRF_AVAILABLE:
         token = generate_csrf()
-        return jsonify({'csrf_token': token})
+        response = jsonify({'csrf_token': token, 'csrf_disabled': False})
     else:
-        return jsonify({'csrf_token': None, 'csrf_disabled': True})
+        response = jsonify({'csrf_token': None, 'csrf_disabled': True})
+
+    # CSRF token 必须与当前登录 session 一致，禁止浏览器或代理缓存。
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.vary.add('Cookie')
+    return response
 
 
 # ==================== 分组 API ====================

@@ -101,6 +101,26 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         return payload['data']['accounts']
 
+    def test_csrf_token_endpoint_requires_login(self):
+        anonymous_client = self.app.test_client()
+        response = anonymous_client.get('/api/csrf-token')
+
+        self.assertEqual(response.status_code, 401)
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertTrue(payload['need_login'])
+
+    def test_csrf_token_endpoint_disables_caching(self):
+        response = self.client.get('/api/csrf-token')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertIn('csrf_token', payload)
+        self.assertIn('no-store', response.headers.get('Cache-Control', ''))
+        self.assertEqual(response.headers.get('Pragma'), 'no-cache')
+        self.assertEqual(response.headers.get('Expires'), '0')
+        self.assertIn('Cookie', response.headers.get('Vary', ''))
+
     def test_version_status_reports_update_when_remote_repository_is_newer(self):
         with patch.object(
             web_outlook_app,
