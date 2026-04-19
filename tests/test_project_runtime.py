@@ -71,6 +71,16 @@ class ProjectRuntimeTests(unittest.TestCase):
             db.commit()
             return int(cursor.lastrowid)
 
+    def _set_group_sort_order(self, group_id: int, sort_order: int):
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('UPDATE groups SET sort_order = ? WHERE id = ?', (sort_order, group_id))
+            db.commit()
+
+    def _ordered_groups(self):
+        with self.app.app_context():
+            return web_outlook_app.load_groups()
+
     def _set_aliases(self, account_id: int, primary_email: str, aliases):
         with self.app.app_context():
             db = web_outlook_app.get_db()
@@ -280,6 +290,48 @@ class ProjectRuntimeTests(unittest.TestCase):
 
         accounts = self._project_accounts('gpt')
         self.assertEqual({item['email'] for item in accounts}, {'alias-a@example.com', 'alias-b@example.com'})
+
+    def test_init_db_preserves_existing_custom_group_order(self):
+        group_a = self._create_group('Alpha Group')
+        group_b = self._create_group('Beta Group')
+
+        self._set_group_sort_order(1, 2)
+        self._set_group_sort_order(group_a, 3)
+        self._set_group_sort_order(group_b, 1)
+
+        with self.app.app_context():
+            web_outlook_app.init_db()
+
+        ordered_groups = self._ordered_groups()
+        self.assertEqual(
+            [group['name'] for group in ordered_groups],
+            ['临时邮箱', 'Beta Group', '默认分组', 'Alpha Group']
+        )
+        self.assertEqual(
+            [group['sort_order'] for group in ordered_groups],
+            [0, 1, 2, 3]
+        )
+
+    def test_init_db_backfills_missing_group_sort_order_once(self):
+        group_a = self._create_group('Gamma Group')
+        group_b = self._create_group('Delta Group')
+
+        self._set_group_sort_order(1, 0)
+        self._set_group_sort_order(group_a, 0)
+        self._set_group_sort_order(group_b, 0)
+
+        with self.app.app_context():
+            web_outlook_app.init_db()
+
+        ordered_groups = self._ordered_groups()
+        self.assertEqual(
+            [group['name'] for group in ordered_groups],
+            ['临时邮箱', '默认分组', 'Gamma Group', 'Delta Group']
+        )
+        self.assertEqual(
+            [group['sort_order'] for group in ordered_groups],
+            [0, 1, 2, 3]
+        )
 
     def test_imap_attachment_detail_and_download_route(self):
         with self.app.app_context():

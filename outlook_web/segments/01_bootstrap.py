@@ -723,6 +723,36 @@ def close_connection(exception):
         db.close()
 
 
+def normalize_group_sort_orders_on_startup(cursor) -> None:
+    """启动时归一化分组顺序，但保留已有自定义顺序。"""
+    cursor.execute(
+        '''
+        SELECT id, name, sort_order
+        FROM groups
+        ORDER BY
+            CASE WHEN name = '临时邮箱' THEN 0 ELSE 1 END,
+            CASE
+                WHEN name = '临时邮箱' THEN 0
+                WHEN COALESCE(sort_order, 0) > 0 THEN sort_order
+                ELSE 2147483647
+            END,
+            id
+        '''
+    )
+    group_rows = cursor.fetchall()
+
+    next_sort_order = 1
+    for group_id, group_name, sort_order in group_rows:
+        target_sort_order = 0 if group_name == '临时邮箱' else next_sort_order
+        if group_name != '临时邮箱':
+            next_sort_order += 1
+        if sort_order != target_sort_order:
+            cursor.execute(
+                'UPDATE groups SET sort_order = ? WHERE id = ?',
+                (target_sort_order, group_id)
+            )
+
+
 def init_db():
     """初始化数据库"""
     conn = sqlite3.connect(DATABASE)
@@ -1135,19 +1165,8 @@ def init_db():
         VALUES ('临时邮箱', 'GPTMail 临时邮箱服务', '#00bcf2', 1)
     ''')
 
-    # 初始化分组排序值，保留已有顺序并确保临时邮箱固定在最前
-    cursor.execute('SELECT id, name, sort_order FROM groups ORDER BY id')
-    group_rows = cursor.fetchall()
-    next_sort_order = 1
-    for group_id, group_name, sort_order in group_rows:
-        target_sort_order = 0 if group_name == '临时邮箱' else next_sort_order
-        if group_name != '临时邮箱':
-            next_sort_order += 1
-        if sort_order != target_sort_order:
-            cursor.execute(
-                'UPDATE groups SET sort_order = ? WHERE id = ?',
-                (target_sort_order, group_id)
-            )
+    # 归一化分组排序值，临时邮箱固定在最前，其他分组保留已有相对顺序。
+    normalize_group_sort_orders_on_startup(cursor)
     
     # 初始化默认设置
     # 检查是否已有密码设置
