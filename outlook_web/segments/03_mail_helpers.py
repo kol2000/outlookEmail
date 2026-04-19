@@ -1259,6 +1259,48 @@ def has_imap_fetch_payload(data: Any) -> bool:
     return False
 
 
+def parse_imap_fetch_response(data: Any) -> tuple[bytes | None, str]:
+    raw_email = None
+    response_fragments: List[str] = []
+    items = data if isinstance(data, (list, tuple)) else [data]
+
+    for item in items:
+        if item is None:
+            continue
+
+        if isinstance(item, tuple):
+            tuple_items = list(item)
+            if tuple_items:
+                head = tuple_items[0]
+                if isinstance(head, memoryview):
+                    head = head.tobytes()
+                if isinstance(head, (bytes, bytearray)):
+                    response_fragments.append(head.decode('utf-8', errors='ignore'))
+                elif head is not None:
+                    response_fragments.append(str(head))
+
+            for payload in tuple_items[1:]:
+                if isinstance(payload, memoryview):
+                    payload = payload.tobytes()
+                if raw_email is None and isinstance(payload, (bytes, bytearray)) and payload:
+                    raw_email = bytes(payload)
+                    continue
+                if isinstance(payload, (bytes, bytearray)):
+                    response_fragments.append(payload.decode('utf-8', errors='ignore'))
+                elif payload is not None:
+                    response_fragments.append(str(payload))
+            continue
+
+        if isinstance(item, memoryview):
+            item = item.tobytes()
+        if isinstance(item, (bytes, bytearray)):
+            response_fragments.append(item.decode('utf-8', errors='ignore'))
+        else:
+            response_fragments.append(str(item))
+
+    return raw_email, ' '.join(fragment for fragment in response_fragments if fragment).strip()
+
+
 def fetch_imap_message(mail, message_id: Any, query: str, preferred_mode: str = 'uid') -> tuple[str, Any, str, List[Dict[str, Any]]]:
     message_text = message_id.decode('utf-8', errors='ignore') if isinstance(message_id, (bytes, bytearray)) else str(message_id)
     modes = [preferred_mode]
@@ -1584,19 +1626,10 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 )
                 if f_status != 'OK' or not f_data:
                     continue
-                raw_email = None
-                flags_text = ''
-                internal_date = ''
-                for item in f_data:
-                    if not item:
-                        continue
-                    if isinstance(item, tuple) and len(item) >= 2:
-                        flags_text = item[0].decode('utf-8', errors='ignore') if isinstance(item[0], (bytes, bytearray)) else str(item[0])
-                        internal_date = extract_imap_internaldate(item[0])
-                        raw_email = item[1]
-                        break
+                raw_email, fetch_response_text = parse_imap_fetch_response(f_data)
                 if not raw_email:
                     continue
+                internal_date = extract_imap_internaldate(fetch_response_text)
 
                 msg = email.message_from_bytes(raw_email)
                 body_text, body_html = extract_text_and_html(msg)
@@ -1609,7 +1642,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                     'to': decode_header_value(msg.get('To', '')),
                     'date': internal_date or msg.get('Date', ''),
                     'id_mode': search_mode or 'uid',
-                    'is_read': '\\Seen' in (flags_text or ''),
+                    'is_read': bool(re.search(r'\\Seen\b', fetch_response_text, flags=re.IGNORECASE)),
                     'has_attachments': has_message_attachments(msg),
                     'body_preview': preview,
                 })

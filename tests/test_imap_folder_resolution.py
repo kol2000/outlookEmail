@@ -187,6 +187,48 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertEqual(result['emails'][0]['date'], '14-Apr-2026 10:00:00 +0000')
         self.assertTrue(mail.logged_out)
 
+    def test_gmail_imap_list_reads_seen_flag_from_split_fetch_response(self):
+        raw_email = (
+            b"Subject: seen-mail\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@gmail.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"hello gmail\r\n"
+        )
+
+        class GmailSeenMail(FakeMail):
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'OK', [b'11']
+                if command == 'FETCH':
+                    return 'OK', [
+                        (
+                            b'11 (INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                            raw_email,
+                        ),
+                        b' FLAGS (\\Seen))',
+                    ]
+                return super().uid(command, *args, **kwargs)
+
+        mail = GmailSeenMail(selectable={'INBOX'})
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@gmail.com',
+                imap_password='app-password',
+                imap_host='imap.gmail.com',
+                provider='gmail',
+                folder='inbox',
+                top=20,
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(len(result['emails']), 1)
+        self.assertTrue(result['emails'][0]['is_read'])
+        self.assertEqual(result['emails'][0]['subject'], 'seen-mail')
+        self.assertTrue(mail.logged_out)
+
     def test_parse_email_datetime_accepts_parenthesized_timezone_name(self):
         parsed = web_outlook_app.parse_email_datetime('Tue, 14 Apr 2026 08:20:50 +0000 (UTC)')
 
