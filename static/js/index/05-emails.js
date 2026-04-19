@@ -1,4 +1,4 @@
-        /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getFolderDisplayName, handleApiError, isTempEmailGroup, isTimeoutAbortError, renderEmptyStateMarkup, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
+        /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, currentSkip, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getFolderDisplayName, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, isTempEmailGroup, isTimeoutAbortError, renderEmptyStateMarkup, scheduleEmailListLoadCheck, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
 
         // ==================== 邮件相关 ====================
 
@@ -16,7 +16,7 @@
                 const cache = emailListCache[cacheKey];
                 currentEmails = cache.emails;
                 hasMoreEmails = cache.has_more;
-                currentSkip = cache.skip;
+                currentSkip = getNextEmailSkipFromCache(cache);
                 currentMethod = cache.method || 'graph';
 
                 // 恢复 UI
@@ -26,6 +26,7 @@
                 document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
 
                 renderEmailList(currentEmails);
+                scheduleEmailListLoadCheck(0);
                 return;
             }
 
@@ -59,6 +60,7 @@
                     currentEmails = data.emails;
                     currentMethod = data.method === 'Graph API' ? 'graph' : 'imap';
                     hasMoreEmails = data.has_more;
+                    currentSkip = currentEmails.length;
 
                     // 保存到缓存
                     emailListCache[cacheKey] = {
@@ -76,6 +78,7 @@
                     document.getElementById('emailCount').textContent = `(${data.emails.length})`;
 
                     renderEmailList(data.emails);
+                    scheduleEmailListLoadCheck(80);
                 } else {
                     // 显示详细的多方法失败弹框
                     const fetchErrorDetails = data.details || (data.error ? { error: data.error } : {});
@@ -796,6 +799,7 @@
             closeMobilePanels();
             closeNavbarActionsMenu();
             updateMobileContext();
+            scheduleEmailListLoadCheck(0);
         }
 
         // 刷新邮件

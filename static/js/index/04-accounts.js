@@ -1,4 +1,4 @@
-        /* global accountsCache, closeMobilePanels, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, currentSkip, emailListCache, handleApiError, hasMoreEmails, hideModal, isTempEmailGroup, loadAccountsByGroup, loadEmails, loadGroups, renderEmailList, setModalVisible, showEmailList, showToast, updateImportHint, updateMobileContext */
+        /* global accountsCache, closeMobilePanels, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, currentSkip, emailListCache, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, hideModal, isTempEmailGroup, loadAccountsByGroup, loadEmails, loadGroups, renderEmailList, scheduleEmailListLoadCheck, setModalVisible, showEmailList, showToast, updateImportHint, updateMobileContext */
 
         // ==================== 账号相关 ====================
 
@@ -41,7 +41,7 @@
                 const cache = emailListCache[cacheKey];
                 currentEmails = cache.emails;
                 hasMoreEmails = cache.has_more;
-                currentSkip = cache.skip;
+                currentSkip = getNextEmailSkipFromCache(cache);
                 currentMethod = cache.method || 'graph';
 
                 // 恢复 UI
@@ -51,6 +51,7 @@
                 document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
 
                 renderEmailList(currentEmails);
+                scheduleEmailListLoadCheck(0);
             } else {
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">

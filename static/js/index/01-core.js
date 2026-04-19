@@ -32,6 +32,7 @@
         let responsiveUiResizeTimer = null;
         const EMAIL_LIST_REQUEST_TIMEOUT_MS = 70000;
         const EMAIL_DETAIL_REQUEST_TIMEOUT_MS = 45000;
+        const EMAIL_LIST_LOAD_MORE_THRESHOLD_PX = 96;
         const TOKEN_REFRESH_REQUEST_TIMEOUT_MS = 70000;
         const BULK_REFRESH_BASE_TIMEOUT_MS = 30000;
         const BULK_REFRESH_PER_ACCOUNT_TIMEOUT_MS = 35000;
@@ -39,6 +40,7 @@
         const REFRESH_STREAM_STALL_TIMEOUT_MS = 70000;
         const VERSION_STATUS_REQUEST_TIMEOUT_MS = 12000;
         let versionStatusRequest = null;
+        let emailListLoadCheckTimer = null;
 
         function isMobileLayout() {
             return window.matchMedia('(max-width: 768px)').matches;
@@ -46,6 +48,67 @@
 
         function isTimeoutAbortError(error) {
             return error?.name === 'AbortError';
+        }
+
+        function getNextEmailSkipFromCache(cache) {
+            const cachedEmailCount = Array.isArray(cache?.emails) ? cache.emails.length : 0;
+            const cachedSkip = Number(cache?.skip);
+
+            if (!Number.isFinite(cachedSkip) || cachedSkip < 0) {
+                return cachedEmailCount;
+            }
+
+            return Math.max(cachedSkip, cachedEmailCount);
+        }
+
+        function canLoadMoreEmails() {
+            if (isLoadingMore || !hasMoreEmails || !currentAccount || isTempEmailGroup) {
+                return false;
+            }
+
+            const listPanel = document.getElementById('emailListPanel');
+            return !listPanel || !listPanel.classList.contains('hidden');
+        }
+
+        function isEmailListNearBottom(emailList) {
+            if (!emailList) {
+                return false;
+            }
+
+            const remainingScroll = emailList.scrollHeight - emailList.scrollTop - emailList.clientHeight;
+            return remainingScroll <= EMAIL_LIST_LOAD_MORE_THRESHOLD_PX;
+        }
+
+        function maybeLoadMoreEmails() {
+            if (!canLoadMoreEmails()) {
+                return;
+            }
+
+            const emailList = document.getElementById('emailList');
+            if (isEmailListNearBottom(emailList)) {
+                loadMoreEmails();
+            }
+        }
+
+        function scheduleEmailListLoadCheck(delayMs = 0) {
+            if (emailListLoadCheckTimer) {
+                window.clearTimeout(emailListLoadCheckTimer);
+                emailListLoadCheckTimer = null;
+            }
+
+            const runCheck = () => {
+                emailListLoadCheckTimer = null;
+                window.requestAnimationFrame(() => {
+                    maybeLoadMoreEmails();
+                });
+            };
+
+            if (delayMs > 0) {
+                emailListLoadCheckTimer = window.setTimeout(runCheck, delayMs);
+                return;
+            }
+
+            runCheck();
         }
 
         function fetchWithTimeout(url, options = {}) {
@@ -388,6 +451,7 @@
             }
 
             updateMobileContext();
+            scheduleEmailListLoadCheck(0);
         }
 
         // ==================== CSRF 防护 ====================
@@ -576,14 +640,9 @@
         // 初始化邮件列表滚动监听
         function initEmailListScroll() {
             const emailList = document.getElementById('emailList');
-            emailList.addEventListener('scroll', function () {
-                // 检查是否滚动到底部
-                if (emailList.scrollHeight - emailList.scrollTop <= emailList.clientHeight + 50) {
-                    if (!isLoadingMore && hasMoreEmails && currentAccount && !isTempEmailGroup) {
-                        loadMoreEmails();
-                    }
-                }
-            });
+            if (!emailList) return;
+
+            emailList.addEventListener('scroll', maybeLoadMoreEmails, { passive: true });
         }
 
         // 加载更多邮件
@@ -591,7 +650,8 @@
             if (isLoadingMore || !hasMoreEmails) return;
 
             isLoadingMore = true;
-            currentSkip += 20; // 每页20封
+            const nextSkip = Math.max(Number(currentSkip) || 0, Array.isArray(currentEmails) ? currentEmails.length : 0);
+            currentSkip = nextSkip;
 
             // 在列表底部显示加载状态
             const emailList = document.getElementById('emailList');
@@ -611,7 +671,7 @@
 
             try {
                 const response = await fetchWithTimeout(
-                    `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${currentSkip}&top=20`,
+                    `/api/emails/${encodeURIComponent(currentAccount)}?method=${currentMethod}&folder=${currentFolder}&skip=${nextSkip}&top=20`,
                     {
                         timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
                         timeoutMessage: '加载更多邮件超时，请稍后重试'
@@ -623,6 +683,7 @@
                     // 追加新邮件到列表
                     currentEmails = currentEmails.concat(data.emails);
                     hasMoreEmails = data.has_more;
+                    currentSkip = currentEmails.length;
 
                     // 移除加载状态
                     const loadingEl = document.getElementById('loadingMore');
@@ -643,8 +704,11 @@
                             emailListCache[cacheKey].skip = currentSkip;
                         }
                     }
+
+                    scheduleEmailListLoadCheck(80);
                 } else {
                     hasMoreEmails = false;
+                    currentSkip = Array.isArray(currentEmails) ? currentEmails.length : nextSkip;
                     // 显示"没有更多邮件"
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) {
@@ -685,7 +749,7 @@
                 const cache = emailListCache[cacheKey];
                 currentEmails = cache.emails;
                 hasMoreEmails = cache.has_more;
-                currentSkip = cache.skip;
+                currentSkip = getNextEmailSkipFromCache(cache);
                 currentMethod = cache.method || 'graph';
 
                 // 恢复 UI
@@ -695,6 +759,7 @@
                 document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
 
                 renderEmailList(currentEmails);
+                scheduleEmailListLoadCheck(0);
             } else {
                 // 清空邮件列表，显示提示
                 document.getElementById('emailList').innerHTML = `
