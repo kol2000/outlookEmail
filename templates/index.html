@@ -32,7 +32,7 @@
     <script src="{{ url_for('static', filename='js/index/10-batch-actions.js') }}"></script>
 
     <!-- 全屏查看邮件模态框 -->
-    <div id="fullscreenEmailModal" class="fullscreen-email-modal" onclick="closeFullscreenEmailOnBackdrop(event)">
+    <div id="fullscreenEmailModal" class="fullscreen-email-modal" onmousedown="closeFullscreenEmailOnBackdrop(event)">
         <div class="fullscreen-email-header">
             <div class="fullscreen-email-title" id="fullscreenEmailTitle">邮件详情</div>
             <button class="fullscreen-close-btn" onclick="closeFullscreenEmail()">×</button>

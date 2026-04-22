@@ -146,7 +146,7 @@
                 modal = document.createElement('div');
                 modal.id = 'tempEmailProviderModal';
                 modal.className = 'modal';
-                modal.onclick = function (e) { if (e.target === modal) hideTempEmailProviderModal(); };
+                modal.onmousedown = function (e) { if (e.target === modal) hideTempEmailProviderModal(); };
                 modal.innerHTML = `
                     <div class="modal-content" style="width: 460px;">
                         <div class="modal-header">

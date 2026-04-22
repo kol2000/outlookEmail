@@ -7,6 +7,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.29] - 2026-04-23
+
+### Fixed
+- 修复多个模态框和全屏邮件详情在背景层点击关闭时的事件时序问题，统一改为在 `mousedown` 阶段处理 backdrop 关闭，减少误触和异常关闭。
+
+
 ## [2.0.28] - 2026-04-22
 
 ### Added
