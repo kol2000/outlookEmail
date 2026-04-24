@@ -7,6 +7,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.30] - 2026-04-24
+
+### Fixed
+- 修复 Outlook 账号在手动刷新、批量刷新和定时刷新成功后未持久化微软返回的新 `refresh_token` 的问题，避免后续继续使用旧 token 导致 `AADSTS70000 grant is expired` 一类失效报错，并补充对应回归测试。
+
+
 ## [2.0.29] - 2026-04-23
 
 ### Fixed

@@ -1018,7 +1018,15 @@ def trigger_refresh_internal():
                     proxy_url = group_row['proxy_url'] or ''
             fallback_proxy_urls = get_group_proxy_failover_urls(dict(group_row) if group_row else None)
 
-            success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url, fallback_proxy_urls)
+            success, error_msg, rotated_refresh_token = test_refresh_token(
+                client_id,
+                refresh_token,
+                proxy_url,
+                fallback_proxy_urls,
+            )
+
+            if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
+                persist_rotated_refresh_token(account_id, rotated_refresh_token, conn)
 
             conn.execute('''
                 INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)

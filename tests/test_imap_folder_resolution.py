@@ -1102,6 +1102,50 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertEqual(log_row['status'], 'success')
         self.assertIsNone(log_row['error_message'])
 
+    def test_refresh_account_persists_rotated_refresh_token(self):
+        class FakeResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    'access_token': 'access-token',
+                    'refresh_token': '0.AXEA_rotated_manual',
+                }
+
+        with patch.object(web_outlook_app.requests, 'request', return_value=FakeResponse()):
+            response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        with self.app.app_context():
+            refreshed = web_outlook_app.get_account_by_id(self.account_id)
+
+        self.assertIsNotNone(refreshed)
+        self.assertEqual(refreshed['refresh_token'], '0.AXEA_rotated_manual')
+
+    def test_trigger_refresh_internal_persists_rotated_refresh_token(self):
+        class FakeResponse:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    'access_token': 'access-token',
+                    'refresh_token': '0.AXEA_rotated_scheduled',
+                }
+
+        with patch.object(web_outlook_app.requests, 'request', return_value=FakeResponse()):
+            web_outlook_app.trigger_refresh_internal()
+
+        with self.app.app_context():
+            refreshed = web_outlook_app.get_account_by_id(self.account_id)
+
+        self.assertIsNotNone(refreshed)
+        self.assertEqual(refreshed['refresh_token'], '0.AXEA_rotated_scheduled')
+
     def test_group_api_persists_proxy_failover_fields(self):
         response = self.client.put(
             f'/api/groups/{self.group_id}',
