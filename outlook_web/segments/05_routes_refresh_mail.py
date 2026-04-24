@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, wait
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     # These segmented files are executed into the shared `web_outlook_app`
@@ -31,6 +31,36 @@ def log_refresh_result(account_id: int, account_email: str, refresh_type: str, s
         return True
     except Exception as e:
         print(f"记录刷新结果失败: {str(e)}")
+        return False
+
+
+def persist_rotated_refresh_token(account_id: int, refresh_token: str, db_conn=None) -> bool:
+    """保存微软返回的新 refresh_token。"""
+    token_value = str(refresh_token or '').strip()
+    if not token_value:
+        return False
+
+    db = db_conn or get_db()
+    should_commit = db_conn is None
+    try:
+        db.execute(
+            '''
+            UPDATE accounts
+            SET refresh_token = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            ''',
+            (encrypt_data(token_value), account_id)
+        )
+        if should_commit:
+            db.commit()
+        return True
+    except Exception as e:
+        if should_commit:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        print(f"保存轮换 refresh_token 失败: {str(e)}")
         return False
 
 
@@ -65,8 +95,8 @@ def log_forwarding_result(account_id: int, account_email: str, message_id: str, 
 
 
 def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None,
-                       fallback_proxy_urls: List[str] = None) -> tuple[bool, str]:
-    """测试 refresh token 是否有效，返回 (是否成功, 错误信息)"""
+                       fallback_proxy_urls: List[str] = None) -> tuple[bool, Optional[str], str]:
+    """测试 refresh token 是否有效，返回 (是否成功, 错误信息, 新 refresh_token)"""
     try:
         # 尝试使用 Graph API 获取 access token
         # 使用与 get_access_token_graph 相同的 scope，确保一致性
@@ -84,13 +114,21 @@ def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None
         )
 
         if res.status_code == 200:
-            return True, None
+            payload = {}
+            try:
+                payload = res.json()
+            except Exception:
+                payload = {}
+            return True, None, str(payload.get('refresh_token') or '').strip()
         else:
-            error_data = res.json()
+            try:
+                error_data = res.json()
+            except Exception:
+                error_data = {}
             error_msg = error_data.get('error_description', error_data.get('error', '未知错误'))
-            return False, error_msg
+            return False, error_msg, ''
     except Exception as e:
-        return False, f"请求异常: {str(e)}"
+        return False, f"请求异常: {str(e)}", ''
 
 
 def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'manual') -> Dict[str, Any]:
@@ -123,8 +161,16 @@ def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'man
             )
         }
 
-    success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url, fallback_proxy_urls)
+    success, error_msg, rotated_refresh_token = test_refresh_token(
+        client_id,
+        refresh_token,
+        proxy_url,
+        fallback_proxy_urls,
+    )
     sanitized_error = sanitize_error_details(error_msg) if error_msg else ''
+
+    if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
+        persist_rotated_refresh_token(account_id, rotated_refresh_token)
 
     # 记录刷新结果
     log_refresh_result(account_id, account_email, refresh_type, 'success' if success else 'failed', sanitized_error or None)
@@ -348,10 +394,18 @@ def api_refresh_all_accounts():
                 fallback_proxy_urls = get_group_proxy_failover_urls(dict(group_row) if group_row else None)
 
                 # 测试 refresh token
-                success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url, fallback_proxy_urls)
+                success, error_msg, rotated_refresh_token = test_refresh_token(
+                    client_id,
+                    refresh_token,
+                    proxy_url,
+                    fallback_proxy_urls,
+                )
 
                 # 记录刷新结果（使用当前连接）
                 try:
+                    if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
+                        persist_rotated_refresh_token(account_id, rotated_refresh_token, conn)
+
                     conn.execute('''
                         INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
                         VALUES (?, ?, ?, ?, ?)
@@ -446,7 +500,10 @@ def api_refresh_failed_accounts():
             continue
 
         # 测试 refresh token
-        success, error_msg = test_refresh_token(client_id, refresh_token)
+        success, error_msg, rotated_refresh_token = test_refresh_token(client_id, refresh_token)
+
+        if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
+            persist_rotated_refresh_token(account_id, rotated_refresh_token)
 
         # 记录刷新结果
         log_refresh_result(account_id, account_email, 'retry', 'success' if success else 'failed', error_msg)
@@ -576,9 +633,17 @@ def api_trigger_scheduled_refresh():
                         proxy_url = group_row['proxy_url'] or ''
                 fallback_proxy_urls = get_group_proxy_failover_urls(dict(group_row) if group_row else None)
 
-                success, error_msg = test_refresh_token(client_id, refresh_token, proxy_url, fallback_proxy_urls)
+                success, error_msg, rotated_refresh_token = test_refresh_token(
+                    client_id,
+                    refresh_token,
+                    proxy_url,
+                    fallback_proxy_urls,
+                )
 
                 try:
+                    if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
+                        persist_rotated_refresh_token(account_id, rotated_refresh_token, conn)
+
                     conn.execute('''
                         INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
                         VALUES (?, ?, ?, ?, ?)
