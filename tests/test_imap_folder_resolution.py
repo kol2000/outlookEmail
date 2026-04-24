@@ -592,6 +592,47 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertTrue(payload['need_login'])
         self.assertEqual(payload['error'], '请先登录')
 
+    def test_internal_emails_does_not_update_last_refresh_time(self):
+        expected_result = {
+            'success': True,
+            'emails': [{'id': 'inbox-1', 'folder': 'inbox', 'date': '2026-01-01T00:00:00Z'}],
+            'method': 'Graph API',
+            'has_more': False,
+        }
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute(
+                '''
+                UPDATE accounts
+                SET last_refresh_at = ?
+                WHERE email = ?
+                ''',
+                ('2026-01-10 12:34:56', 'user@outlook.com')
+            )
+            db.commit()
+
+        with self.client.session_transaction() as session:
+            session['logged_in'] = True
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value=expected_result) as fetch_mock:
+            response = self.client.get('/api/emails/user@outlook.com?folder=inbox')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload, expected_result)
+        fetch_mock.assert_called_once()
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            row = db.execute(
+                'SELECT last_refresh_at FROM accounts WHERE email = ?',
+                ('user@outlook.com',)
+            ).fetchone()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row['last_refresh_at'], '2026-01-10 12:34:56')
+
     def test_update_account_requires_login(self):
         response = self.client.put(
             '/api/accounts/1',
