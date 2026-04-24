@@ -1414,17 +1414,6 @@ def api_get_emails(email_addr):
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
     result = fetch_account_emails(account, folder, skip, top)
-    if result.get('success'):
-        db = get_db()
-        db.execute(
-            '''
-            UPDATE accounts
-            SET last_refresh_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            ''',
-            (account['id'],)
-        )
-        db.commit()
     return jsonify(result)
 
 

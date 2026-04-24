@@ -1171,16 +1171,6 @@ def api_get_emails_v2(email_addr):
                 item for item in result.get('emails', [])
                 if email_matches_filters(account, item, subject_contains, from_contains, keyword)
             ]
-        db = get_db()
-        db.execute(
-            '''
-            UPDATE accounts
-            SET last_refresh_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-            ''',
-            (account['id'],)
-        )
-        db.commit()
     return jsonify(result)
 
 

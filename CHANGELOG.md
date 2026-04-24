@@ -7,6 +7,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [Unreleased]
 
 
+## [2.0.31] - 2026-04-24
+
+### Fixed
+- 修复内部取邮件接口会误更新账号 `last_refresh_at` 的问题，避免“最近刷新时间”被普通收信动作污染，并补充对应回归测试。
+
+
 ## [2.0.30] - 2026-04-24
 
 ### Fixed
