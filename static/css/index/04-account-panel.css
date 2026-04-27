@@ -591,6 +591,12 @@
             flex-wrap: wrap;
         }
 
+        .account-created-at {
+            font-size: 11px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
         .account-refresh-meta {
             font-size: 12px;
             color: #6b7280;

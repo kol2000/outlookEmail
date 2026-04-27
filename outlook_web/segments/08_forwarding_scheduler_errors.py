@@ -1071,6 +1071,7 @@ def api_update_account_v2(account_id):
     imap_host = (data.get('imap_host', '') or '').strip()
     imap_password = data.get('imap_password', '') or ''
     group_id = data.get('group_id', 1)
+    sort_order = parse_account_sort_order_input(data.get('sort_order')) if 'sort_order' in data else None
     remark = sanitize_input(data.get('remark', ''), max_length=200)
     status = data.get('status', 'active')
     forward_enabled = bool(data.get('forward_enabled', False))
@@ -1125,6 +1126,7 @@ def api_update_account_v2(account_id):
         client_id,
         refresh_token,
         group_id,
+        sort_order,
         remark,
         status,
         account_type,

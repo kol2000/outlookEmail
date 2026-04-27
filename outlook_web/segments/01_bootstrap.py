@@ -1016,6 +1016,7 @@ def init_db():
             client_id TEXT DEFAULT '',
             refresh_token TEXT DEFAULT '',
             group_id INTEGER,
+            sort_order INTEGER DEFAULT 0,
             remark TEXT,
             status TEXT DEFAULT 'active',
             account_type TEXT DEFAULT 'outlook',
@@ -1264,6 +1265,8 @@ def init_db():
 
     if 'group_id' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN group_id INTEGER DEFAULT 1')
+    if 'sort_order' not in columns:
+        cursor.execute('ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0')
     if 'remark' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN remark TEXT')
     if 'status' not in columns:
@@ -1488,6 +1491,10 @@ def init_db():
         INSERT OR IGNORE INTO settings (key, value)
         VALUES ('app_timezone', ?)
     ''', (DEFAULT_APP_TIMEZONE or 'Asia/Shanghai',))
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('show_account_created_at', 'true')
+    ''')
 
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
@@ -1567,6 +1574,11 @@ def init_db():
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_accounts_status
         ON accounts(status)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_accounts_sort_order
+        ON accounts(sort_order)
     ''')
 
     cursor.execute('''

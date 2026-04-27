@@ -219,6 +219,24 @@ def load_accounts(group_id: int = None) -> List[Dict]:
     return accounts
 
 
+def normalize_account_sort_order(sort_order: Any, default: int = 0) -> int:
+    try:
+        value = int(sort_order)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def parse_account_sort_order_input(sort_order: Any) -> Optional[int]:
+    if sort_order in (None, ''):
+        return None
+    try:
+        value = int(sort_order)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
 # ==================== 标签管理 ====================
 
 def get_tags() -> List[Dict]:
@@ -577,6 +595,7 @@ def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optiona
         'group_id': account.get('group_id'),
         'group_name': account.get('group_name', '默认分组'),
         'group_color': account.get('group_color', '#666666'),
+        'sort_order': normalize_account_sort_order(account.get('sort_order', 0)),
         'remark': account.get('remark', ''),
         'status': account.get('status', 'active'),
         'account_type': account.get('account_type', 'outlook'),
@@ -602,7 +621,8 @@ def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optiona
 def add_account(email_addr: str, password: str, client_id: str = '', refresh_token: str = '',
                 group_id: int = 1, remark: str = '', account_type: str = 'outlook',
                 provider: str = 'outlook', imap_host: str = '', imap_port: int = 993,
-                imap_password: str = '', forward_enabled: bool = False) -> bool:
+                imap_password: str = '', forward_enabled: bool = False,
+                sort_order: Optional[int] = None) -> bool:
     """添加邮箱账号"""
     db = get_db()
     try:
@@ -621,16 +641,17 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
         account_type = account_type or provider_meta.get('account_type', 'outlook')
         imap_host = imap_host or provider_meta.get('imap_host', '')
         imap_port = int(imap_port or provider_meta.get('imap_port', 993) or 993)
+        normalized_sort_order = parse_account_sort_order_input(sort_order)
 
         db.execute('''
             INSERT INTO accounts (
-                email, password, client_id, refresh_token, group_id, remark,
+                email, password, client_id, refresh_token, group_id, sort_order, remark,
                 account_type, provider, imap_host, imap_port, imap_password, forward_enabled,
                 forward_last_checked_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark,
+            email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, normalized_sort_order, remark,
             account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
             datetime.now(timezone.utc).isoformat() if forward_enabled else None
         ))
@@ -641,7 +662,7 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
 
 
 def update_account(account_id: int, email_addr: str, password: str, client_id: str,
-                   refresh_token: str, group_id: int, remark: str, status: str,
+                   refresh_token: str, group_id: int, sort_order: Optional[int], remark: str, status: str,
                    account_type: str = 'outlook', provider: str = 'outlook',
                    imap_host: str = '', imap_port: int = 993, imap_password: str = '',
                    forward_enabled: bool = False) -> bool:
@@ -652,6 +673,7 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
         encrypted_password = encrypt_data(password) if password else password
         encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
         encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
+        normalized_sort_order = parse_account_sort_order_input(sort_order)
 
         current_account = db.execute(
             'SELECT forward_enabled, forward_last_checked_at FROM accounts WHERE id = ?',
@@ -665,12 +687,13 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
             db.execute('''
                 UPDATE accounts
                 SET email = ?, password = ?, client_id = ?, refresh_token = ?,
-                    group_id = ?, remark = ?, status = ?, account_type = ?, provider = ?,
+                    group_id = ?, sort_order = ?, remark = ?, status = ?, account_type = ?, provider = ?,
                     imap_host = ?, imap_port = ?, imap_password = ?, forward_enabled = ?,
                     forward_last_checked_at = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ''', (
-                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
+                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, normalized_sort_order,
+                remark, status,
                 account_type, provider, imap_host, imap_port, encrypted_imap_password, 1,
                 datetime.now(timezone.utc).isoformat(), account_id
             ))
@@ -678,12 +701,13 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
             db.execute('''
                 UPDATE accounts
                 SET email = ?, password = ?, client_id = ?, refresh_token = ?,
-                    group_id = ?, remark = ?, status = ?, account_type = ?, provider = ?,
+                    group_id = ?, sort_order = ?, remark = ?, status = ?, account_type = ?, provider = ?,
                     imap_host = ?, imap_port = ?, imap_password = ?, forward_enabled = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ''', (
-                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, remark, status,
+                email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, normalized_sort_order,
+                remark, status,
                 account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
                 account_id
             ))

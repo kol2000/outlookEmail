@@ -1350,6 +1350,22 @@ class AppTimezoneSettingsTests(unittest.TestCase):
         self.assertFalse(payload['success'])
         self.assertIn('Invalid time zone', payload['error'])
 
+    def test_settings_api_persists_show_account_created_at(self):
+        response = self.client.put(
+            '/api/settings',
+            json={'show_account_created_at': False}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        response = self.client.get('/api/settings')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['settings']['show_account_created_at'], 'false')
+
     def test_validate_cron_uses_requested_timezone(self):
         response = self.client.post(
             '/api/settings/validate-cron',
