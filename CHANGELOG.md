@@ -16,6 +16,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - 重构桌面端设置页侧边导航，移除 `Control Center` / 保存提醒卡片，新增置顶“常规设置”分区，并将时区与创建时间展示开关迁入该分区。
 - 普通邮箱与临时邮箱列表统一移除序号展示，列表卡片仅保留邮箱主体信息与状态内容。
 - Token 刷新状态主读路径收敛为 `accounts + token_refresh_state`，刷新管理弹窗改为“快照 + 筛选 + 邮箱列表”单工作台，并移除独立“失败邮箱 / 刷新历史”区块。
+- Token 刷新管理中的邮箱列表进一步收敛为表格视图，统一展示邮箱、分组、最近刷新、状态和操作列。
 
 ### Fixed
 - 修复账号更新动态覆盖路由未同步透传 `sort_order` 的问题，避免编辑保存后自定义排序失效。

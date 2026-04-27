@@ -643,16 +643,19 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertIn('id="refreshSearchInput"', settings_html)
         self.assertIn('id="refreshAccountList"', settings_html)
+        self.assertIn('class="refresh-account-table-wrap"', settings_html)
         self.assertIn('data-status="never"', settings_html)
         self.assertNotIn('onclick="loadFailedLogs()"', settings_html)
         self.assertNotIn('onclick="loadRefreshLogs()"', settings_html)
         self.assertIn('async function loadRefreshStatusList()', refresh_js)
+        self.assertIn('<table class="refresh-account-table">', refresh_js)
         self.assertIn("function setRefreshStatusFilter(status, triggerEl = null)", refresh_js)
         self.assertIn("async function openRefreshModalWithStatus(status = 'all')", refresh_js)
         self.assertNotIn('showFailedListFromData', refresh_js)
         self.assertNotIn('loadRefreshLogs', refresh_js)
         self.assertIn("await openRefreshModalWithStatus('failed');", batch_js)
-        self.assertIn('.refresh-account-list', modal_css)
+        self.assertIn('.refresh-account-table-wrap', modal_css)
+        self.assertIn('.refresh-account-table', modal_css)
         self.assertIn('.refresh-filter-chip', modal_css)
 
 

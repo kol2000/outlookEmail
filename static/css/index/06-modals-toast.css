@@ -752,10 +752,31 @@
             color: #6b7280;
         }
 
-        .refresh-account-list {
+        .refresh-account-table-wrap {
             max-height: 520px;
-            overflow-y: auto;
-            display: grid;
+            overflow: auto;
+        }
+
+        .refresh-account-table {
+            width: 100%;
+            min-width: 780px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .refresh-account-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 13px 16px;
+            background: linear-gradient(180deg, #f9fbfd 0%, #f3f6fa 100%);
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            color: #64748b;
+            white-space: nowrap;
         }
 
         .refresh-account-empty {
@@ -766,16 +787,13 @@
         }
 
         .refresh-account-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.8fr) 150px 130px auto;
-            gap: 12px;
-            padding: 14px 16px;
-            border-bottom: 1px solid #eef2f7;
-            align-items: center;
+            background: #ffffff;
         }
 
-        .refresh-account-row:last-child {
-            border-bottom: none;
+        .refresh-account-row td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eef2f7;
+            vertical-align: top;
         }
 
         .refresh-account-row.is-refreshing {
@@ -784,18 +802,19 @@
 
         .refresh-account-main {
             min-width: 0;
-            display: grid;
-            gap: 6px;
+            width: 40%;
         }
 
         .refresh-account-email {
-            min-width: 0;
+            display: block;
+            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             font-size: 14px;
             font-weight: 700;
             color: #111827;
+            margin-bottom: 6px;
         }
 
         .refresh-account-remark,
@@ -813,9 +832,13 @@
             word-break: break-word;
         }
 
+        .refresh-account-status-cell {
+            white-space: nowrap;
+        }
+
         .refresh-account-action {
-            display: flex;
-            justify-content: flex-end;
+            width: 92px;
+            text-align: right;
         }
 
         .forwarding-console {
@@ -1226,15 +1249,6 @@
         @media (max-width: 979px) {
             .settings-modal-content {
                 width: min(920px, calc(100vw - 28px));
-            }
-
-            .refresh-account-row {
-                grid-template-columns: 1fr;
-                align-items: start;
-            }
-
-            .refresh-account-action {
-                justify-content: flex-start;
             }
 
             .settings-sidebar {

@@ -113,7 +113,7 @@
                 return;
             }
 
-            container.innerHTML = refreshModalState.items.map(item => {
+            const rowsHtml = refreshModalState.items.map(item => {
                 const isRunning = refreshModalState.currentRefreshingAccountId === item.id;
                 const canRetry = item.last_refresh_status === 'failed' && !isRunning;
                 const groupText = item.group_name || '默认分组';
@@ -126,23 +126,38 @@
                     : '';
 
                 return `
-                    <div class="refresh-account-row ${isRunning ? 'is-refreshing' : ''}">
-                        <div class="refresh-account-main">
+                    <tr class="refresh-account-row ${isRunning ? 'is-refreshing' : ''}">
+                        <td class="refresh-account-main">
                             <div class="refresh-account-email" title="${escapeHtml(item.email)}">${escapeHtml(item.email)}</div>
                             ${remarkHtml}
                             ${errorHtml}
-                        </div>
-                        <div class="refresh-account-group" title="${escapeHtml(groupText)}">${escapeHtml(groupText)}</div>
-                        <div class="refresh-account-time">${escapeHtml(refreshTime)}</div>
-                        <div>${renderRefreshStatusBadge(item.last_refresh_status, isRunning)}</div>
-                        <div class="refresh-account-action">
+                        </td>
+                        <td class="refresh-account-group" title="${escapeHtml(groupText)}">${escapeHtml(groupText)}</td>
+                        <td class="refresh-account-time">${escapeHtml(refreshTime)}</td>
+                        <td class="refresh-account-status-cell">${renderRefreshStatusBadge(item.last_refresh_status, isRunning)}</td>
+                        <td class="refresh-account-action">
                             ${canRetry
                                 ? `<button class="btn btn-sm btn-primary" type="button" onclick="retrySingleAccount(${item.id}, '${escapeJs(item.email)}')">重试</button>`
                                 : '<span class="refresh-account-time">-</span>'}
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
                 `;
             }).join('');
+
+            container.innerHTML = `
+                <table class="refresh-account-table">
+                    <thead>
+                        <tr>
+                            <th>邮箱</th>
+                            <th>分组</th>
+                            <th>最近刷新</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            `;
         }
 
         async function loadRefreshStats() {
