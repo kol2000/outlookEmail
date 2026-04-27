@@ -40,7 +40,7 @@
         async function showSettingsModal() {
             ensureSettingsScrollSync();
             showModal('settingsModal');
-            scrollSettingsSection('settingsAccessSection');
+            scrollSettingsSection('settingsGeneralSection');
             populateTimeZoneOptions(getAppTimeZone());
             await loadSettings();
             scheduleSettingsSidebarSync();

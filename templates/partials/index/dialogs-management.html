@@ -8,16 +8,17 @@
             <div class="modal-body settings-modal-body">
                 <div class="settings-shell">
                     <aside class="settings-sidebar">
-                        <div class="settings-sidebar-card settings-sidebar-card--hero">
-                            <span class="settings-sidebar-kicker">Control Center</span>
-                            <h4>桌面端设置中心</h4>
-                            <p>右侧按功能分区集中编辑，减少在窄弹窗里来回滚动和反复查找字段。</p>
-                        </div>
                         <div class="settings-sidebar-card">
-                            <span class="settings-sidebar-title">当前包含</span>
+                            <span class="settings-sidebar-title">设置导航</span>
                             <ul class="settings-sidebar-list">
                                 <li>
-                                    <button type="button" class="settings-sidebar-link is-active" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
+                                    <button type="button" class="settings-sidebar-link is-active" data-target="settingsGeneralSection" onclick="scrollSettingsSection('settingsGeneralSection', this)">
+                                        <strong>常规设置</strong>
+                                        <span>时区与创建时间展示</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
                                         <strong>访问与 API</strong>
                                         <span>登录密码、GPTMail Key、对外 API Key</span>
                                     </button>
@@ -48,13 +49,31 @@
                                 </li>
                             </ul>
                         </div>
-                        <div class="settings-sidebar-card settings-sidebar-card--compact">
-                            <span class="settings-sidebar-title">保存提醒</span>
-                            <p>右下角统一保存。现有字段含义和接口不变，只调整桌面端排版与信息密度。</p>
-                        </div>
                     </aside>
                     <div class="settings-content">
-                        <section class="settings-section settings-section--first" id="settingsAccessSection">
+                        <section class="settings-section settings-section--first" id="settingsGeneralSection">
+                            <div class="settings-section-head">
+                                <span class="settings-section-kicker">General</span>
+                                <h4>常规设置</h4>
+                                <p>统一控制全局时间显示规则和账号创建时间展示方式。</p>
+                            </div>
+                            <div class="settings-panel settings-panel-grid">
+                                <div class="form-group">
+                                    <label class="form-label" for="settingsAppTimezone">时区</label>
+                                    <select class="form-select" id="settingsAppTimezone"></select>
+                                    <div class="form-hint">影响时间展示与 Cron 调度。</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="settings-toggle settings-toggle--card">
+                                        <input type="checkbox" id="settingsShowAccountCreatedAt" checked>
+                                        <span class="form-label">展示创建时间</span>
+                                    </label>
+                                    <div class="form-hint">关闭后，不在邮箱列表左下角显示创建时间。</div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-section" id="settingsAccessSection">
                             <div class="settings-section-head">
                                 <span class="settings-section-kicker">Access</span>
                                 <h4>访问与 API</h4>
@@ -134,7 +153,7 @@
                         <h4>Token 刷新设置</h4>
                         <p>控制定时刷新任务的启停、执行策略与邮箱间请求节奏。</p>
                     </div>
-                    <div class="settings-panel settings-panel-stack">
+                        <div class="settings-panel settings-panel-stack">
                         <div class="settings-panel-grid settings-panel-grid--compact">
                             <div class="form-group">
                                 <label class="settings-toggle settings-toggle--card">
@@ -150,18 +169,6 @@
                                     <span>秒</span>
                                 </div>
                                 <div class="form-hint">建议设置为 5-10 秒，避免频繁请求触发 API 限流。</div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label" for="settingsAppTimezone">时区</label>
-                                <select class="form-select" id="settingsAppTimezone"></select>
-                                <div class="form-hint">影响时间展示与 Cron 调度。</div>
-                            </div>
-                            <div class="form-group">
-                                <label class="settings-toggle settings-toggle--card">
-                                    <input type="checkbox" id="settingsShowAccountCreatedAt" checked>
-                                    <span class="form-label">展示创建时间</span>
-                                </label>
-                                <div class="form-hint">开启后，在邮箱列表左下角显示创建时间。</div>
                             </div>
                         </div>
 
