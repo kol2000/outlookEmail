@@ -13,6 +13,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 - 邮箱列表移除“最近刷新”时间展示和对应排序入口，未设置 `sort_order` 时默认回退为按创建时间排序。
 - 重构桌面端设置页侧边导航，移除 `Control Center` / 保存提醒卡片，新增置顶“常规设置”分区，并将时区与创建时间展示开关迁入该分区。
+- 普通邮箱与临时邮箱列表统一移除序号展示，列表卡片仅保留邮箱主体信息与状态内容。
 
 ### Fixed
 - 修复账号更新动态覆盖路由未同步透传 `sort_order` 的问题，避免编辑保存后自定义排序失效。

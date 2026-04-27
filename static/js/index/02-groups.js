@@ -631,7 +631,7 @@
                 return;
             }
 
-            container.innerHTML = accounts.map((acc, index) => `
+            container.innerHTML = accounts.map(acc => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}')">
                     <input type="checkbox" class="account-select-checkbox" value="${acc.id}" 
@@ -643,7 +643,6 @@
                     <div class="account-body">
                         <div class="account-title-row">
                             <div class="account-email-wrap">
-                                <span class="account-email-index">${index + 1}.</span>
                                 <div class="account-email" title="${escapeHtml(acc.email)}" style="${acc.last_refresh_status === 'failed' ? 'color: #b42318;' : ''}">
                                     ${escapeHtml(acc.email)}
                                 </div>

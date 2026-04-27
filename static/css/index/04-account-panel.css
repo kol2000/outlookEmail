@@ -440,15 +440,6 @@
             min-width: 0;
         }
 
-        .account-email-index {
-            min-width: 18px;
-            font-size: 11px;
-            color: #9aa0aa;
-            font-weight: 700;
-            line-height: 1.8;
-            flex-shrink: 0;
-        }
-
         .account-remark {
             font-size: 12px;
             color: #5b6472;
