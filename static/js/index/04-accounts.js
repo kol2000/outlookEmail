@@ -1,4 +1,4 @@
-        /* global accountsCache, closeMobilePanels, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, currentSkip, emailListCache, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, hideModal, isTempEmailGroup, loadAccountsByGroup, loadEmails, loadGroups, renderEmailList, scheduleEmailListLoadCheck, setModalVisible, showEmailList, showToast, updateImportHint, updateMobileContext */
+        /* global accountsCache, applyEmailListCache, closeMobilePanels, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, currentSkip, emailListCache, getEmailListCacheEntry, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, hideModal, isTempEmailGroup, loadAccountsByGroup, loadEmails, loadGroups, renderEmailList, scheduleEmailListLoadCheck, setModalVisible, showEmailList, showToast, updateImportHint, updateMobileContext */
 
         // ==================== 账号相关 ====================
 
@@ -12,7 +12,7 @@
 
             document.getElementById('currentAccount').classList.add('show');
             document.getElementById('currentAccountEmail').textContent = email;
-            showEmailList();
+            showEmailList({ scheduleLoadCheck: false });
             closeMobilePanels();
             updateMobileContext();
 
@@ -34,24 +34,11 @@
                 });
             }
 
-            const cacheKey = `${email}_all`;
+            const cache = getEmailListCacheEntry(email, 'all');
 
             // 检查缓存
-            if (emailListCache[cacheKey]) {
-                const cache = emailListCache[cacheKey];
-                currentEmails = cache.emails;
-                hasMoreEmails = cache.has_more;
-                currentSkip = getNextEmailSkipFromCache(cache);
-                currentMethod = cache.method || 'graph';
-
-                // 恢复 UI
-                const methodTag = document.getElementById('methodTag');
-                methodTag.textContent = currentMethod;
-                methodTag.style.display = 'inline';
-                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
-
-                renderEmailList(currentEmails);
-                scheduleEmailListLoadCheck(0);
+            if (cache) {
+                applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
                 document.getElementById('emailList').innerHTML = `
                     <div class="empty-state">
@@ -72,8 +59,10 @@
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
 
-            // 选中账号后自动刷新全部邮件
-            loadEmails(email, true);
+            // 首次进入未命中缓存时才自动加载
+            if (!cache) {
+                loadEmails(email);
+            }
         }
 
         // 显示添加账号模态框

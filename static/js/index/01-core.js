@@ -1,4 +1,4 @@
-        /* global closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, initColorPicker, initEmailListScroll, loadGroups, loadTags, searchAccounts */
+        /* global closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, initColorPicker, initEmailListScroll, loadGroups, loadTags, renderEmailList, scheduleEmailListLoadCheck, searchAccounts */
 
         // 全局状态
         let csrfToken = null;
@@ -208,6 +208,176 @@
             }
 
             return Math.max(cachedSkip, cachedEmailCount);
+        }
+
+        function normalizeFolderSummaries(rawSummaries) {
+            const normalizedSummaries = {};
+            Object.entries(rawSummaries || {}).forEach(([folder, summary]) => {
+                const normalizedFolder = String(folder || '').trim().toLowerCase();
+                if (!normalizedFolder || !summary || typeof summary !== 'object') {
+                    return;
+                }
+
+                const fetchedCount = Number(summary.fetched_count);
+                const requestMethod = String(summary.request_method || '').trim().toLowerCase();
+                const methodLabel = String(summary.method || '').trim();
+                normalizedSummaries[normalizedFolder] = {
+                    success: summary.success === true,
+                    fetched_count: Number.isFinite(fetchedCount) && fetchedCount >= 0 ? fetchedCount : 0,
+                    has_more: summary.has_more === true,
+                    request_method: requestMethod === 'graph' || requestMethod === 'imap' ? requestMethod : '',
+                    method: methodLabel,
+                };
+                if (Object.prototype.hasOwnProperty.call(summary, 'error')) {
+                    normalizedSummaries[normalizedFolder].error = summary.error;
+                }
+            });
+            return normalizedSummaries;
+        }
+
+        function mergeFolderSummaries(currentSummaries, incomingSummaries, { appendFetchedCount = false } = {}) {
+            const mergedSummaries = normalizeFolderSummaries(currentSummaries);
+            const normalizedIncoming = normalizeFolderSummaries(incomingSummaries);
+
+            Object.entries(normalizedIncoming).forEach(([folder, summary]) => {
+                const existingSummary = mergedSummaries[folder];
+                if (!existingSummary) {
+                    mergedSummaries[folder] = summary;
+                    return;
+                }
+
+                if (appendFetchedCount && existingSummary.success === true && summary.success === true) {
+                    mergedSummaries[folder] = {
+                        ...existingSummary,
+                        ...summary,
+                        fetched_count: existingSummary.fetched_count + summary.fetched_count,
+                    };
+                    return;
+                }
+
+                if (summary.success === false) {
+                    mergedSummaries[folder] = {
+                        ...existingSummary,
+                        ...summary,
+                        fetched_count: existingSummary.fetched_count,
+                    };
+                    return;
+                }
+
+                mergedSummaries[folder] = {
+                    ...existingSummary,
+                    ...summary,
+                };
+            });
+
+            return mergedSummaries;
+        }
+
+        function buildDerivedEmailListCache(account, folder) {
+            const normalizedAccount = String(account || '').trim();
+            const normalizedFolder = String(folder || '').trim().toLowerCase();
+
+            if (!normalizedAccount || !['inbox', 'junkemail'].includes(normalizedFolder)) {
+                return null;
+            }
+
+            const allCache = emailListCache[`${normalizedAccount}_all`];
+            if (!allCache || !Array.isArray(allCache.emails)) {
+                return null;
+            }
+
+            const folderSummaries = normalizeFolderSummaries(allCache.folder_summaries);
+            const folderSummary = folderSummaries[normalizedFolder];
+            if (!folderSummary || folderSummary.success !== true) {
+                return null;
+            }
+
+            const filteredEmails = allCache.emails.filter(email => String(email?.folder || '').trim().toLowerCase() === normalizedFolder);
+            const fetchedCount = Number(folderSummary.fetched_count);
+            return {
+                emails: filteredEmails,
+                has_more: folderSummary.has_more === true,
+                skip: Number.isFinite(fetchedCount) && fetchedCount >= 0
+                    ? Math.max(fetchedCount, filteredEmails.length)
+                    : filteredEmails.length,
+                method: folderSummary.request_method || allCache.method || 'graph',
+                method_label: folderSummary.method || allCache.method_label || allCache.method || 'graph',
+                derived_from: 'all',
+                folder_summaries: {
+                    [normalizedFolder]: folderSummary,
+                }
+            };
+        }
+
+        function getEmailListCacheEntry(account, folder = 'all') {
+            const normalizedAccount = String(account || '').trim();
+            const normalizedFolder = String(folder || 'all').trim().toLowerCase() || 'all';
+
+            if (!normalizedAccount) {
+                return null;
+            }
+
+            const cacheKey = `${normalizedAccount}_${normalizedFolder}`;
+            const directCache = emailListCache[cacheKey];
+            if (directCache && directCache.derived_from !== 'all') {
+                return directCache;
+            }
+
+            const derivedCache = buildDerivedEmailListCache(normalizedAccount, normalizedFolder);
+            if (derivedCache) {
+                emailListCache[cacheKey] = derivedCache;
+                return derivedCache;
+            }
+
+            if (directCache) {
+                delete emailListCache[cacheKey];
+            }
+
+            return null;
+        }
+
+        function applyEmailListCache(cache, { scheduleLoadCheck = true } = {}) {
+            currentEmails = Array.isArray(cache?.emails) ? cache.emails : [];
+            hasMoreEmails = cache?.has_more === true;
+            currentSkip = getNextEmailSkipFromCache(cache);
+            currentMethod = cache?.method || 'graph';
+
+            const methodTag = document.getElementById('methodTag');
+            if (methodTag) {
+                methodTag.textContent = cache?.method_label || currentMethod;
+                methodTag.style.display = 'inline';
+            }
+
+            const emailCount = document.getElementById('emailCount');
+            if (emailCount) {
+                emailCount.textContent = `(${currentEmails.length})`;
+            }
+
+            renderEmailList(currentEmails);
+            if (scheduleLoadCheck) {
+                scheduleEmailListLoadCheck(0);
+            }
+        }
+
+        function invalidateEmailListCache(account, folder = 'all') {
+            const normalizedAccount = String(account || '').trim();
+            const normalizedFolder = String(folder || 'all').trim().toLowerCase() || 'all';
+
+            if (!normalizedAccount) {
+                return;
+            }
+
+            const cacheKeys = new Set([`${normalizedAccount}_${normalizedFolder}`]);
+            if (normalizedFolder === 'all') {
+                cacheKeys.add(`${normalizedAccount}_inbox`);
+                cacheKeys.add(`${normalizedAccount}_junkemail`);
+            } else if (['inbox', 'junkemail'].includes(normalizedFolder)) {
+                cacheKeys.add(`${normalizedAccount}_all`);
+            }
+
+            cacheKeys.forEach(cacheKey => {
+                delete emailListCache[cacheKey];
+            });
         }
 
         function canLoadMoreEmails() {
@@ -954,6 +1124,30 @@
                             emailListCache[cacheKey].emails = currentEmails;
                             emailListCache[cacheKey].has_more = hasMoreEmails;
                             emailListCache[cacheKey].skip = currentSkip;
+                            emailListCache[cacheKey].derived_from = null;
+                            emailListCache[cacheKey].method = currentMethod;
+                            if (data.method) {
+                                emailListCache[cacheKey].method_label = data.method;
+                            }
+                            if (currentFolder === 'all' && data.folder_summaries) {
+                                emailListCache[cacheKey].folder_summaries = mergeFolderSummaries(
+                                    emailListCache[cacheKey].folder_summaries,
+                                    data.folder_summaries,
+                                    { appendFetchedCount: true }
+                                );
+                            }
+                        } else {
+                            emailListCache[cacheKey] = {
+                                emails: currentEmails,
+                                has_more: hasMoreEmails,
+                                skip: currentSkip,
+                                method: currentMethod,
+                                method_label: data.method || currentMethod,
+                                derived_from: null,
+                                folder_summaries: currentFolder === 'all'
+                                    ? normalizeFolderSummaries(data.folder_summaries)
+                                    : undefined
+                            };
                         }
                     }
 
@@ -994,24 +1188,11 @@
                 tab.classList.toggle('active', tab.dataset.folder === folder);
             });
 
-            const cacheKey = `${currentAccount}_${folder}`;
+            const cache = getEmailListCacheEntry(currentAccount, folder);
 
             // 检查是否有缓存
-            if (emailListCache[cacheKey]) {
-                const cache = emailListCache[cacheKey];
-                currentEmails = cache.emails;
-                hasMoreEmails = cache.has_more;
-                currentSkip = getNextEmailSkipFromCache(cache);
-                currentMethod = cache.method || 'graph';
-
-                // 恢复 UI
-                const methodTag = document.getElementById('methodTag');
-                methodTag.textContent = currentMethod;
-                methodTag.style.display = 'inline';
-                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
-
-                renderEmailList(currentEmails);
-                scheduleEmailListLoadCheck(0);
+            if (cache) {
+                applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
                 // 清空邮件列表，显示提示
                 document.getElementById('emailList').innerHTML = `
@@ -1038,8 +1219,8 @@
             document.getElementById('emailDetailToolbar').style.display = 'none';
 
             // 切换文件夹后自动刷新对应列表
-            if (currentAccount && !isTempEmailGroup) {
-                loadEmails(currentAccount, true);
+            if (currentAccount && !isTempEmailGroup && !cache) {
+                loadEmails(currentAccount);
             }
         }
 

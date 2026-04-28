@@ -1881,7 +1881,22 @@ def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int
     methods = []
     has_more = False
     partial_errors = {}
+    folder_summaries = {}
     for folder, result in results.items():
+        folder_summary = {
+            'success': bool(result.get('success')),
+            'fetched_count': len(result.get('emails', [])) if result.get('success') else 0,
+            'has_more': bool(result.get('has_more')) if result.get('success') else False,
+        }
+        request_method = str(result.get('request_method') or '').strip().lower()
+        if request_method in {'graph', 'imap'}:
+            folder_summary['request_method'] = request_method
+        if result.get('method'):
+            folder_summary['method'] = result['method']
+        if not result.get('success') and result.get('error') is not None:
+            folder_summary['error'] = result.get('error')
+        folder_summaries[folder] = folder_summary
+
         if result.get('success'):
             merged.extend(result.get('emails', []))
             if result.get('method'):
@@ -1903,6 +1918,7 @@ def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int
         'emails': sliced,
         'method': ' / '.join(unique_methods) if unique_methods else '',
         'has_more': has_more or len(merged) > skip + top,
+        'folder_summaries': folder_summaries,
     }
     if partial_errors:
         response['partial'] = True
@@ -1937,6 +1953,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
                 'emails': format_email_items(result.get('emails', []), folder_name),
                 'method': result.get('method', 'IMAP (Generic)'),
                 'has_more': bool(result.get('has_more')),
+                'request_method': 'imap',
             }
         return {
             'success': False,
@@ -1960,6 +1977,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             'emails': [format_graph_email_item(item, folder_name) for item in graph_result.get('emails', [])],
             'method': 'Graph API',
             'has_more': len(graph_result.get('emails', [])) >= top,
+            'request_method': 'graph',
         }
 
     graph_error = graph_result.get('error')
@@ -1993,6 +2011,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             'emails': format_email_items(imap_new_result.get('emails', []), folder_name),
             'method': 'IMAP (New)',
             'has_more': bool(imap_new_result.get('has_more')),
+            'request_method': 'imap',
         }
     all_errors['imap_new'] = imap_new_result.get('error')
 
@@ -2013,6 +2032,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             'emails': format_email_items(imap_old_result.get('emails', []), folder_name),
             'method': 'IMAP (Old)',
             'has_more': bool(imap_old_result.get('has_more')),
+            'request_method': 'imap',
         }
     all_errors['imap_old'] = imap_old_result.get('error')
 

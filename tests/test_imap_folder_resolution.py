@@ -500,6 +500,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 }],
                 'method': f'method-{folder}',
                 'has_more': False,
+                'request_method': 'graph' if folder == 'inbox' else 'imap',
             }
 
         with patch.object(web_outlook_app, 'get_account_proxy_url', return_value='socks5://primary'):
@@ -510,6 +511,52 @@ class ImapFolderResolutionTests(unittest.TestCase):
         self.assertTrue(result['success'])
         self.assertEqual([email['folder'] for email in result['emails']], ['junkemail', 'inbox'])
         self.assertEqual(result['method'], 'method-inbox / method-junkemail')
+        self.assertEqual(
+            result['folder_summaries'],
+            {
+                'inbox': {
+                    'success': True,
+                    'fetched_count': 1,
+                    'has_more': False,
+                    'request_method': 'graph',
+                    'method': 'method-inbox',
+                },
+                'junkemail': {
+                    'success': True,
+                    'fetched_count': 1,
+                    'has_more': False,
+                    'request_method': 'imap',
+                    'method': 'method-junkemail',
+                },
+            }
+        )
+
+    def test_fetch_account_emails_all_includes_failed_folder_summary(self):
+        results = {
+            'inbox': {
+                'success': True,
+                'emails': [{'id': 'inbox-1', 'folder': 'inbox', 'date': '2026-01-01T00:00:00Z'}],
+                'method': 'Graph API',
+                'has_more': True,
+                'request_method': 'graph',
+            },
+            'junkemail': {
+                'success': False,
+                'error': {'message': 'junk failed'},
+            },
+        }
+
+        merged = web_outlook_app.merge_folder_results(results, 0, 40)
+
+        self.assertTrue(merged['success'])
+        self.assertTrue(merged['partial'])
+        self.assertEqual(merged['folder_summaries']['inbox']['fetched_count'], 1)
+        self.assertTrue(merged['folder_summaries']['inbox']['has_more'])
+        self.assertTrue(merged['folder_summaries']['inbox']['success'])
+        self.assertFalse(merged['folder_summaries']['junkemail']['success'])
+        self.assertEqual(merged['folder_summaries']['junkemail']['fetched_count'], 0)
+        self.assertFalse(merged['folder_summaries']['junkemail']['has_more'])
+        self.assertEqual(merged['folder_summaries']['junkemail']['error'], {'message': 'junk failed'})
 
 
 class ExternalAccountsApiTests(unittest.TestCase):

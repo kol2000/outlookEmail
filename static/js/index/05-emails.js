@@ -1,4 +1,4 @@
-        /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, currentSkip, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getFolderDisplayName, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, isTempEmailGroup, isTimeoutAbortError, renderEmptyStateMarkup, scheduleEmailListLoadCheck, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
+        /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, applyEmailListCache, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, currentSkip, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getEmailListCacheEntry, getFolderDisplayName, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, invalidateEmailListCache, isTempEmailGroup, isTimeoutAbortError, normalizeFolderSummaries, renderEmptyStateMarkup, scheduleEmailListLoadCheck, showMobileEmailDetail, showToast, updateMobileContext, updateModalBodyState */
 
         // ==================== 邮件相关 ====================
 
@@ -12,21 +12,9 @@
 
             // 检查缓存
             const cacheKey = `${email}_${currentFolder}`;
-            if (!forceRefresh && emailListCache[cacheKey]) {
-                const cache = emailListCache[cacheKey];
-                currentEmails = cache.emails;
-                hasMoreEmails = cache.has_more;
-                currentSkip = getNextEmailSkipFromCache(cache);
-                currentMethod = cache.method || 'graph';
-
-                // 恢复 UI
-                const methodTag = document.getElementById('methodTag');
-                methodTag.textContent = currentMethod;
-                methodTag.style.display = 'inline';
-                document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
-
-                renderEmailList(currentEmails);
-                scheduleEmailListLoadCheck(0);
+            const cache = !forceRefresh ? getEmailListCacheEntry(email, currentFolder) : null;
+            if (cache) {
+                applyEmailListCache(cache, { scheduleLoadCheck: false });
                 return;
             }
 
@@ -58,7 +46,7 @@
 
                 if (data.success) {
                     currentEmails = data.emails;
-                    currentMethod = data.method === 'Graph API' ? 'graph' : 'imap';
+                    currentMethod = data.request_method || (data.method === 'Graph API' ? 'graph' : 'imap');
                     hasMoreEmails = data.has_more;
                     currentSkip = currentEmails.length;
 
@@ -67,7 +55,12 @@
                         emails: currentEmails,
                         has_more: hasMoreEmails,
                         skip: currentSkip,
-                        method: currentMethod
+                        method: currentMethod,
+                        method_label: data.method || currentMethod,
+                        derived_from: null,
+                        folder_summaries: currentFolder === 'all'
+                            ? normalizeFolderSummaries(data.folder_summaries)
+                            : undefined
                     };
 
                     // 显示使用的方法和邮件数量
@@ -974,14 +967,16 @@
         }
 
         // 显示邮件列表（移动端）
-        function showEmailList() {
+        function showEmailList({ scheduleLoadCheck = true } = {}) {
             document.getElementById('emailListPanel').classList.remove('hidden');
             isListVisible = true;
             document.getElementById('toggleListText').textContent = '隐藏列表';
             closeMobilePanels();
             closeNavbarActionsMenu();
             updateMobileContext();
-            scheduleEmailListLoadCheck(0);
+            if (scheduleLoadCheck) {
+                scheduleEmailListLoadCheck(0);
+            }
         }
 
         // 刷新邮件
@@ -991,8 +986,7 @@
                     loadTempEmailMessages(currentAccount);
                 } else {
                     // 清除当前缓存并强制刷新
-                    const cacheKey = `${currentAccount}_${currentFolder}`;
-                    delete emailListCache[cacheKey];
+                    invalidateEmailListCache(currentAccount, currentFolder);
                     loadEmails(currentAccount, true);
                 }
             } else {

@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.35] - 2026-04-29
+
+### Fixed
+- 修复切换已缓存邮箱时仍可能触发自动补拉请求的问题，普通邮箱账号切换改为仅展示当前缓存，不再因为列表展示动作隐式刷新下一页。
+- 修复 `全部邮件` 缓存派生 `收件箱 / 垃圾邮件` 视图时分页基线错位的问题，新增按 folder 维度的 `fetched_count / has_more / success` 元数据并补充对应回归测试。
+
 ## [2.0.34] - 2026-04-28
 
 ### Added
