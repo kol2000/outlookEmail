@@ -636,32 +636,6 @@
             color: #b45309;
         }
 
-        .refresh-progress-banner {
-            padding: 14px 16px;
-            border: 1px solid #bfdbfe;
-            border-left: 4px solid #2563eb;
-            border-radius: 14px;
-            background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
-            display: grid;
-            gap: 6px;
-        }
-
-        .refresh-progress-banner[hidden] {
-            display: none !important;
-        }
-
-        .refresh-progress-banner__title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #1d4ed8;
-        }
-
-        .refresh-progress-banner__text {
-            font-size: 13px;
-            line-height: 1.7;
-            color: #334155;
-        }
-
         .refresh-toolbar {
             display: grid;
             grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) auto;

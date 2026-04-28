@@ -370,6 +370,21 @@ def finalize_stopped_full_refresh(conn, snapshot_trigger_type: str, total: int,
     )
     conn.commit()
 
+    return build_stopped_refresh_payload(
+        total,
+        success_count,
+        failed_count,
+        failed_list,
+        delay_seconds=delay_seconds,
+        refresh_type=snapshot_trigger_type,
+    )
+
+
+def build_stopped_refresh_payload(total: int, success_count: int, failed_count: int,
+                                  failed_list: List[Dict[str, Any]],
+                                  delay_seconds: int = 0,
+                                  refresh_type: str = '') -> Dict[str, Any]:
+    processed_count = max(0, success_count + failed_count)
     return {
         'type': 'stopped',
         'message': TOKEN_REFRESH_STOPPED_MESSAGE,
@@ -379,7 +394,7 @@ def finalize_stopped_full_refresh(conn, snapshot_trigger_type: str, total: int,
         'failed_count': failed_count,
         'failed_list': failed_list,
         'delay_seconds': max(0, int(delay_seconds or 0)),
-        'refresh_type': snapshot_trigger_type,
+        'refresh_type': refresh_type,
     }
 
 
@@ -452,6 +467,52 @@ def finalize_aborted_full_refresh(conn, snapshot_trigger_type: str, log_refresh_
         'failed_count': failed_count,
         'failed_list': failed_list,
         'refresh_type': snapshot_trigger_type,
+    }
+
+
+def finalize_aborted_retry_refresh(conn, log_refresh_type: str,
+                                   total: int, success_count: int, failed_count: int,
+                                   failed_list: List[Dict[str, Any]], current_account=None,
+                                   current_account_counted: bool = False,
+                                   error: Exception | None = None) -> Dict[str, Any]:
+    failure_message = sanitize_error_details(str(error or '未知错误')) or '未知错误'
+    active_total = max(0, int(total or 0))
+
+    if current_account is not None and not current_account_counted:
+        failed_count += 1
+        failed_item = {
+            'id': current_account['id'],
+            'email': current_account['email'],
+            'error': failure_message,
+        }
+        failed_list.append(failed_item)
+        try:
+            log_refresh_result(
+                current_account['id'],
+                current_account['email'],
+                log_refresh_type,
+                'failed',
+                failure_message,
+                db_conn=conn
+            )
+            conn.commit()
+        except Exception as log_error:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            print(f"记录异常重试结果失败: {str(log_error)}")
+        if active_total <= 0:
+            active_total = success_count + failed_count
+
+    return {
+        'type': 'error',
+        'message': failure_message,
+        'total': active_total,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'failed_list': failed_list,
+        'refresh_type': 'retry_failed',
     }
 
 
@@ -808,6 +869,20 @@ def load_active_outlook_accounts_for_refresh(db_conn) -> List[sqlite3.Row]:
     return cursor.fetchall()
 
 
+def load_failed_outlook_accounts_for_refresh(db_conn) -> List[sqlite3.Row]:
+    cursor = db_conn.execute(
+        '''
+        SELECT id, email, client_id, refresh_token, group_id, status, account_type, provider
+        FROM accounts
+        WHERE status = 'active'
+          AND COALESCE(account_type, 'outlook') = 'outlook'
+          AND COALESCE(NULLIF(last_refresh_status, ''), 'never') = 'failed'
+        ORDER BY last_refresh_at DESC, id DESC
+        '''
+    )
+    return cursor.fetchall()
+
+
 def get_refresh_delay_seconds(db_conn) -> int:
     row = db_conn.execute(
         "SELECT value FROM settings WHERE key = 'refresh_delay_seconds'"
@@ -1123,6 +1198,101 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
         release_token_refresh_run_lock(lock_acquired)
 
 
+def stream_failed_refresh_events():
+    import json
+
+    conn = None
+    lock_acquired = False
+    accounts: List[sqlite3.Row] = []
+    delay_seconds = 0
+    total = 0
+    success_count = 0
+    failed_count = 0
+    failed_list: List[Dict[str, Any]] = []
+    current_account = None
+    current_account_counted = False
+
+    try:
+        acquire_token_refresh_run_lock()
+        lock_acquired = True
+        clear_token_refresh_stop_request()
+        conn = sqlite3.connect(DATABASE)
+        conn.execute('PRAGMA foreign_keys = ON')
+        conn.row_factory = sqlite3.Row
+
+        cleanup_refresh_logs(conn)
+        conn.commit()
+
+        accounts = load_failed_outlook_accounts_for_refresh(conn)
+        delay_seconds = get_refresh_delay_seconds(conn)
+        total = len(accounts)
+
+        yield f"data: {json.dumps({'type': 'start', 'total': total, 'delay_seconds': delay_seconds, 'refresh_type': 'retry_failed'})}\n\n"
+
+        for index, account in enumerate(accounts, 1):
+            if is_token_refresh_stop_requested():
+                yield f"data: {json.dumps(build_stopped_refresh_payload(total, success_count, failed_count, failed_list, delay_seconds=delay_seconds, refresh_type='retry_failed'))}\n\n"
+                return
+
+            current_account = account
+            current_account_counted = False
+            yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+
+            result = refresh_outlook_account_token(account, 'retry', db_conn=conn)
+            conn.commit()
+
+            if result.get('success'):
+                success_count += 1
+            else:
+                failed_count += 1
+                failed_list.append({
+                    'id': account['id'],
+                    'email': account['email'],
+                    'error': result.get('error_message') or '未知错误',
+                })
+            current_account_counted = True
+
+            yield f"data: {json.dumps({'type': 'account_result', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'status': 'success' if result.get('success') else 'failed', 'error_message': result.get('error_message') or '', 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+
+            if is_token_refresh_stop_requested():
+                yield f"data: {json.dumps(build_stopped_refresh_payload(total, success_count, failed_count, failed_list, delay_seconds=delay_seconds, refresh_type='retry_failed'))}\n\n"
+                return
+
+            current_account = None
+
+            if index < total and delay_seconds > 0:
+                yield f"data: {json.dumps({'type': 'delay', 'seconds': delay_seconds, 'refresh_type': 'retry_failed'})}\n\n"
+                if not wait_refresh_delay(delay_seconds):
+                    yield f"data: {json.dumps(build_stopped_refresh_payload(total, success_count, failed_count, failed_list, delay_seconds=delay_seconds, refresh_type='retry_failed'))}\n\n"
+                    return
+
+        yield f"data: {json.dumps({'type': 'complete', 'total': total, 'success_count': success_count, 'failed_count': failed_count, 'failed_list': failed_list, 'delay_seconds': delay_seconds, 'refresh_type': 'retry_failed'})}\n\n"
+    except TokenRefreshInProgressError as exc:
+        yield f"data: {json.dumps({'type': 'conflict', 'message': str(exc), 'refresh_type': 'retry_failed'})}\n\n"
+    except Exception as exc:
+        if conn is not None:
+            error_payload = finalize_aborted_retry_refresh(
+                conn,
+                'retry',
+                total,
+                success_count,
+                failed_count,
+                failed_list,
+                current_account=current_account,
+                current_account_counted=current_account_counted,
+                error=exc
+            )
+            yield f"data: {json.dumps(error_payload)}\n\n"
+        else:
+            failure_message = sanitize_error_details(str(exc)) or '未知错误'
+            yield f"data: {json.dumps({'type': 'error', 'message': failure_message, 'refresh_type': 'retry_failed'})}\n\n"
+    finally:
+        if conn is not None:
+            conn.close()
+        clear_token_refresh_stop_request()
+        release_token_refresh_run_lock(lock_acquired)
+
+
 @app.route('/api/accounts/refresh-all', methods=['GET'])
 @login_required
 def api_refresh_all_accounts():
@@ -1137,22 +1307,20 @@ def api_retry_refresh_account(account_id):
     return api_refresh_account(account_id)
 
 
+@app.route('/api/accounts/refresh-failed-stream', methods=['GET'])
+@login_required
+def api_refresh_failed_accounts_stream():
+    """流式重试所有失败账号"""
+    return Response(stream_failed_refresh_events(), mimetype='text/event-stream')
+
+
 @app.route('/api/accounts/refresh-failed', methods=['POST'])
 @login_required
 def api_refresh_failed_accounts():
     """重试所有失败的账号"""
     cleanup_refresh_logs()
     db = get_db()
-
-    cursor = db.execute('''
-        SELECT a.id, a.email, a.client_id, a.refresh_token, a.group_id, a.status, a.account_type, a.provider
-        FROM accounts a
-        WHERE a.status = 'active'
-          AND COALESCE(a.account_type, 'outlook') = 'outlook'
-          AND COALESCE(NULLIF(a.last_refresh_status, ''), 'never') = 'failed'
-        ORDER BY a.last_refresh_at DESC, a.id DESC
-    ''')
-    accounts = cursor.fetchall()
+    accounts = load_failed_outlook_accounts_for_refresh(db)
 
     success_count = 0
     failed_count = 0

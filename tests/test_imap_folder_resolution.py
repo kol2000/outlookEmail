@@ -1330,6 +1330,131 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertEqual(snapshot_row['failed_count'], 0)
         self.assertIn('手动停止', snapshot_row['error_summary'])
 
+    def test_stream_failed_refresh_events_yields_complete_and_reads_delay(self):
+        with self.app.app_context():
+            self.assertTrue(
+                web_outlook_app.add_account(
+                    'proxy-refresh-2@outlook.com',
+                    'password123',
+                    '24d9a0ed-8787-4584-883c-2fd79308940a',
+                    '0.AXEA_refresh_2',
+                    group_id=self.group_id,
+                    remark='第二个失败重试账号',
+                    forward_enabled=False,
+                )
+            )
+            db = web_outlook_app.get_db()
+            db.execute(
+                '''
+                UPDATE accounts
+                SET last_refresh_status = 'failed',
+                    last_refresh_error = 'proxy timeout',
+                    last_refresh_at = '2026-04-27 10:00:00'
+                WHERE id = ?
+                ''',
+                (self.account_id,),
+            )
+            db.execute(
+                '''
+                UPDATE accounts
+                SET last_refresh_status = 'failed',
+                    last_refresh_error = 'expired token',
+                    last_refresh_at = '2026-04-27 11:00:00'
+                WHERE email = ?
+                ''',
+                ('proxy-refresh-2@outlook.com',),
+            )
+            db.commit()
+            self.assertTrue(web_outlook_app.set_setting('refresh_delay_seconds', '7'))
+
+        wait_calls = []
+
+        def fake_wait(delay_seconds):
+            wait_calls.append(delay_seconds)
+            return True
+
+        with patch.object(
+            web_outlook_app,
+            'refresh_outlook_account_token',
+            side_effect=[
+                {'success': False, 'error_message': 'still failing'},
+                {'success': True, 'message': 'Token 刷新成功'},
+            ],
+        ), patch.object(web_outlook_app, 'wait_refresh_delay', side_effect=fake_wait):
+            stream = web_outlook_app.stream_failed_refresh_events()
+            try:
+                events = list(stream)
+            finally:
+                stream.close()
+
+        payloads = [json.loads(item.removeprefix('data: ').strip()) for item in events]
+        self.assertEqual(payloads[0]['type'], 'start')
+        self.assertEqual(payloads[0]['delay_seconds'], 7)
+        self.assertEqual(payloads[0]['refresh_type'], 'retry_failed')
+        self.assertEqual([item['seconds'] for item in payloads if item['type'] == 'delay'], [7])
+        self.assertEqual(wait_calls, [7])
+        self.assertEqual(payloads[-1]['type'], 'complete')
+        self.assertEqual(payloads[-1]['success_count'], 1)
+        self.assertEqual(payloads[-1]['failed_count'], 1)
+        self.assertEqual(payloads[-1]['refresh_type'], 'retry_failed')
+
+    def test_stream_failed_refresh_events_yields_stopped_when_stop_requested(self):
+        with self.app.app_context():
+            self.assertTrue(
+                web_outlook_app.add_account(
+                    'proxy-refresh-2@outlook.com',
+                    'password123',
+                    '24d9a0ed-8787-4584-883c-2fd79308940a',
+                    '0.AXEA_refresh_2',
+                    group_id=self.group_id,
+                    remark='第二个失败重试账号',
+                    forward_enabled=False,
+                )
+            )
+            db = web_outlook_app.get_db()
+            db.execute(
+                '''
+                UPDATE accounts
+                SET last_refresh_status = 'failed',
+                    last_refresh_error = 'proxy timeout',
+                    last_refresh_at = '2026-04-27 10:00:00'
+                WHERE id = ?
+                ''',
+                (self.account_id,),
+            )
+            db.execute(
+                '''
+                UPDATE accounts
+                SET last_refresh_status = 'failed',
+                    last_refresh_error = 'expired token',
+                    last_refresh_at = '2026-04-27 11:00:00'
+                WHERE email = ?
+                ''',
+                ('proxy-refresh-2@outlook.com',),
+            )
+            db.commit()
+
+        processed_emails = []
+
+        def fake_refresh(account, *_args, **_kwargs):
+            processed_emails.append(account['email'])
+            if len(processed_emails) == 1:
+                web_outlook_app.request_token_refresh_stop()
+            return {'success': True, 'message': 'Token 刷新成功'}
+
+        with patch.object(web_outlook_app, 'refresh_outlook_account_token', side_effect=fake_refresh):
+            stream = web_outlook_app.stream_failed_refresh_events()
+            try:
+                events = list(stream)
+            finally:
+                stream.close()
+
+        payloads = [json.loads(item.removeprefix('data: ').strip()) for item in events]
+        self.assertEqual(payloads[-1]['type'], 'stopped')
+        self.assertEqual(payloads[-1]['processed_count'], 1)
+        self.assertEqual(payloads[-1]['refresh_type'], 'retry_failed')
+        self.assertEqual(len(processed_emails), 1)
+
     def test_cleanup_refresh_logs_removes_entries_older_than_six_months(self):
         with self.app.app_context():
             db = web_outlook_app.get_db()
