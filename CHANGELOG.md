@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.34] - 2026-04-28
+
 ### Added
 - Token 刷新管理新增全量刷新任务日志面板和停止任务按钮，支持在执行期间查看账号级进度与结果。
 
