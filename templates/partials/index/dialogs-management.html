@@ -247,6 +247,14 @@
                                     <div class="form-hint">系统会按该频率扫描已开启转发的邮箱。</div>
                                 </div>
                                 <div class="forwarding-inline-control">
+                                    <label class="form-label">账号间隔</label>
+                                    <div class="input-inline">
+                                        <input type="number" class="form-input" id="forwardAccountDelaySeconds" min="0" max="60" value="0">
+                                        <span>秒</span>
+                                    </div>
+                                    <div class="form-hint">`0` 表示账号之间不额外等待。</div>
+                                </div>
+                                <div class="forwarding-inline-control">
                                     <label class="form-label">时间窗口</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="forwardEmailWindowMinutes" min="0" max="10080" value="0">

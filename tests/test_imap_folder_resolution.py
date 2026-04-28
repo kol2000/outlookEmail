@@ -1810,6 +1810,22 @@ class AppTimezoneSettingsTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         self.assertEqual(payload['settings']['show_account_created_at'], 'false')
 
+    def test_settings_api_persists_forward_account_delay_seconds(self):
+        response = self.client.put(
+            '/api/settings',
+            json={'forward_account_delay_seconds': 7}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        response = self.client.get('/api/settings')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['settings']['forward_account_delay_seconds'], '7')
+
     def test_validate_cron_uses_requested_timezone(self):
         response = self.client.post(
             '/api/settings/validate-cron',
@@ -1951,6 +1967,31 @@ class MultiChannelForwardingTests(unittest.TestCase):
 
         self.assertEqual(email_mock.call_count, 0)
         self.assertEqual(tg_mock.call_count, 1)
+
+    def test_process_forwarding_job_waits_between_accounts(self):
+        with self.app.app_context():
+            self.assertTrue(web_outlook_app.set_setting('forward_account_delay_seconds', '3'))
+            self.assertTrue(web_outlook_app.add_account(
+                'second-forward@example.com',
+                'password456',
+                'client-id-2',
+                'refresh-token-2',
+                group_id=1,
+                forward_enabled=True
+            ))
+            db = web_outlook_app.get_db()
+            db.execute(
+                'UPDATE accounts SET forward_last_checked_at = NULL WHERE email = ?',
+                ('second-forward@example.com',),
+            )
+            db.commit()
+
+        with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={'success': True, 'emails': [], 'error': ''}) as candidates_mock:
+            with patch.object(web_outlook_app.time, 'sleep') as sleep_mock:
+                web_outlook_app.process_forwarding_job()
+
+        self.assertEqual(candidates_mock.call_count, 2)
+        sleep_mock.assert_called_once_with(3)
 
     def test_extract_message_attachments_returns_metadata_and_content(self):
         message = EmailMessage()

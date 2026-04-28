@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.36] - 2026-04-29
+
+### Fixed
+- 转发设置新增“账号间隔”秒级配置，转发轮询在处理多个已开启转发账号时会按配置在账号之间等待，避免短时间连续拉取多个账号。
+- 补齐转发账号间隔的设置持久化与回归测试，覆盖设置接口回显以及多个账号之间的等待行为。
+
 ## [2.0.35] - 2026-04-29
 
 ### Fixed

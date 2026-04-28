@@ -172,6 +172,7 @@ def api_get_settings():
     settings['show_account_created_at'] = get_setting('show_account_created_at', 'true')
     settings['forward_channels'] = get_forward_channels()
     settings['forward_check_interval_minutes'] = get_setting('forward_check_interval_minutes', '5')
+    settings['forward_account_delay_seconds'] = get_setting('forward_account_delay_seconds', '0')
     settings['forward_email_window_minutes'] = get_setting('forward_email_window_minutes', '0')
     settings['forward_include_junkemail'] = get_setting('forward_include_junkemail', 'false')
     settings['email_forward_recipient'] = get_setting('email_forward_recipient', '')
@@ -364,6 +365,18 @@ def api_update_settings():
                 errors.append('保存转发检查间隔失败')
         except ValueError:
             errors.append('转发检查间隔必须是数字')
+
+    if 'forward_account_delay_seconds' in data:
+        try:
+            seconds = int(data['forward_account_delay_seconds'])
+            if seconds < 0 or seconds > 60:
+                errors.append('账号间拉取间隔必须在 0-60 秒之间')
+            elif set_setting('forward_account_delay_seconds', str(seconds)):
+                updated.append('账号间拉取间隔')
+            else:
+                errors.append('保存账号间拉取间隔失败')
+        except ValueError:
+            errors.append('账号间拉取间隔必须是数字')
 
     if 'forward_email_window_minutes' in data:
         try:

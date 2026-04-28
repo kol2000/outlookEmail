@@ -1527,6 +1527,10 @@ def init_db():
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('forward_account_delay_seconds', '0')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
         VALUES ('forward_email_window_minutes', '0')
     ''')
     cursor.execute('''

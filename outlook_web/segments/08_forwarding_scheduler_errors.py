@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -87,6 +88,13 @@ def get_forward_channels() -> list[str]:
     if raw_channels == 'none':
         return []
     return normalize_forward_channel_settings(raw_channels)
+
+
+def get_forward_account_delay_seconds() -> int:
+    try:
+        return max(0, min(60, int(get_setting('forward_account_delay_seconds', '0') or '0')))
+    except (TypeError, ValueError):
+        return 0
 
 
 def has_forward_log(conn, account_id: int, message_id: str, channel: str) -> bool:
@@ -386,6 +394,7 @@ def process_forwarding_job():
                 get_setting_decrypted('wecom_webhook_url', '').strip()
             )
             include_junkemail = get_bool_setting('forward_include_junkemail', False)
+            account_delay_seconds = get_forward_account_delay_seconds()
             try:
                 forward_window_minutes = max(0, min(10080, int(get_setting('forward_email_window_minutes', '0') or '0')))
             except (TypeError, ValueError):
@@ -399,9 +408,10 @@ def process_forwarding_job():
                 "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
             ).fetchall()
             safe_console_print(
-                f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled} wecom_enabled={wecom_enabled}"
+                f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled} wecom_enabled={wecom_enabled} account_delay_seconds={account_delay_seconds}"
             )
-            for row in accounts:
+            total_accounts = len(accounts)
+            for index, row in enumerate(accounts):
                 account = dict(row)
                 if account.get('password'):
                     try:
@@ -708,6 +718,12 @@ def process_forwarding_job():
                 safe_console_print(
                     f"[forward] account done: account={account.get('email', '')} email_success={email_success_count} telegram_success={telegram_success_count} wecom_success={wecom_success_count} cursor_updated={cursor_updated} cursor={cursor_value} had_failure={had_processing_failure}"
                 )
+                if account_delay_seconds > 0 and index < total_accounts - 1:
+                    next_account_email = accounts[index + 1]['email'] if accounts[index + 1] else ''
+                    safe_console_print(
+                        f"[forward] wait before next account: current={account.get('email', '')} next={next_account_email} seconds={account_delay_seconds}"
+                    )
+                    time.sleep(account_delay_seconds)
         except Exception as exc:
             safe_console_print(f"[forward] job failed: {str(exc)}")
             raise

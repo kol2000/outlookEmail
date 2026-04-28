@@ -491,6 +491,7 @@
                     document.getElementById('enableScheduledRefresh').checked = data.settings.enable_scheduled_refresh !== 'false';
                     document.getElementById('settingsShowAccountCreatedAt').checked = String(data.settings.show_account_created_at) !== 'false';
                     document.getElementById('forwardCheckIntervalMinutes').value = data.settings.forward_check_interval_minutes || '5';
+                    document.getElementById('forwardAccountDelaySeconds').value = data.settings.forward_account_delay_seconds || '0';
                     document.getElementById('forwardEmailWindowMinutes').value = data.settings.forward_email_window_minutes || '0';
                     document.getElementById('forwardIncludeJunkemail').checked = String(data.settings.forward_include_junkemail) === 'true';
                     document.getElementById('settingsEmailForwardRecipient').value = data.settings.email_forward_recipient || '';
@@ -548,6 +549,7 @@
             const days = parseInt(refreshDays, 10);
             const delay = parseInt(refreshDelay, 10);
             const forwardMinutes = parseInt(document.getElementById('forwardCheckIntervalMinutes').value || '5', 10);
+            const forwardAccountDelaySeconds = parseInt(document.getElementById('forwardAccountDelaySeconds').value || '0', 10);
             const forwardWindowMinutes = parseInt(document.getElementById('forwardEmailWindowMinutes').value || '0', 10);
             const forwardIncludeJunkemail = !!document.getElementById('forwardIncludeJunkemail')?.checked;
             const smtpPortValue = document.getElementById('settingsSmtpPort').value.trim();
@@ -576,6 +578,10 @@
             }
             if (Number.isNaN(forwardMinutes) || forwardMinutes < 1 || forwardMinutes > 60) {
                 showToast('转发轮询间隔必须在 1-60 分钟之间', 'error');
+                return;
+            }
+            if (Number.isNaN(forwardAccountDelaySeconds) || forwardAccountDelaySeconds < 0 || forwardAccountDelaySeconds > 60) {
+                showToast('账号间拉取间隔必须在 0-60 秒之间', 'error');
                 return;
             }
             if (Number.isNaN(forwardWindowMinutes) || forwardWindowMinutes < 0 || forwardWindowMinutes > 10080) {
@@ -619,6 +625,7 @@
             settings.show_account_created_at = showAccountCreatedAt;
             settings.forward_channels = forwardChannels;
             settings.forward_check_interval_minutes = forwardMinutes;
+            settings.forward_account_delay_seconds = forwardAccountDelaySeconds;
             settings.forward_email_window_minutes = forwardWindowMinutes;
             settings.forward_include_junkemail = forwardIncludeJunkemail;
             settings.email_forward_recipient = smtpRecipient;
