@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+- Token 刷新管理移除“最近一次全量刷新”卡片展示，顶部统计区收敛为总邮箱数、成功邮箱和失败邮箱三项。
+
+### Fixed
+- 修复 Windows 控制台输出 `✓`、`⚠` 等 Unicode 符号时触发的编码异常，统一改为编码安全的调度器、转发与错误日志输出。
+- 修复调度器退出阶段重复调用 `shutdown()` 导致的 `SchedulerNotRunningError`，`atexit` 回调统一复用幂等的 `shutdown_scheduler()`，并补充回归测试。
+
 ## [2.0.33] - 2026-04-28
 
 ### Added

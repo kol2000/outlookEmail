@@ -760,6 +760,50 @@ class SchedulerTimezoneMigrationTests(unittest.TestCase):
         self.assertEqual(forward_job['trigger']['kwargs']['minute'], 0)
         self.assertNotIn('*/60', str(forward_job['trigger']['kwargs']))
 
+    def test_scheduler_atexit_callback_is_idempotent_after_manual_shutdown(self):
+        registered_callbacks = []
+
+        class FakeScheduler:
+            def __init__(self, timezone=None):
+                self.timezone = timezone
+                self.jobs = []
+                self.started = False
+                self.shutdown_calls = 0
+
+            def add_job(self, func=None, trigger=None, **kwargs):
+                self.jobs.append({'func': func, 'trigger': trigger, **kwargs})
+
+            def start(self):
+                self.started = True
+
+            def shutdown(self, wait=True):
+                self.shutdown_calls += 1
+                if not self.started:
+                    raise RuntimeError('Scheduler is not running')
+                self.started = False
+
+        def fake_cron_trigger(**kwargs):
+            return {'trigger': 'cron', 'kwargs': kwargs}
+
+        with self.app.app_context():
+            web_outlook_app.init_db()
+            web_outlook_app.shutdown_scheduler()
+
+        with patch('apscheduler.schedulers.background.BackgroundScheduler', FakeScheduler), \
+             patch('apscheduler.triggers.cron.CronTrigger', side_effect=fake_cron_trigger), \
+             patch('atexit.register', side_effect=lambda fn: registered_callbacks.append(fn)), \
+             patch('builtins.print'):
+            scheduler = web_outlook_app.init_scheduler()
+
+        self.assertIsInstance(scheduler, FakeScheduler)
+        self.assertEqual(len(registered_callbacks), 1)
+
+        web_outlook_app.shutdown_scheduler()
+        registered_callbacks[0]()
+
+        self.assertEqual(scheduler.shutdown_calls, 1)
+        self.assertFalse(scheduler.started)
+
 
 if __name__ == '__main__':
     unittest.main()

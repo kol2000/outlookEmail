@@ -77,11 +77,6 @@
 
         function renderRefreshStats(stats) {
             refreshModalState.stats = stats || null;
-            const snapshotMeta = getRefreshStatusMeta(stats?.last_refresh_status);
-
-            document.getElementById('lastRefreshTime').textContent = stats?.last_refresh_time
-                ? formatDateTime(stats.last_refresh_time)
-                : '-';
             document.getElementById('totalRefreshCount').textContent = String(stats?.total ?? 0);
             document.getElementById('successRefreshCount').textContent = String(stats?.success_count ?? 0);
             document.getElementById('failedRefreshCount').textContent = String(stats?.failed_count ?? 0);
@@ -89,12 +84,6 @@
             document.getElementById('refreshFilterCountSuccess').textContent = String(stats?.success_count ?? 0);
             document.getElementById('refreshFilterCountFailed').textContent = String(stats?.failed_count ?? 0);
             document.getElementById('refreshFilterCountNever').textContent = String(stats?.never_count ?? 0);
-
-            const statusEl = document.getElementById('lastRefreshStatusLabel');
-            if (statusEl) {
-                statusEl.className = `refresh-status-pill ${snapshotMeta.className}`;
-                statusEl.textContent = snapshotMeta.label;
-            }
         }
 
         function renderRefreshAccountList(items, total) {

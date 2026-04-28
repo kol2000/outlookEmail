@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
@@ -10,6 +12,24 @@ if TYPE_CHECKING:
 
 
 # ==================== 定时任务调度器 ====================
+
+CONSOLE_SYMBOL_REPLACEMENTS = str.maketrans({
+    '✓': '[OK] ',
+    '⚠': '[WARN] ',
+})
+
+
+def safe_console_print(*args: Any, sep: str = ' ', end: str = '\n',
+                       file: Any = None, flush: bool = False) -> None:
+    stream = sys.stdout if file is None else file
+    text = sep.join(str(arg) for arg in args).translate(CONSOLE_SYMBOL_REPLACEMENTS)
+    try:
+        print(text, sep=sep, end=end, file=stream, flush=flush)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, 'encoding', None) or 'utf-8'
+        fallback = text.encode(encoding, errors='backslashreplace').decode(encoding)
+        print(fallback, sep=sep, end=end, file=stream, flush=flush)
+
 
 def get_bool_setting(key: str, default: bool = False) -> bool:
     value = str(get_setting(key, 'true' if default else 'false')).strip().lower()
@@ -372,13 +392,13 @@ def process_forwarding_job():
                 forward_window_minutes = 0
             forward_window_start = datetime.now() - timedelta(minutes=forward_window_minutes) if forward_window_minutes > 0 else None
             if not email_enabled and not telegram_enabled and not wecom_enabled:
-                print('[forward] skip job: no active channels configured')
+                safe_console_print('[forward] skip job: no active channels configured')
                 return
 
             accounts = conn.execute(
                 "SELECT * FROM accounts WHERE status = 'active' AND forward_enabled = 1"
             ).fetchall()
-            print(
+            safe_console_print(
                 f"[forward] start job: accounts={len(accounts)} email_enabled={email_enabled} telegram_enabled={telegram_enabled} wecom_enabled={wecom_enabled}"
             )
             for row in accounts:
@@ -685,11 +705,11 @@ def process_forwarding_job():
                         (account['id'],)
                     )
                 conn.commit()
-                print(
+                safe_console_print(
                     f"[forward] account done: account={account.get('email', '')} email_success={email_success_count} telegram_success={telegram_success_count} wecom_success={wecom_success_count} cursor_updated={cursor_updated} cursor={cursor_value} had_failure={had_processing_failure}"
                 )
         except Exception as exc:
-            print(f"[forward] job failed: {str(exc)}")
+            safe_console_print(f"[forward] job failed: {str(exc)}")
             raise
         finally:
             conn.close()
@@ -817,7 +837,7 @@ def init_scheduler():
                 enable_scheduled = get_setting('enable_scheduled_refresh', 'true').lower() == 'true'
 
                 if not enable_scheduled:
-                    print("✓ 定时刷新已禁用")
+                    safe_console_print("✓ 定时刷新已禁用")
                     return None
 
                 use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
@@ -857,13 +877,13 @@ def init_scheduler():
                             )
                             scheduler.start()
                             scheduler_instance = scheduler
-                            print(f"✓ 定时任务已启动：Cron 表达式 '{cron_expr}'")
-                            atexit.register(lambda: scheduler.shutdown())
+                            safe_console_print(f"✓ 定时任务已启动：Cron 表达式 '{cron_expr}'")
+                            atexit.register(shutdown_scheduler)
                             return scheduler_instance
                         else:
-                            print(f"⚠ Cron 表达式格式错误，回退到默认配置")
+                            safe_console_print("⚠ Cron 表达式格式错误，回退到默认配置")
                     except Exception as e:
-                        print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
+                        safe_console_print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
 
                 refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
                 scheduler.add_job(
@@ -884,17 +904,17 @@ def init_scheduler():
                 )
                 scheduler.start()
                 scheduler_instance = scheduler
-                print(f"✓ 定时任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
+                safe_console_print(f"✓ 定时任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
 
-            atexit.register(lambda: scheduler.shutdown())
+            atexit.register(shutdown_scheduler)
 
             return scheduler_instance
         except ImportError:
-            print("⚠ APScheduler 未安装，定时任务功能不可用")
-            print("  安装命令：pip install APScheduler>=3.10.0")
+            safe_console_print("⚠ APScheduler 未安装，定时任务功能不可用")
+            safe_console_print("  安装命令：pip install APScheduler>=3.10.0")
             return None
         except Exception as e:
-            print(f"⚠ 定时任务初始化失败：{str(e)}")
+            safe_console_print(f"⚠ 定时任务初始化失败：{str(e)}")
             return None
 
 
@@ -928,15 +948,15 @@ def scheduled_refresh_task():
             enable_scheduled = get_setting('enable_scheduled_refresh', 'true').lower() == 'true'
 
             if not enable_scheduled:
-                print(f"[定时任务] 定时刷新已禁用，跳过执行")
+                safe_console_print(f"[定时任务] 定时刷新已禁用，跳过执行")
                 return
 
             use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
 
             if use_cron:
-                print(f"[定时任务] 使用 Cron 调度，直接执行刷新...")
+                safe_console_print(f"[定时任务] 使用 Cron 调度，直接执行刷新...")
                 trigger_refresh_internal()
-                print(f"[定时任务] Token 刷新完成")
+                safe_console_print(f"[定时任务] Token 刷新完成")
                 return
 
             refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
@@ -946,15 +966,15 @@ def scheduled_refresh_task():
             last_refresh_time = datetime.fromisoformat(last_refresh)
             next_refresh_time = last_refresh_time + timedelta(days=refresh_interval_days)
             if datetime.now() < next_refresh_time:
-                print(f"[定时任务] 距离上次刷新未满 {refresh_interval_days} 天，跳过本次刷新")
+                safe_console_print(f"[定时任务] 距离上次刷新未满 {refresh_interval_days} 天，跳过本次刷新")
                 return
 
-        print(f"[定时任务] 开始执行 Token 刷新...")
+        safe_console_print(f"[定时任务] 开始执行 Token 刷新...")
         trigger_refresh_internal()
-        print(f"[定时任务] Token 刷新完成")
+        safe_console_print(f"[定时任务] Token 刷新完成")
 
     except Exception as e:
-        print(f"[定时任务] 执行失败：{str(e)}")
+        safe_console_print(f"[定时任务] 执行失败：{str(e)}")
 
 
 ensure_scheduler_started()
@@ -965,7 +985,7 @@ def trigger_refresh_internal():
     try:
         result = run_full_refresh('scheduled', 'scheduled')
     except TokenRefreshInProgressError as exc:
-        print(f"[定时任务] 跳过执行：{str(exc)}")
+        safe_console_print(f"[定时任务] 跳过执行：{str(exc)}")
         return {
             'type': 'conflict',
             'total': 0,
@@ -973,7 +993,7 @@ def trigger_refresh_internal():
             'failed_count': 0,
             'message': str(exc),
         }
-    print(f"[定时任务] 刷新结果：总计 {result['total']}，成功 {result['success_count']}，失败 {result['failed_count']}")
+    safe_console_print(f"[定时任务] 刷新结果：总计 {result['total']}，成功 {result['success_count']}，失败 {result['failed_count']}")
     return result
 
 
@@ -1196,14 +1216,14 @@ assert_endpoint_protection('api_external_get_emails', '_requires_api_key', 'api_
 @app.errorhandler(400)
 def bad_request(error):
     """处理400错误"""
-    print(f"400 Bad Request: {error}")
+    safe_console_print(f"400 Bad Request: {error}")
     return jsonify({'success': False, 'error': '请求格式错误'}), 400
 
 
 @app.errorhandler(Exception)
 def handle_exception(error):
     """处理未捕获的异常"""
-    print(f"Unhandled exception: {error}")
+    safe_console_print(f"Unhandled exception: {error}")
     import traceback
     traceback.print_exc()
     return jsonify({'success': False, 'error': str(error)}), 500
