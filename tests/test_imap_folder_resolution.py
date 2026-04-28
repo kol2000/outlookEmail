@@ -1268,6 +1268,68 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertEqual(payload['type'], 'conflict')
         self.assertIn('已有 Token 全量刷新任务在执行', payload['message'])
 
+    def test_stop_full_refresh_requests_stop_when_running(self):
+        web_outlook_app.clear_token_refresh_stop_request()
+        web_outlook_app.token_refresh_run_lock.acquire()
+        try:
+            response = self.client.post('/api/accounts/stop-full-refresh')
+            self.assertEqual(response.status_code, 200)
+            payload = response.get_json()
+            self.assertTrue(payload['success'])
+            self.assertTrue(web_outlook_app.is_token_refresh_stop_requested())
+        finally:
+            web_outlook_app.clear_token_refresh_stop_request()
+            web_outlook_app.token_refresh_run_lock.release()
+
+    def test_stream_full_refresh_events_yields_stopped_when_stop_requested(self):
+        with self.app.app_context():
+            self.assertTrue(
+                web_outlook_app.add_account(
+                    'proxy-refresh-2@outlook.com',
+                    'password123',
+                    '24d9a0ed-8787-4584-883c-2fd79308940a',
+                    '0.AXEA_refresh_2',
+                    group_id=self.group_id,
+                    remark='第二个刷新账号',
+                    forward_enabled=False,
+                )
+            )
+
+        processed_emails = []
+
+        def fake_refresh(account, *_args, **_kwargs):
+            processed_emails.append(account['email'])
+            if len(processed_emails) == 1:
+                web_outlook_app.request_token_refresh_stop()
+            return {'success': True, 'message': 'Token 刷新成功'}
+
+        with patch.object(web_outlook_app, 'refresh_outlook_account_token', side_effect=fake_refresh):
+            stream = web_outlook_app.stream_full_refresh_events('manual_all', 'manual')
+            try:
+                events = list(stream)
+            finally:
+                stream.close()
+
+        payloads = [json.loads(item.removeprefix('data: ').strip()) for item in events]
+        self.assertEqual(payloads[-1]['type'], 'stopped')
+        self.assertEqual(payloads[-1]['processed_count'], 1)
+        self.assertEqual(len(processed_emails), 1)
+
+        with self.app.app_context():
+            snapshot_row = web_outlook_app.get_db().execute(
+                '''
+                SELECT status, total_count, success_count, failed_count, error_summary
+                FROM token_refresh_state
+                WHERE scope_key = 'all_outlook'
+                '''
+            ).fetchone()
+
+        self.assertEqual(snapshot_row['status'], 'partial_failed')
+        self.assertEqual(snapshot_row['total_count'], 2)
+        self.assertEqual(snapshot_row['success_count'], 1)
+        self.assertEqual(snapshot_row['failed_count'], 0)
+        self.assertIn('手动停止', snapshot_row['error_summary'])
+
     def test_cleanup_refresh_logs_removes_entries_older_than_six_months(self):
         with self.app.app_context():
             db = web_outlook_app.get_db()

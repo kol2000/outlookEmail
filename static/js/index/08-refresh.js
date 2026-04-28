@@ -12,6 +12,10 @@
             stats: null,
             currentRefreshingAccountId: null,
             searchTimer: 0,
+            eventSource: null,
+            isRunning: false,
+            stopRequested: false,
+            runtimeLogs: [],
         };
 
         function getRefreshStatusMeta(status) {
@@ -48,25 +52,106 @@
             textEl.innerHTML = text;
         }
 
-        function resetRefreshModalRuntime() {
+        function closeRefreshEventSource(source = refreshModalState.eventSource) {
+            if (!source) {
+                return;
+            }
+            try {
+                source.close();
+            } catch (error) {
+                console.warn('关闭 Token 刷新 EventSource 失败:', error);
+            }
+            if (refreshModalState.eventSource === source) {
+                refreshModalState.eventSource = null;
+            }
+        }
+
+        function syncRefreshActionButtons() {
+            const refreshAllBtn = document.getElementById('refreshAllBtn');
+            if (refreshAllBtn) {
+                refreshAllBtn.disabled = refreshModalState.isRunning;
+                refreshAllBtn.textContent = refreshModalState.isRunning
+                    ? (refreshModalState.stopRequested ? '停止中...' : '刷新中...')
+                    : '全量刷新';
+            }
+
+            const stopRefreshBtn = document.getElementById('stopRefreshBtn');
+            if (stopRefreshBtn) {
+                stopRefreshBtn.hidden = !refreshModalState.isRunning;
+                stopRefreshBtn.disabled = !refreshModalState.isRunning || refreshModalState.stopRequested;
+                stopRefreshBtn.textContent = refreshModalState.stopRequested ? '停止中...' : '停止任务';
+            }
+
+            const retryFailedBtn = document.getElementById('retryFailedBtn');
+            if (retryFailedBtn && refreshModalState.isRunning) {
+                retryFailedBtn.disabled = true;
+                retryFailedBtn.textContent = '重试失败';
+            } else if (retryFailedBtn && !retryFailedBtn.dataset.busy) {
+                retryFailedBtn.disabled = false;
+                retryFailedBtn.textContent = '重试失败';
+            }
+        }
+
+        function updateRefreshLogSummary(text = '暂无任务日志') {
+            const summaryEl = document.getElementById('refreshLogsSummary');
+            if (summaryEl) {
+                summaryEl.textContent = text;
+            }
+        }
+
+        function renderRefreshRuntimeLogs() {
+            const container = document.getElementById('refreshLogsList');
+            if (!container) {
+                return;
+            }
+            if (!refreshModalState.runtimeLogs.length) {
+                container.innerHTML = '<div class="refresh-log-empty">暂无任务日志</div>';
+                return;
+            }
+
+            container.innerHTML = refreshModalState.runtimeLogs.map(log => `
+                <article class="refresh-log-item refresh-log-item--${escapeHtml(log.level || 'info')}">
+                    <div class="refresh-log-item__head">
+                        <strong class="refresh-log-item__title">${escapeHtml(log.title || '-')}</strong>
+                        <span class="refresh-log-item__time">${escapeHtml(log.time || '-')}</span>
+                    </div>
+                    ${log.detail ? `<div class="refresh-log-item__detail">${escapeHtml(log.detail)}</div>` : ''}
+                </article>
+            `).join('');
+        }
+
+        function appendRefreshRuntimeLog(level, title, detail = '') {
+            refreshModalState.runtimeLogs.unshift({
+                level: String(level || 'info').toLowerCase(),
+                title: String(title || '').trim() || '任务更新',
+                detail: String(detail || '').trim(),
+                time: new Date().toLocaleTimeString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                }),
+            });
+            if (refreshModalState.runtimeLogs.length > 300) {
+                refreshModalState.runtimeLogs.length = 300;
+            }
+            renderRefreshRuntimeLogs();
+        }
+
+        function resetRefreshModalRuntime(force = false) {
             if (refreshModalState.searchTimer) {
                 window.clearTimeout(refreshModalState.searchTimer);
                 refreshModalState.searchTimer = 0;
             }
+            if (refreshModalState.isRunning && !force) {
+                syncRefreshActionButtons();
+                renderRefreshRuntimeLogs();
+                return;
+            }
+            closeRefreshEventSource();
             refreshModalState.currentRefreshingAccountId = null;
+            refreshModalState.isRunning = false;
+            refreshModalState.stopRequested = false;
             setRefreshProgressBanner(false);
-
-            const refreshAllBtn = document.getElementById('refreshAllBtn');
-            if (refreshAllBtn) {
-                refreshAllBtn.disabled = false;
-                refreshAllBtn.textContent = '全量刷新';
-            }
-
-            const retryFailedBtn = document.getElementById('retryFailedBtn');
-            if (retryFailedBtn) {
-                retryFailedBtn.disabled = false;
-                retryFailedBtn.textContent = '重试失败';
-            }
         }
 
         function updateRefreshStatusFilterButtons() {
@@ -193,6 +278,11 @@
 
             showModal('refreshModal');
             updateRefreshStatusFilterButtons();
+            syncRefreshActionButtons();
+            renderRefreshRuntimeLogs();
+            if (!refreshModalState.runtimeLogs.length) {
+                updateRefreshLogSummary(refreshModalState.isRunning ? '正在执行全量刷新任务' : '暂无任务日志');
+            }
 
             const searchInput = document.getElementById('refreshSearchInput');
             if (searchInput) {
@@ -211,7 +301,9 @@
 
         function hideRefreshModal() {
             hideModal('refreshModal');
-            resetRefreshModalRuntime();
+            if (!refreshModalState.isRunning) {
+                resetRefreshModalRuntime();
+            }
         }
 
         function handleRefreshSearchInput(value) {
@@ -254,12 +346,24 @@
             setRefreshProgressBanner(true, '正在刷新', '正在初始化...');
 
             try {
+                refreshModalState.runtimeLogs = [];
+                refreshModalState.isRunning = true;
+                refreshModalState.stopRequested = false;
+                refreshModalState.currentRefreshingAccountId = null;
+                updateRefreshLogSummary('正在准备全量刷新任务');
+                appendRefreshRuntimeLog('info', '已提交全量刷新任务', '正在建立刷新连接');
+                syncRefreshActionButtons();
+                setRefreshProgressBanner(true, '正在刷新', '正在初始化...');
                 const eventSource = new EventSource('/api/accounts/trigger-scheduled-refresh?force=true');
+                refreshModalState.eventSource = eventSource;
                 let totalCount = 0;
                 let successCount = 0;
                 let failedCount = 0;
 
                 eventSource.onmessage = async function (event) {
+                    if (refreshModalState.eventSource !== eventSource) {
+                        return;
+                    }
                     try {
                         const data = JSON.parse(event.data);
 
@@ -270,6 +374,8 @@
                             document.getElementById('totalRefreshCount').textContent = totalCount;
                             document.getElementById('successRefreshCount').textContent = '0';
                             document.getElementById('failedRefreshCount').textContent = '0';
+                            updateRefreshLogSummary(`任务运行中：0 / ${totalCount}`);
+                            appendRefreshRuntimeLog('info', '任务开始', `本次共需刷新 ${totalCount} 个账号`);
                         } else if (data.type === 'progress') {
                             successCount = data.success_count;
                             failedCount = data.failed_count;
@@ -282,17 +388,57 @@
                                 成功：<strong style="color:#15803d;">${successCount}</strong> |
                                 失败：<strong style="color:#b42318;">${failedCount}</strong>
                             `);
+                            updateRefreshLogSummary(`任务运行中：${Math.max(0, Number(data.current || 0) - 1)} / ${data.total}`);
+                            appendRefreshRuntimeLog('info', `开始刷新 ${data.email || '-'}`, `进度 ${data.current}/${data.total}`);
+                            renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
+                        } else if (data.type === 'account_result') {
+                            successCount = data.success_count;
+                            failedCount = data.failed_count;
+                            refreshModalState.currentRefreshingAccountId = null;
+                            document.getElementById('successRefreshCount').textContent = successCount;
+                            document.getElementById('failedRefreshCount').textContent = failedCount;
+                            updateRefreshLogSummary(`任务运行中：${successCount + failedCount} / ${data.total}`);
+
+                            const targetItem = refreshModalState.items.find(item => item.id === data.account_id);
+                            if (targetItem) {
+                                targetItem.last_refresh_status = data.status;
+                                targetItem.last_refresh_error = data.error_message || null;
+                                targetItem.last_refresh_at = new Date().toISOString();
+                            }
+
+                            appendRefreshRuntimeLog(
+                                data.status === 'failed' ? 'error' : 'success',
+                                `${data.email || '-'} ${data.status === 'failed' ? '刷新失败' : '刷新成功'}`,
+                                data.error_message || `累计成功 ${successCount}，失败 ${failedCount}`
+                            );
                             renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
                         } else if (data.type === 'delay') {
                             setRefreshProgressBanner(true, '正在刷新', `
                                 已处理 <strong>${successCount + failedCount}</strong> 个账号<br>
                                 <span style="color:#64748b;">等待 ${data.seconds} 秒后继续...</span>
                             `);
+                            appendRefreshRuntimeLog('warn', '等待下一轮刷新', `等待 ${data.seconds} 秒后继续`);
+                        } else if (data.type === 'stopped') {
+                            closeRefreshEventSource(eventSource);
+                            refreshModalState.isRunning = false;
+                            refreshModalState.stopRequested = false;
+                            refreshModalState.currentRefreshingAccountId = null;
+                            syncRefreshActionButtons();
+                            setRefreshProgressBanner(false);
+                            updateRefreshLogSummary(`任务已停止：已处理 ${data.processed_count || 0} / ${data.total || 0}`);
+                            appendRefreshRuntimeLog('warn', '任务已停止', data.message || '已手动停止全量刷新任务');
+                            showToast(data.message || '已停止全量刷新任务', 'warning');
+                            await loadRefreshStatusList();
+                            if (currentGroupId) {
+                                loadAccountsByGroup(currentGroupId, true);
+                            }
                         } else if (data.type === 'complete') {
-                            eventSource.close();
+                            closeRefreshEventSource(eventSource);
+                            refreshModalState.isRunning = false;
+                            refreshModalState.stopRequested = false;
                             refreshModalState.currentRefreshingAccountId = null;
                             setRefreshProgressBanner(false);
-                            btn.disabled = false;
+                            syncRefreshActionButtons();
                             btn.textContent = '全量刷新';
 
                             showToast(`刷新完成！成功: ${data.success_count}, 失败: ${data.failed_count}`,
@@ -303,18 +449,22 @@
                                 loadAccountsByGroup(currentGroupId, true);
                             }
                         } else if (data.type === 'conflict') {
-                            eventSource.close();
+                            closeRefreshEventSource(eventSource);
+                            refreshModalState.isRunning = false;
+                            refreshModalState.stopRequested = false;
                             refreshModalState.currentRefreshingAccountId = null;
                             setRefreshProgressBanner(false);
-                            btn.disabled = false;
+                            syncRefreshActionButtons();
                             btn.textContent = '全量刷新';
                             showToast(data.message || '已有刷新任务在执行', 'warning');
                             await loadRefreshStatusList();
                         } else if (data.type === 'error') {
-                            eventSource.close();
+                            closeRefreshEventSource(eventSource);
+                            refreshModalState.isRunning = false;
+                            refreshModalState.stopRequested = false;
                             refreshModalState.currentRefreshingAccountId = null;
                             setRefreshProgressBanner(false);
-                            btn.disabled = false;
+                            syncRefreshActionButtons();
                             btn.textContent = '全量刷新';
                             showToast(data.message || '刷新过程中出现错误', 'error');
                             await loadRefreshStatusList();
@@ -326,30 +476,86 @@
 
                 eventSource.onerror = function (error) {
                     console.error('EventSource 错误:', error);
-                    eventSource.close();
+                    if (refreshModalState.eventSource !== eventSource) {
+                        return;
+                    }
+                    closeRefreshEventSource(eventSource);
+                    refreshModalState.isRunning = false;
+                    const wasStopping = refreshModalState.stopRequested;
+                    refreshModalState.stopRequested = false;
                     refreshModalState.currentRefreshingAccountId = null;
                     setRefreshProgressBanner(false);
-                    btn.disabled = false;
+                    syncRefreshActionButtons();
                     btn.textContent = '全量刷新';
-                    showToast('刷新过程中出现错误', 'error');
+                    if (!wasStopping) {
+                        updateRefreshLogSummary('连接已中断');
+                        appendRefreshRuntimeLog('error', '连接中断', '刷新进度连接异常断开');
+                        showToast('刷新过程中出现错误', 'error');
+                    }
                 };
 
             } catch (error) {
+                closeRefreshEventSource();
+                refreshModalState.isRunning = false;
+                refreshModalState.stopRequested = false;
                 refreshModalState.currentRefreshingAccountId = null;
                 setRefreshProgressBanner(false);
                 btn.disabled = false;
                 btn.textContent = '全量刷新';
+                updateRefreshLogSummary('任务启动失败');
+                appendRefreshRuntimeLog('error', '任务启动失败', error.message || '刷新请求失败');
                 showToast('刷新请求失败', 'error');
             }
         }
 
         // 重试失败的账号
+        async function stopFullRefresh() {
+            if (!refreshModalState.isRunning || refreshModalState.stopRequested) {
+                return;
+            }
+
+            const stopBtn = document.getElementById('stopRefreshBtn');
+            refreshModalState.stopRequested = true;
+            syncRefreshActionButtons();
+            updateRefreshLogSummary('正在请求停止任务');
+            appendRefreshRuntimeLog('warn', '已发送停止请求', '当前账号处理完成后会结束任务');
+            setRefreshProgressBanner(true, '正在停止', '已请求停止，等待当前账号处理完成...');
+
+            try {
+                const response = await fetch('/api/accounts/stop-full-refresh', {
+                    method: 'POST',
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    refreshModalState.stopRequested = false;
+                    syncRefreshActionButtons();
+                    updateRefreshLogSummary('停止请求失败');
+                    appendRefreshRuntimeLog('error', '停止请求失败', data.message || '停止任务失败');
+                    setRefreshProgressBanner(true, '正在刷新', '停止请求失败，任务仍在继续执行。');
+                    showToast(data.message || '停止任务失败', 'error');
+                    return;
+                }
+                if (stopBtn) {
+                    stopBtn.blur();
+                }
+                showToast(data.message || '已请求停止全量刷新任务', 'warning');
+            } catch (error) {
+                refreshModalState.stopRequested = false;
+                syncRefreshActionButtons();
+                updateRefreshLogSummary('停止请求失败');
+                appendRefreshRuntimeLog('error', '停止请求失败', error.message || '停止请求异常');
+                setRefreshProgressBanner(true, '正在刷新', '停止请求异常，任务仍在继续执行。');
+                showToast('停止任务失败', 'error');
+            }
+        }
+
         async function retryFailedAccounts() {
             const btn = document.getElementById('retryFailedBtn');
 
             if (btn.disabled) return;
 
             btn.disabled = true;
+            btn.dataset.busy = 'true';
             btn.textContent = '重试中...';
             setRefreshProgressBanner(true, '正在重试', '正在重试失败状态的账号...');
 
@@ -376,9 +582,12 @@
                 }
             } catch (error) {
                 setRefreshProgressBanner(false);
-                btn.disabled = false;
+                syncRefreshActionButtons();
                 btn.textContent = '重试失败';
                 showToast('重试请求失败', 'error');
+            } finally {
+                delete btn.dataset.busy;
+                syncRefreshActionButtons();
             }
         }
 

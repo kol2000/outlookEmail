@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, wait
+import threading
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
@@ -14,6 +15,9 @@ TOKEN_REFRESH_SCOPE_KEY = 'all_outlook'
 VALID_ACCOUNT_REFRESH_STATUSES = {'success', 'failed', 'never'}
 VALID_REFRESH_STATUS_FILTERS = {'all', 'success', 'failed', 'never'}
 TOKEN_REFRESH_CONFLICT_MESSAGE = '已有 Token 全量刷新任务在执行，请稍后再试'
+TOKEN_REFRESH_STOP_REQUESTED_MESSAGE = '已请求停止，当前账号处理完成后会结束任务'
+TOKEN_REFRESH_STOPPED_MESSAGE = '已手动停止全量刷新任务'
+token_refresh_stop_event = threading.Event()
 
 
 def normalize_account_refresh_status_value(status: Any) -> str:
@@ -300,6 +304,18 @@ def cleanup_refresh_logs(db_conn=None) -> int:
         raise
 
 
+def clear_token_refresh_stop_request() -> None:
+    token_refresh_stop_event.clear()
+
+
+def request_token_refresh_stop() -> None:
+    token_refresh_stop_event.set()
+
+
+def is_token_refresh_stop_requested() -> bool:
+    return token_refresh_stop_event.is_set()
+
+
 def acquire_token_refresh_run_lock() -> None:
     if not token_refresh_run_lock.acquire(blocking=False):
         raise TokenRefreshInProgressError(TOKEN_REFRESH_CONFLICT_MESSAGE)
@@ -322,6 +338,62 @@ def build_refresh_error_summary(failed_list: List[Dict[str, Any]], fallback_mess
     if not parts and fallback_message:
         parts.append(sanitize_error_details(fallback_message))
     return '; '.join(parts)
+
+
+def finalize_stopped_full_refresh(conn, snapshot_trigger_type: str, total: int,
+                                  success_count: int, failed_count: int,
+                                  failed_list: List[Dict[str, Any]],
+                                  delay_seconds: int = 0) -> Dict[str, Any]:
+    processed_count = max(0, success_count + failed_count)
+    if total <= 0:
+        final_status = 'idle'
+    elif processed_count <= 0:
+        final_status = 'failed'
+    elif processed_count < total:
+        final_status = 'partial_failed' if success_count > 0 else 'failed'
+    elif failed_count <= 0:
+        final_status = 'success'
+    elif success_count > 0:
+        final_status = 'partial_failed'
+    else:
+        final_status = 'failed'
+
+    error_summary = build_refresh_error_summary(failed_list, TOKEN_REFRESH_STOPPED_MESSAGE)
+    mark_token_refresh_snapshot_finished(
+        snapshot_trigger_type,
+        total,
+        success_count,
+        failed_count,
+        error_summary,
+        conn,
+        status_override=final_status
+    )
+    conn.commit()
+
+    return {
+        'type': 'stopped',
+        'message': TOKEN_REFRESH_STOPPED_MESSAGE,
+        'total': total,
+        'processed_count': processed_count,
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'failed_list': failed_list,
+        'delay_seconds': max(0, int(delay_seconds or 0)),
+        'refresh_type': snapshot_trigger_type,
+    }
+
+
+def wait_refresh_delay(delay_seconds: int) -> bool:
+    import time as time_module
+
+    remaining = max(0.0, float(delay_seconds or 0))
+    while remaining > 0:
+        if is_token_refresh_stop_requested():
+            return False
+        sleep_seconds = min(0.25, remaining)
+        time_module.sleep(sleep_seconds)
+        remaining -= sleep_seconds
+    return not is_token_refresh_stop_requested()
 
 
 def finalize_aborted_full_refresh(conn, snapshot_trigger_type: str, log_refresh_type: str,
@@ -748,8 +820,6 @@ def get_refresh_delay_seconds(db_conn) -> int:
 
 def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
                      progress_callback=None, db_conn=None) -> Dict[str, Any]:
-    import time as time_module
-
     lock_acquired = False
     owns_connection = db_conn is None
     conn = db_conn or sqlite3.connect(DATABASE)
@@ -767,6 +837,7 @@ def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
     try:
         acquire_token_refresh_run_lock()
         lock_acquired = True
+        clear_token_refresh_stop_request()
         cleanup_refresh_logs(conn)
         conn.commit()
 
@@ -786,6 +857,20 @@ def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
             })
 
         for index, account in enumerate(accounts, 1):
+            if is_token_refresh_stop_requested():
+                stopped_payload = finalize_stopped_full_refresh(
+                    conn,
+                    snapshot_trigger_type,
+                    total,
+                    success_count,
+                    failed_count,
+                    failed_list,
+                    delay_seconds
+                )
+                if progress_callback:
+                    progress_callback(stopped_payload)
+                return stopped_payload
+
             current_account = account
             current_account_counted = False
             if progress_callback:
@@ -812,12 +897,50 @@ def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
                     'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
+            if progress_callback:
+                progress_callback({
+                    'type': 'account_result',
+                    'current': index,
+                    'total': total,
+                    'account_id': account['id'],
+                    'email': account['email'],
+                    'status': 'success' if result.get('success') else 'failed',
+                    'error_message': result.get('error_message') or '',
+                    'success_count': success_count,
+                    'failed_count': failed_count,
+                })
+            if is_token_refresh_stop_requested():
+                stopped_payload = finalize_stopped_full_refresh(
+                    conn,
+                    snapshot_trigger_type,
+                    total,
+                    success_count,
+                    failed_count,
+                    failed_list,
+                    delay_seconds
+                )
+                if progress_callback:
+                    progress_callback(stopped_payload)
+                return stopped_payload
+
             current_account = None
 
             if index < total and delay_seconds > 0:
                 if progress_callback:
                     progress_callback({'type': 'delay', 'seconds': delay_seconds})
-                time_module.sleep(delay_seconds)
+                if not wait_refresh_delay(delay_seconds):
+                    stopped_payload = finalize_stopped_full_refresh(
+                        conn,
+                        snapshot_trigger_type,
+                        total,
+                        success_count,
+                        failed_count,
+                        failed_list,
+                        delay_seconds
+                    )
+                    if progress_callback:
+                        progress_callback(stopped_payload)
+                    return stopped_payload
 
         error_summary = build_refresh_error_summary(failed_list)
         mark_token_refresh_snapshot_finished(
@@ -863,12 +986,12 @@ def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
     finally:
         if owns_connection:
             conn.close()
+        clear_token_refresh_stop_request()
         release_token_refresh_run_lock(lock_acquired)
 
 
 def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str):
     import json
-    import time as time_module
 
     conn = None
     lock_acquired = False
@@ -884,6 +1007,7 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
     try:
         acquire_token_refresh_run_lock()
         lock_acquired = True
+        clear_token_refresh_stop_request()
         conn = sqlite3.connect(DATABASE)
         conn.execute('PRAGMA foreign_keys = ON')
         conn.row_factory = sqlite3.Row
@@ -900,6 +1024,19 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
         yield f"data: {json.dumps({'type': 'start', 'total': total, 'delay_seconds': delay_seconds, 'refresh_type': snapshot_trigger_type})}\n\n"
 
         for index, account in enumerate(accounts, 1):
+            if is_token_refresh_stop_requested():
+                stopped_payload = finalize_stopped_full_refresh(
+                    conn,
+                    snapshot_trigger_type,
+                    total,
+                    success_count,
+                    failed_count,
+                    failed_list,
+                    delay_seconds
+                )
+                yield f"data: {json.dumps(stopped_payload)}\n\n"
+                return
+
             current_account = account
             current_account_counted = False
             yield f"data: {json.dumps({'type': 'progress', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'success_count': success_count, 'failed_count': failed_count})}\n\n"
@@ -917,11 +1054,36 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
                     'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
+            yield f"data: {json.dumps({'type': 'account_result', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'status': 'success' if result.get('success') else 'failed', 'error_message': result.get('error_message') or '', 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+            if is_token_refresh_stop_requested():
+                stopped_payload = finalize_stopped_full_refresh(
+                    conn,
+                    snapshot_trigger_type,
+                    total,
+                    success_count,
+                    failed_count,
+                    failed_list,
+                    delay_seconds
+                )
+                yield f"data: {json.dumps(stopped_payload)}\n\n"
+                return
+
             current_account = None
 
             if index < total and delay_seconds > 0:
                 yield f"data: {json.dumps({'type': 'delay', 'seconds': delay_seconds})}\n\n"
-                time_module.sleep(delay_seconds)
+                if not wait_refresh_delay(delay_seconds):
+                    stopped_payload = finalize_stopped_full_refresh(
+                        conn,
+                        snapshot_trigger_type,
+                        total,
+                        success_count,
+                        failed_count,
+                        failed_list,
+                        delay_seconds
+                    )
+                    yield f"data: {json.dumps(stopped_payload)}\n\n"
+                    return
 
         error_summary = build_refresh_error_summary(failed_list)
         mark_token_refresh_snapshot_finished(
@@ -957,6 +1119,7 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
     finally:
         if conn is not None:
             conn.close()
+        clear_token_refresh_stop_request()
         release_token_refresh_run_lock(lock_acquired)
 
 
@@ -1046,6 +1209,24 @@ def api_trigger_scheduled_refresh():
     snapshot_type = 'manual_all' if force else 'scheduled'
     log_type = 'manual' if force else 'scheduled'
     return Response(stream_full_refresh_events(snapshot_type, log_type), mimetype='text/event-stream')
+
+
+@app.route('/api/accounts/stop-full-refresh', methods=['POST'])
+@login_required
+def api_stop_full_refresh():
+    """请求停止当前全量刷新任务。"""
+    if not token_refresh_run_lock.locked():
+        clear_token_refresh_stop_request()
+        return jsonify({
+            'success': False,
+            'message': '当前没有进行中的全量刷新任务'
+        }), 409
+
+    request_token_refresh_stop()
+    return jsonify({
+        'success': True,
+        'message': TOKEN_REFRESH_STOP_REQUESTED_MESSAGE,
+    })
 
 
 @app.route('/api/accounts/refresh-logs', methods=['GET'])

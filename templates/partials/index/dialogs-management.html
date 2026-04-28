@@ -513,7 +513,20 @@
                         </div>
                         <div class="refresh-toolbar__actions">
                             <button class="btn btn-primary" onclick="refreshAllAccounts()" id="refreshAllBtn">全量刷新</button>
+                            <button class="btn btn-danger" onclick="stopFullRefresh()" id="stopRefreshBtn" hidden>停止任务</button>
                             <button class="btn btn-warning" onclick="retryFailedAccounts()" id="retryFailedBtn">重试失败</button>
+                        </div>
+                    </section>
+
+                    <section class="refresh-log-panel">
+                        <div class="refresh-log-panel__head">
+                            <div>
+                                <span class="refresh-list-panel__title">任务日志</span>
+                                <div class="refresh-log-panel__summary" id="refreshLogsSummary">暂无任务日志</div>
+                            </div>
+                        </div>
+                        <div class="refresh-log-list" id="refreshLogsList">
+                            <div class="refresh-log-empty">暂无任务日志</div>
                         </div>
                     </section>
 

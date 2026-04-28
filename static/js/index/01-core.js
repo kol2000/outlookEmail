@@ -1132,7 +1132,9 @@
                 const btn = document.getElementById('genericConfirmBtn');
                 btn.textContent = confirmText;
                 btn.className = danger ? 'btn btn-danger' : 'btn btn-primary';
-                showModal('genericConfirmModal');
+                closeNavbarActionsMenu();
+                closeMobilePanels();
+                setModalVisible('genericConfirmModal', true);
             });
         }
 

@@ -6,13 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+- Token 刷新管理新增全量刷新任务日志面板和停止任务按钮，支持在执行期间查看账号级进度与结果。
+
 ### Changed
 - Token 刷新管理移除“最近一次全量刷新”卡片展示，顶部统计区收敛为总邮箱数、成功邮箱和失败邮箱三项。
+- Token 刷新确认框改为叠加展示，触发全量刷新时不再关闭 Token 刷新管理弹窗。
 
 ### Fixed
-- 修复 Windows 控制台输出 `✓`、`⚠` 等 Unicode 符号时触发的编码异常，统一改为编码安全的调度器、转发与错误日志输出。
-- 修复调度器退出阶段重复调用 `shutdown()` 导致的 `SchedulerNotRunningError`，`atexit` 回调统一复用幂等的 `shutdown_scheduler()`，并补充回归测试。
-
+- 修复 Windows 控制台输出 Unicode 符号时触发的编码异常，统一改为编码安全的调度器、转发与错误日志输出。
+- 修复调度器退出阶段重复调用 shutdown() 导致的 SchedulerNotRunningError，atexit 回调统一复用幂等的 shutdown_scheduler()，并补充回归测试。
+- 修复全量刷新过程中无法保留弹窗上下文的问题，并补充停止任务接口、停止事件回传和相关回归测试。
 ## [2.0.33] - 2026-04-28
 
 ### Added
