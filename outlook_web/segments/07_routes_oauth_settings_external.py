@@ -170,6 +170,7 @@ def api_get_settings():
     settings['cloudflare_admin_password'] = get_cloudflare_admin_password()
     settings['app_timezone'] = get_app_timezone()
     settings['show_account_created_at'] = get_setting('show_account_created_at', 'true')
+    settings['show_account_sort_order'] = get_setting('show_account_sort_order', 'false')
     settings['forward_channels'] = get_forward_channels()
     settings['forward_check_interval_minutes'] = get_setting('forward_check_interval_minutes', '5')
     settings['forward_account_delay_seconds'] = get_setting('forward_account_delay_seconds', '0')
@@ -305,6 +306,16 @@ def api_update_settings():
                 errors.append('更新创建时间展示失败')
         else:
             errors.append('创建时间展示必须是 true 或 false')
+
+    if 'show_account_sort_order' in data:
+        show_sort_order = str(data['show_account_sort_order']).lower()
+        if show_sort_order in ('true', 'false'):
+            if set_setting('show_account_sort_order', show_sort_order):
+                updated.append('排序值展示')
+            else:
+                errors.append('更新排序值展示失败')
+        else:
+            errors.append('排序值展示必须是 true 或 false')
 
     # 更新对外 API Key
     if 'external_api_key' in data:

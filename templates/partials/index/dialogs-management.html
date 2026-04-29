@@ -14,7 +14,7 @@
                                 <li>
                                     <button type="button" class="settings-sidebar-link is-active" data-target="settingsGeneralSection" onclick="scrollSettingsSection('settingsGeneralSection', this)">
                                         <strong>常规设置</strong>
-                                        <span>时区与创建时间展示</span>
+                                        <span>时区与列表辅助信息展示</span>
                                     </button>
                                 </li>
                                 <li>
@@ -55,7 +55,7 @@
                             <div class="settings-section-head">
                                 <span class="settings-section-kicker">General</span>
                                 <h4>常规设置</h4>
-                                <p>统一控制全局时间显示规则和账号创建时间展示方式。</p>
+                                <p>统一控制全局时间显示规则和邮箱列表辅助信息。</p>
                             </div>
                             <div class="settings-panel settings-panel-grid">
                                 <div class="form-group">
@@ -69,6 +69,13 @@
                                         <span class="form-label">展示创建时间</span>
                                     </label>
                                     <div class="form-hint">关闭后，不在邮箱列表左下角显示创建时间。</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="settings-toggle settings-toggle--card">
+                                        <input type="checkbox" id="settingsShowAccountSortOrder">
+                                        <span class="form-label">展示排序值</span>
+                                    </label>
+                                    <div class="form-hint">关闭后，不在邮箱列表底部显示自定义排序值。</div>
                                 </div>
                             </div>
                         </section>

@@ -1,4 +1,4 @@
-        /* global accountsCache, closeAllModals, currentGroupId, currentGroupName, deleteCurrentAccount, ensureForwardingSettingsUI, getSelectedForwardChannels, groups, handleApiError, hideEditAccountModal, hideModal, hideSettingsModal, isTempEmailGroup, isTempImportGroup, loadAccountsByGroup, loadGroups, loadTempEmails, normalizeSmtpForwardProvider, refreshVisibleAccountList, setAppTimeZone, setModalVisible, setSelectedForwardChannels, setShowAccountCreatedAt, showModal, showToast, syncSmtpProviderUI, toggleRefreshStrategy, updateEditAccountFields, updateImportHint */
+        /* global accountsCache, closeAllModals, currentGroupId, currentGroupName, deleteCurrentAccount, ensureForwardingSettingsUI, getSelectedForwardChannels, groups, handleApiError, hideEditAccountModal, hideModal, hideSettingsModal, isTempEmailGroup, isTempImportGroup, loadAccountsByGroup, loadGroups, loadTempEmails, normalizeSmtpForwardProvider, refreshVisibleAccountList, setAppTimeZone, setModalVisible, setSelectedForwardChannels, setShowAccountCreatedAt, setShowAccountSortOrder, showModal, showToast, syncSmtpProviderUI, toggleRefreshStrategy, updateEditAccountFields, updateImportHint */
 
         // ==================== 设置相关 ====================
         let settingsScrollSyncBound = false;
@@ -490,6 +490,7 @@
                     document.getElementById('refreshCron').value = data.settings.refresh_cron || '0 2 * * *';
                     document.getElementById('enableScheduledRefresh').checked = data.settings.enable_scheduled_refresh !== 'false';
                     document.getElementById('settingsShowAccountCreatedAt').checked = String(data.settings.show_account_created_at) !== 'false';
+                    document.getElementById('settingsShowAccountSortOrder').checked = String(data.settings.show_account_sort_order) === 'true';
                     document.getElementById('forwardCheckIntervalMinutes').value = data.settings.forward_check_interval_minutes || '5';
                     document.getElementById('forwardAccountDelaySeconds').value = data.settings.forward_account_delay_seconds || '0';
                     document.getElementById('forwardEmailWindowMinutes').value = data.settings.forward_email_window_minutes || '0';
@@ -531,6 +532,7 @@
             const strategy = document.querySelector('input[name="refreshStrategy"]:checked').value;
             const enableScheduled = document.getElementById('enableScheduledRefresh').checked;
             const showAccountCreatedAt = !!document.getElementById('settingsShowAccountCreatedAt')?.checked;
+            const showAccountSortOrder = !!document.getElementById('settingsShowAccountSortOrder')?.checked;
             const settings = {};
             const forwardChannels = getSelectedForwardChannels();
 
@@ -623,6 +625,7 @@
             settings.enable_scheduled_refresh = enableScheduled;
             settings.app_timezone = appTimeZone;
             settings.show_account_created_at = showAccountCreatedAt;
+            settings.show_account_sort_order = showAccountSortOrder;
             settings.forward_channels = forwardChannels;
             settings.forward_check_interval_minutes = forwardMinutes;
             settings.forward_account_delay_seconds = forwardAccountDelaySeconds;
@@ -661,6 +664,7 @@
                 if (data.success) {
                     setAppTimeZone(appTimeZone);
                     setShowAccountCreatedAt(showAccountCreatedAt);
+                    setShowAccountSortOrder(showAccountSortOrder);
                     await loadGroups();
                     await refreshVisibleAccountList(false);
                     showToast('时间展示已生效，定时任务重启后生效', 'success');

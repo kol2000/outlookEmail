@@ -54,6 +54,7 @@
         let emailListLoadCheckTimer = null;
         let appTimeZone = DEFAULT_APP_TIME_ZONE;
         let showAccountCreatedAt = true;
+        let showAccountSortOrder = false;
 
         function isUntaggedTagFilterValue(value) {
             return String(value || '').trim() === UNTAGGED_TAG_FILTER_KEY;
@@ -128,6 +129,15 @@
 
         function shouldShowAccountCreatedAt() {
             return showAccountCreatedAt !== false;
+        }
+
+        function setShowAccountSortOrder(enabled) {
+            showAccountSortOrder = enabled !== false;
+            return showAccountSortOrder;
+        }
+
+        function shouldShowAccountSortOrder() {
+            return showAccountSortOrder !== false;
         }
 
         function parseDateInput(dateInput) {
@@ -902,6 +912,7 @@
                     setAppTimeZone(timeZone);
                 }
                 setShowAccountCreatedAt(String(data?.settings?.show_account_created_at) !== 'false');
+                setShowAccountSortOrder(String(data?.settings?.show_account_sort_order) === 'true');
                 return data?.settings || null;
             } catch (error) {
                 return null;

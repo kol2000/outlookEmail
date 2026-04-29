@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.37] - 2026-04-29
+
+### Added
+- 系统设置新增“展示排序值”开关，可控制普通邮箱列表底部是否显示自定义排序值。
+
+### Changed
+- “展示排序值”默认改为关闭；新装或缺省配置下，普通邮箱列表不再默认展示排序值。
+
+### Fixed
+- 补齐排序值展示开关的设置持久化、启动恢复、列表即时刷新、API 文档与回归测试。
+
 ## [2.0.36] - 2026-04-29
 
 ### Fixed

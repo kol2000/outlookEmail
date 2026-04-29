@@ -582,7 +582,8 @@
             flex-wrap: wrap;
         }
 
-        .account-created-at {
+        .account-created-at,
+        .account-sort-order {
             font-size: 11px;
             color: #6b7280;
             line-height: 1.4;

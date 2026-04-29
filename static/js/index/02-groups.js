@@ -1,4 +1,4 @@
-        /* global accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatAbsoluteDateTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
+        /* global accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatAbsoluteDateTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, shouldShowAccountSortOrder, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
 
         // ==================== 分组相关 ====================
 
@@ -706,6 +706,10 @@
 
         function renderAccountFooter(acc) {
             const footerParts = [];
+            const sortOrder = getAccountSortOrderValue(acc);
+            if (shouldShowAccountSortOrder() && sortOrder !== null) {
+                footerParts.push(`<span class="account-sort-order">排序值 ${escapeHtml(String(sortOrder))}</span>`);
+            }
             if (shouldShowAccountCreatedAt() && acc.created_at) {
                 footerParts.push(`<span class="account-created-at" title="${escapeHtml(acc.created_at || '')}">${escapeHtml(formatAbsoluteDateTime(acc.created_at))}</span>`);
             }

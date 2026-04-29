@@ -1158,6 +1158,8 @@ curl -H "X-API-Key: your-api-key" \
 | `cloudflare_email_domains` | Cloudflare 邮箱域名列表，逗号分隔字符串 |
 | `cloudflare_admin_password` | Cloudflare 管理密码 |
 | `app_timezone` | 当前系统时区，IANA 时区名，例如 `Asia/Shanghai` |
+| `show_account_created_at` | 是否在邮箱列表展示创建时间 |
+| `show_account_sort_order` | 是否在邮箱列表展示自定义排序值 |
 | `forward_channels` | 当前启用的转发渠道 |
 | `forward_check_interval_minutes` | 转发检查间隔 |
 | `forward_email_window_minutes` | 转发时间窗口 |
@@ -1190,6 +1192,8 @@ curl -H "X-API-Key: your-api-key" \
 | `use_cron_schedule` | bool | 是否使用 Cron 调度 |
 | `enable_scheduled_refresh` | bool | 是否开启定时刷新 |
 | `app_timezone` | string | 系统时区，使用 IANA 时区名，例如 `Asia/Shanghai` |
+| `show_account_created_at` | bool | 是否在邮箱列表展示创建时间 |
+| `show_account_sort_order` | bool | 是否在邮箱列表展示自定义排序值 |
 | `external_api_key` | string | 对外 API Key，可传空字符串清空 |
 
 #### 临时邮箱服务相关字段

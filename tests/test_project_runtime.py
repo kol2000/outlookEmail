@@ -515,6 +515,30 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertIsNone(row['sort_order'])
 
+    def test_settings_show_account_sort_order_roundtrips(self):
+        response = self.client.get('/api/settings')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['settings']['show_account_sort_order'], 'false')
+
+        update_response = self.client.put(
+            '/api/settings',
+            json={'show_account_sort_order': False}
+        )
+        self.assertEqual(update_response.status_code, 200)
+        update_payload = update_response.get_json()
+        self.assertTrue(update_payload['success'])
+
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.get_setting('show_account_sort_order'), 'false')
+
+        refreshed_response = self.client.get('/api/settings')
+        self.assertEqual(refreshed_response.status_code, 200)
+        refreshed_payload = refreshed_response.get_json()
+        self.assertTrue(refreshed_payload['success'])
+        self.assertEqual(refreshed_payload['settings']['show_account_sort_order'], 'false')
+
     def test_imap_attachment_detail_and_download_route(self):
         with self.app.app_context():
             db = web_outlook_app.get_db()
@@ -610,6 +634,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('await loadAppTimeZoneFromSettings();', core_js)
         self.assertLess(core_js.index('await loadAppTimeZoneFromSettings();'), core_js.index('loadGroups();'))
         self.assertIn('setShowAccountCreatedAt(String(data?.settings?.show_account_created_at) !== \'false\');', core_js)
+        self.assertIn('setShowAccountSortOrder(String(data?.settings?.show_account_sort_order) === \'true\');', core_js)
         self.assertIn('const timeZone = getAppTimeZone();', oauth_js)
         self.assertIn('timeZone: getAppTimeZone()', refresh_js)
 
@@ -624,16 +649,21 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('data-sort="sort_order"', layout_html)
         self.assertIn('data-sort="created_at"', layout_html)
         self.assertIn('id="settingsShowAccountCreatedAt"', settings_html)
+        self.assertIn('id="settingsShowAccountSortOrder"', settings_html)
         self.assertIn('id="editSortOrder"', dialog_html)
         self.assertIn("let currentSortBy = 'sort_order';", groups_js)
         self.assertIn("currentSortBy === 'sort_order'", groups_js)
         self.assertIn("currentSortBy === 'created_at'", groups_js)
         self.assertNotIn("currentSortBy === 'refresh_time'", groups_js)
         self.assertIn('shouldShowAccountCreatedAt()', groups_js)
+        self.assertIn('shouldShowAccountSortOrder()', groups_js)
+        self.assertIn('排序值 ${escapeHtml(String(sortOrder))}', groups_js)
         self.assertIn('formatAbsoluteDateTime(acc.created_at)', groups_js)
         self.assertIn("document.getElementById('editSortOrder').value = Number(acc.sort_order || 0);", settings_js)
         self.assertIn("document.getElementById('settingsShowAccountCreatedAt').checked = String(data.settings.show_account_created_at) !== 'false';", settings_js)
         self.assertIn('settings.show_account_created_at = showAccountCreatedAt;', settings_js)
+        self.assertIn("document.getElementById('settingsShowAccountSortOrder').checked = String(data.settings.show_account_sort_order) === 'true';", settings_js)
+        self.assertIn('settings.show_account_sort_order = showAccountSortOrder;', settings_js)
 
     def test_refresh_management_ui_uses_account_workbench_layout(self):
         settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
