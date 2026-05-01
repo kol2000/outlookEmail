@@ -1108,23 +1108,24 @@ def api_update_account_v2(account_id):
 
 
 def api_get_emails_v2(email_addr):
-    account = get_account_by_email(email_addr)
+    requested_email = str(email_addr or '').strip()
+    account = resolve_account_for_email_api(requested_email)
     if not account:
         error_payload = build_error_payload(
             "ACCOUNT_NOT_FOUND",
             "账号不存在",
             "NotFoundError",
             404,
-            f"email={email_addr}"
+            f"email={requested_email}"
         )
         return jsonify({'success': False, 'error': error_payload})
 
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
     skip = int(request.args.get('skip', 0))
     top = int(request.args.get('top', 20))
-    subject_contains = request.args.get('subject_contains', '').strip().lower()
-    from_contains = request.args.get('from_contains', '').strip().lower()
-    keyword = request.args.get('keyword', '').strip().lower()
+    subject_contains = get_query_arg_preserve_plus('subject_contains', '').strip().lower()
+    from_contains = get_query_arg_preserve_plus('from_contains', '').strip().lower()
+    keyword = get_query_arg_preserve_plus('keyword', '').strip().lower()
     result = fetch_account_emails(account, folder, skip, top)
     if result.get('success'):
         if subject_contains or from_contains or keyword:
@@ -1132,6 +1133,10 @@ def api_get_emails_v2(email_addr):
                 item for item in result.get('emails', [])
                 if email_matches_filters(account, item, subject_contains, from_contains, keyword)
             ]
+        result['requested_email'] = requested_email
+        result['resolved_email'] = account.get('email', '')
+        if account.get('matched_alias'):
+            result['matched_alias'] = account.get('matched_alias')
     return jsonify(result)
 
 

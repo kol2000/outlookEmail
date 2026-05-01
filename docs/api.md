@@ -1184,7 +1184,7 @@ curl -H "X-API-Key: your-api-key" \
 
 ### GET `/api/emails/<email_addr>`
 
-内部邮件列表接口。支持主邮箱或别名邮箱。
+内部邮件列表接口。支持主邮箱或别名邮箱；若邮箱包含 `+`，会先按完整地址匹配，未命中时再按本地部分从右到左逐级去掉 `+suffix` 回退匹配，兼容主邮箱和别名邮箱。
 
 #### 查询参数
 
@@ -1193,11 +1193,13 @@ curl -H "X-API-Key: your-api-key" \
 | `folder` | string | 否 | `inbox`、`junkemail`、`deleteditems`、`all` |
 | `skip` | int | 否 | 分页偏移，默认 `0` |
 | `top` | int | 否 | 返回数量，默认 `20` |
-| `subject_contains` | string | 否 | 仅保留主题中包含该关键字的邮件 |
-| `from_contains` | string | 否 | 仅保留发件人中包含该关键字的邮件 |
-| `keyword` | string | 否 | 在主题、预览、正文中做进一步关键字过滤 |
+| `subject_contains` | string | 否 | 仅保留主题中包含该关键字的邮件，读取时保留 `+` 字符 |
+| `from_contains` | string | 否 | 仅保留发件人中包含该关键字的邮件，读取时保留 `+` 字符 |
+| `keyword` | string | 否 | 在主题、预览、正文中做进一步关键字过滤，读取时保留 `+` 字符 |
 
 当 `folder=all` 时，行为与对外 API 一致：同时抓取 `inbox` 与 `junkemail`，按时间合并排序。
+
+成功响应会额外包含 `requested_email`、`resolved_email`；当请求邮箱命中别名时，还会包含 `matched_alias`。
 
 #### 列表项字段
 
