@@ -42,6 +42,12 @@
                                     </button>
                                 </li>
                                 <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsWebdavBackupSection" onclick="scrollSettingsSection('settingsWebdavBackupSection', this)">
+                                        <strong>WebDAV 备份</strong>
+                                        <span>导出全部分组并按 Cron 上传</span>
+                                    </button>
+                                </li>
+                                <li>
                                     <button type="button" class="settings-sidebar-link" data-target="forwardingSettingsSection" onclick="scrollSettingsSection('forwardingSettingsSection', this)">
                                         <strong>邮件转发</strong>
                                         <span>SMTP、Telegram 渠道及历史记录</span>
@@ -233,6 +239,74 @@
                                 <div id="cronValidationResult" class="settings-note" style="display: none;"></div>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" id="settingsWebdavBackupSection">
+                    <div class="settings-section-head">
+                        <span class="settings-section-kicker">Backup</span>
+                        <h4>WebDAV 备份</h4>
+                        <p>按 Cron 将“导出全部分组”的文件上传到 WebDAV 目录；Cron 时间使用常规设置里的时区。</p>
+                    </div>
+                    <div class="settings-panel settings-panel-stack">
+                        <div class="settings-panel-grid settings-panel-grid--compact">
+                            <div class="form-group">
+                                <label class="settings-toggle settings-toggle--card">
+                                    <input type="checkbox" id="webdavBackupEnabled">
+                                    <span class="form-label">启用 WebDAV 备份</span>
+                                </label>
+                                <div class="form-hint">开启后，调度器会按下方 Cron 表达式上传备份文件。</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">WebDAV 目录 URL</label>
+                                <input type="text" class="form-input" id="webdavBackupUrl" placeholder="https://dav.example.com/backups">
+                                <div class="form-hint">填写目录地址，系统会自动追加备份文件名。</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">用户名</label>
+                                <input type="text" class="form-input" id="webdavBackupUsername" placeholder="可选">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">密码 / App Password</label>
+                                <input type="password" class="form-input" id="webdavBackupPassword" placeholder="可选">
+                            </div>
+                        </div>
+
+                        <div class="settings-subpanel">
+                            <div class="form-group">
+                                <label class="form-label">备份 Cron 表达式</label>
+                                <input type="text" class="form-input" id="webdavBackupCron" placeholder="0 3 * * *" value="0 3 * * *">
+                                <div class="form-hint">格式：分 时 日 月 星期；计算下次执行时间时使用常规设置里的时区。</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">常用样例</label>
+                                <div class="settings-button-grid">
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 3 * * *')">每天凌晨 3:00</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 4 * * 1')">每周一凌晨 4:00</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('30 2 1 * *')">每月 1 号 2:30</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 */12 * * *')">每 12 小时</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-secondary" type="button" onclick="validateWebdavBackupCronExpression()">计算下次执行时间</button>
+                                <div id="webdavBackupCronValidationResult" class="settings-note" style="display: none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">敏感操作确认</label>
+                            <input type="password" class="form-input" id="webdavBackupVerifyPassword" placeholder="修改 WebDAV 备份设置时输入登录密码">
+                            <div class="form-hint">修改备份设置或手动上传真实备份时需要验证登录密码；测试 WebDAV 不需要。</div>
+                        </div>
+
+                        <div class="settings-action-row settings-action-row--toolbar">
+                            <button class="btn btn-secondary" type="button" id="testWebdavBackupBtn" onclick="testWebdavBackup()">测试 WebDAV</button>
+                            <button class="btn btn-primary" type="button" id="uploadWebdavBackupBtn" onclick="uploadWebdavBackupNow()">手动上传</button>
+                            <div class="form-hint">测试只上传小文件；手动上传会立即上传“导出全部分组”的真实备份。</div>
+                        </div>
+                        <div id="webdavBackupTestResult" class="settings-note" style="display: none;"></div>
+
+                        <div id="webdavBackupStatus" class="settings-note" style="display: none; white-space: pre-line;"></div>
                     </div>
                 </section>
 

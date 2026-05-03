@@ -825,6 +825,243 @@ def api_test_forward_channel():
         return jsonify({'success': False, 'error': f'测试失败: {str(exc)}'})
 
 
+def record_webdav_backup_result(status: str, message: str, filename: str = '') -> None:
+    now_text = datetime.now(get_app_timezone_info()).isoformat()
+    set_setting('webdav_backup_last_run_at', now_text)
+    set_setting('webdav_backup_last_status', status)
+    set_setting('webdav_backup_last_message', message)
+    if filename:
+        set_setting('webdav_backup_last_filename', filename)
+
+
+def build_webdav_backup_filename() -> str:
+    timestamp = datetime.now(get_app_timezone_info()).strftime('%Y%m%d_%H%M%S')
+    return f"all_groups_backup_{timestamp}.txt"
+
+
+def build_webdav_upload_url(base_url: str, filename: str) -> str:
+    return f"{base_url.rstrip('/')}/{quote(filename)}"
+
+
+def normalize_webdav_backup_config(config: Dict[str, Any]) -> Dict[str, str]:
+    return {
+        'url': str(config.get('url') or '').strip(),
+        'username': str(config.get('username') or '').strip(),
+        'password': str(config.get('password') or ''),
+    }
+
+
+@app.route('/api/settings/test-webdav-backup', methods=['POST'])
+@login_required
+def api_test_webdav_backup():
+    data = request.json or {}
+    config = normalize_webdav_backup_config(data.get('config', {}) if isinstance(data.get('config'), dict) else {})
+    base_url = config['url']
+    parsed_url = urlparse(base_url)
+    if not base_url:
+        return jsonify({'success': False, 'error': '请先填写 WebDAV 目录 URL'})
+    if parsed_url.scheme not in ('http', 'https') or not parsed_url.netloc:
+        return jsonify({'success': False, 'error': 'WebDAV 目录 URL 必须是有效的 http(s) 地址'})
+
+    filename = f"outlookemail_webdav_test_{datetime.now(get_app_timezone_info()).strftime('%Y%m%d_%H%M%S')}.txt"
+    upload_url = build_webdav_upload_url(base_url, filename)
+    auth = (config['username'], config['password']) if config['username'] or config['password'] else None
+    content = (
+        'OutlookEmail WebDAV test file\n'
+        f"created_at={datetime.now(get_app_timezone_info()).isoformat()}\n"
+    )
+
+    try:
+        response = requests.put(
+            upload_url,
+            data=content.encode('utf-8'),
+            headers={'Content-Type': 'text/plain; charset=utf-8'},
+            auth=auth,
+            timeout=HTTP_REQUEST_TIMEOUT,
+        )
+        if response.status_code not in (200, 201, 204):
+            return jsonify({
+                'success': False,
+                'error': f'WebDAV 测试上传失败：HTTP {response.status_code}',
+                'status_code': response.status_code,
+            })
+
+        cleanup_message = ''
+        try:
+            cleanup_response = requests.delete(
+                upload_url,
+                auth=auth,
+                timeout=HTTP_REQUEST_TIMEOUT,
+            )
+            if cleanup_response.status_code not in (200, 202, 204, 404):
+                cleanup_message = f'；测试文件已上传，但清理返回 HTTP {cleanup_response.status_code}'
+        except Exception as cleanup_exc:
+            cleanup_message = f'；测试文件已上传，但清理失败：{str(cleanup_exc)}'
+
+        return jsonify({
+            'success': True,
+            'message': f'WebDAV 测试成功，目录可写{cleanup_message}',
+            'filename': filename,
+            'status_code': response.status_code,
+        })
+    except Exception as exc:
+        return jsonify({'success': False, 'error': f'WebDAV 测试失败：{str(exc)}'})
+
+
+def upload_webdav_backup_with_config(base_url: str, username: str, password: str) -> Dict[str, Any]:
+    filename = ''
+    try:
+        parsed_url = urlparse(base_url)
+        if not base_url:
+            message = 'WebDAV 目录 URL 为空'
+            record_webdav_backup_result('failed', message)
+            return {'success': False, 'error': message}
+        if parsed_url.scheme not in ('http', 'https') or not parsed_url.netloc:
+            message = 'WebDAV 目录 URL 必须是有效的 http(s) 地址'
+            record_webdav_backup_result('failed', message)
+            return {'success': False, 'error': message}
+
+        export_payload = build_all_groups_export_content()
+        if export_payload['total_count'] == 0:
+            message = '没有可备份的邮箱账号'
+            record_webdav_backup_result('failed', message)
+            return {'success': False, 'error': message}
+
+        filename = build_webdav_backup_filename()
+        upload_url = build_webdav_upload_url(base_url, filename)
+        auth = (username, password) if username or password else None
+        response = requests.put(
+            upload_url,
+            data=export_payload['content'].encode('utf-8'),
+            headers={'Content-Type': 'text/plain; charset=utf-8'},
+            auth=auth,
+            timeout=HTTP_REQUEST_TIMEOUT,
+        )
+
+        if response.status_code not in (200, 201, 204):
+            message = f'WebDAV 上传失败：HTTP {response.status_code}'
+            record_webdav_backup_result('failed', message, filename)
+            return {'success': False, 'error': message, 'status_code': response.status_code}
+
+        message = f"WebDAV 备份成功：{filename}"
+        record_webdav_backup_result('success', message, filename)
+        log_audit('backup', 'webdav', None, f"备份全部分组，共 {export_payload['total_count']} 个账号")
+        return {
+            'success': True,
+            'message': message,
+            'filename': filename,
+            'total_count': export_payload['total_count'],
+            'status_code': response.status_code,
+        }
+    except Exception as exc:
+        message = f'WebDAV 备份失败：{str(exc)}'
+        record_webdav_backup_result('failed', message, filename)
+        return {'success': False, 'error': message}
+
+
+@app.route('/api/settings/upload-webdav-backup', methods=['POST'])
+@login_required
+def api_upload_webdav_backup():
+    data = request.json or {}
+    login_password = str(data.get('login_password') or '')
+    if not login_password:
+        return jsonify({'success': False, 'error': '手动上传备份需要输入登录密码'})
+    if not verify_login_password(login_password):
+        return jsonify({'success': False, 'error': '登录密码错误'})
+
+    config = normalize_webdav_backup_config(data.get('config', {}) if isinstance(data.get('config'), dict) else {})
+    if not config['url']:
+        config = {
+            'url': get_setting('webdav_backup_url', '').strip(),
+            'username': get_setting('webdav_backup_username', '').strip(),
+            'password': get_setting_decrypted('webdav_backup_password', ''),
+        }
+
+    if not webdav_backup_run_lock.acquire(blocking=False):
+        return jsonify({'success': False, 'error': 'WebDAV 备份正在执行中'})
+
+    try:
+        result = upload_webdav_backup_with_config(config['url'], config['username'], config['password'])
+    finally:
+        webdav_backup_run_lock.release()
+
+    if result.get('success'):
+        return jsonify({
+            'success': True,
+            'message': result.get('message') or 'WebDAV 备份已上传',
+            'filename': result.get('filename', ''),
+            'total_count': result.get('total_count', 0),
+            'status_code': result.get('status_code'),
+        })
+    return jsonify({
+        'success': False,
+        'error': result.get('error', 'WebDAV 备份上传失败'),
+        'status_code': result.get('status_code'),
+    })
+
+
+def run_webdav_backup() -> Dict[str, Any]:
+    if not webdav_backup_run_lock.acquire(blocking=False):
+        return {'success': False, 'error': 'WebDAV 备份正在执行中'}
+
+    try:
+        if get_setting('webdav_backup_enabled', 'false').lower() != 'true':
+            return {'success': False, 'error': 'WebDAV 备份未启用'}
+
+        base_url = get_setting('webdav_backup_url', '').strip()
+        username = get_setting('webdav_backup_username', '').strip()
+        password = get_setting_decrypted('webdav_backup_password', '')
+        return upload_webdav_backup_with_config(base_url, username, password)
+    finally:
+        webdav_backup_run_lock.release()
+
+
+def scheduled_webdav_backup_task():
+    try:
+        with app.app_context():
+            result = run_webdav_backup()
+            if result.get('success'):
+                safe_console_print(f"[WebDAV 备份] 已上传 {result.get('filename', '')}")
+            else:
+                safe_console_print(f"[WebDAV 备份] 跳过或失败：{result.get('error', '未知错误')}")
+    except Exception as exc:
+        safe_console_print(f"[WebDAV 备份] 执行失败：{str(exc)}")
+
+
+def add_webdav_backup_job(scheduler, cron_trigger_cls, app_tzinfo) -> bool:
+    if get_setting('webdav_backup_enabled', 'false').lower() != 'true':
+        return False
+
+    cron_expr = get_setting('webdav_backup_cron', '0 3 * * *').strip()
+    cron_error = validate_five_field_cron_expression_for_timezone(cron_expr, get_app_timezone())
+    if cron_error:
+        safe_console_print(f"⚠ WebDAV 备份 Cron 表达式无效：{cron_error}")
+        return False
+
+    parts = cron_expr.split()
+    if len(parts) != 5:
+        safe_console_print("⚠ WebDAV 备份仅支持 5 段 Cron，未启动备份任务")
+        return False
+
+    minute, hour, day, month, day_of_week = parts
+    scheduler.add_job(
+        func=scheduled_webdav_backup_task,
+        trigger=cron_trigger_cls(
+            minute=minute,
+            hour=hour,
+            day=day,
+            month=month,
+            day_of_week=day_of_week,
+            timezone=app_tzinfo,
+        ),
+        id='webdav_backup',
+        name='WebDAV 定时备份',
+        replace_existing=True,
+    )
+    safe_console_print(f"✓ WebDAV 备份任务已启动：Cron 表达式 '{cron_expr}'")
+    return True
+
+
 def build_forwarding_poll_trigger(cron_trigger_cls, interval_minutes: int, timezone):
     """构建转发轮询触发器，兼容 60 分钟整点轮询。"""
     normalized_interval = max(1, min(60, int(interval_minutes or 5)))
@@ -851,76 +1088,77 @@ def init_scheduler():
                 app_tzinfo = get_app_timezone_info()
                 scheduler = BackgroundScheduler(timezone=app_tzinfo)
                 enable_scheduled = get_setting('enable_scheduled_refresh', 'true').lower() == 'true'
+                jobs_added = False
 
-                if not enable_scheduled:
+                if enable_scheduled:
+                    use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
+                    token_job_added = False
+
+                    if use_cron:
+                        cron_expr = get_setting('refresh_cron', '0 2 * * *')
+                        try:
+                            from croniter import croniter
+                            from datetime import datetime
+                            croniter(cron_expr, datetime.now(app_tzinfo))
+
+                            parts = cron_expr.split()
+                            if len(parts) == 5:
+                                minute, hour, day, month, day_of_week = parts
+                                trigger = CronTrigger(
+                                    minute=minute,
+                                    hour=hour,
+                                    day=day,
+                                    month=month,
+                                    day_of_week=day_of_week,
+                                    timezone=app_tzinfo
+                                )
+                                scheduler.add_job(
+                                    func=scheduled_refresh_task,
+                                    trigger=trigger,
+                                    id='token_refresh',
+                                    name='Token 定时刷新',
+                                    replace_existing=True
+                                )
+                                token_job_added = True
+                                jobs_added = True
+                                safe_console_print(f"✓ 定时刷新任务已启动：Cron 表达式 '{cron_expr}'")
+                            else:
+                                safe_console_print("⚠ Cron 表达式格式错误，回退到默认配置")
+                        except Exception as e:
+                            safe_console_print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
+
+                    if not token_job_added:
+                        refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
+                        scheduler.add_job(
+                            func=scheduled_refresh_task,
+                            trigger=CronTrigger(hour=2, minute=0, timezone=app_tzinfo),
+                            id='token_refresh',
+                            name='Token 定时刷新',
+                            replace_existing=True
+                        )
+                        jobs_added = True
+                        safe_console_print(f"✓ 定时刷新任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
+
+                    forward_interval = max(1, min(60, int(get_setting('forward_check_interval_minutes', '5') or '5')))
+                    scheduler.add_job(
+                        func=process_forwarding_job,
+                        trigger=build_forwarding_poll_trigger(CronTrigger, forward_interval, app_tzinfo),
+                        id='forward_mail',
+                        name='邮件转发轮询',
+                        replace_existing=True
+                    )
+                    jobs_added = True
+                else:
                     safe_console_print("✓ 定时刷新已禁用")
+
+                jobs_added = add_webdav_backup_job(scheduler, CronTrigger, app_tzinfo) or jobs_added
+
+                if not jobs_added:
                     return None
 
-                use_cron = get_setting('use_cron_schedule', 'false').lower() == 'true'
-
-                if use_cron:
-                    cron_expr = get_setting('refresh_cron', '0 2 * * *')
-                    try:
-                        from croniter import croniter
-                        from datetime import datetime
-                        croniter(cron_expr, datetime.now(app_tzinfo))
-
-                        parts = cron_expr.split()
-                        if len(parts) == 5:
-                            minute, hour, day, month, day_of_week = parts
-                            trigger = CronTrigger(
-                                minute=minute,
-                                hour=hour,
-                                day=day,
-                                month=month,
-                                day_of_week=day_of_week,
-                                timezone=app_tzinfo
-                            )
-                            scheduler.add_job(
-                                func=scheduled_refresh_task,
-                                trigger=trigger,
-                                id='token_refresh',
-                                name='Token 定时刷新',
-                                replace_existing=True
-                            )
-                            forward_interval = max(1, min(60, int(get_setting('forward_check_interval_minutes', '5') or '5')))
-                            scheduler.add_job(
-                                func=process_forwarding_job,
-                                trigger=build_forwarding_poll_trigger(CronTrigger, forward_interval, app_tzinfo),
-                                id='forward_mail',
-                                name='邮件转发轮询',
-                                replace_existing=True
-                            )
-                            scheduler.start()
-                            scheduler_instance = scheduler
-                            safe_console_print(f"✓ 定时任务已启动：Cron 表达式 '{cron_expr}'")
-                            atexit.register(shutdown_scheduler)
-                            return scheduler_instance
-                        else:
-                            safe_console_print("⚠ Cron 表达式格式错误，回退到默认配置")
-                    except Exception as e:
-                        safe_console_print(f"⚠ Cron 表达式解析失败: {str(e)}，回退到默认配置")
-
-                refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
-                scheduler.add_job(
-                    func=scheduled_refresh_task,
-                    trigger=CronTrigger(hour=2, minute=0, timezone=app_tzinfo),
-                    id='token_refresh',
-                    name='Token 定时刷新',
-                    replace_existing=True
-                )
-
-                forward_interval = max(1, min(60, int(get_setting('forward_check_interval_minutes', '5') or '5')))
-                scheduler.add_job(
-                    func=process_forwarding_job,
-                    trigger=build_forwarding_poll_trigger(CronTrigger, forward_interval, app_tzinfo),
-                    id='forward_mail',
-                    name='邮件转发轮询',
-                    replace_existing=True
-                )
                 scheduler.start()
                 scheduler_instance = scheduler
-                safe_console_print(f"✓ 定时任务已启动：每天凌晨 2:00 检查刷新（周期：{refresh_interval_days} 天）")
+                safe_console_print(f"✓ 定时任务调度器已启动（时区：{app_timezone}）")
 
             atexit.register(shutdown_scheduler)
 

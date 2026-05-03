@@ -94,51 +94,138 @@ def api_exchange_oauth_token():
 
 # ==================== 设置 API ====================
 
+WEBDAV_BACKUP_SETTING_KEYS = (
+    'webdav_backup_enabled',
+    'webdav_backup_url',
+    'webdav_backup_username',
+    'webdav_backup_password',
+    'webdav_backup_cron',
+)
+
+
+def normalize_bool_setting_value(value) -> str:
+    return 'true' if str(value).strip().lower() in ('1', 'true', 'yes', 'on') else 'false'
+
+
+def normalize_webdav_backup_setting_value(key: str, value) -> str:
+    if key == 'webdav_backup_enabled':
+        return normalize_bool_setting_value(value)
+    return str(value or '').strip()
+
+
+def get_current_webdav_backup_setting_value(key: str) -> str:
+    if key == 'webdav_backup_password':
+        return get_setting_decrypted(key, '')
+    if key == 'webdav_backup_enabled':
+        return normalize_bool_setting_value(get_setting(key, 'false'))
+    if key == 'webdav_backup_cron':
+        return get_setting(key, '0 3 * * *')
+    return get_setting(key, '')
+
+
+def has_webdav_backup_setting_changes(data) -> bool:
+    for key in WEBDAV_BACKUP_SETTING_KEYS:
+        if key not in data:
+            continue
+        incoming_value = normalize_webdav_backup_setting_value(key, data.get(key))
+        current_value = normalize_webdav_backup_setting_value(key, get_current_webdav_backup_setting_value(key))
+        if incoming_value != current_value:
+            return True
+    return False
+
+
+def validate_cron_expression_for_timezone(cron_expr: str, time_zone: str):
+    if not cron_expr:
+        return 'Cron 表达式不能为空'
+    if not is_valid_app_timezone_name(time_zone):
+        return 'Invalid time zone'
+    try:
+        from croniter import croniter
+        from datetime import datetime
+        croniter(cron_expr, datetime.now(ZoneInfo(time_zone)))
+        return None
+    except ImportError:
+        return 'croniter 库未安装'
+    except Exception as exc:
+        return f'Cron 表达式无效: {str(exc)}'
+
+
+def validate_five_field_cron_expression_for_timezone(cron_expr: str, time_zone: str):
+    normalized = str(cron_expr or '').strip()
+    if not normalized:
+        return 'Cron 表达式不能为空'
+    if len(normalized.split()) != 5:
+        return '仅支持 5 段 Cron'
+    return validate_cron_expression_for_timezone(normalized, time_zone)
+
+
+def build_cron_preview(cron_expr: str, time_zone: str, count: int = 5):
+    from croniter import croniter
+    from datetime import datetime
+
+    tzinfo = ZoneInfo(time_zone)
+    base_time = datetime.now(tzinfo)
+    cron = croniter(cron_expr, base_time)
+    next_run = cron.get_next(datetime)
+    if next_run.tzinfo is None:
+        next_run = next_run.replace(tzinfo=tzinfo)
+
+    future_runs = [next_run.isoformat()]
+    for _ in range(max(0, count - 1)):
+        future_run = cron.get_next(datetime)
+        if future_run.tzinfo is None:
+            future_run = future_run.replace(tzinfo=tzinfo)
+        future_runs.append(future_run.isoformat())
+
+    return {
+        'next_run': next_run.isoformat(),
+        'future_runs': future_runs,
+        'time_zone': time_zone,
+    }
+
+
 @app.route('/api/settings/validate-cron', methods=['POST'])
 @login_required
 def api_validate_cron():
     """验证 Cron 表达式"""
     try:
-        from croniter import croniter
-        from datetime import datetime
+        from croniter import croniter  # noqa: F401
     except ImportError:
         return jsonify({'success': False, 'error': 'croniter 库未安装，请运行: pip install croniter'})
 
     data = request.json or {}
     cron_expr = data.get('cron_expression', '').strip()
     requested_timezone = str(data.get('time_zone', '')).strip()
+    expected_fields = data.get('expected_fields')
 
     if not cron_expr:
         return jsonify({'success': False, 'error': 'Cron 表达式不能为空'})
+
+    if expected_fields is not None:
+        try:
+            expected_field_count = int(expected_fields)
+        except (TypeError, ValueError):
+            expected_field_count = 0
+        if expected_field_count > 0 and len(cron_expr.split()) != expected_field_count:
+            return jsonify({
+                'success': False,
+                'valid': False,
+                'error': f'仅支持 {expected_field_count} 段 Cron'
+            })
 
     if requested_timezone and not is_valid_app_timezone_name(requested_timezone):
         return jsonify({'success': False, 'error': 'Invalid time zone'})
 
     preview_timezone = normalize_app_timezone_name(requested_timezone, get_app_timezone())
-    tzinfo = ZoneInfo(preview_timezone)
 
     try:
-        base_time = datetime.now(tzinfo)
-        cron = croniter(cron_expr, base_time)
-
-        next_run = cron.get_next(datetime)
-        if next_run.tzinfo is None:
-            next_run = next_run.replace(tzinfo=tzinfo)
-
-        future_runs = []
-        temp_cron = croniter(cron_expr, base_time)
-        for _ in range(5):
-            future_run = temp_cron.get_next(datetime)
-            if future_run.tzinfo is None:
-                future_run = future_run.replace(tzinfo=tzinfo)
-            future_runs.append(future_run.isoformat())
-
+        preview = build_cron_preview(cron_expr, preview_timezone)
         return jsonify({
             'success': True,
             'valid': True,
-            'next_run': next_run.isoformat(),
-            'future_runs': future_runs,
-            'time_zone': preview_timezone
+            'next_run': preview['next_run'],
+            'future_runs': preview['future_runs'],
+            'time_zone': preview['time_zone']
         })
     except Exception as e:
         return jsonify({
@@ -189,6 +276,26 @@ def api_get_settings():
     settings['telegram_chat_id'] = get_setting('telegram_chat_id', '')
     settings['telegram_proxy_url'] = get_setting('telegram_proxy_url', '')
     settings['wecom_webhook_url'] = get_setting_decrypted('wecom_webhook_url', '')
+    settings['webdav_backup_enabled'] = get_setting('webdav_backup_enabled', 'false')
+    settings['webdav_backup_url'] = get_setting('webdav_backup_url', '')
+    settings['webdav_backup_username'] = get_setting('webdav_backup_username', '')
+    settings['webdav_backup_password'] = get_setting_decrypted('webdav_backup_password', '')
+    settings['webdav_backup_cron'] = get_setting('webdav_backup_cron', '0 3 * * *')
+    settings['webdav_backup_last_run_at'] = get_setting('webdav_backup_last_run_at', '')
+    settings['webdav_backup_last_status'] = get_setting('webdav_backup_last_status', '')
+    settings['webdav_backup_last_message'] = get_setting('webdav_backup_last_message', '')
+    settings['webdav_backup_last_filename'] = get_setting('webdav_backup_last_filename', '')
+    settings['webdav_backup_next_run'] = ''
+    cron_error = validate_five_field_cron_expression_for_timezone(settings['webdav_backup_cron'], settings['app_timezone'])
+    if not cron_error:
+        try:
+            settings['webdav_backup_next_run'] = build_cron_preview(
+                settings['webdav_backup_cron'],
+                settings['app_timezone'],
+                count=1,
+            )['next_run']
+        except Exception:
+            settings['webdav_backup_next_run'] = ''
     return jsonify({'success': True, 'settings': settings})
 
 
@@ -199,6 +306,36 @@ def api_update_settings():
     data = request.json or {}
     updated = []
     errors = []
+
+    webdav_backup_changed = has_webdav_backup_setting_changes(data)
+    if webdav_backup_changed:
+        confirm_password = str(data.get('webdav_backup_verify_password', ''))
+        if not confirm_password:
+            return jsonify({'success': False, 'error': '修改 WebDAV 备份设置需要验证登录密码'})
+        if not verify_login_password(confirm_password):
+            return jsonify({'success': False, 'error': 'WebDAV 备份设置验证失败：登录密码错误'})
+
+        proposed_backup = {
+            key: normalize_webdav_backup_setting_value(key, get_current_webdav_backup_setting_value(key))
+            for key in WEBDAV_BACKUP_SETTING_KEYS
+        }
+        for key in WEBDAV_BACKUP_SETTING_KEYS:
+            if key in data:
+                proposed_backup[key] = normalize_webdav_backup_setting_value(key, data.get(key))
+
+        if proposed_backup['webdav_backup_enabled'] == 'true':
+            backup_url = proposed_backup['webdav_backup_url']
+            parsed_url = urlparse(backup_url)
+            if not backup_url:
+                return jsonify({'success': False, 'error': '启用 WebDAV 备份时必须填写 WebDAV 目录 URL'})
+            if parsed_url.scheme not in ('http', 'https') or not parsed_url.netloc:
+                return jsonify({'success': False, 'error': 'WebDAV 目录 URL 必须是有效的 http(s) 地址'})
+
+            backup_timezone = str(data.get('app_timezone') or get_app_timezone()).strip()
+            backup_timezone = normalize_app_timezone_name(backup_timezone, get_app_timezone())
+            cron_error = validate_five_field_cron_expression_for_timezone(proposed_backup['webdav_backup_cron'], backup_timezone)
+            if cron_error:
+                return jsonify({'success': False, 'error': cron_error})
 
     # 更新登录密码
     if 'login_password' in data:
@@ -505,6 +642,42 @@ def api_update_settings():
             updated.append('企业微信 Webhook')
         else:
             errors.append('保存企业微信 Webhook 失败')
+
+    if 'webdav_backup_enabled' in data:
+        enabled = normalize_bool_setting_value(data['webdav_backup_enabled'])
+        if set_setting('webdav_backup_enabled', enabled):
+            updated.append('WebDAV 备份开关')
+        else:
+            errors.append('保存 WebDAV 备份开关失败')
+
+    if 'webdav_backup_url' in data:
+        if set_setting('webdav_backup_url', str(data['webdav_backup_url']).strip()):
+            updated.append('WebDAV 目录 URL')
+        else:
+            errors.append('保存 WebDAV 目录 URL 失败')
+
+    if 'webdav_backup_username' in data:
+        if set_setting('webdav_backup_username', str(data['webdav_backup_username']).strip()):
+            updated.append('WebDAV 用户名')
+        else:
+            errors.append('保存 WebDAV 用户名失败')
+
+    if 'webdav_backup_password' in data:
+        if set_setting_encrypted('webdav_backup_password', str(data['webdav_backup_password']).strip()):
+            updated.append('WebDAV 密码')
+        else:
+            errors.append('保存 WebDAV 密码失败')
+
+    if 'webdav_backup_cron' in data:
+        cron_expr = str(data['webdav_backup_cron']).strip()
+        backup_timezone = normalize_app_timezone_name(str(data.get('app_timezone') or get_app_timezone()).strip(), get_app_timezone())
+        cron_error = validate_five_field_cron_expression_for_timezone(cron_expr, backup_timezone)
+        if cron_error:
+            errors.append(cron_error)
+        elif set_setting('webdav_backup_cron', cron_expr):
+            updated.append('WebDAV 备份 Cron')
+        else:
+            errors.append('保存 WebDAV 备份 Cron 失败')
 
     if errors:
         return jsonify({'success': False, 'error': '；'.join(errors)})

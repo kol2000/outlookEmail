@@ -38,6 +38,9 @@ class ProjectRuntimeTests(unittest.TestCase):
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM account_tags')
             db.execute('DELETE FROM tags')
+            db.execute('DELETE FROM temp_email_tags')
+            db.execute('DELETE FROM temp_email_messages')
+            db.execute('DELETE FROM temp_emails')
             db.execute('DELETE FROM accounts')
             db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
@@ -539,6 +542,254 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(refreshed_payload['success'])
         self.assertEqual(refreshed_payload['settings']['show_account_sort_order'], 'false')
 
+    def test_webdav_backup_settings_require_login_password_when_changed(self):
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+            web_outlook_app.set_setting('webdav_backup_enabled', 'false')
+            web_outlook_app.set_setting('webdav_backup_url', '')
+            web_outlook_app.set_setting('webdav_backup_username', '')
+            web_outlook_app.set_setting_encrypted('webdav_backup_password', '')
+            web_outlook_app.set_setting('webdav_backup_cron', '0 3 * * *')
+
+        response = self.client.put(
+            '/api/settings',
+            json={
+                'webdav_backup_enabled': True,
+                'webdav_backup_url': 'https://dav.example.com/backups',
+                'webdav_backup_username': 'dav-user',
+                'webdav_backup_password': 'dav-pass',
+                'webdav_backup_cron': '0 4 * * *',
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertIn('登录密码', payload['error'])
+
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.get_setting('webdav_backup_enabled'), 'false')
+            self.assertEqual(web_outlook_app.get_setting('webdav_backup_url'), '')
+
+    def test_webdav_backup_settings_save_with_login_password(self):
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+            web_outlook_app.set_setting('webdav_backup_enabled', 'false')
+            web_outlook_app.set_setting('webdav_backup_url', '')
+            web_outlook_app.set_setting('webdav_backup_username', '')
+            web_outlook_app.set_setting_encrypted('webdav_backup_password', '')
+            web_outlook_app.set_setting('webdav_backup_cron', '0 3 * * *')
+
+        response = self.client.put(
+            '/api/settings',
+            json={
+                'webdav_backup_enabled': True,
+                'webdav_backup_url': 'https://dav.example.com/backups',
+                'webdav_backup_username': 'dav-user',
+                'webdav_backup_password': 'dav-pass',
+                'webdav_backup_cron': '0 4 * * *',
+                'webdav_backup_verify_password': 'current-password',
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'], msg=payload.get('error'))
+
+        settings_response = self.client.get('/api/settings')
+        self.assertEqual(settings_response.status_code, 200)
+        settings_payload = settings_response.get_json()
+        self.assertTrue(settings_payload['success'])
+        settings = settings_payload['settings']
+        self.assertEqual(settings['webdav_backup_enabled'], 'true')
+        self.assertEqual(settings['webdav_backup_url'], 'https://dav.example.com/backups')
+        self.assertEqual(settings['webdav_backup_username'], 'dav-user')
+        self.assertEqual(settings['webdav_backup_password'], 'dav-pass')
+        self.assertEqual(settings['webdav_backup_cron'], '0 4 * * *')
+        self.assertTrue(settings['webdav_backup_next_run'])
+
+        with self.app.app_context():
+            self.assertNotEqual(web_outlook_app.get_setting('webdav_backup_password'), 'dav-pass')
+
+    def test_webdav_backup_cron_requires_five_fields_when_saving(self):
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+            web_outlook_app.set_setting('webdav_backup_enabled', 'false')
+            web_outlook_app.set_setting('webdav_backup_url', '')
+            web_outlook_app.set_setting('webdav_backup_username', '')
+            web_outlook_app.set_setting_encrypted('webdav_backup_password', '')
+            web_outlook_app.set_setting('webdav_backup_cron', '0 3 * * *')
+
+        response = self.client.put(
+            '/api/settings',
+            json={
+                'webdav_backup_enabled': True,
+                'webdav_backup_url': 'https://dav.example.com/backups',
+                'webdav_backup_username': 'dav-user',
+                'webdav_backup_password': 'dav-pass',
+                'webdav_backup_cron': '0 0 4 * * *',
+                'webdav_backup_verify_password': 'current-password',
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertIn('仅支持 5 段 Cron', payload['error'])
+
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.get_setting('webdav_backup_cron'), '0 3 * * *')
+
+    def test_all_groups_backup_uses_selected_group_export_shape(self):
+        extra_group_id = self._create_group('备份分组')
+        self._insert_account('default-export@example.com', group_id=1)
+        self._insert_account('group-export@example.com', group_id=extra_group_id)
+
+        with self.app.app_context():
+            default_group = web_outlook_app.get_group_by_id(1)
+            export_payload = web_outlook_app.build_all_groups_export_content()
+
+        self.assertEqual(export_payload['total_count'], 2)
+        self.assertIn(default_group['name'], export_payload['content'])
+        self.assertIn('备份分组', export_payload['content'])
+        self.assertIn('default-export@example.com', export_payload['content'])
+        self.assertIn('group-export@example.com', export_payload['content'])
+
+    def test_run_webdav_backup_uploads_all_group_export_file(self):
+        self._insert_account('backup-upload@example.com', group_id=1)
+        with self.app.app_context():
+            web_outlook_app.set_setting('webdav_backup_enabled', 'true')
+            web_outlook_app.set_setting('webdav_backup_url', 'https://dav.example.com/backups/')
+            web_outlook_app.set_setting('webdav_backup_username', 'dav-user')
+            web_outlook_app.set_setting_encrypted('webdav_backup_password', 'dav-pass')
+
+            class ResponseStub:
+                status_code = 201
+
+            with patch.object(web_outlook_app.requests, 'put', return_value=ResponseStub()) as put_mock:
+                result = web_outlook_app.run_webdav_backup()
+
+        self.assertTrue(result['success'], msg=result.get('error'))
+        put_mock.assert_called_once()
+        call_args = put_mock.call_args
+        self.assertTrue(call_args.args[0].startswith('https://dav.example.com/backups/all_groups_backup_'))
+        self.assertEqual(call_args.kwargs['auth'], ('dav-user', 'dav-pass'))
+        self.assertIn('backup-upload@example.com', call_args.kwargs['data'].decode('utf-8'))
+        self.assertIn('默认分组', call_args.kwargs['data'].decode('utf-8'))
+
+    def test_webdav_backup_test_uploads_without_login_password(self):
+        class PutResponseStub:
+            status_code = 201
+
+        class DeleteResponseStub:
+            status_code = 204
+
+        with patch.object(web_outlook_app.requests, 'put') as put_mock:
+            put_mock.return_value = PutResponseStub()
+            with patch.object(web_outlook_app.requests, 'delete', return_value=DeleteResponseStub()) as delete_mock:
+                response = self.client.post(
+                    '/api/settings/test-webdav-backup',
+                    json={
+                        'config': {
+                            'url': 'https://dav.example.com/backups',
+                            'username': 'dav-user',
+                            'password': 'dav-pass',
+                        }
+                    }
+                )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'], msg=payload.get('error'))
+        put_mock.assert_called_once()
+        delete_mock.assert_called_once()
+        self.assertEqual(put_mock.call_args.kwargs['auth'], ('dav-user', 'dav-pass'))
+
+    def test_webdav_backup_test_uploads_and_cleans_test_file(self):
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+
+        class PutResponseStub:
+            status_code = 201
+
+        class DeleteResponseStub:
+            status_code = 204
+
+        with patch.object(web_outlook_app.requests, 'put', return_value=PutResponseStub()) as put_mock, \
+                patch.object(web_outlook_app.requests, 'delete', return_value=DeleteResponseStub()) as delete_mock:
+            response = self.client.post(
+                '/api/settings/test-webdav-backup',
+                json={
+                    'login_password': 'current-password',
+                    'config': {
+                        'url': 'https://dav.example.com/backups',
+                        'username': 'dav-user',
+                        'password': 'dav-pass',
+                    }
+                }
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'], msg=payload.get('error'))
+        self.assertIn('目录可写', payload['message'])
+        put_mock.assert_called_once()
+        delete_mock.assert_called_once()
+        self.assertTrue(put_mock.call_args.args[0].startswith('https://dav.example.com/backups/outlookemail_webdav_test_'))
+        self.assertEqual(put_mock.call_args.kwargs['auth'], ('dav-user', 'dav-pass'))
+        self.assertEqual(delete_mock.call_args.kwargs['auth'], ('dav-user', 'dav-pass'))
+
+    def test_manual_webdav_upload_requires_login_password(self):
+        self._insert_account('manual-upload@example.com', group_id=1)
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+
+        with patch.object(web_outlook_app.requests, 'put') as put_mock:
+            response = self.client.post(
+                '/api/settings/upload-webdav-backup',
+                json={
+                    'config': {
+                        'url': 'https://dav.example.com/backups',
+                        'username': 'dav-user',
+                        'password': 'dav-pass',
+                    }
+                }
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertIn('登录密码', payload['error'])
+        put_mock.assert_not_called()
+
+    def test_manual_webdav_upload_uses_current_form_config(self):
+        self._insert_account('manual-upload@example.com', group_id=1)
+        with self.app.app_context():
+            web_outlook_app.set_setting('login_password', web_outlook_app.hash_password('current-password'))
+
+        class PutResponseStub:
+            status_code = 201
+
+        with patch.object(web_outlook_app.requests, 'put', return_value=PutResponseStub()) as put_mock:
+            response = self.client.post(
+                '/api/settings/upload-webdav-backup',
+                json={
+                    'login_password': 'current-password',
+                    'config': {
+                        'url': 'https://dav.example.com/manual',
+                        'username': 'manual-user',
+                        'password': 'manual-pass',
+                    }
+                }
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'], msg=payload.get('error'))
+        self.assertTrue(payload['filename'].startswith('all_groups_backup_'))
+        put_mock.assert_called_once()
+        self.assertTrue(put_mock.call_args.args[0].startswith('https://dav.example.com/manual/all_groups_backup_'))
+        self.assertEqual(put_mock.call_args.kwargs['auth'], ('manual-user', 'manual-pass'))
+        self.assertIn('manual-upload@example.com', put_mock.call_args.kwargs['data'].decode('utf-8'))
+
     def test_imap_attachment_detail_and_download_route(self):
         with self.app.app_context():
             db = web_outlook_app.get_db()
@@ -637,6 +888,51 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('setShowAccountSortOrder(String(data?.settings?.show_account_sort_order) === \'true\');', core_js)
         self.assertIn('const timeZone = getAppTimeZone();', oauth_js)
         self.assertIn('timeZone: getAppTimeZone()', refresh_js)
+
+    def test_webdav_backup_settings_ui_is_present(self):
+        settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
+        settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
+
+        self.assertIn('id="settingsWebdavBackupSection"', settings_html)
+        self.assertIn('id="webdavBackupEnabled"', settings_html)
+        self.assertIn('id="webdavBackupCron"', settings_html)
+        self.assertIn('id="webdavBackupVerifyPassword"', settings_html)
+        self.assertIn('id="testWebdavBackupBtn"', settings_html)
+        self.assertIn('id="uploadWebdavBackupBtn"', settings_html)
+        self.assertIn('id="webdavBackupTestResult"', settings_html)
+        self.assertIn('selectWebdavBackupCronExample', settings_html)
+        self.assertIn('async function validateWebdavBackupCronExpression()', settings_js)
+        self.assertIn('async function testWebdavBackup()', settings_js)
+        self.assertIn('async function uploadWebdavBackupNow()', settings_js)
+        self.assertIn("fetch('/api/settings/test-webdav-backup'", settings_js)
+        self.assertIn("fetch('/api/settings/upload-webdav-backup'", settings_js)
+        self.assertIn('expected_fields: 5', settings_js)
+        self.assertIn('settings.webdav_backup_verify_password = webdavBackupVerifyPassword;', settings_js)
+
+    def test_temp_email_list_uses_selected_tag_filters(self):
+        temp_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '03-temp-emails.js').read_text(encoding='utf-8')
+
+        self.assertIn('selectedTagFilters.size > 0', temp_js)
+        self.assertNotIn('selectedTagIds', temp_js)
+
+    def test_save_settings_separates_saved_refresh_failure(self):
+        settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
+
+        refresh_block = (
+            "try {\n"
+            "                await loadGroups();\n"
+            "                await refreshVisibleAccountList(false);\n"
+            "            } catch (error) {\n"
+            "                showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');"
+        )
+
+        self.assertIn(refresh_block, settings_js)
+        self.assertIn("showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');", settings_js)
+        self.assertIn("showToast('保存设置失败', 'error');\n                return;", settings_js)
+        self.assertLess(
+            settings_js.index('if (!data.success)'),
+            settings_js.index("showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');")
+        )
 
     def test_account_sort_ui_uses_sort_order_and_created_at(self):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')

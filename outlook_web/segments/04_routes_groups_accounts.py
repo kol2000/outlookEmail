@@ -351,6 +351,72 @@ def format_account_export_line(account: Dict[str, Any]) -> str:
     return f"{account['email']}----{account.get('password', '')}----{account.get('client_id', '')}----{account.get('refresh_token', '')}"
 
 
+def build_group_export_content(group_ids: List[int]) -> Dict[str, Any]:
+    """生成与“导出选中分组”一致的导出内容。"""
+    all_lines = []
+    exported_group_ids = []
+    total_count = 0
+
+    for group_id in group_ids:
+        group = get_group_by_id(group_id)
+        if not group:
+            continue
+
+        if group['name'] == '临时邮箱':
+            temp_emails = load_temp_emails()
+            if not temp_emails:
+                continue
+
+            exported_group_ids.append(group_id)
+            all_lines.append(group['name'])
+
+            gptmail_list = [te for te in temp_emails if te.get('provider', 'gptmail') == 'gptmail']
+            duckmail_list = [te for te in temp_emails if te.get('provider') == 'duckmail']
+            cloudflare_list = [te for te in temp_emails if te.get('provider') == 'cloudflare']
+
+            if gptmail_list:
+                all_lines.append('[gptmail]')
+                for te in gptmail_list:
+                    all_lines.append(te['email'])
+                    total_count += 1
+
+            if duckmail_list:
+                all_lines.append('[duckmail]')
+                for te in duckmail_list:
+                    duckmail_password = decrypt_data(te.get('duckmail_password', '')) if te.get('duckmail_password') else ''
+                    all_lines.append(f"{te['email']}----{duckmail_password}")
+                    total_count += 1
+
+            if cloudflare_list:
+                all_lines.append('[cloudflare]')
+                for te in cloudflare_list:
+                    cloudflare_jwt = decrypt_data(te.get('cloudflare_jwt', '')) if te.get('cloudflare_jwt') else ''
+                    all_lines.append(f"{te['email']}----{cloudflare_jwt}")
+                    total_count += 1
+            continue
+
+        accounts = load_accounts(group_id)
+        if not accounts:
+            continue
+
+        exported_group_ids.append(group_id)
+        all_lines.append(group['name'])
+        for acc in accounts:
+            all_lines.append(format_account_export_line(acc))
+            total_count += 1
+
+    return {
+        'content': '\n'.join(all_lines),
+        'total_count': total_count,
+        'group_ids': exported_group_ids,
+    }
+
+
+def build_all_groups_export_content() -> Dict[str, Any]:
+    groups = load_groups()
+    return build_group_export_content([group['id'] for group in groups])
+
+
 @app.route('/api/accounts/export')
 @login_required
 def api_export_all_accounts():
@@ -435,59 +501,16 @@ def api_export_selected_accounts():
     if not group_ids:
         return jsonify({'success': False, 'error': '请选择要导出的分组'})
 
-    # 获取选中分组下的所有账号
-    all_lines = []
-    total_count = 0
-    for group_id in group_ids:
-        group = get_group_by_id(group_id)
-        if not group:
-            continue
-
-        if group['name'] == '临时邮箱':
-            # 临时邮箱分组从 temp_emails 表获取数据
-            temp_emails = load_temp_emails()
-            if temp_emails:
-                all_lines.append(group['name'])
-
-                gptmail_list = [te for te in temp_emails if te.get('provider', 'gptmail') == 'gptmail']
-                duckmail_list = [te for te in temp_emails if te.get('provider') == 'duckmail']
-                cloudflare_list = [te for te in temp_emails if te.get('provider') == 'cloudflare']
-
-                if gptmail_list:
-                    all_lines.append('[gptmail]')
-                    for te in gptmail_list:
-                        all_lines.append(te['email'])
-                        total_count += 1
-
-                if duckmail_list:
-                    all_lines.append('[duckmail]')
-                    for te in duckmail_list:
-                        duckmail_password = decrypt_data(te.get('duckmail_password', '')) if te.get('duckmail_password') else ''
-                        all_lines.append(f"{te['email']}----{duckmail_password}")
-                        total_count += 1
-
-                if cloudflare_list:
-                    all_lines.append('[cloudflare]')
-                    for te in cloudflare_list:
-                        cloudflare_jwt = decrypt_data(te.get('cloudflare_jwt', '')) if te.get('cloudflare_jwt') else ''
-                        all_lines.append(f"{te['email']}----{cloudflare_jwt}")
-                        total_count += 1
-        else:
-            accounts = load_accounts(group_id)
-            if accounts:
-                all_lines.append(group['name'])
-                for acc in accounts:
-                    line = format_account_export_line(acc)
-                    all_lines.append(line)
-                    total_count += 1
+    export_payload = build_group_export_content(group_ids)
+    total_count = export_payload['total_count']
 
     if total_count == 0:
         return jsonify({'success': False, 'error': '选中的分组下没有邮箱账号'})
 
     # 记录审计日志
-    log_audit('export', 'selected_groups', ','.join(map(str, group_ids)), f"导出选中分组的 {total_count} 个账号")
+    log_audit('export', 'selected_groups', ','.join(map(str, export_payload['group_ids'])), f"导出选中分组的 {total_count} 个账号")
 
-    content = '\n'.join(all_lines)
+    content = export_payload['content']
 
     # 生成文件名
     filename = f"selected_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -518,8 +541,7 @@ def api_generate_export_verify_token():
     if not result:
         return jsonify({'success': False, 'error': '系统配置错误'})
 
-    stored_password = result[0]
-    if not verify_password(password, stored_password):
+    if not verify_login_password(password):
         return jsonify({'success': False, 'error': '密码错误'})
 
     # 生成一次性验证token
