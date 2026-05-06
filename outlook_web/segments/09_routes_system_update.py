@@ -42,6 +42,11 @@ def _docker_update_api_version() -> str:
     return version if version.startswith('v') else f'v{version}'
 
 
+def _docker_env_api_version(version: str) -> str:
+    normalized_version = str(version or '').strip() or 'v1.41'
+    return normalized_version[1:] if normalized_version.startswith('v') else normalized_version
+
+
 def _docker_update_socket_path() -> str:
     return os.getenv('DOCKER_UPDATE_SOCKET', '/var/run/docker.sock').strip() or '/var/run/docker.sock'
 
@@ -208,7 +213,33 @@ def _read_docker_api_body(response: http.client.HTTPResponse) -> str:
     return response.read().decode('utf-8', errors='replace')
 
 
-def _docker_api_request(
+def _docker_api_version_key(version: str) -> Optional[Tuple[int, int]]:
+    match = re.fullmatch(r'v?(\d+)\.(\d+)', str(version or '').strip())
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _extract_minimum_supported_docker_api_version(body: str) -> Optional[str]:
+    message = str(body or '').strip()
+    if not message:
+        return None
+
+    try:
+        payload = json.loads(message)
+    except json.JSONDecodeError:
+        payload = None
+
+    if isinstance(payload, dict):
+        message = str(payload.get('message') or message)
+
+    match = re.search(r'Minimum supported API version is\s+v?(\d+\.\d+)', message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return f'v{match.group(1)}'
+
+
+def _docker_api_request_once(
     method: str,
     path: str,
     *,
@@ -217,6 +248,10 @@ def _docker_api_request(
     body: Optional[Dict[str, Any]] = None,
     timeout: int,
 ) -> Tuple[int, str]:
+    normalized_api_version = str(api_version or '').strip() or 'v1.41'
+    if not normalized_api_version.startswith('v'):
+        normalized_api_version = f'v{normalized_api_version}'
+
     request_body = None
     headers = {'Host': 'docker'}
     if body is not None:
@@ -226,7 +261,7 @@ def _docker_api_request(
     elif method.upper() in {'POST', 'PUT', 'PATCH'}:
         headers['Content-Length'] = '0'
 
-    versioned_path = f'/{api_version}{path}'
+    versioned_path = f'/{normalized_api_version}{path}'
     connection = _DockerUnixHTTPConnection(socket_path, timeout=timeout)
     try:
         connection.request(method, versioned_path, body=request_body, headers=headers)
@@ -234,6 +269,48 @@ def _docker_api_request(
         return response.status, _read_docker_api_body(response)
     finally:
         connection.close()
+
+
+def _docker_api_request(
+    method: str,
+    path: str,
+    *,
+    socket_path: str,
+    api_version: str,
+    body: Optional[Dict[str, Any]] = None,
+    timeout: int,
+) -> Tuple[int, str]:
+    status, response_body = _docker_api_request_once(
+        method,
+        path,
+        socket_path=socket_path,
+        api_version=api_version,
+        body=body,
+        timeout=timeout,
+    )
+    minimum_supported_version = None
+    current_version_key = _docker_api_version_key(api_version)
+    minimum_supported_version_key = None
+    if status == 400:
+        minimum_supported_version = _extract_minimum_supported_docker_api_version(response_body)
+        minimum_supported_version_key = _docker_api_version_key(minimum_supported_version)
+
+    if (
+        minimum_supported_version
+        and current_version_key is not None
+        and minimum_supported_version_key is not None
+        and minimum_supported_version_key > current_version_key
+    ):
+        return _docker_api_request_once(
+            method,
+            path,
+            socket_path=socket_path,
+            api_version=minimum_supported_version,
+            body=body,
+            timeout=timeout,
+        )
+
+    return status, response_body
 
 
 def _split_image_reference(image_ref: str) -> Tuple[str, str]:
@@ -299,12 +376,16 @@ def build_watchtower_create_payload(
     container_name: str,
     socket_path: str,
     watchtower_image: str,
+    api_version: str,
 ) -> Dict[str, Any]:
     return {
         'Image': watchtower_image,
         'Cmd': ['--run-once', '--cleanup', container_name],
         'Tty': True,
-        'Env': [f'DOCKER_HOST=unix://{socket_path}'],
+        'Env': [
+            f'DOCKER_HOST=unix://{socket_path}',
+            f'DOCKER_API_VERSION={_docker_env_api_version(api_version)}',
+        ],
         'HostConfig': {
             'AutoRemove': True,
             'Binds': [f'{socket_path}:{socket_path}'],
@@ -347,6 +428,48 @@ def _docker_log_excerpt(body: str, max_lines: int = 12, max_chars: int = 2000) -
     return excerpt.strip()
 
 
+def _watchtower_log_lines(logs: str) -> list[str]:
+    return [line.strip() for line in str(logs or '').splitlines() if line.strip()]
+
+
+def _watchtower_summary_counts(logs: str) -> Dict[str, int]:
+    for line in reversed(_watchtower_log_lines(logs)):
+        if 'session done' not in line.lower():
+            continue
+
+        summary: Dict[str, int] = {}
+        for key in ('Failed', 'Scanned', 'Updated'):
+            match = re.search(rf'\b{key}=(\d+)\b', line)
+            if match:
+                summary[key.lower()] = int(match.group(1))
+        if summary:
+            return summary
+
+    return {}
+
+
+def _watchtower_failure_detail(logs: str) -> str:
+    for line in reversed(_watchtower_log_lines(logs)):
+        normalized_line = line.lower()
+        if 'unable to update container' in normalized_line:
+            match = re.search(
+                r'Unable to update container\s+"?[^"]+"?:\s*(.+?)(?:\s+Proceeding to next\.?)?$',
+                line,
+                flags=re.IGNORECASE,
+            )
+            if match:
+                return match.group(1).strip().rstrip('.')
+            return line
+
+        if 'level=error' in normalized_line or 'level=fatal' in normalized_line:
+            match = re.search(r'msg="([^"]+)"', line)
+            if match:
+                return match.group(1).strip()
+            return line
+
+    return ''
+
+
 def _read_watchtower_logs(config: Dict[str, Any], container_id: str) -> str:
     path = (
         f'/containers/{quote(container_id, safe="")}/logs?'
@@ -384,7 +507,24 @@ def _classify_watchtower_logs(logs: str, current_image: str) -> Tuple[Optional[b
     if 'no running containers to watch' in normalized_logs or 'no running containers to update' in normalized_logs:
         return False, 'Watchtower did not find a matching running target container.'
 
-    if 'unable to update container' in normalized_logs or 'failed' in normalized_logs or 'error' in normalized_logs:
+    failure_detail = _watchtower_failure_detail(logs)
+    if failure_detail:
+        return False, f'Watchtower failed to update {current_image or "the current image"}: {failure_detail}'
+
+    summary = _watchtower_summary_counts(logs)
+    if summary.get('failed', 0) > 0:
+        return False, (
+            f'Watchtower reported {summary["failed"]} failed container update(s) '
+            f'for {current_image or "the current image"}.'
+        )
+
+    if summary.get('updated', 0) > 0:
+        return True, 'Docker image update completed. Service restart should begin shortly.'
+
+    if summary:
+        return False, 'Watchtower completed without applying an update to the current image tag.'
+
+    if 'failed' in normalized_logs or 'error' in normalized_logs:
         return False, f'Watchtower reported an update failure for {current_image or "the current image"}.'
 
     return True, 'Docker image update completed. Service restart should begin shortly.'
@@ -414,6 +554,7 @@ def _create_watchtower_container(config: Dict[str, Any]) -> str:
         container_name=config['container'],
         socket_path=config['socket_path'],
         watchtower_image=config['watchtower_image'],
+        api_version=config['api_version'],
     )
     status, body = _docker_api_request(
         'POST',

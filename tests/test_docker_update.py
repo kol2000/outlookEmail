@@ -76,12 +76,19 @@ class DockerUpdateTests(unittest.TestCase):
             container_name='outlook-mail-reader',
             socket_path='/var/run/docker.sock',
             watchtower_image='containrrr/watchtower:latest',
+            api_version='v1.52',
         )
 
         self.assertEqual(payload['Image'], 'containrrr/watchtower:latest')
         self.assertEqual(payload['Cmd'], ['--run-once', '--cleanup', 'outlook-mail-reader'])
         self.assertTrue(payload['Tty'])
-        self.assertEqual(payload['Env'], ['DOCKER_HOST=unix:///var/run/docker.sock'])
+        self.assertEqual(
+            payload['Env'],
+            [
+                'DOCKER_HOST=unix:///var/run/docker.sock',
+                'DOCKER_API_VERSION=1.52',
+            ],
+        )
         self.assertEqual(payload['HostConfig']['Binds'], ['/var/run/docker.sock:/var/run/docker.sock'])
         self.assertTrue(payload['HostConfig']['AutoRemove'])
 
@@ -90,9 +97,16 @@ class DockerUpdateTests(unittest.TestCase):
             container_name='outlook-mail-reader',
             socket_path='/custom/docker.sock',
             watchtower_image='containrrr/watchtower:latest',
+            api_version='1.44',
         )
 
-        self.assertEqual(payload['Env'], ['DOCKER_HOST=unix:///custom/docker.sock'])
+        self.assertEqual(
+            payload['Env'],
+            [
+                'DOCKER_HOST=unix:///custom/docker.sock',
+                'DOCKER_API_VERSION=1.44',
+            ],
+        )
         self.assertEqual(payload['HostConfig']['Binds'], ['/custom/docker.sock:/custom/docker.sock'])
 
     def test_docker_api_body_reads_full_stream(self):
@@ -105,6 +119,61 @@ class DockerUpdateTests(unittest.TestCase):
         self.assertIn('{"status":"pulling"}', body)
         self.assertEqual(body.count('x'), 70000)
         self.assertNotIn('truncated', body)
+
+    def test_docker_api_request_retries_with_minimum_supported_version(self):
+        request_paths = []
+        responses = [
+            (
+                400,
+                (
+                    '{"message":"client version 1.41 is too old. '
+                    'Minimum supported API version is 1.44, please upgrade your client to a newer version"}'
+                ),
+            ),
+            (200, '{"ok": true}'),
+        ]
+
+        class FakeResponse:
+            def __init__(self, status, body):
+                self.status = status
+                self._body = body
+
+            def read(self):
+                return self._body.encode('utf-8')
+
+        class FakeConnection:
+            def __init__(self, socket_path, timeout):
+                self.socket_path = socket_path
+                self.timeout = timeout
+
+            def request(self, method, path, body=None, headers=None):
+                request_paths.append(path)
+
+            def getresponse(self):
+                status, body = responses.pop(0)
+                return FakeResponse(status, body)
+
+            def close(self):
+                return None
+
+        with patch.object(web_outlook_app, '_DockerUnixHTTPConnection', FakeConnection):
+            status, body = web_outlook_app._docker_api_request(
+                'GET',
+                '/containers/outlook-mail-reader/json',
+                socket_path='/var/run/docker.sock',
+                api_version='v1.41',
+                timeout=10,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {'ok': True})
+        self.assertEqual(
+            request_paths,
+            [
+                '/v1.41/containers/outlook-mail-reader/json',
+                '/v1.44/containers/outlook-mail-reader/json',
+            ],
+        )
 
     def test_ensure_watchtower_image_detects_stream_error(self):
         config = {
@@ -130,6 +199,36 @@ class DockerUpdateTests(unittest.TestCase):
 
         self.assertFalse(success)
         self.assertIn('No new image found for the current tag', message)
+
+    def test_classify_watchtower_logs_treats_failed_zero_summary_as_success(self):
+        success, message = web_outlook_app._classify_watchtower_logs(
+            (
+                'time="2026-05-06T10:00:00Z" level=info msg="Found new '
+                'ghcr.io/assast/outlookemail:latest image (sha256:abc)"\n'
+                'time="2026-05-06T10:00:10Z" level=info msg="Stopping /outlook-mail-reader"\n'
+                'time="2026-05-06T10:00:20Z" level=info msg="Session done" Failed=0 Scanned=1 Updated=1 notify=no'
+            ),
+            'ghcr.io/assast/outlookemail:latest',
+        )
+
+        self.assertTrue(success)
+        self.assertIn('Docker image update completed', message)
+
+    def test_classify_watchtower_logs_surfaces_specific_failure_reason(self):
+        success, message = web_outlook_app._classify_watchtower_logs(
+            (
+                'time="2026-05-06T10:00:00Z" level=info msg="Unable to update container '
+                '"/outlook-mail-reader": Error response from daemon: Head '
+                '\\"https://ghcr.io/v2/assast/outlookemail/manifests/latest\\": unauthorized. '
+                'Proceeding to next."\n'
+                'time="2026-05-06T10:00:20Z" level=info msg="Session done" Failed=0 Scanned=1 Updated=0 notify=no'
+            ),
+            'ghcr.io/assast/outlookemail:latest',
+        )
+
+        self.assertFalse(success)
+        self.assertIn('Watchtower failed to update ghcr.io/assast/outlookemail:latest', message)
+        self.assertIn('unauthorized', message)
 
     def test_update_state_persists_latest_snapshot_to_file(self):
         web_outlook_app._update_docker_update_state(message='first', success=None)
