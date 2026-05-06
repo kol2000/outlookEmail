@@ -1,9 +1,11 @@
 import importlib
+import io
 import os
 import pathlib
 import sys
 import tempfile
 import unittest
+import zipfile
 from email.message import EmailMessage
 from unittest.mock import patch
 
@@ -817,6 +819,12 @@ class ProjectRuntimeTests(unittest.TestCase):
             subtype='plain',
             filename='report.txt',
         )
+        message.add_attachment(
+            b'second body',
+            maintype='text',
+            subtype='plain',
+            filename='invoice.txt',
+        )
         raw_email = message.as_bytes()
 
         class AttachmentMail:
@@ -865,6 +873,15 @@ class ProjectRuntimeTests(unittest.TestCase):
             self.assertEqual(download_response.status_code, 200)
             self.assertEqual(download_response.data, b'attachment body')
             self.assertIn("filename*=UTF-8''report.txt", download_response.headers.get('Content-Disposition', ''))
+
+            zip_response = self.client.get('/api/email/user@example.com/msg-1/attachments/download-all?method=imap&folder=inbox')
+            self.assertEqual(zip_response.status_code, 200)
+            self.assertEqual(zip_response.mimetype, 'application/zip')
+            self.assertIn("filename*=UTF-8''attachments.zip", zip_response.headers.get('Content-Disposition', ''))
+            with zipfile.ZipFile(io.BytesIO(zip_response.data)) as archive:
+                self.assertEqual(set(archive.namelist()), {'report.txt', 'invoice.txt'})
+                self.assertEqual(archive.read('report.txt'), b'attachment body')
+                self.assertEqual(archive.read('invoice.txt'), b'second body')
 
 
 class FrontendTimezoneBootstrapTests(unittest.TestCase):

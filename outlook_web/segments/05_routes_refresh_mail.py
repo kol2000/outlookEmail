@@ -2357,6 +2357,164 @@ def api_get_email_detail(email_addr, message_id):
     return jsonify({'success': False, 'error': '获取邮件详情失败'})
 
 
+def download_email_attachment_for_account(account, method, message_id, attachment_id, folder, proxy_url, fallback_proxy_urls):
+    if account.get('account_type') == 'imap':
+        return download_email_attachment_imap_generic_result(
+            account['email'],
+            account.get('imap_password', ''),
+            account.get('imap_host', ''),
+            account.get('imap_port', 993),
+            message_id,
+            attachment_id,
+            folder,
+            account.get('provider', 'custom'),
+            proxy_url
+        )
+
+    if method == 'graph':
+        return download_email_attachment_graph_result(
+            account['client_id'],
+            account['refresh_token'],
+            message_id,
+            attachment_id,
+            proxy_url,
+            fallback_proxy_urls,
+        )
+
+    return download_email_attachment_imap_result(
+        account['email'],
+        account['client_id'],
+        account['refresh_token'],
+        message_id,
+        attachment_id,
+        folder,
+        proxy_url,
+        fallback_proxy_urls,
+    )
+
+
+def get_email_attachment_metadata_for_download(account, method, message_id, folder, proxy_url, fallback_proxy_urls):
+    if account.get('account_type') == 'imap':
+        detail_result = get_email_detail_imap_generic_result(
+            account['email'],
+            account.get('imap_password', ''),
+            account.get('imap_host', ''),
+            account.get('imap_port', 993),
+            message_id,
+            folder,
+            account.get('provider', 'custom'),
+            proxy_url
+        )
+        if detail_result.get('success'):
+            return {'success': True, 'attachments': detail_result.get('email', {}).get('attachments', [])}
+        return {'success': False, 'error': detail_result.get('error', '获取附件列表失败')}
+
+    if method == 'graph':
+        attachments = get_email_attachments_graph(
+            account['client_id'],
+            account['refresh_token'],
+            message_id,
+            proxy_url,
+            fallback_proxy_urls,
+        )
+        if attachments is None:
+            return {'success': False, 'error': '获取附件列表失败'}
+        return {'success': True, 'attachments': attachments}
+
+    detail = get_email_detail_imap(
+        account['email'],
+        account['client_id'],
+        account['refresh_token'],
+        message_id,
+        folder,
+        proxy_url,
+        fallback_proxy_urls,
+    )
+    if detail:
+        return {'success': True, 'attachments': detail.get('attachments', [])}
+    return {'success': False, 'error': '获取附件列表失败'}
+
+
+def build_zip_attachment_name(filename, used_names):
+    filename = sanitize_attachment_filename(filename, 'attachment')
+    name_root, dot, extension = filename.rpartition('.')
+    if not dot or not name_root:
+        name_root = filename
+        extension = ''
+
+    candidate = filename
+    counter = 2
+    while candidate in used_names:
+        suffix = f" ({counter})"
+        candidate = f"{name_root}{suffix}.{extension}" if extension else f"{name_root}{suffix}"
+        counter += 1
+    used_names.add(candidate)
+    return candidate
+
+
+@app.route('/api/email/<email_addr>/<path:message_id>/attachments/download-all')
+@login_required
+def api_download_all_email_attachments(email_addr, message_id):
+    """打包下载邮件所有附件"""
+    account = get_account_by_email(email_addr)
+    if not account:
+        return jsonify({'success': False, 'error': '账号不存在'})
+
+    method = request.args.get('method', 'graph')
+    folder = normalize_folder_name(request.args.get('folder', 'inbox'))
+    proxy_url = get_account_proxy_url(account)
+    fallback_proxy_urls = get_account_proxy_failover_urls(account)
+    metadata_result = get_email_attachment_metadata_for_download(
+        account,
+        method,
+        message_id,
+        folder,
+        proxy_url,
+        fallback_proxy_urls,
+    )
+    if not metadata_result.get('success'):
+        return jsonify({'success': False, 'error': metadata_result.get('error', '获取附件列表失败')})
+
+    attachments = [attachment for attachment in metadata_result.get('attachments', []) if attachment.get('id')]
+    if not attachments:
+        return jsonify({'success': False, 'error': '没有可下载附件'})
+
+    from io import BytesIO
+    import zipfile
+
+    zip_buffer = BytesIO()
+    used_names = set()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for attachment in attachments:
+            result = download_email_attachment_for_account(
+                account,
+                method,
+                message_id,
+                attachment.get('id'),
+                folder,
+                proxy_url,
+                fallback_proxy_urls,
+            )
+            if not result.get('success'):
+                return jsonify({
+                    'success': False,
+                    'error': result.get('error', '获取附件失败'),
+                    'attachment': attachment.get('name', ''),
+                })
+
+            content = result.get('content', b'') or b''
+            if isinstance(content, str):
+                content = content.encode('utf-8')
+            archive.writestr(
+                build_zip_attachment_name(result.get('filename') or attachment.get('name') or 'attachment', used_names),
+                content
+            )
+
+    response = Response(zip_buffer.getvalue(), mimetype='application/zip')
+    response.headers['Content-Disposition'] = "attachment; filename*=UTF-8''attachments.zip"
+    return response
+
+
 @app.route('/api/email/<email_addr>/<path:message_id>/attachments/<path:attachment_id>')
 @login_required
 def api_download_email_attachment(email_addr, message_id, attachment_id):
@@ -2369,39 +2527,15 @@ def api_download_email_attachment(email_addr, message_id, attachment_id):
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
-
-    if account.get('account_type') == 'imap':
-        result = download_email_attachment_imap_generic_result(
-            account['email'],
-            account.get('imap_password', ''),
-            account.get('imap_host', ''),
-            account.get('imap_port', 993),
-            message_id,
-            attachment_id,
-            folder,
-            account.get('provider', 'custom'),
-            proxy_url
-        )
-    elif method == 'graph':
-        result = download_email_attachment_graph_result(
-            account['client_id'],
-            account['refresh_token'],
-            message_id,
-            attachment_id,
-            proxy_url,
-            fallback_proxy_urls,
-        )
-    else:
-        result = download_email_attachment_imap_result(
-            account['email'],
-            account['client_id'],
-            account['refresh_token'],
-            message_id,
-            attachment_id,
-            folder,
-            proxy_url,
-            fallback_proxy_urls,
-        )
+    result = download_email_attachment_for_account(
+        account,
+        method,
+        message_id,
+        attachment_id,
+        folder,
+        proxy_url,
+        fallback_proxy_urls,
+    )
 
     if not result.get('success'):
         return jsonify({'success': False, 'error': result.get('error', '获取附件失败')})

@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+- 邮件详情附件区新增“全部下载”，可将同一封邮件的多个附件打包为 ZIP 下载。
+
 ## [2.0.38] - 2026-05-03
 
 ### Added

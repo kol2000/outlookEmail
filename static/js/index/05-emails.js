@@ -162,6 +162,12 @@
             return `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(email.id)}/attachments/${encodeURIComponent(attachment.id)}?method=${method}&folder=${folder}`;
         }
 
+        function buildAllAttachmentsDownloadUrl(email) {
+            const folder = encodeURIComponent(email?.folder || currentFolder || 'inbox');
+            const method = encodeURIComponent(currentMethod || 'graph');
+            return `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(email.id)}/attachments/download-all?method=${method}&folder=${folder}`;
+        }
+
         function renderAttachmentSection(email) {
             const attachments = Array.isArray(email?.attachments) ? email.attachments : [];
             if (attachments.length === 0) {
@@ -171,8 +177,15 @@
             return `
                 <section class="email-attachments" aria-label="邮件附件">
                     <div class="email-attachments__header">
-                        <div class="email-attachments__title">附件</div>
-                        <div class="email-attachments__count">${attachments.length} 个</div>
+                        <div class="email-attachments__summary">
+                            <div class="email-attachments__title">附件</div>
+                            <div class="email-attachments__count">${attachments.length} 个</div>
+                        </div>
+                        ${attachments.length > 1 ? `
+                            <a class="email-attachments__download-all"
+                               href="${buildAllAttachmentsDownloadUrl(email)}"
+                               download="attachments.zip">全部下载</a>
+                        ` : ''}
                     </div>
                     <div class="email-attachments__list">
                         ${attachments.map(attachment => `

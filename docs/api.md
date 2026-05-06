@@ -104,6 +104,7 @@
 | POST | `/api/emails/delete` | Session + CSRF | JSON | 批量删除邮件 |
 | GET | `/api/email/<email_addr>/<message_id>` | Session | JSON | 获取邮件详情 |
 | GET | `/api/email/<email_addr>/<message_id>/attachments/<attachment_id>` | Session | 文件流 | 下载附件 |
+| GET | `/api/email/<email_addr>/<message_id>/attachments/download-all` | Session | ZIP 文件流 | 打包下载全部附件 |
 | GET | `/api/temp-emails` | Session | JSON | 获取临时邮箱列表 |
 | POST | `/api/temp-emails/import` | Session + CSRF | JSON | 批量导入临时邮箱 |
 | POST | `/api/temp-emails/batch-delete` | Session + CSRF | JSON | 批量删除临时邮箱 |
@@ -1258,6 +1259,19 @@ curl -H "X-API-Key: your-api-key" \
 ### GET `/api/email/<email_addr>/<message_id>/attachments/<attachment_id>`
 
 下载单个邮件附件。返回文件流，并带 `Content-Disposition: attachment` 响应头。
+
+#### 查询参数
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `folder` | string | 否 | 当前邮件所在文件夹，默认 `inbox` |
+| `method` | string | 否 | Outlook 账号优先使用 `graph`，传 `imap` 时走 IMAP 下载 |
+
+### GET `/api/email/<email_addr>/<message_id>/attachments/download-all`
+
+打包下载当前邮件的全部附件。返回 `application/zip` 文件流，下载文件名为 `attachments.zip`。
+
+ZIP 内文件名使用附件原始文件名；如果多个附件同名，会自动追加序号避免覆盖。
 
 #### 查询参数
 
