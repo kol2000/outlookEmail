@@ -214,6 +214,21 @@ class DockerUpdateTests(unittest.TestCase):
         self.assertTrue(success)
         self.assertIn('Docker image update completed', message)
 
+    def test_classify_watchtower_logs_ignores_ansi_color_codes_in_summary(self):
+        success, message = web_outlook_app._classify_watchtower_logs(
+            (
+                '\u001b[36mINFO\u001b[0m[0001] Watchtower 1.7.1\n'
+                '\u001b[36mINFO\u001b[0m[0001] Using no notifications\n'
+                '\u001b[36mINFO\u001b[0m[0003] Session done                                  '
+                '\u001b[36mFailed\u001b[0m=0 \u001b[36mScanned\u001b[0m=1 '
+                '\u001b[36mUpdated\u001b[0m=0 \u001b[36mnotify\u001b[0m=no'
+            ),
+            'ghcr.io/assast/outlookemail:latest',
+        )
+
+        self.assertFalse(success)
+        self.assertIn('without applying an update', message)
+
     def test_classify_watchtower_logs_surfaces_specific_failure_reason(self):
         success, message = web_outlook_app._classify_watchtower_logs(
             (
