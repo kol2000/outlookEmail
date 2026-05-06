@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.41] - 2026-05-06
+
+### Fixed
+- 修复 Docker 在线更新在较新的 Docker daemon 上因 API 版本过旧而无法获取容器状态的问题；当 daemon 明确返回最低支持版本时，应用会自动按该版本重试。
+- 修复 Docker 在线更新拉起的 Watchtower 容器未继承 Docker API 版本导致检查/更新直接失败的问题。
+- 修复 Watchtower 带 ANSI 颜色码的日志摘要无法被正确解析的问题，避免把 `Failed=0 / Updated=0` 的“无需更新”结果误报成更新失败。
+
 ## [2.0.40] - 2026-05-06
 
 ### Changed
