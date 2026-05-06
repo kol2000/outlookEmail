@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.40] - 2026-05-06
+
+### Changed
+- Docker 在线更新状态新增文件持久化，仅保留最新一次结果；容器自更新重启后，新的进程会恢复最近一次任务状态。
+- Docker 在线更新新增独立的 `DOCKER_UPDATE_STATUS_TIMEOUT`，用于状态查询和容器 inspect，避免复用实际更新任务超时。
+- 文档补充 Docker 在线更新仅适用于 `latest`、`main`、`dev` 这类可变镜像标签的限制说明。
+
+### Fixed
+- 修复 Docker 在线更新在当前容器重启后丢失任务状态的问题，服务重启后会把中断中的任务恢复为“结果未知”的最终状态。
+- 修复 Docker 在线更新前端轮询在 `success == null` 时静默结束的问题，改为明确提示“服务可能已重启，请刷新并核对当前版本/镜像”。
+
 ## [2.0.39] - 2026-05-06
 
 ### Added
