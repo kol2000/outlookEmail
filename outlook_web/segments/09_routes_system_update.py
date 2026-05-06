@@ -428,8 +428,13 @@ def _docker_log_excerpt(body: str, max_lines: int = 12, max_chars: int = 2000) -
     return excerpt.strip()
 
 
+def _strip_ansi_escape_codes(text: str) -> str:
+    return re.sub(r'\x1B\[[0-?]*[ -/]*[@-~]', '', str(text or ''))
+
+
 def _watchtower_log_lines(logs: str) -> list[str]:
-    return [line.strip() for line in str(logs or '').splitlines() if line.strip()]
+    normalized_logs = _strip_ansi_escape_codes(logs)
+    return [line.strip() for line in normalized_logs.splitlines() if line.strip()]
 
 
 def _watchtower_summary_counts(logs: str) -> Dict[str, int]:
@@ -494,7 +499,7 @@ def _read_watchtower_logs(config: Dict[str, Any], container_id: str) -> str:
 
 
 def _classify_watchtower_logs(logs: str, current_image: str) -> Tuple[Optional[bool], str]:
-    normalized_logs = str(logs or '').lower()
+    normalized_logs = _strip_ansi_escape_codes(logs).lower()
     if not normalized_logs.strip():
         return None, ''
 
