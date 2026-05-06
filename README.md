@@ -110,7 +110,9 @@ docker-compose up -d
 界面里的 Docker 在线更新需要访问宿主机 Docker socket。`/var/run/docker.sock` 具有宿主机 Docker 管理权限，只建议在可信环境开启。
 
 该功能只适用于使用可变镜像标签的容器，例如 `latest`、`main`、`dev`。如果当前容器固定使用 `v2.0.39` 这类版本标签，界面会拒绝在线更新，因为 Watchtower 不会自动把固定标签切换到新版本标签。
+应用默认会在 daemon 明确返回“最低支持 API 版本”时自动按该版本重试；如果你的 Docker 环境或 socket 代理有特殊兼容要求，也可以显式设置 `DOCKER_UPDATE_API_VERSION`，其值可参考 `docker version --format '{{.Server.APIVersion}}'` 的输出。
 可选环境变量 `DOCKER_UPDATE_STATUS_TIMEOUT` 用于单独控制状态查询和容器 inspect 的超时时间（秒），不影响实际更新任务的 `DOCKER_UPDATE_TIMEOUT`。
+如果当前 `latest` / `main` / `dev` 标签没有新的镜像可拉取，界面会显示本次没有应用更新，而不是误报为更新失败。
 
 ```yaml
 version: '3.8'
@@ -129,6 +131,8 @@ services:
       - FLASK_ENV=production
       - DOCKER_UPDATE_ENABLED=true
       - DOCKER_UPDATE_CONTAINER=outlook-mail-reader
+      # 可选：在较新的 Docker daemon / socket 代理环境中显式指定 API 版本
+      # - DOCKER_UPDATE_API_VERSION=1.52
     restart: unless-stopped
 ```
 
