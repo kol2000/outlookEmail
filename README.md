@@ -105,6 +105,30 @@ services:
 docker-compose up -d
 ```
 
+#### 可选：启用界面 Docker 在线更新
+
+界面里的 Docker 在线更新需要访问宿主机 Docker socket。`/var/run/docker.sock` 具有宿主机 Docker 管理权限，只建议在可信环境开启。
+
+```yaml
+version: '3.8'
+services:
+  outlook-mail-reader:
+    image: ghcr.io/assast/outlookemail:latest
+    container_name: outlook-mail-reader
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - LOGIN_PASSWORD=admin123
+      - SECRET_KEY=your-secret-key-here
+      - FLASK_ENV=production
+      - DOCKER_UPDATE_ENABLED=true
+      - DOCKER_UPDATE_CONTAINER=outlook-mail-reader
+    restart: unless-stopped
+```
+
 ## ✨ 功能特性
 
 ### 邮件读取方式

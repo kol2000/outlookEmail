@@ -182,6 +182,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .app-version-link {
@@ -205,6 +206,23 @@
             border-color: #cbd5e1;
             background: #f1f5f9;
             color: #0f172a;
+        }
+
+        .app-version-link--primary {
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #ffffff;
+        }
+
+        .app-version-link--primary:hover {
+            border-color: #1d4ed8;
+            background: #1d4ed8;
+            color: #ffffff;
+        }
+
+        .app-version-link:disabled {
+            cursor: not-allowed;
+            opacity: 0.62;
         }
 
         .navbar-center {

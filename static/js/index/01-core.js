@@ -40,6 +40,7 @@
         const BULK_REFRESH_MAX_TIMEOUT_MS = 180000;
         const REFRESH_STREAM_STALL_TIMEOUT_MS = 70000;
         const VERSION_STATUS_REQUEST_TIMEOUT_MS = 12000;
+        const DOCKER_UPDATE_REQUEST_TIMEOUT_MS = 20000;
         const DEFAULT_APP_TIME_ZONE = 'Asia/Shanghai';
         const FALLBACK_APP_TIME_ZONES = [
             'Asia/Shanghai',
@@ -51,6 +52,9 @@
             'America/New_York',
         ];
         let versionStatusRequest = null;
+        let dockerUpdateStatusRequest = null;
+        let currentVersionStatusState = 'unknown';
+        let dockerUpdateStatus = null;
         let emailListLoadCheckTimer = null;
         let appTimeZone = DEFAULT_APP_TIME_ZONE;
         let showAccountCreatedAt = true;
@@ -656,6 +660,89 @@
             }
         }
 
+        function refreshDockerUpdateButton() {
+            const updateButton = document.getElementById('appVersionDockerUpdateBtn');
+            if (!updateButton) return;
+
+            const enabled = dockerUpdateStatus?.enabled === true;
+            const available = dockerUpdateStatus?.available === true;
+            const running = dockerUpdateStatus?.state?.running === true;
+            const updateAvailable = currentVersionStatusState === 'update_available';
+            const defaultLabel = updateButton.dataset.defaultLabel || 'Docker 更新';
+
+            updateButton.hidden = !(enabled && updateAvailable);
+            updateButton.disabled = !available || running;
+            updateButton.textContent = running ? '更新中...' : defaultLabel;
+            updateButton.title = available
+                ? '启动 Docker 在线更新'
+                : (dockerUpdateStatus?.reason || 'Docker 更新不可用');
+        }
+
+        async function loadDockerUpdateStatus(forceRefresh = false) {
+            if (dockerUpdateStatusRequest && !forceRefresh) {
+                return dockerUpdateStatusRequest;
+            }
+
+            dockerUpdateStatusRequest = fetchWithTimeout('/api/docker-update/status', {
+                timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
+                timeoutMessage: 'Docker 更新状态获取超时',
+                cache: 'no-store',
+                credentials: 'same-origin'
+            })
+                .then(async (response) => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success || !payload.docker_update) {
+                        throw new Error(payload.error || 'Docker 更新状态获取失败');
+                    }
+                    dockerUpdateStatus = payload.docker_update;
+                    refreshDockerUpdateButton();
+                    return dockerUpdateStatus;
+                })
+                .catch(() => {
+                    dockerUpdateStatus = { enabled: false, available: false };
+                    refreshDockerUpdateButton();
+                    return dockerUpdateStatus;
+                })
+                .finally(() => {
+                    dockerUpdateStatusRequest = null;
+                });
+
+            return dockerUpdateStatusRequest;
+        }
+
+        async function startDockerUpdate() {
+            const updateButton = document.getElementById('appVersionDockerUpdateBtn');
+            if (updateButton?.disabled) return;
+
+            const confirmed = window.confirm('将启动 Docker 在线更新，容器可能会自动重启。确认继续？');
+            if (!confirmed) return;
+
+            updateButton.disabled = true;
+            updateButton.textContent = '更新中...';
+
+            try {
+                const response = await fetchWithTimeout('/api/docker-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                    timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
+                    timeoutMessage: 'Docker 更新启动超时',
+                    credentials: 'same-origin'
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Docker 更新启动失败');
+                }
+                dockerUpdateStatus = payload.docker_update || dockerUpdateStatus;
+                refreshDockerUpdateButton();
+                showToast('Docker 更新已启动，服务可能会自动重启', 'success');
+                window.setTimeout(() => loadDockerUpdateStatus(true), 2000);
+            } catch (error) {
+                await loadDockerUpdateStatus(true);
+                showToast(error?.message || 'Docker 更新启动失败', 'error');
+            }
+        }
+
         function applyVersionStatus(versionStatus = {}) {
             const statusBadge = document.getElementById('appVersionStatus');
             const hintEl = document.getElementById('appVersionHint');
@@ -665,6 +752,7 @@
             const hint = String(versionStatus.hint || '暂时无法获取仓库版本信息').trim() || '暂时无法获取仓库版本信息';
             const updateUrl = String(versionStatus.update_url || '').trim();
             const defaultLabel = actionLink?.dataset.defaultLabel || '查看更新日志';
+            currentVersionStatusState = state;
 
             if (statusBadge) {
                 statusBadge.dataset.state = state;
@@ -679,6 +767,8 @@
                 actionLink.href = updateUrl || actionLink.href;
                 actionLink.textContent = state === 'update_available' ? '前往更新' : defaultLabel;
             }
+
+            refreshDockerUpdateButton();
         }
 
         async function loadVersionStatus(forceRefresh = false) {
@@ -723,6 +813,7 @@
 
         window.toggleVersionPopover = toggleVersionPopover;
         window.copyAppVersion = copyAppVersion;
+        window.startDockerUpdate = startDockerUpdate;
 
         function toggleNavbarActionsMenu() {
             if (!isMobileLayout()) return;
@@ -966,6 +1057,7 @@
 
             closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadVersionStatus();
+            loadDockerUpdateStatus();
             loadGroups();
             if (typeof loadTags === 'function') {
                 loadTags();
