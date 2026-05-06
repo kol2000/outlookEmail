@@ -25,7 +25,6 @@ SEGMENT_FILES = (
 
 SEGMENTS_DIR = Path(__file__).resolve().parent / "outlook_web" / "segments"
 
-
 def _load_segmented_app():
     if globals().get("_SEGMENTED_APP_LOADED"):
         return
