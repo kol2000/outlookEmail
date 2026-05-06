@@ -502,6 +502,13 @@
             box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
         }
 
+        .email-attachments__download-all.is-downloading {
+            cursor: progress;
+            border-color: #1d4ed8;
+            background: #1d4ed8;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+        }
+
         .email-attachments__list {
             display: grid;
             gap: 10px;
@@ -526,6 +533,13 @@
             transform: translateY(-1px);
         }
 
+        .email-attachment-item.is-downloading {
+            cursor: progress;
+            border-color: #2563eb;
+            background: #f8fbff;
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+        }
+
         .email-attachment-item__icon {
             display: inline-flex;
             align-items: center;
@@ -543,6 +557,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            flex: 1 1 auto;
         }
 
         .email-attachment-item__name {
@@ -570,6 +585,26 @@
             color: #92400e;
             border: 1px solid #fcd34d;
             font-weight: 600;
+        }
+
+        .email-attachment-item__action {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 8px;
+            background: #eef2ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .email-attachment-item.is-downloading .email-attachment-item__action {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         /* 全屏查看邮件 */

@@ -584,12 +584,21 @@
             .email-attachment-item {
                 padding: 10px 12px;
                 border-radius: 12px;
+                flex-wrap: wrap;
             }
 
             .email-attachment-item__icon {
                 width: 32px;
                 height: 32px;
                 border-radius: 10px;
+            }
+
+            .email-attachment-item__content {
+                flex-basis: calc(100% - 44px);
+            }
+
+            .email-attachment-item__action {
+                margin-left: 44px;
             }
 
             .group-list,

@@ -951,6 +951,15 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
             settings_js.index("showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');")
         )
 
+    def test_attachment_download_links_use_busy_fetch_handler(self):
+        emails_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '05-emails.js').read_text(encoding='utf-8')
+
+        self.assertIn('function downloadEmailAttachmentFile(event, link)', emails_js)
+        self.assertIn('onclick="downloadEmailAttachmentFile(event, this)"', emails_js)
+        self.assertIn("link.textContent = isDownloading ? '打包中...' : link.dataset.defaultLabel;", emails_js)
+        self.assertIn("action.textContent = isDownloading ? '下载中...' : '下载';", emails_js)
+        self.assertIn("showToast(pendingMessage, 'info');", emails_js)
+
     def test_account_sort_ui_uses_sort_order_and_created_at(self):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
         settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')

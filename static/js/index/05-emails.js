@@ -168,6 +168,99 @@
             return `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(email.id)}/attachments/download-all?method=${method}&folder=${folder}`;
         }
 
+        function parseDownloadFilename(response, fallbackFilename) {
+            const disposition = response.headers.get('content-disposition') || '';
+            const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (encodedMatch) {
+                try {
+                    return decodeURIComponent(encodedMatch[1].trim().replace(/^"|"$/g, '')) || fallbackFilename;
+                } catch (error) {
+                    return fallbackFilename;
+                }
+            }
+
+            const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+            return filenameMatch ? filenameMatch[1] : fallbackFilename;
+        }
+
+        function triggerAttachmentDownload(blob, filename) {
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'attachment';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        }
+
+        function setAttachmentDownloadState(link, isDownloading) {
+            link.dataset.downloading = isDownloading ? 'true' : 'false';
+            link.classList.toggle('is-downloading', isDownloading);
+            link.setAttribute('aria-busy', isDownloading ? 'true' : 'false');
+
+            if (link.classList.contains('email-attachments__download-all')) {
+                if (!link.dataset.defaultLabel) {
+                    link.dataset.defaultLabel = link.textContent.trim() || '全部下载';
+                }
+                link.textContent = isDownloading ? '打包中...' : link.dataset.defaultLabel;
+                return;
+            }
+
+            const action = link.querySelector('.email-attachment-item__action');
+            if (action) {
+                action.textContent = isDownloading ? '下载中...' : '下载';
+            }
+        }
+
+        async function downloadEmailAttachmentFile(event, link) {
+            event.preventDefault();
+            if (!link || link.dataset.downloading === 'true') {
+                return;
+            }
+
+            const isDownloadAll = link.classList.contains('email-attachments__download-all');
+            const fallbackFilename = link.getAttribute('download') || (isDownloadAll ? 'attachments.zip' : 'attachment');
+            const pendingMessage = isDownloadAll ? '正在打包附件...' : '正在下载附件...';
+            const failureMessage = isDownloadAll ? '全部附件下载失败' : '附件下载失败';
+            const successMessage = isDownloadAll ? '附件已打包，下载已开始' : '附件下载已开始';
+
+            setAttachmentDownloadState(link, true);
+            showToast(pendingMessage, 'info');
+
+            try {
+                const response = await fetch(link.href, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    credentials: 'same-origin'
+                });
+                const contentType = response.headers.get('content-type') || '';
+                const disposition = response.headers.get('content-disposition') || '';
+                const isFileResponse = /attachment/i.test(disposition);
+
+                if (!response.ok || (!isFileResponse && contentType.includes('application/json'))) {
+                    const data = contentType.includes('application/json')
+                        ? await response.json().catch(() => null)
+                        : null;
+                    if (data) {
+                        handleApiError(data, failureMessage);
+                    } else {
+                        showToast(`${failureMessage}（HTTP ${response.status}）`, 'error');
+                    }
+                    return;
+                }
+
+                const blob = await response.blob();
+                triggerAttachmentDownload(blob, parseDownloadFilename(response, fallbackFilename));
+                showToast(successMessage, 'success');
+            } catch (error) {
+                showToast(`${failureMessage}，请检查网络后重试`, 'error');
+            } finally {
+                setAttachmentDownloadState(link, false);
+            }
+        }
+
         function renderAttachmentSection(email) {
             const attachments = Array.isArray(email?.attachments) ? email.attachments : [];
             if (attachments.length === 0) {
@@ -184,14 +277,16 @@
                         ${attachments.length > 1 ? `
                             <a class="email-attachments__download-all"
                                href="${buildAllAttachmentsDownloadUrl(email)}"
-                               download="attachments.zip">全部下载</a>
+                               download="attachments.zip"
+                               onclick="downloadEmailAttachmentFile(event, this)">全部下载</a>
                         ` : ''}
                     </div>
                     <div class="email-attachments__list">
                         ${attachments.map(attachment => `
                             <a class="email-attachment-item"
                                href="${buildAttachmentDownloadUrl(email, attachment)}"
-                               download="${escapeHtml(attachment.name || 'attachment')}">
+                               download="${escapeHtml(attachment.name || 'attachment')}"
+                               onclick="downloadEmailAttachmentFile(event, this)">
                                 <span class="email-attachment-item__icon" aria-hidden="true">📎</span>
                                 <span class="email-attachment-item__content">
                                     <span class="email-attachment-item__name">${escapeHtml(attachment.name || 'attachment')}</span>
@@ -201,6 +296,7 @@
                                         <span>${escapeHtml(attachment.content_type || 'application/octet-stream')}</span>
                                     </span>
                                 </span>
+                                <span class="email-attachment-item__action">下载</span>
                             </a>
                         `).join('')}
                     </div>
