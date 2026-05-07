@@ -84,6 +84,29 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .app-version-chip__upgrade-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            flex-shrink: 0;
+            background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid rgba(245, 158, 11, 0.32);
+            color: #92400e;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+
+        .app-version-chip__upgrade-badge[hidden] {
+            display: none;
+        }
+
+        .app-version-chip__upgrade-badge svg {
+            width: 12px;
+            height: 12px;
+        }
+
         .app-version-popover {
             position: absolute;
             top: calc(100% + 10px);

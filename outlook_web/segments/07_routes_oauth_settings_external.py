@@ -258,6 +258,7 @@ def api_get_settings():
     settings['app_timezone'] = get_app_timezone()
     settings['show_account_created_at'] = get_setting('show_account_created_at', 'true')
     settings['show_account_sort_order'] = get_setting('show_account_sort_order', 'false')
+    settings['show_group_id'] = get_setting('show_group_id', 'true')
     settings['forward_channels'] = get_forward_channels()
     settings['forward_check_interval_minutes'] = get_setting('forward_check_interval_minutes', '5')
     settings['forward_account_delay_seconds'] = get_setting('forward_account_delay_seconds', '0')
@@ -453,6 +454,16 @@ def api_update_settings():
                 errors.append('更新排序值展示失败')
         else:
             errors.append('排序值展示必须是 true 或 false')
+
+    if 'show_group_id' in data:
+        show_group_id = str(data['show_group_id']).lower()
+        if show_group_id in ('true', 'false'):
+            if set_setting('show_group_id', show_group_id):
+                updated.append('组ID展示')
+            else:
+                errors.append('更新组ID展示失败')
+        else:
+            errors.append('组ID展示必须是 true 或 false')
 
     # 更新对外 API Key
     if 'external_api_key' in data:

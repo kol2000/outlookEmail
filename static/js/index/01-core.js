@@ -59,6 +59,7 @@
         let appTimeZone = DEFAULT_APP_TIME_ZONE;
         let showAccountCreatedAt = true;
         let showAccountSortOrder = false;
+        let showGroupId = true;
 
         function isUntaggedTagFilterValue(value) {
             return String(value || '').trim() === UNTAGGED_TAG_FILTER_KEY;
@@ -142,6 +143,15 @@
 
         function shouldShowAccountSortOrder() {
             return showAccountSortOrder !== false;
+        }
+
+        function setShowGroupId(enabled) {
+            showGroupId = enabled !== false;
+            return showGroupId;
+        }
+
+        function shouldShowGroupId() {
+            return showGroupId !== false;
         }
 
         function parseDateInput(dateInput) {
@@ -519,6 +529,9 @@
         }
 
         function formatGroupIdBadgeText(groupId) {
+            if (!shouldShowGroupId()) {
+                return '';
+            }
             const normalizedId = Number.parseInt(String(groupId ?? ''), 10);
             return Number.isFinite(normalizedId) ? String(normalizedId) : '';
         }
@@ -669,7 +682,7 @@
             const running = dockerUpdateStatus?.state?.running === true;
             const updateAvailable = currentVersionStatusState === 'update_available';
             const defaultLabel = updateButton.dataset.defaultLabel || 'Docker 更新';
-            const unavailableLabel = updateButton.dataset.unavailableLabel || '不可更新';
+            const unavailableLabel = updateButton.dataset.unavailableLabel || '不可在线更新';
 
             updateButton.hidden = !(enabled && updateAvailable);
             updateButton.disabled = !available || running;
@@ -777,6 +790,7 @@
             const statusBadge = document.getElementById('appVersionStatus');
             const hintEl = document.getElementById('appVersionHint');
             const actionLink = document.getElementById('appVersionActionLink');
+            const upgradeBadgeEl = document.getElementById('appVersionUpgradeBadge');
             const state = String(versionStatus.status || 'unknown').trim() || 'unknown';
             const badgeLabel = String(versionStatus.badge_label || '检查失败').trim() || '检查失败';
             const hint = String(versionStatus.hint || '暂时无法获取仓库版本信息').trim() || '暂时无法获取仓库版本信息';
@@ -791,6 +805,11 @@
 
             if (hintEl) {
                 hintEl.textContent = hint;
+            }
+
+            if (upgradeBadgeEl) {
+                const shouldShowUpgradeBadge = state === 'update_available';
+                upgradeBadgeEl.hidden = !shouldShowUpgradeBadge;
             }
 
             if (actionLink) {
@@ -1034,6 +1053,7 @@
                 }
                 setShowAccountCreatedAt(String(data?.settings?.show_account_created_at) !== 'false');
                 setShowAccountSortOrder(String(data?.settings?.show_account_sort_order) === 'true');
+                setShowGroupId(String(data?.settings?.show_group_id) !== 'false');
                 return data?.settings || null;
             } catch (error) {
                 return null;

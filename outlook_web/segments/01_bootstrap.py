@@ -1525,6 +1525,10 @@ def init_db():
         INSERT OR IGNORE INTO settings (key, value)
         VALUES ('show_account_sort_order', 'false')
     ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('show_group_id', 'true')
+    ''')
 
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
