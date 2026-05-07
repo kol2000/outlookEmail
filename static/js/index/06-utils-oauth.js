@@ -66,10 +66,11 @@
             const resultEl = document.getElementById('refreshTokenResult');
             const saveBtn = document.getElementById('saveTokenAccountBtn');
             const group = groups.find(item => item.id === oauthPreviewAccount.group_id);
+            const fallbackGroupId = Number.parseInt(String(oauthPreviewAccount.group_id ?? ''), 10);
             document.getElementById('oauthPreviewEmail').value = oauthPreviewAccount.email || '';
             document.getElementById('oauthPreviewPassword').value = oauthPreviewAccount.password || '';
             document.getElementById('oauthPreviewClientId').value = oauthPreviewAccount.client_id || '';
-            document.getElementById('oauthPreviewGroup').value = group?.name || formatGroupIdBadgeText(oauthPreviewAccount.group_id);
+            document.getElementById('oauthPreviewGroup').value = group?.name || (Number.isFinite(fallbackGroupId) ? String(fallbackGroupId) : '');
             document.getElementById('oauthPreviewRefreshToken').value = oauthPreviewAccount.refresh_token || '';
             if (resultEl) {
                 resultEl.style.display = 'block';

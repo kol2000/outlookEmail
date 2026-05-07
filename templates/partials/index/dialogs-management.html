@@ -14,25 +14,7 @@
                                 <li>
                                     <button type="button" class="settings-sidebar-link is-active" data-target="settingsGeneralSection" onclick="scrollSettingsSection('settingsGeneralSection', this)">
                                         <strong>常规设置</strong>
-                                        <span>时区与列表辅助信息展示</span>
-                                    </button>
-                                </li>
-                                <li>
-                                    <button type="button" class="settings-sidebar-link" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
-                                        <strong>访问与 API</strong>
-                                        <span>登录密码、GPTMail Key、对外 API Key</span>
-                                    </button>
-                                </li>
-                                <li>
-                                    <button type="button" class="settings-sidebar-link" data-target="settingsDuckMailSection" onclick="scrollSettingsSection('settingsDuckMailSection', this)">
-                                        <strong>DuckMail 临时邮箱</strong>
-                                        <span>自部署实例地址与私有域名 API Key</span>
-                                    </button>
-                                </li>
-                                <li>
-                                    <button type="button" class="settings-sidebar-link" data-target="settingsCloudflareSection" onclick="scrollSettingsSection('settingsCloudflareSection', this)">
-                                        <strong>Cloudflare 临时邮箱</strong>
-                                        <span>Worker 域名、邮箱域名列表和管理员密码</span>
+                                        <span>登录密码、对外 API Key、时区与列表展示</span>
                                     </button>
                                 </li>
                                 <li>
@@ -53,6 +35,24 @@
                                         <span>SMTP、Telegram 渠道及历史记录</span>
                                     </button>
                                 </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
+                                        <strong>GPTMail 临时邮箱设置</strong>
+                                        <span>GPTMail API Key</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsDuckMailSection" onclick="scrollSettingsSection('settingsDuckMailSection', this)">
+                                        <strong>DuckMail 临时邮箱</strong>
+                                        <span>自部署实例地址与私有域名 API Key</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="settings-sidebar-link" data-target="settingsCloudflareSection" onclick="scrollSettingsSection('settingsCloudflareSection', this)">
+                                        <strong>Cloudflare 临时邮箱</strong>
+                                        <span>Worker 域名、邮箱域名列表和管理员密码</span>
+                                    </button>
+                                </li>
                             </ul>
                         </div>
                     </aside>
@@ -61,9 +61,24 @@
                             <div class="settings-section-head">
                                 <span class="settings-section-kicker">General</span>
                                 <h4>常规设置</h4>
-                                <p>统一控制全局时间显示规则和邮箱列表辅助信息。</p>
+                                <p>统一管理登录密码、对外 API Key、时区和列表展示规则。</p>
                             </div>
                             <div class="settings-panel settings-panel-grid">
+                                <div class="form-group">
+                                    <label class="form-label">登录密码</label>
+                                    <input type="password" class="form-input" id="settingsPassword" placeholder="输入新密码（留空则不修改）">
+                                    <div class="form-hint">用于登录当前系统。</div>
+                                </div>
+                                <div class="form-group settings-form-span-full">
+                                    <label class="form-label">对外 API Key</label>
+                                    <div class="settings-inline-action">
+                                        <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="输入或生成对外 API Key">
+                                        <button class="btn btn-secondary" onclick="generateExternalApiKey()">🔑 随机生成</button>
+                                    </div>
+                                    <div class="form-hint">用于对外 API 认证，调用时在 Header 中传递 <code>X-API-Key</code>。</div>
+                                    <div class="form-hint">如果要求对接的功能比较完整，建议直接对接 <a class="inline-link" href="https://github.com/assast/outlookEmail/blob/main/docs/api.md" target="_blank">完整 API</a>；文档已经整理成适合 AI 读取的形状，直接喂给 AI，让 AI 按完整 API 使用登录密码而不是 API Key 对接即可。</div>
+                                    <div class="settings-note"><code>GET /api/external/emails?email=xxx&folder=inbox</code></div>
+                                </div>
                                 <div class="form-group">
                                     <label class="form-label" for="settingsAppTimezone">时区</label>
                                     <select class="form-select" id="settingsAppTimezone"></select>
@@ -83,83 +98,15 @@
                                     </label>
                                     <div class="form-hint">关闭后，不在邮箱列表底部显示自定义排序值。</div>
                                 </div>
-                            </div>
-                        </section>
-
-                        <section class="settings-section" id="settingsAccessSection">
-                            <div class="settings-section-head">
-                                <span class="settings-section-kicker">Access</span>
-                                <h4>访问与 API</h4>
-                                <p>统一管理登录鉴权、临时邮箱服务凭证以及对外接口访问密钥。</p>
-                            </div>
-                            <div class="settings-panel settings-panel-grid">
                                 <div class="form-group">
-                                    <label class="form-label">登录密码</label>
-                                    <input type="password" class="form-input" id="settingsPassword" placeholder="输入新密码（留空则不修改）">
-                                    <div class="form-hint">用于登录当前系统。</div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">GPTMail API Key</label>
-                                    <input type="text" class="form-input" id="settingsApiKey" placeholder="输入 GPTMail API Key">
-                                    <div class="form-hint">用于临时邮箱功能，可从 <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> 获取。</div>
-                                </div>
-                                <div class="form-group settings-form-span-full">
-                                    <label class="form-label">对外 API Key</label>
-                                    <div class="settings-inline-action">
-                                        <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="输入或生成对外 API Key">
-                                        <button class="btn btn-secondary" onclick="generateExternalApiKey()">🔑 随机生成</button>
-                                    </div>
-                                    <div class="form-hint">用于对外 API 认证，调用时在 Header 中传递 <code>X-API-Key</code>。</div>
-                                    <div class="form-hint">如果要求对接的功能比较完整，建议直接对接 <a class="inline-link" href="https://github.com/assast/outlookEmail/blob/main/docs/api.md" target="_blank">完整 API</a>；文档已经整理成适合 AI 读取的形状，直接喂给 AI，让 AI 按完整 API 使用登录密码而不是 API Key 对接即可。</div>
-                                    <div class="settings-note"><code>GET /api/external/emails?email=xxx&folder=inbox</code></div>
+                                    <label class="settings-toggle settings-toggle--card">
+                                        <input type="checkbox" id="settingsShowGroupId" checked>
+                                        <span class="form-label">展示组ID</span>
+                                    </label>
+                                    <div class="form-hint">关闭后，不再展示分组 ID 徽标。</div>
                                 </div>
                             </div>
                         </section>
-
-                <section class="settings-section" id="settingsDuckMailSection">
-                    <div class="settings-section-head">
-                        <span class="settings-section-kicker">Temp Mail</span>
-                        <h4>DuckMail 临时邮箱设置</h4>
-                        <p>用于接入自部署或私有能力的 DuckMail 服务。</p>
-                    </div>
-                    <div class="settings-panel settings-panel-grid">
-                        <div class="form-group">
-                            <label class="form-label">DuckMail API 地址</label>
-                            <input type="text" class="form-input" id="settingsDuckmailBaseUrl" placeholder="https://api.duckmail.sbs">
-                            <div class="form-hint">自部署 DuckMail 实例的 API 地址，留空时默认使用官方地址。</div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">DuckMail API Key（可选）</label>
-                            <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="dk_ 前缀的 API Key">
-                            <div class="form-hint">用于获取私有域名，可从 <a class="inline-link" href="https://domain.duckmail.sbs" target="_blank">domain.duckmail.sbs</a> 获取。</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="settings-section" id="settingsCloudflareSection">
-                    <div class="settings-section-head">
-                        <span class="settings-section-kicker">Cloudflare</span>
-                        <h4>Cloudflare 临时邮箱设置</h4>
-                        <p>配置自建 Cloudflare Temp Email 实例的连接信息与管理凭证。</p>
-                    </div>
-                    <div class="settings-panel settings-panel-grid">
-                        <div class="form-group">
-                            <label class="form-label">Worker 域名</label>
-                            <input type="text" class="form-input" id="settingsCloudflareWorkerDomain" placeholder="your-worker.example.workers.dev">
-                            <div class="form-hint">只填写域名部分，不带 <code>https://</code>。</div>
-                        </div>
-                        <div class="form-group settings-form-span-full">
-                            <label class="form-label">邮箱域名列表</label>
-                            <input type="text" class="form-input" id="settingsCloudflareEmailDomains" placeholder="mail1.example.com, mail2.example.com">
-                            <div class="form-hint">多个域名使用英文逗号分隔。</div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">管理员密码</label>
-                            <input type="password" class="form-input" id="settingsCloudflareAdminPassword" placeholder="对应 Cloudflare Temp Email 的 ADMIN_PASSWORD">
-                            <div class="form-hint">用于调用 <code>/admin/new_address</code> 等管理接口。</div>
-                        </div>
-                    </div>
-                </section>
 
                 <section class="settings-section" id="settingsRefreshSection">
                     <div class="settings-section-head">
@@ -532,6 +479,65 @@
                                     <div id="failedForwardingLogsList" class="settings-log-list settings-log-list--danger"></div>
                                 </div>
                             </section>
+                        </div>
+                    </div>
+                </section>
+                <section class="settings-section" id="settingsAccessSection">
+                    <div class="settings-section-head">
+                        <span class="settings-section-kicker">GPTMail</span>
+                        <h4>GPTMail 临时邮箱设置</h4>
+                        <p>用于配置 GPTMail 临时邮箱能力所需的 API Key。</p>
+                    </div>
+                    <div class="settings-panel settings-panel-grid">
+                        <div class="form-group">
+                            <label class="form-label">GPTMail API Key</label>
+                            <input type="text" class="form-input" id="settingsApiKey" placeholder="输入 GPTMail API Key">
+                            <div class="form-hint">用于临时邮箱功能，可从 <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> 获取。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" id="settingsDuckMailSection">
+                    <div class="settings-section-head">
+                        <span class="settings-section-kicker">Temp Mail</span>
+                        <h4>DuckMail 临时邮箱设置</h4>
+                        <p>用于接入自部署或私有能力的 DuckMail 服务。</p>
+                    </div>
+                    <div class="settings-panel settings-panel-grid">
+                        <div class="form-group">
+                            <label class="form-label">DuckMail API 地址</label>
+                            <input type="text" class="form-input" id="settingsDuckmailBaseUrl" placeholder="https://api.duckmail.sbs">
+                            <div class="form-hint">自部署 DuckMail 实例的 API 地址，留空时默认使用官方地址。</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">DuckMail API Key（可选）</label>
+                            <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="dk_ 前缀的 API Key">
+                            <div class="form-hint">用于获取私有域名，可从 <a class="inline-link" href="https://domain.duckmail.sbs" target="_blank">domain.duckmail.sbs</a> 获取。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="settings-section" id="settingsCloudflareSection">
+                    <div class="settings-section-head">
+                        <span class="settings-section-kicker">Cloudflare</span>
+                        <h4>Cloudflare 临时邮箱设置</h4>
+                        <p>配置自建 Cloudflare Temp Email 实例的连接信息与管理凭证。</p>
+                    </div>
+                    <div class="settings-panel settings-panel-grid">
+                        <div class="form-group">
+                            <label class="form-label">Worker 域名</label>
+                            <input type="text" class="form-input" id="settingsCloudflareWorkerDomain" placeholder="your-worker.example.workers.dev">
+                            <div class="form-hint">只填写域名部分，不带 <code>https://</code>。</div>
+                        </div>
+                        <div class="form-group settings-form-span-full">
+                            <label class="form-label">邮箱域名列表</label>
+                            <input type="text" class="form-input" id="settingsCloudflareEmailDomains" placeholder="mail1.example.com, mail2.example.com">
+                            <div class="form-hint">多个域名使用英文逗号分隔。</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">管理员密码</label>
+                            <input type="password" class="form-input" id="settingsCloudflareAdminPassword" placeholder="对应 Cloudflare Temp Email 的 ADMIN_PASSWORD">
+                            <div class="form-hint">用于调用 <code>/admin/new_address</code> 等管理接口。</div>
                         </div>
                     </div>
                 </section>

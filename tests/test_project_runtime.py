@@ -965,6 +965,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
         settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
         dialog_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-primary.html').read_text(encoding='utf-8')
+        core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
         groups_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '02-groups.js').read_text(encoding='utf-8')
         settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
 
@@ -973,6 +974,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('data-sort="created_at"', layout_html)
         self.assertIn('id="settingsShowAccountCreatedAt"', settings_html)
         self.assertIn('id="settingsShowAccountSortOrder"', settings_html)
+        self.assertIn('id="settingsShowGroupId"', settings_html)
         self.assertIn('id="editSortOrder"', dialog_html)
         self.assertIn("let currentSortBy = 'sort_order';", groups_js)
         self.assertIn("currentSortBy === 'sort_order'", groups_js)
@@ -987,6 +989,72 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('settings.show_account_created_at = showAccountCreatedAt;', settings_js)
         self.assertIn("document.getElementById('settingsShowAccountSortOrder').checked = String(data.settings.show_account_sort_order) === 'true';", settings_js)
         self.assertIn('settings.show_account_sort_order = showAccountSortOrder;', settings_js)
+        self.assertIn("document.getElementById('settingsShowGroupId').checked = String(data.settings.show_group_id) !== 'false';", settings_js)
+        self.assertIn('settings.show_group_id = showGroupId;', settings_js)
+        self.assertIn("setShowGroupId(String(data?.settings?.show_group_id) !== 'false');", core_js)
+        self.assertIn('if (!shouldShowGroupId()) {', core_js)
+
+    def test_settings_ui_reorganizes_general_and_gptmail_sections(self):
+        settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
+
+        general_section = settings_html.split('id="settingsGeneralSection"', 1)[1].split('</section>', 1)[0]
+        gptmail_section = settings_html.split('id="settingsAccessSection"', 1)[1].split('</section>', 1)[0]
+
+        self.assertIn('GPTMail 临时邮箱设置', settings_html)
+        self.assertIn('id="settingsPassword"', general_section)
+        self.assertIn('id="settingsExternalApiKey"', general_section)
+        self.assertIn('id="settingsShowGroupId"', general_section)
+        self.assertNotIn('id="settingsApiKey"', general_section)
+
+        self.assertIn('id="settingsApiKey"', gptmail_section)
+        self.assertNotIn('id="settingsPassword"', gptmail_section)
+        self.assertNotIn('id="settingsExternalApiKey"', gptmail_section)
+
+    def test_temp_mail_settings_sections_are_placed_last(self):
+        settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
+
+        self.assertLess(settings_html.index('data-target="settingsGeneralSection"'), settings_html.index('data-target="settingsRefreshSection"'))
+        self.assertLess(settings_html.index('data-target="settingsRefreshSection"'), settings_html.index('data-target="forwardingSettingsSection"'))
+        self.assertLess(settings_html.index('data-target="forwardingSettingsSection"'), settings_html.index('data-target="settingsAccessSection"'))
+        self.assertLess(settings_html.index('data-target="settingsAccessSection"'), settings_html.index('data-target="settingsDuckMailSection"'))
+        self.assertLess(settings_html.index('data-target="settingsDuckMailSection"'), settings_html.index('data-target="settingsCloudflareSection"'))
+
+        self.assertLess(settings_html.index('id="forwardingSettingsSection"'), settings_html.index('id="settingsAccessSection"'))
+        self.assertLess(settings_html.index('id="settingsAccessSection"'), settings_html.index('id="settingsDuckMailSection"'))
+        self.assertLess(settings_html.index('id="settingsDuckMailSection"'), settings_html.index('id="settingsCloudflareSection"'))
+
+    def test_version_popover_mentions_docker_only_online_update_setup(self):
+        layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
+
+        self.assertIn('仅 Docker 版本支持在线更新', layout_html)
+        self.assertIn('README 中的「启用界面 Docker 在线更新」', layout_html)
+        self.assertIn('https://github.com/assast/outlookEmail#readme', layout_html)
+
+    def test_version_chip_shows_upgrade_badge_markup_and_logic(self):
+        layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
+        core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
+        navbar_css = pathlib.Path(ROOT_DIR, 'static', 'css', 'index', '02-navbar.css').read_text(encoding='utf-8')
+
+        self.assertIn('id="appVersionUpgradeBadge"', layout_html)
+        self.assertIn('aria-hidden="true"', layout_html)
+        self.assertIn('stroke="currentColor"', layout_html)
+        self.assertNotIn('id="appVersionUpgradeBadge" hidden>升级</span>', layout_html)
+        self.assertIn("const upgradeBadgeEl = document.getElementById('appVersionUpgradeBadge');", core_js)
+        self.assertIn("const shouldShowUpgradeBadge = state === 'update_available';", core_js)
+        self.assertIn('upgradeBadgeEl.hidden = !shouldShowUpgradeBadge;', core_js)
+        self.assertIn('loadVersionStatus();', core_js)
+        self.assertIn('.app-version-chip__upgrade-badge {', navbar_css)
+        self.assertIn('background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);', navbar_css)
+        self.assertIn('color: #92400e;', navbar_css)
+        self.assertIn('.app-version-chip__upgrade-badge svg {', navbar_css)
+
+    def test_version_chip_uses_up_arrow_icon_and_respects_hidden_attribute(self):
+        layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
+        navbar_css = pathlib.Path(ROOT_DIR, 'static', 'css', 'index', '02-navbar.css').read_text(encoding='utf-8')
+
+        self.assertIn('<path d="M8 12.5V3.5"></path>', layout_html)
+        self.assertIn('<path d="M4.5 7L8 3.5 11.5 7"></path>', layout_html)
+        self.assertIn('.app-version-chip__upgrade-badge[hidden] {', navbar_css)
 
     def test_refresh_management_ui_uses_account_workbench_layout(self):
         settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')

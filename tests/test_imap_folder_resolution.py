@@ -1961,6 +1961,22 @@ class AppTimezoneSettingsTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         self.assertEqual(payload['settings']['show_account_created_at'], 'false')
 
+    def test_settings_api_persists_show_group_id(self):
+        response = self.client.put(
+            '/api/settings',
+            json={'show_group_id': False}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+
+        response = self.client.get('/api/settings')
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['settings']['show_group_id'], 'false')
+
     def test_settings_api_persists_forward_account_delay_seconds(self):
         response = self.client.put(
             '/api/settings',

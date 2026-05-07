@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [2.0.42] - 2026-05-07
+
+### Added
+- 系统设置新增“展示组ID”开关，可统一控制分组列表、账号摘要等位置的分组 ID 徽标显示。
+- 首页版本按钮在检测到仓库存在更高版本时，会显示与版本按钮共用点击入口的升级箭头提示图标。
+
+### Changed
+- 设置页将登录密码和对外 API Key 归入“常规设置”，并把 GPTMail、DuckMail、Cloudflare 三个临时邮箱设置统一移动到设置页底部。
+- 首页升级提示由文字改为向上箭头图标，并沿用 GitHub Star 徽标的金色配色风格。
+- 版本弹层补充说明：仅 Docker 版本支持在线更新，并引导查看 README 中的对应配置文档。
+
+### Fixed
+- 修复首页版本升级提示在版本一致时仍然显示的问题，补充 `hidden` 状态下的样式兜底，仅在当前版本低于仓库版本时显示升级图标。
+
 ## [2.0.41] - 2026-05-06
 
 ### Fixed

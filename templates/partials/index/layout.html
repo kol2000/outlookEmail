@@ -12,6 +12,12 @@
                         aria-controls="appVersionPopover" onclick="return toggleVersionPopover()">
                         <span class="app-version-chip__label">版本</span>
                         <span class="app-version-chip__value" id="appVersionValue">v{{ app_version }}</span>
+                        <span class="app-version-chip__upgrade-badge" id="appVersionUpgradeBadge" hidden aria-hidden="true">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M8 12.5V3.5"></path>
+                                <path d="M4.5 7L8 3.5 11.5 7"></path>
+                            </svg>
+                        </span>
                     </button>
                     <div class="app-version-popover" id="appVersionPopover" role="dialog" aria-label="版本信息"
                         aria-hidden="true" hidden>
@@ -29,10 +35,15 @@
                                 查看更新日志
                             </a>
                             <button class="app-version-link app-version-link--primary" id="appVersionDockerUpdateBtn"
-                                type="button" data-default-label="Docker 更新" data-unavailable-label="不可更新"
+                                type="button" data-default-label="Docker 更新" data-unavailable-label="不可在线更新"
                                 onclick="startDockerUpdate()" hidden>
                                 Docker 更新
                             </button>
+                        </div>
+                        <div class="app-version-popover__hint">
+                            仅 Docker 版本支持在线更新，请参考
+                            <a href="https://github.com/assast/outlookEmail#readme" target="_blank" rel="noreferrer">README 中的「启用界面 Docker 在线更新」</a>
+                            进行设置。
                         </div>
                     </div>
                 </div>
