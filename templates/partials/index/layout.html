@@ -167,9 +167,22 @@
                         </button>
                     </div>
                 </div>
-                <!-- Tag Filter Row -->
-                <div id="tagFilterContainer" class="toolbar-row">
-                    <!-- Tags checkboxes will be rendered here -->
+                <div id="accountListOptionsRow" class="toolbar-row account-list-options-row">
+                    <div id="tagFilterContainer" class="account-tag-filter-slot">
+                        <!-- Tags checkboxes will be rendered here -->
+                    </div>
+                    <div id="accountPageSizeContainer" class="account-page-size-row">
+                        <select id="accountPageSizeSelect" class="account-page-size-select"
+                            onchange="handleAccountPageSizeChange(this.value)">
+                            <option value="100">每页 100</option>
+                            <option value="200" selected>每页 200</option>
+                            <option value="500">每页 500</option>
+                            <option value="1000">每页 1000</option>
+                            <option value="2000">每页 2000</option>
+                            <option value="5000">每页 5000</option>
+                            <option value="10000">每页 10000</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="account-list" id="accountList">

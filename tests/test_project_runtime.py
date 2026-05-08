@@ -107,6 +107,55 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         return payload['data']['accounts']
 
+    def test_accounts_api_imports_and_pages_ten_thousand_accounts(self):
+        account_lines = [
+            f'bulk{i:05d}@example.com----imap-password-{i}'
+            for i in range(10000)
+        ]
+
+        with patch.object(web_outlook_app, 'encrypt_data', side_effect=lambda value: value):
+            response = self.client.post('/api/accounts', json={
+                'account_string': '\n'.join(account_lines),
+                'group_id': 1,
+                'provider': 'gmail',
+            })
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['added_count'], 10000)
+
+        first_page = self.client.get(
+            '/api/accounts?group_id=1&limit=200&offset=0&sort_by=email&sort_order=asc'
+        )
+        self.assertEqual(first_page.status_code, 200)
+        first_payload = first_page.get_json()
+        self.assertTrue(first_payload['success'])
+        self.assertEqual(first_payload['total'], 10000)
+        self.assertEqual(len(first_payload['accounts']), 200)
+        self.assertTrue(first_payload['has_more'])
+        self.assertEqual(first_payload['accounts'][0]['email'], 'bulk00000@example.com')
+
+        last_page = self.client.get(
+            '/api/accounts?group_id=1&limit=200&offset=9800&sort_by=email&sort_order=asc'
+        )
+        self.assertEqual(last_page.status_code, 200)
+        last_payload = last_page.get_json()
+        self.assertTrue(last_payload['success'])
+        self.assertEqual(len(last_payload['accounts']), 200)
+        self.assertFalse(last_payload['has_more'])
+        self.assertEqual(last_payload['accounts'][-1]['email'], 'bulk09999@example.com')
+
+        max_page = self.client.get(
+            '/api/accounts?group_id=1&limit=20000&offset=0&sort_by=email&sort_order=asc'
+        )
+        self.assertEqual(max_page.status_code, 200)
+        max_payload = max_page.get_json()
+        self.assertTrue(max_payload['success'])
+        self.assertEqual(max_payload['limit'], 10000)
+        self.assertEqual(len(max_payload['accounts']), 10000)
+        self.assertFalse(max_payload['has_more'])
+
     def test_refresh_selected_stream_processes_selected_active_outlook_accounts(self):
         first_account_id = self._insert_account('first-selected@example.com')
         second_account_id = self._insert_account('second-selected@example.com')

@@ -1661,6 +1661,26 @@ def init_db():
     ''')
 
     cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_accounts_group_created
+        ON accounts(group_id, created_at)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_accounts_group_sort_order
+        ON accounts(group_id, sort_order)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_accounts_group_email
+        ON accounts(group_id, email)
+    ''')
+
+    cursor.execute('''
+        CREATE INDEX IF NOT EXISTS idx_accounts_group_email_nocase
+        ON accounts(group_id, email COLLATE NOCASE)
+    ''')
+
+    cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_account_refresh_logs_account_id
         ON account_refresh_logs(account_id)
     ''')

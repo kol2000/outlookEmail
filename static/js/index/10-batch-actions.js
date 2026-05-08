@@ -1,4 +1,4 @@
-        /* global accountsCache, clearEmailSelection, closeModal, copyTextToClipboard, currentAccount, currentAccountListSource, currentEmailDetail, currentGroupId, deleteAccount, getSelectedForwardChannels, handleApiError, hideModal, invalidateAccountCaches, isTempEmailGroup, loadAccountsByGroup, loadGroups, loadTags, refreshVisibleAccountList, renderEmailList, selectedEmailIds, setModalVisible, showModal, showToast, updateBatchActionBar */
+        /* global accountPaginationState, accountsCache, clearEmailSelection, closeModal, copyTextToClipboard, currentAccount, currentAccountListSource, currentEmailDetail, currentGroupId, deleteAccount, getSelectedForwardChannels, handleApiError, hideModal, invalidateAccountCaches, isTempEmailGroup, loadAccountsByGroup, loadGroups, loadTags, refreshVisibleAccountList, renderEmailList, selectedEmailIds, setModalVisible, showModal, showToast, updateBatchActionBar */
 
         // ==================== 批量操作 ====================
 
@@ -24,6 +24,12 @@
             const isForwardingUpdating = batchEnableForwardingBtn?.dataset.loading === 'true'
                 || batchDisableForwardingBtn?.dataset.loading === 'true';
             const isTempContext = !!isTempEmailGroup;
+            const loadedAccountCount = allCheckboxes.length;
+            const totalAccountCount = Number(accountPaginationState?.total) || loadedAccountCount;
+            const isPartialPageLoaded = !isTempContext && totalAccountCount > loadedAccountCount;
+            const loadedScopeSuffix = isPartialPageLoaded
+                ? `（已加载 ${loadedAccountCount}/${totalAccountCount}）`
+                : '';
 
             if (batchRefreshBtn) batchRefreshBtn.style.display = isTempContext ? 'none' : 'inline-flex';
             if (batchEnableForwardingBtn) batchEnableForwardingBtn.style.display = isTempContext ? 'none' : 'inline-flex';
@@ -32,6 +38,13 @@
             if (batchAddTagBtn) batchAddTagBtn.style.display = 'inline-flex';
             if (batchRemoveTagBtn) batchRemoveTagBtn.style.display = 'inline-flex';
             if (batchDeleteBtn) batchDeleteBtn.style.display = 'inline-flex';
+            if (selectAllBtn) {
+                const allLoadedChecked = loadedAccountCount > 0 && checked.length === loadedAccountCount;
+                const scopeLabel = isPartialPageLoaded ? '已加载' : '';
+                selectAllBtn.textContent = allLoadedChecked
+                    ? `取消全选${scopeLabel}`
+                    : `全选${scopeLabel}`;
+            }
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
@@ -39,13 +52,8 @@
                 countSpan.textContent = isTempContext
                     ? `已选 ${checked.length} 项`
                     : (refreshableChecked.length > 0 && refreshableChecked.length !== checked.length
-                    ? `已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项`
-                    : `已选 ${checked.length} 项`);
-                if (selectAllBtn) {
-                    selectAllBtn.textContent = allCheckboxes.length > 0 && checked.length === allCheckboxes.length
-                        ? '取消全选'
-                        : '全选';
-                }
+                    ? `已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项${loadedScopeSuffix}`
+                    : `已选 ${checked.length} 项${loadedScopeSuffix}`);
                 if (batchRefreshBtn) {
                     const isRefreshing = batchRefreshBtn.dataset.loading === 'true';
                     batchRefreshBtn.disabled = refreshableChecked.length === 0 || isRefreshing;

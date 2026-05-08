@@ -192,31 +192,269 @@ def reorder_groups(group_ids: List[int]) -> bool:
 
 # ==================== 邮箱账号操作 ====================
 
-def load_accounts(group_id: int = None) -> List[Dict]:
-    """从数据库加载邮箱账号"""
-    db = get_db()
-    if group_id:
-        cursor = db.execute('''
-            SELECT a.*, g.name as group_name, g.color as group_color
-            FROM accounts a
-            LEFT JOIN groups g ON a.group_id = g.id
-            WHERE a.group_id = ?
-            ORDER BY a.created_at DESC
-        ''', (group_id,))
-    else:
-        cursor = db.execute('''
-            SELECT a.*, g.name as group_name, g.color as group_color
-            FROM accounts a
-            LEFT JOIN groups g ON a.group_id = g.id
-            ORDER BY a.created_at DESC
+def normalize_account_pagination(limit: Any = None, offset: Any = 0) -> tuple[Optional[int], int]:
+    normalized_limit = None
+    if limit not in (None, ''):
+        try:
+            normalized_limit = int(limit)
+        except (TypeError, ValueError):
+            normalized_limit = 100
+        normalized_limit = max(1, min(normalized_limit, 10000))
+
+    try:
+        normalized_offset = int(offset or 0)
+    except (TypeError, ValueError):
+        normalized_offset = 0
+
+    return normalized_limit, max(0, normalized_offset)
+
+
+def normalize_account_sort(sort_by: Any = 'created_at', sort_order: Any = 'desc') -> tuple[str, str]:
+    normalized_sort_by = str(sort_by or '').strip().lower()
+    if normalized_sort_by not in {'sort_order', 'created_at', 'email'}:
+        normalized_sort_by = 'created_at'
+
+    normalized_sort_order = str(sort_order or '').strip().lower()
+    if normalized_sort_order not in {'asc', 'desc'}:
+        normalized_sort_order = 'desc' if normalized_sort_by == 'created_at' else 'asc'
+
+    return normalized_sort_by, normalized_sort_order
+
+
+def build_account_order_clause(sort_by: Any = 'created_at', sort_order: Any = 'desc') -> str:
+    normalized_sort_by, normalized_sort_order = normalize_account_sort(sort_by, sort_order)
+    direction = 'DESC' if normalized_sort_order == 'desc' else 'ASC'
+
+    if normalized_sort_by == 'sort_order':
+        return f'''
+            ORDER BY
+                CASE WHEN COALESCE(a.sort_order, 0) > 0 THEN 0 ELSE 1 END ASC,
+                a.sort_order {direction},
+                a.created_at DESC,
+                a.email COLLATE NOCASE ASC,
+                a.id DESC
+        '''
+    if normalized_sort_by == 'email':
+        return f'ORDER BY a.email COLLATE NOCASE {direction}, a.created_at DESC, a.id DESC'
+    return f'ORDER BY a.created_at {direction}, a.email COLLATE NOCASE ASC, a.id DESC'
+
+
+def normalize_tag_filter_values(tag_ids: Any = None) -> List[int]:
+    if tag_ids in (None, ''):
+        return []
+    values = tag_ids if isinstance(tag_ids, (list, tuple, set)) else str(tag_ids).split(',')
+    normalized: List[int] = []
+    seen = set()
+    for raw_value in values:
+        try:
+            tag_id = int(str(raw_value).strip())
+        except (TypeError, ValueError):
+            continue
+        if tag_id <= 0 or tag_id in seen:
+            continue
+        seen.add(tag_id)
+        normalized.append(tag_id)
+    return normalized
+
+
+def build_account_tag_filter_clause(tag_ids: Any = None, include_untagged: bool = False) -> tuple[str, List[Any]]:
+    normalized_tag_ids = normalize_tag_filter_values(tag_ids)
+    clauses = []
+    params: List[Any] = []
+
+    if normalized_tag_ids:
+        placeholders = ','.join('?' * len(normalized_tag_ids))
+        clauses.append(f'''
+            EXISTS (
+                SELECT 1
+                FROM account_tags at_filter
+                WHERE at_filter.account_id = a.id
+                  AND at_filter.tag_id IN ({placeholders})
+            )
         ''')
-    rows = cursor.fetchall()
+        params.extend(normalized_tag_ids)
+
+    if include_untagged:
+        clauses.append('''
+            NOT EXISTS (
+                SELECT 1
+                FROM account_tags at_filter
+                WHERE at_filter.account_id = a.id
+            )
+        ''')
+
+    if not clauses:
+        return '', []
+
+    return '(' + ' OR '.join(clauses) + ')', params
+
+
+def build_account_where_clause(group_id: int = None, query: str = '',
+                               tag_ids: Any = None, include_untagged: bool = False) -> tuple[str, List[Any]]:
+    clauses = []
+    params: List[Any] = []
+
+    if group_id:
+        clauses.append('a.group_id = ?')
+        params.append(group_id)
+
+    normalized_query = str(query or '').strip()
+    if normalized_query:
+        like_query = f'%{normalized_query}%'
+        clauses.append('(a.email LIKE ? OR a.remark LIKE ? OR t.name LIKE ? OR aa.alias_email LIKE ?)')
+        params.extend([like_query, like_query, like_query, like_query])
+
+    tag_clause, tag_params = build_account_tag_filter_clause(tag_ids, include_untagged)
+    if tag_clause:
+        clauses.append(tag_clause)
+        params.extend(tag_params)
+
+    if not clauses:
+        return '', []
+
+    return 'WHERE ' + ' AND '.join(clauses), params
+
+
+def chunk_account_ids(account_ids: List[int], chunk_size: int = 500) -> List[List[int]]:
+    return [account_ids[index:index + chunk_size] for index in range(0, len(account_ids), chunk_size)]
+
+
+def get_account_aliases_map(account_ids: List[int], db=None) -> Dict[int, List[str]]:
+    if not account_ids:
+        return {}
+
+    database = db or get_db()
+    aliases_by_account: Dict[int, List[str]] = {account_id: [] for account_id in account_ids}
+    for chunk_ids in chunk_account_ids(account_ids):
+        placeholders = ','.join('?' * len(chunk_ids))
+        rows = database.execute(f'''
+            SELECT account_id, alias_email
+            FROM account_aliases
+            WHERE account_id IN ({placeholders})
+            ORDER BY account_id, created_at ASC, id ASC
+        ''', chunk_ids).fetchall()
+
+        for row in rows:
+            alias_email = str(row['alias_email'] or '').strip()
+            if alias_email:
+                aliases_by_account.setdefault(row['account_id'], []).append(alias_email)
+    return aliases_by_account
+
+
+def get_account_tags_map(account_ids: List[int], db=None) -> Dict[int, List[Dict]]:
+    if not account_ids:
+        return {}
+
+    database = db or get_db()
+    tags_by_account: Dict[int, List[Dict]] = {account_id: [] for account_id in account_ids}
+    for chunk_ids in chunk_account_ids(account_ids):
+        placeholders = ','.join('?' * len(chunk_ids))
+        rows = database.execute(f'''
+            SELECT at.account_id, t.*
+            FROM account_tags at
+            JOIN tags t ON at.tag_id = t.id
+            WHERE at.account_id IN ({placeholders})
+            ORDER BY at.account_id, t.created_at DESC
+        ''', chunk_ids).fetchall()
+
+        for row in rows:
+            tag = dict(row)
+            account_id = tag.pop('account_id')
+            tags_by_account.setdefault(account_id, []).append(tag)
+    return tags_by_account
+
+
+def serialize_account_rows(rows: List[sqlite3.Row], db=None) -> List[Dict]:
+    account_ids = [int(row['id']) for row in rows]
+    aliases_by_account = get_account_aliases_map(account_ids, db)
+    tags_by_account = get_account_tags_map(account_ids, db)
+
     accounts = []
     for row in rows:
-        account = resolve_account_record(row)
-        account['tags'] = get_account_tags(account['id'])
+        account_id = int(row['id'])
+        account = resolve_account_record(row, aliases=aliases_by_account.get(account_id, []))
+        account['tags'] = tags_by_account.get(account_id, [])
         accounts.append(account)
     return accounts
+
+
+def load_accounts(group_id: int = None, limit: Any = None, offset: Any = 0,
+                  sort_by: Any = 'created_at', sort_order: Any = 'desc',
+                  tag_ids: Any = None, include_untagged: bool = False) -> List[Dict]:
+    """从数据库加载邮箱账号"""
+    db = get_db()
+    normalized_limit, normalized_offset = normalize_account_pagination(limit, offset)
+    where_clause, params = build_account_where_clause(group_id, tag_ids=tag_ids, include_untagged=include_untagged)
+    order_clause = build_account_order_clause(sort_by, sort_order)
+    pagination_clause = ''
+    if normalized_limit is not None:
+        pagination_clause = 'LIMIT ? OFFSET ?'
+        params.extend([normalized_limit, normalized_offset])
+
+    cursor = db.execute(f'''
+        SELECT a.*, g.name as group_name, g.color as group_color
+        FROM accounts a
+        LEFT JOIN groups g ON a.group_id = g.id
+        {where_clause}
+        {order_clause}
+        {pagination_clause}
+    ''', params)
+    rows = cursor.fetchall()
+    return serialize_account_rows(rows, db)
+
+
+def count_accounts(group_id: int = None, query: str = '',
+                   tag_ids: Any = None, include_untagged: bool = False) -> int:
+    db = get_db()
+    normalized_query = str(query or '').strip()
+    joins = '''
+        LEFT JOIN groups g ON a.group_id = g.id
+    '''
+    if normalized_query:
+        joins += '''
+            LEFT JOIN account_aliases aa ON a.id = aa.account_id
+            LEFT JOIN account_tags at ON a.id = at.account_id
+            LEFT JOIN tags t ON at.tag_id = t.id
+        '''
+    where_clause, params = build_account_where_clause(group_id, normalized_query, tag_ids, include_untagged)
+    count_expr = 'COUNT(DISTINCT a.id)' if normalized_query else 'COUNT(*)'
+    row = db.execute(f'''
+        SELECT {count_expr} AS count
+        FROM accounts a
+        {joins}
+        {where_clause}
+    ''', params).fetchone()
+    return int(row['count']) if row else 0
+
+
+def search_account_records(query: str, limit: Any = None, offset: Any = 0,
+                           sort_by: Any = 'created_at', sort_order: Any = 'desc',
+                           tag_ids: Any = None, include_untagged: bool = False) -> List[Dict]:
+    db = get_db()
+    normalized_limit, normalized_offset = normalize_account_pagination(limit, offset)
+    where_clause, params = build_account_where_clause(
+        query=query,
+        tag_ids=tag_ids,
+        include_untagged=include_untagged
+    )
+    order_clause = build_account_order_clause(sort_by, sort_order)
+    pagination_clause = ''
+    if normalized_limit is not None:
+        pagination_clause = 'LIMIT ? OFFSET ?'
+        params.extend([normalized_limit, normalized_offset])
+
+    rows = db.execute(f'''
+        SELECT DISTINCT a.*, g.name as group_name, g.color as group_color
+        FROM accounts a
+        LEFT JOIN groups g ON a.group_id = g.id
+        LEFT JOIN account_aliases aa ON a.id = aa.account_id
+        LEFT JOIN account_tags at ON a.id = at.account_id
+        LEFT JOIN tags t ON at.tag_id = t.id
+        {where_clause}
+        {order_clause}
+        {pagination_clause}
+    ''', params).fetchall()
+    return serialize_account_rows(rows, db)
 
 
 def normalize_account_sort_order(sort_order: Any, default: int = 0) -> int:
@@ -419,7 +657,8 @@ def replace_account_aliases(account_id: int, primary_email: str, aliases: List[s
         return False, cleaned_aliases, ['别名保存失败，可能存在重复或冲突']
 
 
-def resolve_account_record(row: sqlite3.Row, matched_alias: str = '') -> Dict[str, Any]:
+def resolve_account_record(row: sqlite3.Row, matched_alias: str = '',
+                           aliases: Optional[List[str]] = None) -> Dict[str, Any]:
     account = dict(row)
     if account.get('password'):
         try:
@@ -440,7 +679,7 @@ def resolve_account_record(row: sqlite3.Row, matched_alias: str = '') -> Dict[st
     account['account_type'] = account.get('account_type') or get_provider_meta(
         account['provider'], account.get('email', '')
     ).get('account_type', 'outlook')
-    account['aliases'] = get_account_aliases(account['id'])
+    account['aliases'] = list(aliases) if aliases is not None else get_account_aliases(account['id'])
     account['alias_count'] = len(account['aliases'])
     account['requested_email'] = matched_alias or account.get('email', '')
     account['matched_alias'] = matched_alias if matched_alias else ''
@@ -656,6 +895,49 @@ def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optiona
     return payload
 
 
+ACCOUNT_INSERT_SQL = '''
+    INSERT OR IGNORE INTO accounts (
+        email, password, client_id, refresh_token, group_id, sort_order, remark,
+        account_type, provider, imap_host, imap_port, imap_password, forward_enabled,
+        forward_last_checked_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+'''
+
+
+def build_account_insert_values(email_addr: str, password: str, client_id: str = '', refresh_token: str = '',
+                                group_id: int = 1, remark: str = '', account_type: str = 'outlook',
+                                provider: str = 'outlook', imap_host: str = '', imap_port: int = 993,
+                                imap_password: str = '', forward_enabled: bool = False,
+                                sort_order: Optional[int] = None) -> tuple:
+    encrypted_password = encrypt_data(password) if password else password
+    encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
+    encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
+    provider_meta = get_provider_meta(provider, email_addr)
+    normalized_provider = provider_meta['key']
+    normalized_account_type = account_type or provider_meta.get('account_type', 'outlook')
+    normalized_imap_host = imap_host or provider_meta.get('imap_host', '')
+    normalized_imap_port = int(imap_port or provider_meta.get('imap_port', 993) or 993)
+    normalized_sort_order = parse_account_sort_order_input(sort_order)
+
+    return (
+        email_addr,
+        encrypted_password,
+        client_id,
+        encrypted_refresh_token,
+        group_id,
+        normalized_sort_order,
+        remark,
+        normalized_account_type,
+        normalized_provider,
+        normalized_imap_host,
+        normalized_imap_port,
+        encrypted_imap_password,
+        1 if forward_enabled else 0,
+        datetime.now(timezone.utc).isoformat() if forward_enabled else None,
+    )
+
+
 def add_account(email_addr: str, password: str, client_id: str = '', refresh_token: str = '',
                 group_id: int = 1, remark: str = '', account_type: str = 'outlook',
                 provider: str = 'outlook', imap_host: str = '', imap_port: int = 993,
@@ -664,39 +946,53 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
     """添加邮箱账号"""
     db = get_db()
     try:
-        # 加密敏感字段
-        encrypted_password = encrypt_data(password) if password else password
-        encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
-        encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
-        provider_meta = get_provider_meta(provider, email_addr)
-        provider = provider_meta['key']
-        account_type = account_type or provider_meta.get('account_type', 'outlook')
-        imap_host = imap_host or provider_meta.get('imap_host', '')
-        imap_port = int(imap_port or provider_meta.get('imap_port', 993) or 993)
-        encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
-        provider_meta = get_provider_meta(provider, email_addr)
-        provider = provider_meta['key']
-        account_type = account_type or provider_meta.get('account_type', 'outlook')
-        imap_host = imap_host or provider_meta.get('imap_host', '')
-        imap_port = int(imap_port or provider_meta.get('imap_port', 993) or 993)
-        normalized_sort_order = parse_account_sort_order_input(sort_order)
-
-        db.execute('''
-            INSERT INTO accounts (
-                email, password, client_id, refresh_token, group_id, sort_order, remark,
-                account_type, provider, imap_host, imap_port, imap_password, forward_enabled,
-                forward_last_checked_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            email_addr, encrypted_password, client_id, encrypted_refresh_token, group_id, normalized_sort_order, remark,
-            account_type, provider, imap_host, imap_port, encrypted_imap_password, 1 if forward_enabled else 0,
-            datetime.now(timezone.utc).isoformat() if forward_enabled else None
+        before_changes = db.total_changes
+        db.execute(ACCOUNT_INSERT_SQL, build_account_insert_values(
+            email_addr, password, client_id, refresh_token, group_id, remark,
+            account_type, provider, imap_host, imap_port, imap_password,
+            forward_enabled, sort_order
         ))
         db.commit()
-        return True
+        return db.total_changes > before_changes
     except sqlite3.IntegrityError:
         return False
+
+
+def add_accounts_bulk(parsed_accounts: List[Dict[str, Any]], group_id: int = 1,
+                      forward_enabled: bool = False,
+                      sort_order: Optional[int] = None) -> Dict[str, int]:
+    """批量添加邮箱账号，单事务写入，重复邮箱自动跳过。"""
+    if not parsed_accounts:
+        return {'added_count': 0, 'skipped_count': 0}
+
+    db = get_db()
+    rows = [
+        build_account_insert_values(
+            parsed['email'],
+            parsed.get('password', ''),
+            parsed.get('client_id', ''),
+            parsed.get('refresh_token', ''),
+            group_id,
+            '',
+            parsed.get('account_type', 'outlook'),
+            parsed.get('provider', 'outlook'),
+            parsed.get('imap_host', ''),
+            parsed.get('imap_port', 993),
+            parsed.get('imap_password', ''),
+            forward_enabled,
+            sort_order
+        )
+        for parsed in parsed_accounts
+    ]
+
+    before_changes = db.total_changes
+    db.executemany(ACCOUNT_INSERT_SQL, rows)
+    db.commit()
+    added_count = max(0, db.total_changes - before_changes)
+    return {
+        'added_count': added_count,
+        'skipped_count': max(0, len(rows) - added_count),
+    }
 
 
 def update_account(account_id: int, email_addr: str, password: str, client_id: str,

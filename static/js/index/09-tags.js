@@ -1,4 +1,4 @@
-        /* global UNTAGGED_TAG_FILTER_KEY, accountsCache, currentAccountListSource, currentGroupId, handleApiError, hideModal, isTempEmailGroup, isUntaggedTagFilterValue, loadAccountsByGroup, loadTempEmails, normalizeTagFilterSelectionValue, refreshVisibleAccountList, renderFilteredAccountList, renderTempEmailList, selectedTagFilters, showModal, showToast, updateBatchTagTagOptions, updateCurrentGroupHeader */
+        /* global UNTAGGED_TAG_FILTER_KEY, accountsCache, currentAccountListSource, currentGroupId, handleApiError, hideModal, invalidateAccountCaches, isTempEmailGroup, isUntaggedTagFilterValue, loadAccountsByGroup, loadTempEmails, normalizeTagFilterSelectionValue, refreshVisibleAccountList, renderFilteredAccountList, renderTempEmailList, selectedTagFilters, showModal, showToast, updateBatchTagTagOptions, updateCurrentGroupHeader */
 
         // ==================== 标签管理 ====================
 
@@ -115,19 +115,15 @@
                 option.classList.remove('is-checked');
             });
             updateTagFilterSummary();
-            if (currentAccountListSource.length) {
-                if (isTempEmailGroup) {
+            if (isTempEmailGroup) {
+                if (currentAccountListSource.length) {
                     renderTempEmailList(currentAccountListSource);
-                } else {
-                    renderFilteredAccountList(currentAccountListSource);
                 }
-            } else if (currentGroupId) {
-                if (isTempEmailGroup) {
-                    loadTempEmails();
-                } else {
-                    loadAccountsByGroup(currentGroupId);
-                }
+                return;
             }
+
+            invalidateAccountCaches();
+            refreshVisibleAccountList(true);
         }
 
         // 更新标签筛选下拉框

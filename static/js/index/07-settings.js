@@ -579,6 +579,7 @@
             const imapHost = document.getElementById('importImapHost')?.value.trim() || '';
             const imapPort = parseInt(document.getElementById('importImapPort')?.value || '993', 10);
             const forwardEnabled = !!document.getElementById('importForwardEnabled')?.checked;
+            const importButton = document.querySelector('#addAccountModal .btn.btn-primary');
 
             if (!input) {
                 showToast('请输入账号信息', 'error');
@@ -592,6 +593,10 @@
             }
 
             try {
+                if (importButton) {
+                    importButton.disabled = true;
+                    importButton.textContent = '导入中...';
+                }
                 let response;
                 if (isTempGroup) {
                     const tempProvider = document.getElementById('importChannelSelect').value || 'gptmail';
@@ -631,6 +636,11 @@
                 }
             } catch (error) {
                 showToast('导入失败', 'error');
+            } finally {
+                if (importButton) {
+                    importButton.disabled = false;
+                    importButton.textContent = '导入';
+                }
             }
         }
 

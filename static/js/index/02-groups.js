@@ -1,4 +1,4 @@
-        /* global accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatAbsoluteDateTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, shouldShowAccountSortOrder, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
+        /* global ACCOUNT_LIST_DEFAULT_PAGE_SIZE, ACCOUNT_LIST_MAX_PAGE_SIZE, accountListPageSize, accountListRequestSeq, accountPaginationState, accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, formatAbsoluteDateTime, generateTempEmail, groups, handleApiError, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, shouldShowAccountSortOrder, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, tempEmailGroupId, updateCurrentGroupHeader, updateMobileContext */
 
         // ==================== 分组相关 ====================
 
@@ -452,6 +452,7 @@
                 // 显示渠道筛选、隐藏排序
                 document.getElementById('tempEmailProviderFilter').style.display = 'flex';
                 document.querySelector('.sort-control').style.display = 'none';
+                document.getElementById('accountPageSizeContainer').style.display = 'none';
                 updateTagFilter();
                 // 同步筛选按钮样式
                 const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
@@ -479,6 +480,8 @@
                 // 隐藏渠道筛选、显示排序、恢复标签筛选
                 document.getElementById('tempEmailProviderFilter').style.display = 'none';
                 document.querySelector('.sort-control').style.display = 'flex';
+                document.getElementById('accountPageSizeContainer').style.display = 'flex';
+                syncAccountPageSizeSelect();
                 updateTagFilter();
                 if (searchInput) {
                     searchInput.placeholder = '搜索邮箱地址、别名、备注或标签...';
@@ -507,26 +510,215 @@
             }
         }
 
-        // 加载分组下的账号
-        async function loadAccountsByGroup(groupId, forceRefresh = false) {
+        function getAccountTagFilterParams() {
+            const values = Array.from(selectedTagFilters || []);
+            const tagIds = values
+                .filter(value => !isUntaggedTagFilterValue(value))
+                .map(value => normalizeTagFilterSelectionValue(value))
+                .filter(value => Number.isFinite(value) && value > 0);
+            const includeUntagged = values.some(value => isUntaggedTagFilterValue(value));
+            return { tagIds, includeUntagged };
+        }
+
+        function hasAccountServerSideFilters() {
+            const filters = getAccountTagFilterParams();
+            return filters.tagIds.length > 0 || filters.includeUntagged;
+        }
+
+        function normalizeAccountPageSize(value) {
+            const parsed = parseInt(value, 10);
+            if (!Number.isFinite(parsed)) {
+                return ACCOUNT_LIST_DEFAULT_PAGE_SIZE;
+            }
+            return Math.max(1, Math.min(parsed, ACCOUNT_LIST_MAX_PAGE_SIZE));
+        }
+
+        function getAccountPageSize() {
+            accountListPageSize = normalizeAccountPageSize(accountListPageSize);
+            return accountListPageSize;
+        }
+
+        function syncAccountPageSizeSelect() {
+            const select = document.getElementById('accountPageSizeSelect');
+            if (select) {
+                const hasMatchingOption = Array.from(select.options)
+                    .some(option => option.value === String(getAccountPageSize()));
+                if (!hasMatchingOption) {
+                    accountListPageSize = ACCOUNT_LIST_DEFAULT_PAGE_SIZE;
+                    localStorage.setItem('outlook_account_page_size', String(accountListPageSize));
+                }
+                select.value = String(getAccountPageSize());
+            }
+        }
+
+        function initAccountPageSizeSelect() {
+            accountListPageSize = normalizeAccountPageSize(
+                localStorage.getItem('outlook_account_page_size') || ACCOUNT_LIST_DEFAULT_PAGE_SIZE
+            );
+            syncAccountPageSizeSelect();
+        }
+
+        function handleAccountPageSizeChange(value) {
+            accountListPageSize = normalizeAccountPageSize(value);
+            localStorage.setItem('outlook_account_page_size', String(accountListPageSize));
+            syncAccountPageSizeSelect();
+            invalidateAccountCaches();
+            if (!isTempEmailGroup) {
+                refreshVisibleAccountList(true);
+            }
+        }
+
+        function appendAccountListParams(params) {
+            params.set('limit', String(getAccountPageSize()));
+            params.set('sort_by', currentSortBy || 'created_at');
+            params.set('sort_order', currentSortOrder || 'desc');
+
+            const filters = getAccountTagFilterParams();
+            if (filters.tagIds.length) {
+                params.set('tag_ids', filters.tagIds.join(','));
+            }
+            if (filters.includeUntagged) {
+                params.set('include_untagged', '1');
+            }
+            return params;
+        }
+
+        function updateAccountPaginationState(mode, key, data, loadedCount, loading = false) {
+            accountPaginationState = {
+                mode,
+                key,
+                total: Number.isFinite(Number(data?.total)) ? Number(data.total) : loadedCount,
+                loaded: loadedCount,
+                hasMore: data?.has_more === true,
+                loading
+            };
+        }
+
+        function setAccountPaginationLoading(loading) {
+            accountPaginationState.loading = loading;
+            const footer = document.getElementById('accountPaginationFooter');
+            if (footer) {
+                footer.classList.toggle('is-loading', loading);
+                const text = footer.querySelector('.account-pagination-text');
+                if (text) {
+                    if (loading) {
+                        text.textContent = '加载中...';
+                    } else {
+                        const total = Number(accountPaginationState.total) || 0;
+                        const loaded = Math.min(Number(accountPaginationState.loaded) || 0, total || Number(accountPaginationState.loaded) || 0);
+                        text.textContent = accountPaginationState.hasMore
+                            ? `已加载 ${loaded} / ${total} 个邮箱`
+                            : `已加载全部 ${total} 个邮箱`;
+                    }
+                }
+            }
+        }
+
+        function renderAccountPaginationFooter(visibleCount) {
+            if (!accountPaginationState.total && !accountPaginationState.hasMore) {
+                return '';
+            }
+
+            const total = Math.max(Number(accountPaginationState.total) || 0, visibleCount);
+            const loaded = Math.max(Number(accountPaginationState.loaded) || visibleCount, visibleCount);
+            if (!accountPaginationState.hasMore && total <= getAccountPageSize()) {
+                return '';
+            }
+
+            const text = accountPaginationState.hasMore
+                ? `已加载 ${Math.min(loaded, total)} / ${total} 个邮箱`
+                : `已加载全部 ${total} 个邮箱`;
+            const action = accountPaginationState.hasMore
+                ? '<button class="account-pagination-btn" type="button" onclick="loadMoreAccounts()">加载更多</button>'
+                : '';
+
+            return `
+                <div class="account-pagination-footer ${accountPaginationState.loading ? 'is-loading' : ''}" id="accountPaginationFooter">
+                    <span class="account-pagination-text">${escapeHtml(accountPaginationState.loading ? '加载中...' : text)}</span>
+                    ${action}
+                </div>
+            `;
+        }
+
+        function maybeLoadMoreAccounts() {
             const container = document.getElementById('accountList');
+            if (!container || accountPaginationState.loading || !accountPaginationState.hasMore) {
+                return;
+            }
+            const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            if (distanceToBottom < 180) {
+                loadMoreAccounts();
+            }
+        }
+
+        function initAccountListScroll() {
+            const accountList = document.getElementById('accountList');
+            if (!accountList || accountList.dataset.boundPaging) return;
+            accountList.dataset.boundPaging = 'true';
+            accountList.addEventListener('scroll', maybeLoadMoreAccounts, { passive: true });
+        }
+
+        async function loadMoreAccounts() {
+            if (accountPaginationState.loading || !accountPaginationState.hasMore) {
+                return;
+            }
+
+            const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
+            if (searchQuery) {
+                await searchAccounts(searchQuery, false, true);
+            } else if (currentGroupId && !isTempEmailGroup) {
+                await loadAccountsByGroup(currentGroupId, false, true);
+            }
+        }
+
+        // 加载分组下的账号
+        async function loadAccountsByGroup(groupId, forceRefresh = false, append = false) {
+            const container = document.getElementById('accountList');
+            const cacheAllowed = !hasAccountServerSideFilters();
 
             // 如果有缓存且不强制刷新，直接使用缓存
-            if (!forceRefresh && accountsCache[groupId]) {
+            if (!append && !forceRefresh && cacheAllowed && accountsCache[groupId]) {
+                updateAccountPaginationState('group', String(groupId), {
+                    total: accountsCache[groupId].length,
+                    has_more: false
+                }, accountsCache[groupId].length);
                 renderFilteredAccountList(accountsCache[groupId]);
                 return;
             }
 
-            container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
+            const offset = append ? currentAccountListSource.length : 0;
+            if (append) {
+                setAccountPaginationLoading(true);
+            } else {
+                container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
+            }
+
+            const params = appendAccountListParams(new URLSearchParams({
+                group_id: String(groupId),
+                offset: String(offset)
+            }));
+            const requestId = ++accountListRequestSeq;
 
             try {
-                const response = await fetch(`/api/accounts?group_id=${groupId}`);
+                const response = await fetch(`/api/accounts?${params.toString()}`);
                 const data = await response.json();
+                if (requestId !== accountListRequestSeq) {
+                    return;
+                }
 
                 if (data.success) {
-                    // 缓存数据
-                    accountsCache[groupId] = data.accounts;
-                    renderFilteredAccountList(data.accounts);
+                    const nextAccounts = append
+                        ? currentAccountListSource.concat(data.accounts || [])
+                        : (data.accounts || []);
+                    if (cacheAllowed && !data.has_more && nextAccounts.length <= getAccountPageSize()) {
+                        accountsCache[groupId] = nextAccounts;
+                    } else if (!append) {
+                        delete accountsCache[groupId];
+                    } else if (nextAccounts.length > getAccountPageSize()) {
+                        delete accountsCache[groupId];
+                    }
+                    updateAccountPaginationState('group', String(groupId), data, nextAccounts.length);
+                    renderFilteredAccountList(nextAccounts);
                 } else {
                     container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || '加载失败', {
                         onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
@@ -534,10 +726,18 @@
                     });
                 }
             } catch (error) {
-                container.innerHTML = renderEmptyStateMarkup('⚠️', '加载失败', {
-                    onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
-                    actionTitle: '刷新账号列表'
-                });
+                if (append) {
+                    showToast('加载更多账号失败', 'error');
+                } else {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', '加载失败', {
+                        onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
+                        actionTitle: '刷新账号列表'
+                    });
+                }
+            } finally {
+                if (requestId === accountListRequestSeq) {
+                    setAccountPaginationLoading(false);
+                }
             }
         }
 
@@ -631,6 +831,10 @@
                 return;
             }
 
+            const checkedAccountIds = new Set(
+                Array.from(container.querySelectorAll('.account-select-checkbox:checked'))
+                    .map(checkbox => String(checkbox.value))
+            );
             container.innerHTML = accounts.map(acc => `
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}')">
@@ -674,8 +878,14 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `).join('') + renderAccountPaginationFooter(accounts.length);
+            if (checkedAccountIds.size) {
+                container.querySelectorAll('.account-select-checkbox').forEach(checkbox => {
+                    checkbox.checked = checkedAccountIds.has(String(checkbox.value));
+                });
+            }
             updateBatchActionBar();
+            maybeLoadMoreAccounts();
         }
 
         // 排序相关变量
@@ -772,10 +982,15 @@
                 activeBtn.style.borderColor = '#1a1a1a';
             }
 
-            // 重新加载并排序账号列表
-            if (currentAccountListSource.length) {
-                renderFilteredAccountList(currentAccountListSource);
+            invalidateAccountCaches();
+            if (isTempEmailGroup) {
+                if (currentAccountListSource.length) {
+                    renderTempEmailList(currentAccountListSource);
+                }
+                return;
             }
+
+            refreshVisibleAccountList(true);
         }
 
         function renderFilteredAccountList(accounts) {
@@ -785,7 +1000,13 @@
 
             const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
             if (searchQuery) {
-                updateCurrentGroupHeader(null, `搜索结果 (${filteredAccounts.length})`);
+                const total = Number(accountPaginationState.total) || filteredAccounts.length;
+                updateCurrentGroupHeader(null, `搜索结果 (${filteredAccounts.length}/${total})`);
+            } else {
+                const currentGroup = groups.find(group => group.id === currentGroupId);
+                if (currentGroup && Number(accountPaginationState.total) > 0) {
+                    updateCurrentGroupHeader(currentGroup, `${normalizeGroupName(currentGroup.name)} (${filteredAccounts.length}/${accountPaginationState.total})`);
+                }
             }
         }
 
@@ -796,7 +1017,7 @@
 
             const searchQuery = (document.getElementById('globalSearch')?.value || '').trim();
             if (searchQuery) {
-                return searchAccounts(searchQuery);
+                return searchAccounts(searchQuery, forceRefresh);
             }
             if (currentGroupId) {
                 return loadAccountsByGroup(currentGroupId, forceRefresh);
@@ -925,18 +1146,19 @@
                 option.classList.toggle('is-checked', !!checkbox?.checked);
             });
             updateTagFilterSummary();
-            if (currentAccountListSource.length) {
-                if (isTempEmailGroup) {
+            invalidateAccountCaches();
+            if (isTempEmailGroup) {
+                if (currentAccountListSource.length) {
                     renderTempEmailList(currentAccountListSource);
-                } else {
-                    renderFilteredAccountList(currentAccountListSource);
                 }
+                return;
             } else if (currentGroupId) {
-                if (isTempEmailGroup) {
-                    loadTempEmails();
-                } else {
-                    loadAccountsByGroup(currentGroupId);
-                }
+                refreshVisibleAccountList(true);
+                return;
+            }
+
+            if (currentAccountListSource.length) {
+                renderFilteredAccountList(currentAccountListSource);
             }
         }
 
@@ -950,17 +1172,25 @@
         }
 
         // 全局搜索函数
-        async function searchAccounts(query) {
+        async function searchAccounts(query, forceRefresh = false, append = false) {
             const container = document.getElementById('accountList');
 
             if (!query.trim()) {
                 const currentGroup = groups.find(group => group.id === currentGroupId);
                 updateCurrentGroupHeader(currentGroup);
                 currentAccountListSource = [];
+                accountPaginationState = {
+                    mode: '',
+                    key: '',
+                    total: 0,
+                    loaded: 0,
+                    hasMore: false,
+                    loading: false
+                };
                 if (isTempEmailGroup) {
                     loadTempEmails();
                 } else {
-                    loadAccountsByGroup(currentGroupId);
+                    loadAccountsByGroup(currentGroupId, forceRefresh);
                 }
                 return;
             }
@@ -974,20 +1204,46 @@
                 return;
             }
 
-            container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
+            const offset = append ? currentAccountListSource.length : 0;
+            if (append) {
+                setAccountPaginationLoading(true);
+            } else {
+                container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
+            }
+
+            const params = appendAccountListParams(new URLSearchParams({
+                q: query,
+                offset: String(offset)
+            }));
+            const requestId = ++accountListRequestSeq;
 
             try {
-                const response = await fetch(`/api/accounts/search?q=${encodeURIComponent(query)}`);
+                const response = await fetch(`/api/accounts/search?${params.toString()}`);
                 const data = await response.json();
+                if (requestId !== accountListRequestSeq) {
+                    return;
+                }
 
                 if (data.success) {
-                    renderFilteredAccountList(data.accounts);
+                    const nextAccounts = append
+                        ? currentAccountListSource.concat(data.accounts || [])
+                        : (data.accounts || []);
+                    updateAccountPaginationState('search', query, data, nextAccounts.length);
+                    renderFilteredAccountList(nextAccounts);
                 } else {
                     container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败</div></div>';
                 }
             } catch (error) {
                 console.error('搜索失败:', error);
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>';
+                if (append) {
+                    showToast('加载更多搜索结果失败', 'error');
+                } else {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>';
+                }
+            } finally {
+                if (requestId === accountListRequestSeq) {
+                    setAccountPaginationLoading(false);
+                }
             }
         }
 

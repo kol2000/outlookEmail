@@ -1,4 +1,4 @@
-        /* global closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, initColorPicker, initEmailListScroll, loadGroups, loadTags, renderEmailList, scheduleEmailListLoadCheck, searchAccounts */
+        /* global closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, initAccountListScroll, initAccountPageSizeSelect, initColorPicker, initEmailListScroll, loadGroups, loadTags, renderEmailList, scheduleEmailListLoadCheck, searchAccounts */
 
         // 全局状态
         let csrfToken = null;
@@ -11,6 +11,18 @@
         let groups = [];
         let accountsCache = {}; // 缓存各分组的邮箱列表
         let currentAccountListSource = []; // 当前账号列表的原始数据源（分组或搜索结果）
+        const ACCOUNT_LIST_DEFAULT_PAGE_SIZE = 200;
+        const ACCOUNT_LIST_MAX_PAGE_SIZE = 10000;
+        let accountListPageSize = ACCOUNT_LIST_DEFAULT_PAGE_SIZE;
+        let accountPaginationState = {
+            mode: '',
+            key: '',
+            total: 0,
+            loaded: 0,
+            hasMore: false,
+            loading: false
+        };
+        let accountListRequestSeq = 0;
         let currentForwardingLogAccountId = null;
         let currentForwardingLogAccountEmail = '';
         let editingGroupId = null;
@@ -1115,6 +1127,8 @@
             initColorPicker();
             initColorPicker();
             initEmailListScroll();
+            initAccountListScroll();
+            initAccountPageSizeSelect();
             window.addEventListener('pointermove', handleGlobalGroupPointerMove, { passive: false });
             window.addEventListener('pointerup', handleGlobalGroupPointerUp);
             window.addEventListener('pointercancel', handleGlobalGroupPointerUp);
