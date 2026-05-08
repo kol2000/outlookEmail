@@ -184,6 +184,12 @@
                 align-items: flex-start;
             }
 
+            .account-list-options-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 100px;
+                align-items: center;
+            }
+
             .tag-filter-dropdown {
                 width: 100%;
                 max-width: none;

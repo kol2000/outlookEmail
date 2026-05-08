@@ -147,22 +147,60 @@
             box-shadow: 0 6px 16px rgba(26, 26, 26, 0.16);
         }
 
+        .account-list-options-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 100px;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
         #tagFilterContainer {
             display: none;
             position: relative;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+
+        .account-page-size-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            min-width: 0;
+        }
+
+        .account-page-size-select {
+            width: 100px;
+            min-height: 34px;
+            padding: 0 6px;
+            border: 1px solid #d9dce3;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #374151;
+            font-size: 12px;
+            font-weight: 600;
+            outline: none;
+            flex-shrink: 0;
+        }
+
+        .account-page-size-select:focus {
+            border-color: #1a1a1a;
+            box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
         }
 
         .tag-filter-dropdown {
             position: relative;
             min-width: 0;
             flex: 1;
-            max-width: 220px;
+            max-width: none;
         }
 
         .tag-filter-trigger {
             width: 100%;
-            min-height: 36px;
-            padding: 0 12px;
+            min-height: 34px;
+            padding: 0 10px;
             border: 1px solid #d9dce3;
             border-radius: 12px;
             background: #ffffff;
@@ -353,6 +391,40 @@
 
         .account-panel.batch-toolbar-active .account-list {
             padding-bottom: 88px;
+        }
+
+        .account-pagination-footer {
+            margin: 2px 12px 8px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #6b7280;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .account-pagination-footer.is-loading {
+            color: #374151;
+        }
+
+        .account-pagination-btn {
+            min-height: 30px;
+            padding: 0 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #f9fafb;
+            color: #111827;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .account-pagination-btn:hover {
+            background: #f3f4f6;
+            border-color: #c4c9d4;
         }
 
         .account-item {
