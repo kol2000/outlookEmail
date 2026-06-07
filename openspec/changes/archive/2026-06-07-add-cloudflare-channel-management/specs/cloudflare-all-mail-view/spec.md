@@ -1,8 +1,5 @@
-# cloudflare-all-mail-view Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-cloudflare-all-mail-view. Update Purpose after archive.
-## Requirements
 ### Requirement: Cloudflare admin global mail listing
 系统 SHALL 提供一个需要登录 session 的 API，通过指定 Cloudflare 渠道或默认 Cloudflare 渠道的管理员邮件列表接口读取该渠道 Worker 邮件。
 
@@ -56,27 +53,7 @@ TBD - created by archiving change add-cloudflare-all-mail-view. Update Purpose a
 - **WHEN** 已登录用户请求超过最大允许数量的 Cloudflare 全局邮件
 - **THEN** 系统 SHALL 在调用指定渠道的 Cloudflare 前将 limit 限制到配置允许的最大值。
 
-### Requirement: Cloudflare raw mail normalization
-系统 SHALL 将 Cloudflare 管理员邮件记录归一化为现有 UI 渲染流程期望的邮件列表和详情字段。
-
-#### Scenario: 解析原始邮件项
-- **WHEN** Cloudflare 返回包含原始 RFC822 内容的邮件记录
-- **THEN** 系统 SHALL 解析发件人、收件人、主题、预览文本、是否包含 HTML、时间戳和稳定邮件 ID 用于展示。
-
-#### Scenario: 邮件项缺少原始内容
-- **WHEN** Cloudflare 邮件记录缺少原始 RFC822 内容
-- **THEN** 系统 SHALL 跳过该记录或安全表示该记录，且不影响整体响应。
-
-### Requirement: Cloudflare global view isolation
-系统 SHALL 保持 Cloudflare 全局邮件列表与本地临时邮箱缓存隔离。
-
-#### Scenario: 全局邮件地址未导入本地
-- **WHEN** Cloudflare 全局邮件列表返回某个不在 `temp_emails` 中的地址邮件
-- **THEN** 系统 SHALL 仍然展示该邮件，并且 SHALL NOT 创建本地临时邮箱记录。
-
-#### Scenario: 全局邮件不缓存为临时邮箱邮件
-- **WHEN** 系统列出 Cloudflare 全局邮件
-- **THEN** 系统 SHALL NOT 将这些邮件写入 `temp_email_messages`。
+## ADDED Requirements
 
 ### Requirement: Cloudflare channel global mail entries
 系统 SHALL 为每个启用的 Cloudflare 渠道提供独立的全部邮件视图入口。
@@ -96,4 +73,3 @@ TBD - created by archiving change add-cloudflare-all-mail-view. Update Purpose a
 #### Scenario: 不提供全部渠道聚合入口
 - **WHEN** 临时邮箱列表显示 Cloudflare 全部邮件入口
 - **THEN** 系统 SHALL NOT 显示或调用跨全部 Cloudflare 渠道聚合邮件的入口。
-
