@@ -1,4 +1,4 @@
-"""测试手动 OAuth 默认走 GraphAPI 单资源权限（不依赖完整应用导入）"""
+'Test manual OAuth and use GraphAPI single resource permission by default (does not rely on complete application import)'
 import ast
 import pathlib
 
@@ -9,7 +9,7 @@ HELPERS_PATH = ROOT_DIR / 'outlook_web' / 'segments' / '03_mail_helpers.py'
 
 
 def extract_assignment_value(path, name):
-    """从源代码中提取常量赋值。"""
+    'Extract constant assignments from source code.'
     tree = ast.parse(path.read_text(encoding='utf-8'))
 
     for node in tree.body:
@@ -28,12 +28,12 @@ def extract_assignment_value(path, name):
 
 
 def extract_oauth_scopes_from_source():
-    """从源代码中提取手动 OAuth scope 配置。"""
+    'Manual OAuth scope configuration extracted from source code.'
     return extract_assignment_value(BOOTSTRAP_PATH, 'OAUTH_SCOPES') or []
 
 
 def extract_graph_oauth_scopes_from_source():
-    """从源代码中提取 Graph 专用 scope 配置。"""
+    'Extract Graph-specific scope configuration from source code.'
     return extract_assignment_value(BOOTSTRAP_PATH, 'OAUTH_GRAPH_SCOPES') or []
 
 
@@ -48,7 +48,7 @@ def scope_resource(scope):
 
 
 def test_manual_oauth_scopes_are_graph_api():
-    """手动授权默认 GraphAPI，不能混用 Outlook IMAP 资源，否则会触发 AADSTS70011。"""
+    'Manually authorize the default GraphAPI and cannot mix Outlook IMAP resources, otherwise AADSTS70011 will be triggered.'
     scopes = extract_oauth_scopes_from_source()
     expected = [
         "offline_access",
@@ -59,58 +59,58 @@ def test_manual_oauth_scopes_are_graph_api():
     ]
 
     assert scopes == expected, \
-        f"手动 OAuth 默认应请求 GraphAPI 权限，当前配置: {scopes}"
+        f'Manual OAuth should request GraphAPI permissions by default, current configuration: {scopes}'
 
 
 def test_oauth_scopes_contains_offline_access():
-    """验证 OAUTH_SCOPES 包含 offline_access（获取 RefreshToken 必需）"""
+    'Verify that OAUTH_SCOPES contains offline_access (required to obtain RefreshToken)'
     scopes = extract_oauth_scopes_from_source()
     assert "offline_access" in scopes, \
-        f"OAUTH_SCOPES 必须包含 offline_access 才能获取 RefreshToken\n当前配置: {scopes}"
+        f'OAUTH_SCOPES must contain offline_access to obtain RefreshToken\nCurrent configuration: {scopes}'
 
 
 def test_oauth_scopes_count():
-    """验证 OAUTH_SCOPES 包含预期数量的权限"""
+    'Verify that OAUTH_SCOPES contains the expected number of permissions'
     scopes = extract_oauth_scopes_from_source()
     expected_count = 5  # offline_access + Mail.Read + Mail.ReadWrite + Mail.Send + User.Read
     assert len(scopes) == expected_count, \
-        f"OAUTH_SCOPES 应该包含 {expected_count} 个权限，实际: {len(scopes)}\n当前配置: {scopes}"
+        f'OAUTH_SCOPES should contain {expected_count} permissions, actual: {len(scopes)}\nCurrent configuration: {scopes}'
 
 
 def test_oauth_scopes_has_no_duplicates():
-    """验证 OAUTH_SCOPES 没有重复的权限"""
+    'Verify that OAUTH_SCOPES does not have duplicate permissions'
     scopes = extract_oauth_scopes_from_source()
     assert len(scopes) == len(set(scopes)), \
-        f"OAUTH_SCOPES 不应包含重复权限: {scopes}"
+        f'OAUTH_SCOPES should not contain duplicate permissions: {scopes}'
 
 
 def test_oauth_scopes_all_valid():
-    """验证所有权限都是有效的字符串"""
+    'Verify that all permissions are valid strings'
     scopes = extract_oauth_scopes_from_source()
     assert all(isinstance(scope, str) and scope.strip() for scope in scopes), \
-        f"所有 scope 都应该是非空字符串: {scopes}"
+        f'All scopes should be non-empty strings: {scopes}'
 
 
 def test_manual_oauth_scopes_do_not_mix_resource_hosts():
-    """OAuth v2 单次授权请求的 scope 只能包含一个资源主机。"""
+    'The scope of a single authorization request in OAuth v2 can only contain one resource host.'
     scopes = extract_oauth_scopes_from_source()
     resource_hosts = {scope_resource(scope) for scope in scopes if scope_resource(scope)}
 
     assert resource_hosts == {'https://graph.microsoft.com'}, \
-        f"手动 OAuth scope 不能混用多个资源: {scopes}"
+        f'Manual OAuth scope cannot mix multiple resources: {scopes}'
 
 
 def test_manual_oauth_scopes_align_with_graph_oauth_scopes():
-    """手动 OAuth 的 Graph 权限应与 OAUTH_GRAPH_SCOPES 一致。"""
+    "Manual OAuth's Graph permissions should be consistent with OAUTH_GRAPH_SCOPES."
     scopes = extract_oauth_scopes_from_source()
     graph_scopes = extract_graph_oauth_scopes_from_source()
 
     assert set(scopes) - {'offline_access'} == set(graph_scopes), \
-        f"手动 OAuth Graph 权限应与 OAUTH_GRAPH_SCOPES 一致: {scopes} vs {graph_scopes}"
+        f'Manual OAuth Graph permissions should be consistent with OAUTH_GRAPH_SCOPES: {scopes} vs {graph_scopes}'
 
 
 def test_graph_oauth_scopes_include_read_write_send_and_user():
-    """Graph 专用 scope 需同时包含读、写、发信与 User.Read。"""
+    'The Graph-specific scope must include reading, writing, sending, and User.Read.'
     graph_scopes = extract_graph_oauth_scopes_from_source()
 
     assert "https://graph.microsoft.com/Mail.Read" in graph_scopes
@@ -120,15 +120,15 @@ def test_graph_oauth_scopes_include_read_write_send_and_user():
 
 
 def test_imap_token_scope_remains_imap_only():
-    """IMAP 换 token 路径仍只使用 IMAP 单资源，与手动 Graph 授权分离。"""
+    'IMAP token replacement path still only uses IMAP single resource, which is separated from manual Graph authorization.'
     imap_token_scope = extract_assignment_value(HELPERS_PATH, 'IMAP_TOKEN_SCOPE')
     assert imap_token_scope == "https://outlook.office.com/IMAP.AccessAsUser.All offline_access", \
-        f"IMAP_TOKEN_SCOPE 应保持 IMAP 单资源: {imap_token_scope}"
+        f'IMAP_TOKEN_SCOPE should remain IMAP single resource: {imap_token_scope}'
 
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("开始测试 OAuth GraphAPI Scope 配置")
+    print('Start testing OAuth GraphAPI Scope configuration')
     print("="*60 + "\n")
 
     tests = [
@@ -153,12 +153,12 @@ if __name__ == '__main__':
 
     print("\n" + "="*60)
     if failed == 0:
-        print("[SUCCESS] 所有测试通过！")
+        print('[SUCCESS] All tests passed!')
 
         scopes = extract_oauth_scopes_from_source()
-        print("\n当前 OAUTH_SCOPES 配置:")
+        print('\nCurrent OAUTH_SCOPES configuration:')
         for i, scope in enumerate(scopes, 1):
             print(f"  {i}. {scope}")
     else:
-        print(f"[FAIL] {failed} 个测试失败")
+        print(f'[FAIL] {failed} tests failed')
     print("="*60 + "\n")

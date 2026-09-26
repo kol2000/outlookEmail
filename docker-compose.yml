@@ -14,9 +14,9 @@ services:
       - FLASK_ENV=production
       - DOCKER_UPDATE_ENABLED=true
       - DOCKER_UPDATE_CONTAINER=outlook-mail-reader
-      # 可选：在较新的 Docker daemon / socket 代理环境中显式指定 API 版本
+      # Optional: Explicitly specify the API version in newer Docker daemon/socket proxy environments
       # - DOCKER_UPDATE_API_VERSION=1.52
-      # 可选：让界面 OAuth 助手使用你自己的 Azure 应用
+      # Optional: Let the interface OAuth helper use your own Azure application
       # - OAUTH_CLIENT_ID=your-azure-application-client-id
       # - OAUTH_REDIRECT_URI=http://localhost:8080
     restart: unless-stopped

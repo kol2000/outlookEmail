@@ -1,32 +1,32 @@
-## 背景与动机
+## Background and motivation
 
-Cloudflare Temp Email 已经提供管理员邮件列表接口，可以查看整个 Worker 收到的邮件池；但本项目目前只能在选中某个本地临时邮箱后，通过该邮箱保存的 JWT 查看单个地址的邮件。用户需要在本项目里查看 Cloudflare 全部邮件，并且在查询 Gmail 地址时兼容同一邮箱可能以 `@gmail.com` 或 `@googlemail.com` 出现的情况。
+Cloudflare Temp Email already provides an administrator mail list interface, which can view the mail pool received by the entire Worker; however, this project can currently only view the mail of a single address through the JWT saved in the mailbox after selecting a local temporary mailbox. Users need to view all Cloudflare emails in this project, and be compatible with the situation where the same email address may appear as `@gmail.com` or `@googlemail.com` when querying the Gmail address.
 
-## 变更内容
+## Change content
 
-- 基于当前配置的一套 Cloudflare Temp Email Worker 和管理员密码，新增 Cloudflare 全局邮件列表能力。
-- Cloudflare 全局邮件列表支持可选的收件地址过滤，同时保留不带过滤条件的“全部邮件”视图。
-- 将 Cloudflare 返回的原始 RFC822 邮件解析为现有邮件列表和详情视图可复用的数据形状。
-- 当指定邮箱查询未命中时，新增确定性的 `@gmail.com` / `@googlemail.com` 后缀回退。
-- 保留现有 plus-address 回退行为，并让它与 Gmail 后缀回退组合工作。
-- 响应中返回请求地址、实际查询或解析地址、是否使用回退等元数据。
+- Added Cloudflare global mailing list capabilities based on the currently configured set of Cloudflare Temp Email Workers and administrator passwords.
+- Cloudflare global mailing lists support optional recipient address filtering while retaining an "all messages" view without filters.
+- Parse raw RFC822 messages returned by Cloudflare into data shapes that can be reused by existing mailing lists and detail views.
+- Added deterministic `@gmail.com` / `@googlemail.com` suffix fallback when the specified mailbox query misses.
+- Keep the existing plus-address fallback behavior and make it work in combination with the Gmail suffix fallback.
+- Metadata such as the request address, actual query or resolution address, and whether to use fallback are returned in the response.
 
-## 能力范围
+## Capability scope
 
-### 新增能力
+### New capabilities
 
-- `cloudflare-all-mail-view`：通过配置好的 Cloudflare Temp Email 管理员邮件 API 查看和过滤全部邮件。
-- `email-address-fallback-resolution`：通过现有 plus-address 回退和新增 Gmail/Googlemail 后缀回退解析邮箱查询。
+- `cloudflare-all-mail-view`: View and filter all emails via the configured Cloudflare Temp Email admin email API.
+- `email-address-fallback-resolution`: Parsing email queries with existing plus-address fallback and new Gmail/Googlemail suffix fallback.
 
-### 修改能力
+### Modification ability
 
-- 无。
+- None.
 
-## 影响范围
+## Scope of influence
 
-- 后端 Cloudflare 临时邮箱路由：`outlook_web/segments/06_routes_temp_email.py`。
-- 现有账号解析辅助函数：`outlook_web/segments/02_groups_accounts.py`。
-- 内部和对外邮件 API：`outlook_web/segments/08_forwarding_scheduler_errors.py`。
-- 临时邮箱前端：`static/js/index/03-temp-emails.js`，以及必要的样式和模板。
-- API 文档 `docs/api.md` 和 README 用户说明。
-- 测试覆盖 Cloudflare 管理员邮件列表、地址过滤回退，以及现有 plus-address 回退兼容性。
+- Backend Cloudflare temporary mailbox route: `outlook_web/segments/06_routes_temp_email.py`.
+- Existing account resolution auxiliary function: `outlook_web/segments/02_groups_accounts.py`.
+- Internal and external mail API: `outlook_web/segments/08_forwarding_scheduler_errors.py`.
+- Temporary mailbox frontend: `static/js/index/03-temp-emails.js`, along with necessary styles and templates.
+- API documentation `docs/api.md` and README user instructions.
+- Test coverage of Cloudflare admin mailing list, address filtering fallback, and existing plus-address fallback compatibility.

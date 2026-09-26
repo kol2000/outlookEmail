@@ -21,11 +21,11 @@ def localized_app(monkeypatch):
 
     @app.get('/status')
     def status():
-        return jsonify(error='登录失败', subject='登录失败', name='临时邮箱', body={'message': '登录失败'})
+        return jsonify(error='Login failed', subject='Login failed', name='\u4e34\u65f6\u90ae\u7bb1', body={'message': 'Login failed'})
 
     @app.get('/stream')
     def stream():
-        return Response(iter(['data: {"message": "登录失败"}\n\n']), mimetype='text/event-stream')
+        return Response(iter(['data: {"message": "Login failed"}\n\n']), mimetype='text/event-stream')
 
     return app
 
@@ -44,54 +44,54 @@ def test_only_status_fields_are_translated(localized_app, language):
     client = localized_app.test_client()
     response = client.get('/status', headers={'X-Outlook-Language': language})
     value = response.get_json()
-    assert value['error'] == catalog(language)['登录失败']
-    assert value['subject'] == '登录失败'
-    assert value['name'] == '临时邮箱'
-    assert value['body'] == {'message': '登录失败'}
+    assert value['error'] == catalog(language)['Login failed']
+    assert value['subject'] == 'Login failed'
+    assert value['name'] == '\u4e34\u65f6\u90ae\u7bb1'
+    assert value['body'] == {'message': 'Login failed'}
     assert response.headers['Content-Language'] == language
     assert 'Cookie' in response.headers['Vary']
 
 
 @pytest.mark.parametrize('language', ['en', 'ru'])
 def test_substitution_does_not_translate_user_data(localized_app, language):
-    key = '已清理 {__0__} 封普通邮箱本地缓存邮件'
+    key = '{__0__} local cached emails of ordinary mailboxes have been cleared'
     with localized_app.test_request_context(headers={'X-Outlook-Language': language}):
-        output = translate(key, '你好 ${secret} $& <script>')
-    assert '你好 ${secret} $& <script>' in output
+        output = translate(key, '\u4f60\u597d ${secret} $& <script>')
+    assert '\u4f60\u597d ${secret} $& <script>' in output
     assert '{__0__}' not in output
-    source = '已清理 123 封普通邮箱本地缓存邮件'
+    source = '123 local cached emails of ordinary mailboxes have been cleared'
     assert translate_message(source, language) == catalog(language)[key].replace('{__0__}', '123')
 
 
 def test_original_api_language_is_available(localized_app):
     response = localized_app.test_client().get('/status', headers={'X-Outlook-Language': 'zh-CN'})
-    assert response.get_json()['error'] == '登录失败'
+    assert response.get_json()['error'] == 'Login failed'
 
 
 def test_nested_status_and_builtin_skin_names_preserve_custom_content():
-    payload = {'error': {'message': '登录失败', 'code': 'LOGIN_FAILED'},
-               'status': {'clear_status': {'message': '普通邮箱本地缓存清理空闲'}},
-               'skins': [{'builtin': True, 'name': '经典'}, {'builtin': False, 'name': '经典'}]}
+    payload = {'error': {'message': 'Login failed', 'code': 'LOGIN_FAILED'},
+               'status': {'clear_status': {'message': 'No cache cleanup is running'}},
+               'skins': [{'builtin': True, 'name': 'Classic'}, {'builtin': False, 'name': 'Classic'}]}
     localized = localize_payload(payload, 'ru')
-    assert localized['error']['message'] == catalog('ru')['登录失败']
+    assert localized['error']['message'] == catalog('ru')['Login failed']
     assert localized['error']['code'] == 'LOGIN_FAILED'
-    assert localized['status']['clear_status']['message'] == catalog('ru')['普通邮箱本地缓存清理空闲']
-    assert localized['skins'][0]['name'] == catalog('ru')['经典']
-    assert localized['skins'][1]['name'] == '经典'
+    assert localized['status']['clear_status']['message'] == catalog('ru')['No cache cleanup is running']
+    assert localized['skins'][0]['name'] == catalog('ru')['Classic']
+    assert localized['skins'][1]['name'] == 'Classic'
 
 
 def test_stream_handles_split_json_without_touching_mail(localized_app):
-    chunks = ['data: {"mess', 'age": "登录失败", "subject": "登录失败"}\n', '\n', ': keepalive\n\n']
+    chunks = ['data: {"mess', 'age": "Login failed", "subject": "Login failed"}\n', '\n', ': keepalive\n\n']
     text = ''.join(localize_sse(iter(chunks), 'ru'))
     value = json.loads(text.splitlines()[0][6:])
-    assert value['message'] == catalog('ru')['登录失败']
-    assert value['subject'] == '登录失败'
+    assert value['message'] == catalog('ru')['Login failed']
+    assert value['subject'] == 'Login failed'
     assert text.endswith(': keepalive\n\n')
-    encoded = 'data: {"message": "登录失败"}\n\n'.encode('utf-8')
+    encoded = 'data: {"message": "Login failed"}\n\n'.encode('utf-8')
     split_bytes = [encoded[i:i + 1] for i in range(len(encoded))]
-    assert catalog('ru')['登录失败'] == json.loads(''.join(localize_sse(split_bytes, 'ru')).splitlines()[0][6:])['message']
+    assert catalog('ru')['Login failed'] == json.loads(''.join(localize_sse(split_bytes, 'ru')).splitlines()[0][6:])['message']
     response = localized_app.test_client().get('/stream', headers={'X-Outlook-Language': 'en'})
-    assert catalog('en')['登录失败'] in response.get_data(as_text=True)
+    assert catalog('en')['Login failed'] in response.get_data(as_text=True)
 
 
 def test_catalogs_are_complete_and_preserve_placeholders():

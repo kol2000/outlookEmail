@@ -1,4 +1,4 @@
-        /* 主容器 */
+        /* Main container */
         .main-container {
             display: flex;
             margin-top: 56px;
@@ -61,7 +61,7 @@
             display: none;
         }
 
-        /* 分组面板 */
+        /* Grouping panel */
         .group-panel {
             width: 200px;
             background-color: var(--skin-surface-muted);

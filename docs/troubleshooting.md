@@ -1,77 +1,77 @@
-# 🛠️ 故障排查与常见问题
+# 🛠️ Troubleshooting and FAQs
 
-## 故障排查
+## Troubleshooting
 
-### 容器无法启动
+### Container cannot be started
 
-**检查步骤：**
+** inspection steps: **
 
 ```bash
-# 1. 查看容器状态
+# 1. View container status
 docker ps -a
 
-# 2. 查看应用日志
+# 2. View application logs
 docker logs outlook-mail-reader
 
-# 3. 检查端口占用
+# 3. Check port occupancy
 lsof -i :5000
 
-# 4. 重新拉取镜像并重启
+# 4. Pull the image again and restart
 docker pull ghcr.io/assast/outlookemail:latest
 docker-compose down
 docker-compose up -d
 ```
 
-**正确的日志应该显示：**
+** The correct log should show: **
 ```
 ============================================================
-Outlook 邮件 Web 应用已初始化
-数据库文件: data/outlook_accounts.db
+Outlook Mail Web App initialized
+Database file: data/outlook_accounts.db
 GPTMail API: https://mail.chatgpt.org.uk
 ============================================================
 ```
 
-### 数据库表不存在错误
+### Database table does not exist error
 
-**错误信息：** `sqlite3.OperationalError: no such table: settings`
+** error message: ** `sqlite3.OperationalError: no such table: settings`
 
-**原因：** 数据库未初始化或损坏
+** Reason: ** database is not initialized or damaged
 
-**解决方法：**
+** Solution: **
 
 ```bash
-# 方法 1：删除旧数据库，重新初始化
+# Method 1: Delete the old database and re-initialize it
 docker-compose down
 rm -rf data/outlook_accounts.db
 docker-compose up -d
 
-# 方法 2：手动初始化数据库
+# Method 2: Manually initialize the database
 docker exec outlook-mail-reader python -c "from web_outlook_app import init_db; init_db()"
 docker-compose restart
 
-# 方法 3：使用最新镜像
+# Method 3: Use the latest image
 docker pull ghcr.io/assast/outlookemail:latest
 docker-compose down
 docker-compose up -d
 ```
 
-### 无法获取邮件
+### Unable to get mail
 
-**可能原因：**
-1. Refresh Token 过期或无效
-2. Client ID 错误
-3. API 权限不足
-4. 网络连接问题
+** Possible reasons: **
+1. Refresh Token expired or invalid
+2. Client ID error
+3. Insufficient API permissions
+4. Network connection issues
 
-**解决方法：**
+** Solution: **
 
-1. **重新获取 Refresh Token** - 使用内置的 OAuth2 助手重新获取
-2. **检查 API 权限** - 确保已添加所需的 API 权限
-3. **查看详细错误** - 打开浏览器开发者工具（F12），查看 Network 标签
+1. ** Refresh Token** - Refresh using the built-in OAuth2 helper
+2. **Check API permissions** - Make sure the required API permissions have been added
+3. **View detailed error ** - Open the browser developer tools (F12) and view the Network tag
 
-### 502 错误（Nginx）
+### 502 error (Nginx)
 
-**原因：** 应用未正常启动或端口配置错误
+** Reason: ** application did not start normally or the port configuration is wrong
 
 ```bash
 docker ps
@@ -82,27 +82,27 @@ docker-compose restart
 sudo systemctl reload nginx
 ```
 
-### 临时邮箱功能不可用
+### Temporary mailbox function is not available
 
-1. **更新 API Key** - 在「⚙️ 设置」中更新 GPTMail API Key
-2. **检查服务状态** - 访问 GPTMail 官网确认服务状态
+1. ** Update API Key** - Update GPTMail API Key in "⚙️ Settings"
+2. ** Check service status ** - Visit GPTMail official website to confirm service status
 
-### Session 过期问题
+### Session expiration problem
 
-1. **服务器部署时设置固定 SECRET_KEY**
+1. Fixed SECRET_KEY** setting when deploying ** server
    ```yaml
    environment:
      - SECRET_KEY=your-fixed-secret-key-here
    ```
-   使用 `python -c 'import secrets; print(secrets.token_hex(32))'` 生成
+   Generated using `python -c 'import secrets; print(secrets.token_hex(32))'`
 
-   如果使用 Windows `exe`，程序会在首次启动时自动生成并保存固定 `SECRET_KEY`，不要删除对应数据目录下的密钥文件。
+   If you use Windows `exe`, the program will automatically generate and save the fixed `SECRET_KEY` when it is started for the first time. Do not delete the key file in the corresponding data directory.
 
-2. Web 登录默认有效期为 30 天，也可以在登录页选择 7 天、90 天、180 天或永久有效；重启应用不会导致 Session 失效（使用固定 SECRET_KEY）
+2. The default validity period of web login is 30 days. You can also choose 7 days, 90 days, 180 days or permanent validity on the login page; restarting the application will not cause the Session to become invalid (use fixed SECRET_KEY)
 
-### 数据库锁定错误
+### Database lock error
 
-**错误信息：** `sqlite3.OperationalError: database is locked`
+** error message: ** `sqlite3.OperationalError: database is locked`
 
 ```bash
 docker-compose restart
@@ -114,55 +114,55 @@ docker-compose up -d
 
 ---
 
-## 常见问题
+## FAQ
 
-### Q: 为什么无法获取邮件？
-A: 请检查：(1) Refresh Token 是否有效 (2) Client ID 是否正确 (3) Azure 应用 API 权限 (4) 网络连接 (5) 尝试重新获取 Token
+### Q: Why can't I get the email?
+A: Please check: (1) Whether the Refresh Token is valid (2) Whether the Client ID is correct (3) Azure application API permissions (4) Network connection (5) Try to obtain the Token again
 
-### Q: 如何获取 Refresh Token？
-A: 使用内置 OAuth2 助手：点击「获取 Token」→「生成授权链接」→ 浏览器授权 → 复制授权后 URL → 粘贴换取 Token
+### Q: How to obtain Refresh Token?
+A: Use the built-in OAuth2 assistant: click "Get Token" → "Generate Authorization Link" → Browser Authorization → Copy the authorized URL → Paste to exchange for Token
 
-### Q: 临时邮箱功能如何使用？
-A: 点击「临时邮箱」分组 → 「生成临时邮箱」→ 选择邮箱 →「获取邮件」
+### Q: How to use the temporary mailbox function?
+A: Click the "Temporary Mailbox" group → "Generate Temporary Mailbox" → Select the mailbox → "Get Mail"
 
-### Q: 如何修改登录密码？
-A: **还记得当前密码时**，在 Web 界面「⚙️ 设置」中修改（须填写当前密码）。环境变量 `LOGIN_PASSWORD` **仅在首次初始化**（数据库尚无 `login_password`）时写入默认值；应用已运行并写过库之后，只改 env **不会**覆盖当前登录密码。
+### Q: How to change the login password?
+A: ** still remembers the current password as **, which can be modified in the Web interface "⚙️ Settings" (the current password must be filled in). The environment variable `LOGIN_PASSWORD` ** is only written to the default value when ** is initialized for the first time (the database does not yet have `login_password`); after the application has been run and the library has been written, only changing env ** will not overwrite the current login password with **.
 
-### Q: 忘记 Web 登录密码怎么办？
-A: 使用官方重置脚本（**不需要**旧密码，需要能访问数据库/容器的主机权限）：
+### Q: What should I do if I forget my web login password?
+A: Use the official reset script (** does not require the old password of **, but requires host permissions to access the database/container):
 
 ```bash
-# 建议先停止服务（非强制），并确认 DATABASE_PATH（默认 data/outlook_accounts.db）
+# It is recommended to stop the service first (not mandatory) and confirm DATABASE_PATH (default data/outlook_accounts.db)
 python scripts/reset_login_password.py
 
-# Docker 示例（容器名按实际修改；必须 -it 以进入交互终端）
+# Docker example (the container name is modified according to the actual situation; -it must be used to enter the interactive terminal)
 docker exec -it outlook-mail-reader python scripts/reset_login_password.py
-# 若 compose 服务名为 outlook-mail：
+# If the compose service name is outlook-mail:
 # docker exec -it outlook-mail python scripts/reset_login_password.py
 ```
 
-按提示输入并确认新密码（至少 8 位）。成功后：
+Enter and confirm your new password (at least 8 digits) when prompted. After success:
 
-- 用**新密码**登录；既有 Web / 扩展会话会失效
-- 密码保存在数据库 `settings.login_password`（bcrypt），**不是**靠改 `LOGIN_PASSWORD` 环境变量恢复
-- 脚本不支持 `--password` 或管道传入密码，须在交互 TTY 中运行
+- Log in with ** new password **; existing web/extended sessions will become invalid
+- The password is saved in the database `settings.login_password` (bcrypt), ** is not ** and can be restored by changing the `LOGIN_PASSWORD` environment variable.
+- The script does not support `--password` or piped passwords and must be run in an interactive TTY
 
-更完整的安全边界说明见 [security.md](./security.md)。
+See [security.md](security.md) for a more complete description of security boundaries.
 
-### Q: 数据存储在哪里？
-A: SQLite 数据库 `data/outlook_accounts.db`，建议定期备份
+### Q: Where is the data stored?
+A: SQLite database `data/outlook_accounts.db`, regular backup is recommended
 
-### Q: 支持哪些邮件文件夹？
-A: 收件箱（Inbox）、垃圾邮件（Junk Email）、已删除邮件（Deleted Items）
+### Q: What mail folders are supported?
+A: Inbox, Junk Email, Deleted Items
 
-### Q: 如何批量导入邮箱？
-A: 默认格式：`邮箱----密码----client_id----refresh_token`，每行一个；也支持在导入弹窗中切换为 `邮箱----密码----refresh_token----client_id`
+### Q: How to import mailboxes in batches?
+A: Default format: `Email----Password----client_id----refresh_token`, one per line; it also supports switching to `Email----Password----refresh_token----client_id` in the import pop-up window.
 
-### Q: 如何导出邮箱账号？
-A: (1) 导出单个分组 (2) 导出所有 (3) 导出选中分组 (4) 在邮箱列表批量选择后导出选中账号
+### Q: How to export email account?
+A: (1) Export a single group (2) Export all (3) Export selected groups (4) Export selected accounts after batch selection in the mailbox list
 
-### Q: 批量选择怎么拖拽？Mac 触控板没有反应怎么办？
-A: 先点击邮箱面板顶部的「☑」进入批量选择模式，然后在账号行或左侧选择框上按住并上下拖动。只按住 `Shift` 点击适合连续范围选择，不等同于拖拽；如果要用触控板拖拽，需要保持按下状态经过多行账号。
+### Q: How to drag and drop batch selection? What should I do if my Mac trackpad is unresponsive?
+A: First click the "☑" at the top of the mailbox panel to enter batch selection mode, then press and drag up and down on the account row or left selection box. Just hold down `Shift` and click for continuous range selection, which is not equivalent to dragging; if you want to drag with the trackpad, you need to keep pressing to go through multiple lines of accounts.
 
-### Q: Docker 容器无法启动怎么办？
-A: (1) `docker logs outlook-mail-reader` (2) 检查端口 (3) 检查目录权限 (4) 拉取最新镜像
+### Q: What should I do if the Docker container cannot be started?
+A: (1) `docker logs outlook-mail-reader` (2) Check port (3) Check directory permissions (4) Pull the latest image

@@ -33,7 +33,7 @@ class EmailDetailErrorTests(unittest.TestCase):
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM account_tags')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.commit()
             added = web_outlook_app.add_account(
                 'detail-error@example.com',
@@ -47,7 +47,7 @@ class EmailDetailErrorTests(unittest.TestCase):
             self.assertTrue(added)
             self.account = web_outlook_app.get_account_by_email('detail-error@example.com')
 
-    def _graph_error(self, message='Graph 获取邮件详情失败', code='EMAIL_DETAIL_FETCH_FAILED', status=403):
+    def _graph_error(self, message='Graph failed to obtain email details', code='EMAIL_DETAIL_FETCH_FAILED', status=403):
         return web_outlook_app.build_error_payload(
             code,
             message,
@@ -56,7 +56,7 @@ class EmailDetailErrorTests(unittest.TestCase):
             {'error': {'code': 'ErrorAccessDenied', 'message': message}},
         )
 
-    def _imap_error(self, message='IMAP 获取邮件详情失败', code='EMAIL_DETAIL_FETCH_FAILED', status=502):
+    def _imap_error(self, message='IMAP failed to obtain email details', code='EMAIL_DETAIL_FETCH_FAILED', status=502):
         return web_outlook_app.build_error_payload(
             code,
             message,
@@ -68,7 +68,7 @@ class EmailDetailErrorTests(unittest.TestCase):
     def test_graph_detail_token_failure_returns_structured_error(self):
         token_error = web_outlook_app.build_error_payload(
             'GRAPH_TOKEN_FAILED',
-            '获取访问令牌失败',
+            'Failed to obtain access token',
             'GraphAPIError',
             400,
             {'error': 'invalid_grant'},
@@ -242,9 +242,9 @@ class EmailDetailErrorTests(unittest.TestCase):
         transport_error = web_outlook_app.build_mail_fetch_error(
             TimeoutError('timed out'),
             proxy_url='socks5://127.0.0.1:1080',
-            operation='获取邮件详情',
+            operation='Get email details',
             legacy_code='EMAIL_DETAIL_FETCH_FAILED',
-            legacy_message='获取邮件详情失败',
+            legacy_message='Failed to obtain email details',
             legacy_status=500,
         )
         email_detail = {
@@ -283,7 +283,7 @@ class EmailDetailErrorTests(unittest.TestCase):
     def test_imap_detail_does_not_retry_auth_errors(self):
         auth_error = web_outlook_app.build_error_payload(
             'IMAP_AUTH_FAILED',
-            'IMAP 认证失败',
+            'IMAP authentication failed',
             'IMAPAuthError',
             401,
             '',
@@ -311,9 +311,9 @@ class EmailDetailErrorTests(unittest.TestCase):
         transport_error = web_outlook_app.build_mail_fetch_error(
             ConnectionError('connection refused'),
             proxy_url='',
-            operation='获取邮件详情',
+            operation='Get email details',
             legacy_code='EMAIL_DETAIL_FETCH_FAILED',
-            legacy_message='获取邮件详情失败',
+            legacy_message='Failed to obtain email details',
             legacy_status=500,
         )
         with patch.object(

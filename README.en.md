@@ -46,7 +46,7 @@ Description:
 
 - macOS data is saved in `~/Library/Application Support/OutlookEmail` by default
 - If macOS prompts that Apple cannot verify whether "OutlookEmail" contains malware that may harm Mac security or leak privacy. You can execute the following command and try again
-  `sudo xattr -rd com.apple.quarantine /Applications/OutlookEmail.app` 
+  `sudo xattr -rd com.apple.quarantine /Applications/OutlookEmail.app`
 - The default login password is still `admin123`. It is recommended to change it immediately after logging in for the first time.
 
 ### Method 3: Use Docker (recommended server deployment)
@@ -291,19 +291,19 @@ The web application adopts a four-column layout design:
 ## 📸 Interface preview
 
 ### Email list interface
-![Email list](img/邮箱列表.png)
+[Upstream screenshot: Email list](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E9%82%AE%E7%AE%B1%E5%88%97%E8%A1%A8.png)
 
 ### Global search function
-![Global search](img/全局搜索.png)
+[Upstream screenshot: Global search](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%85%A8%E5%B1%80%E6%90%9C%E7%B4%A2.png)
 
 ### Import email account
-![Import email account](img/导入邮箱账号.png)
+[Upstream screenshot: Import email account](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%AF%BC%E5%85%A5%E9%82%AE%E7%AE%B1%E8%B4%A6%E5%8F%B7.png)
 
 ### Token refresh management
-![Refresh all tokens](img/全量刷新token.png)
+[Upstream screenshot: Refresh all tokens](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%85%A8%E9%87%8F%E5%88%B7%E6%96%B0token.png)
 
 ### Tag management function
-![Tag management](img/标签管理.png)
+[Upstream screenshot: Tag management](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%A0%87%E7%AD%BE%E7%AE%A1%E7%90%86.png)
 
 ## 📖 Instructions for use
 
@@ -320,13 +320,13 @@ The OAuth2 helper in the interface reads `OAUTH_CLIENT_ID` and `OAUTH_REDIRECT_U
 
 Visit [Azure Portal](https://portal.azure.com/) and enter "Application Registration":
 
-![Application registration](img/应用注册.png)
+[Upstream screenshot: Application registration](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%BA%94%E7%94%A8%E6%B3%A8%E5%86%8C.png)
 
 #### Step 2: Create a new app
 
 Click "New Registration" and fill in the application information:
 
-![Register application](img/注册应用程序.png)
+[Upstream screenshot: Register application](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%B3%A8%E5%86%8C%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F.png)
 
 - ** name **: Custom application name
 - ** Supported account types **: Select "Accounts in any organizational directory and personal Microsoft accounts"
@@ -336,7 +336,7 @@ Click "New Registration" and fill in the application information:
 
 After creation, copy the "Application (Client) ID":
 
-![Get application ID](img/获取应用程序ID.png)
+[Upstream screenshot: Get application ID](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E8%8E%B7%E5%8F%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8FID.png)
 
 #### Step 4: Configure API permissions. This step can be omitted. The current built-in client ID can be used normally without setting this step.
 
@@ -352,7 +352,7 @@ If you need IMAP access, please select `IMAP authorization` in the "Outlook Emai
 
 Use the built-in OAuth2 assistant of this tool to obtain the Refresh Token:
 
-![Exchange for token](img/换取token.png)
+[Upstream screenshot: Exchange for token](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%8D%A2%E5%8F%96token.png)
 
 1. Click the "Get Token" button in the web interface
 2. Click "Generate Authorization Link"

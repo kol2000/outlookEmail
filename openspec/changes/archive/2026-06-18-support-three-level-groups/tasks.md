@@ -1,85 +1,85 @@
-## 1. 数据库 Schema 与迁移
+## 1. Database Schema and migration
 
-- [x] 1.1 `01_bootstrap.py`: groups 表 CREATE 语句新增 `parent_id INTEGER DEFAULT NULL` 和 `level INTEGER DEFAULT 1 CHECK(level IN (1,2,3))`，加 `FOREIGN KEY(parent_id) REFERENCES groups(id)`
-- [x] 1.2 `01_bootstrap.py`: 新增迁移脚本 `ALTER TABLE groups ADD COLUMN parent_id INTEGER DEFAULT NULL` 和 `ALTER TABLE groups ADD COLUMN level INTEGER DEFAULT 1`，对已有行 `UPDATE groups SET parent_id = NULL, level = 1 WHERE parent_id IS NULL`
-- [x] 1.3 `01_bootstrap.py`: 为 `parent_id` 列添加索引 `CREATE INDEX IF NOT EXISTS idx_groups_parent_id ON groups(parent_id)`
+- [x] 1.1 `01_bootstrap.py`: The groups table CREATE statement adds `parent_id INTEGER DEFAULT NULL` and `level INTEGER DEFAULT 1 CHECK(level IN (1,2,3))`, and adds `FOREIGN KEY(parent_id) REFERENCES groups(id)`
+- [x] 1.2 `01_bootstrap.py`: New migration scripts `ALTER TABLE groups ADD COLUMN parent_id INTEGER DEFAULT NULL` and `ALTER TABLE groups ADD COLUMN level INTEGER DEFAULT 1`, for the existing row `UPDATE groups SET parent_id = NULL, level = 1 WHERE parent_id IS NULL`
+- [x] 1.3 `01_bootstrap.py`: Add index `CREATE INDEX IF NOT EXISTS idx_groups_parent_id ON groups(parent_id)` to column `parent_id`
 
-## 2. 后端数据层 — 分组层级操作
+## 2. Back-end data layer—group-level operations
 
-- [x] 2.1 `02_groups_accounts.py`: 新增 `get_descendant_group_ids(group_id)` 函数，返回包含自身在内的所有后代分组 ID 列表
-- [x] 2.2 `02_groups_accounts.py`: 新增 `get_child_groups(parent_id)` 函数，返回指定父分组的直接子分组列表
-- [x] 2.3 `02_groups_accounts.py`: 新增 `rebuild_group_levels(group_id)` 函数，级联修正子树的 level 值
-- [x] 2.4 `02_groups_accounts.py`: 新增 `get_max_subtree_depth(group_id)` 函数，计算分组及其子树的最大深度
-- [x] 2.5 `02_groups_accounts.py`: 新增 `validate_group_move(group_id, target_parent_id)` 函数，校验移动后层级深度不超过 3
-- [x] 2.6 `02_groups_accounts.py`: 改造 `load_groups()` — 按 parent_id, level, sort_order 排序返回，并附带 `descendant_account_count`
-- [x] 2.7 `02_groups_accounts.py`: 改造 `add_group()` — 增加 `parent_id` 参数，自动计算 level，校验父分组合法性和层级深度
-- [x] 2.8 `02_groups_accounts.py`: 改造 `update_group()` — 支持 `parent_id` 变更，移动时级联修正子树 level
-- [x] 2.9 `02_groups_accounts.py`: 改造 `delete_group()` — 递归收集所有后代分组 ID，将所有关联账号移回默认分组 (id=1)，然后删除所有后代分组及自身
-- [x] 2.10 `02_groups_accounts.py`: 改造 `reorder_groups()` — 增加 `parent_id` 参数，只重排指定父级下的子分组 sort_order
-- [x] 2.11 `02_groups_accounts.py`: 改造 `get_group_account_count()` — 新增 `recursive` 参数，为 True 时返回后代账号总数
-- [x] 2.12 `02_groups_accounts.py`: 改造 `get_movable_group_ids()` — 增加 `parent_id` 过滤参数
+- [x] 2.1 `02_groups_accounts.py`: Added `get_descendant_group_ids(group_id)` function to return a list of all descendant group IDs including itself.
+- [x] 2.2 `02_groups_accounts.py`: Added `get_child_groups(parent_id)` function to return the direct subgroup list of the specified parent group
+- [x] 2.3 `02_groups_accounts.py`: Added `rebuild_group_levels(group_id)` function to cascade the level value of the subtree correction
+- [x] 2.4 `02_groups_accounts.py`: Added `get_max_subtree_depth(group_id)` function to calculate the maximum depth of the group and its subtree
+- [x] 2.5 `02_groups_accounts.py`: Added `validate_group_move(group_id, target_parent_id)` function to verify that the level depth after movement does not exceed 3
+- [x] 2.6 `02_groups_accounts.py`: Transform `load_groups()` — return sorted by parent_id, level, sort_order, and accompanied by `descendant_account_count`
+- [x] 2.7 `02_groups_accounts.py`: Transformation of `add_group()` - Add `parent_id` parameters, automatically calculate level, verify parent group legitimacy and hierarchy depth
+- [x] 2.8 `02_groups_accounts.py`: Transform `update_group()` — Support `parent_id` changes, cascade correction subtree level when moving
+- [x] 2.9 `02_groups_accounts.py`: Transform `delete_group()` — Recursively collect all descendant group IDs, move all associated accounts back to the default group (id=1), then delete all descendant groups and itself
+- [x] 2.10 `02_groups_accounts.py`: Transform `reorder_groups()` - Add `parent_id` parameter, only rearrange the subgroups under the specified parent sort_order
+- [x] 2.11 `02_groups_accounts.py`: Modify `get_group_account_count()` - Add `recursive` parameter, return the total number of descendant accounts when True
+- [x] 2.12 `02_groups_accounts.py`: Modify `get_movable_group_ids()` — Add `parent_id` filter parameters
 
-## 3. 后端数据层 — 代理级联回退
+## 3. Backend data layer — proxy cascade fallback
 
-- [x] 3.1 `02_groups_accounts.py`: 新增 `get_group_inherited_proxy_config(group_row)` 函数，沿 parent_id 向上查找第一个有代理配置的祖先分组
-- [x] 3.2 `02_groups_accounts.py`: 改造 `get_account_proxy_config()` — 分组代理部分改为调用 `get_group_inherited_proxy_config()` 逐级回退
+- [x] 3.1 `02_groups_accounts.py`: Added `get_group_inherited_proxy_config(group_row)` function to search up the first ancestor group with proxy configuration along parent_id
+- [x] 3.2 `02_groups_accounts.py`: Transform `get_account_proxy_config()` - the grouping agent part is changed to call `get_group_inherited_proxy_config()` step by step fallback
 
-## 4. 后端数据层 — 递归账号查询
+## 4. Backend data layer — recursive account query
 
-- [x] 4.1 `02_groups_accounts.py`: 改造 `load_accounts(group_id=X)` 为递归查询，匹配分组自身及所有后代分组
-- [x] 4.2 `02_groups_accounts.py`: 改造 `count_accounts(group_id=X)` 为递归账号统计
-- [x] 4.3 `02_groups_accounts.py`: 改造 `search_account_records()` 的 group_id 参数为递归分组过滤
+- [x] 4.1 `02_groups_accounts.py`: Transform `load_accounts(group_id=X)` into a recursive query, matching the group itself and all descendant groups
+- [x] 4.2 `02_groups_accounts.py`: Transform `count_accounts(group_id=X)` into recursive account statistics
+- [x] 4.3 `02_groups_accounts.py`: Transform the group_id parameter of `search_account_records()` into recursive group filtering
 
-## 5. 后端 API 路由
+## 5. Backend API routing
 
-- [x] 5.1 `04_routes_groups_accounts.py`: `GET /api/groups` 返回增加 `parent_id`, `level`, `descendant_account_count` 字段
-- [x] 5.2 `04_routes_groups_accounts.py`: `POST /api/groups` 增加 `parent_id` 参数，校验层级深度 ≤ 3，拒绝临时邮箱分组作为父分组
-- [x] 5.3 `04_routes_groups_accounts.py`: `PUT /api/groups/<id>` 支持 `parent_id` 变更，校验移动合法性
-- [x] 5.4 `04_routes_groups_accounts.py`: `DELETE /api/groups/<id>` 改用级联删除逻辑，返回信息中包含被删除的子分组数量
-- [x] 5.5 `04_routes_groups_accounts.py`: `PUT /api/groups/reorder` 增加 `parent_id` 参数，只在同父级下排序
-- [x] 5.6 `04_routes_groups_accounts.py`: `POST /api/accounts/batch-update-group` 验证目标分组存在性（支持任意层级分组）
+- [x] 5.1 `04_routes_groups_accounts.py`: `GET /api/groups` return adds `parent_id`, `level`, `descendant_account_count` fields
+- [x] 5.2 `04_routes_groups_accounts.py`: `POST /api/groups` Add `parent_id` parameter, verify the level depth ≤ 3, and reject the temporary mailbox group as the parent group
+- [x] 5.3 `04_routes_groups_accounts.py`: `PUT /api/groups/<id>` supports `parent_id` changes and verifies the legality of the move
+- [x] 5.4 `04_routes_groups_accounts.py`: `DELETE /api/groups/<id>` uses cascade deletion logic instead, and the returned information includes the number of deleted subgroups
+- [x] 5.5 `04_routes_groups_accounts.py`: `PUT /api/groups/reorder` Add `parent_id` parameter, only sort under the same parent
+- [x] 5.6 `04_routes_groups_accounts.py`: `POST /api/accounts/batch-update-group` Verify the existence of the target group (supports any level of grouping)
 
-## 6. 前端 JS — 树形渲染与交互
+## 6. Front-end JS — tree rendering and interaction
 
-- [x] 6.1 `02-groups.js`: 新增 `buildGroupTree(flatGroups)` 函数，将扁平数组构建为 parent_id → children 嵌套结构
-- [x] 6.2 `02-groups.js`: 改造 `renderGroupList()` → `renderGroupTree(nodes, level)` 递归渲染树形分组列表
-- [x] 6.3 `02-groups.js`: 新增折叠/展开 toggle 交互逻辑，点击箭头切换子分组显隐，状态存 localStorage
-- [x] 6.4 `02-groups.js`: 新增 `expandAncestors(groupId)` 函数，选中被折叠的子分组时自动展开其祖先
-- [x] 6.5 `02-groups.js`: 改造 `selectGroup()` — 调用 API 时传递 group_id，账号面板展示当前分组及后代分组账号
-- [x] 6.6 `02-groups.js`: 改造 `loadGroups()` — 处理 API 返回的 parent_id 和 level 字段，构建树形结构后渲染
+- [x] 6.1 `02-groups.js`: Added `buildGroupTree(flatGroups)` function to build flat array into parent_id → children nested structure
+- [x] 6.2 `02-groups.js`: Transform `renderGroupList()` → `renderGroupTree(nodes, level)` recursively render tree grouping list
+- [x] 6.3 `02-groups.js`: Added folding/expanding toggle interaction logic, click the arrow to switch the sub-grouping to visible and hidden, and the status is stored in localStorage
+- [x] 6.4 `02-groups.js`: Added `expandAncestors(groupId)` function to automatically expand its ancestors when a collapsed subgroup is selected
+- [x] 6.5 `02-groups.js`: Modification of `selectGroup()` - pass group_id when calling the API, the account panel displays the current group and descendant group accounts
+- [x] 6.6 `02-groups.js`: Transformation `loadGroups()` - Process the parent_id and level fields returned by the API, build the tree structure and then render
 
-## 7. 前端 JS — 拖拽重构
+## 7. Front-end JS — drag-and-drop reconstruction
 
-- [x] 7.1 `02-groups.js`: 改造拖拽逻辑支持两种目标模式 — "移入分组"（目标分组的上部区域）和"同级排序"（分组间间隔线）
-- [x] 7.2 `02-groups.js`: 新增拖拽移入时的视觉反馈 — 目标分组高亮边框
-- [x] 7.3 `02-groups.js`: 新增拖拽移入操作的 API 调用 — `PUT /api/groups/<id>` 更新 parent_id
-- [x] 7.4 `02-groups.js`: 新增层级深度校验 — 移入操作前校验目标深度 + 子树深度 ≤ 3，非法时显示拒绝高亮并提示
-- [x] 7.5 `02-groups.js`: 改造 `persistGroupOrder()` — 传递 parent_id 参数
+- [x] 7.1 `02-groups.js`: Modified drag logic to support two target modes - "Move into group" (upper area of the target group) and "Similar sorting" (spacer between groups)
+- [x] 7.2 `02-groups.js`: Added visual feedback when dragging in - target group highlight border
+- [x] 7.3 `02-groups.js`: Added API call for drag-and-drop operation - `PUT /api/groups/<id>` updates parent_id
+- [x] 7.4 `02-groups.js`: New level depth verification - Verify that the target depth + subtree depth is ≤ 3 before moving into the operation. If it is illegal, a rejection highlight will be displayed and a prompt will be displayed.
+- [x] 7.5 `02-groups.js`: Retrofit `persistGroupOrder()` — pass parent_id parameter
 
-## 8. 前端 JS — 模态框与关联功能
+## 8. Front-end JS — Modal box and related functions
 
-- [x] 8.1 `dialogs-primary.html`: 添加/编辑分组模态框新增"父分组"下拉选择器，可选"无（一级分组）"或现有分组
-- [x] 8.2 `02-groups.js`: 新增父分组下拉动态逻辑 — 排除三级分组和临时邮箱分组，编辑时当前分组及其后代也不可选
-- [x] 8.3 `02-groups.js`: 改造 `saveGroup()` — 提交时包含 `parent_id` 参数
-- [x] 8.4 `02-groups.js`: 改造 `editGroup()` — 加载并回填 parent_id 到下拉
-- [x] 8.5 `02-groups.js`: 改造 `showAddGroupModal()` — 重置父分组下拉，传入当前选中分组作为默认父分组
-- [x] 8.6 `02-groups.js`: 改造 `deleteGroup()` — 确认弹窗显示子分组数量
-- [x] 8.7 `02-groups.js`: 改造 `updateGroupSelects()` — 分组下拉以树形缩进展示（一级无缩进、二级 2 空格、三级 4 空格）
+- [x] 8.1 `dialogs-primary.html`: Add/edit group modal box adds a "parent group" drop-down selector, optional "None (first-level group)" or existing group
+- [x] 8.2 `02-groups.js`: Added new parent group drop-down dynamic logic - exclude third-level groups and temporary mailbox groups, the current group and its descendants are also not selectable when editing
+- [x] 8.3 `02-groups.js`: Retrofit `saveGroup()` — Submit with `parent_id` parameter
+- [x] 8.4 `02-groups.js`: Retrofit `editGroup()` — load and backfill parent_id into dropdown
+- [x] 8.5 `02-groups.js`: Transformation `showAddGroupModal()` — Reset the parent group drop-down and pass in the currently selected group as the default parent group
+- [x] 8.6 `02-groups.js`: Modification `deleteGroup()` — Confirmation pop-up window shows the number of subgroups
+- [x] 8.7 `02-groups.js`: Transformation of `updateGroupSelects()` - Grouped drop-down display in tree-shaped indentation (no indentation at the first level, 2 spaces at the second level, 4 spaces at the third level)
 
-## 9. CSS 样式
+## 9. CSS style
 
-- [x] 9.1 `03-layout.css`: 新增 `.group-item.level-1/.level-2/.level-3` 缩进样式 (padding-left: 16/36/56px)
-- [x] 9.2 `03-layout.css`: 新增 `.group-toggle` 箭头样式 — 16px 宽、居中、transition 旋转动画
-- [x] 9.3 `03-layout.css`: 新增 `.group-toggle.collapsed` 旋转 -90 度
-- [x] 9.4 `03-layout.css`: 新增拖拽移入目标高亮样式 `.group-item.drop-target`（蓝色边框 + 微蓝背景）
-- [x] 9.5 `03-layout.css`: 新增拖拽拒绝高亮样式 `.group-item.drop-rejected`（红色边框）
+- [x] 9.1 `03-layout.css`: Added `.group-item.level-1/.level-2/.level-3` indent style (padding-left: 16/36/56px)
+- [x] 9.2 `03-layout.css`: Added `.group-toggle` arrow style — 16px wide, centered, transition rotation animation
+- [x] 9.3 `03-layout.css`: Added `.group-toggle.collapsed` rotation -90 degrees
+- [x] 9.4 `03-layout.css`: Added drag-and-drop target highlighting style `.group-item.drop-target` (blue border + light blue background)
+- [x] 9.5 `03-layout.css`: Added drag rejection highlight style `.group-item.drop-rejected` (red border)
 
-## 10. 集成验证
+## 10. Integrated verification
 
-- [x] 10.1 验证已有扁平数据迁移后功能正常（所有分组 parent_id=NULL, level=1，行为与升级前一致）
-- [x] 10.2 验证三级分组的创建、编辑、删除（含级联）完整流程
-- [x] 10.3 验证代理级联回退正确性（三级→二级→一级→空）
-- [x] 10.4 验证选中非叶子节点时展示自身及后代分组账号
-- [x] 10.5 验证跨层级拖拽和层级深度校验
-- [x] 10.6 验证折叠/展开状态持久化和自动展开祖先
-- [x] 10.7 验证分组下拉选择器的树形缩进展示
+- [x] 10.1 Verify that existing flat data functions normally after migration (all groups parent_id=NULL, level=1, behavior is consistent with before upgrade)
+- [x] 10.2 Verify the complete process of creating, editing, and deleting (including cascading) three-level groups
+- [x] 10.3 Verify the correctness of agent cascade fallback (Level 3→Level 2→Level 1→Empty)
+- [x] 10.4 Verify that self and descendant group accounts are displayed when non-leaf nodes are selected
+- [x] 10.5 Verify cross-level drag and level depth verification
+- [x] 10.6 Verify collapsed/expanded state persistence and auto-expand ancestors
+- [x] 10.7 Verify tree indent display of grouped drop-down selectors

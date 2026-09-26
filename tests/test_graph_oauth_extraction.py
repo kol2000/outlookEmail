@@ -192,7 +192,7 @@ class GraphTokenExtractorTests(unittest.TestCase):
         )
 
         self.assertFalse(result['success'])
-        self.assertEqual(result['error'], 'OAuth 错误')
+        self.assertEqual(result['error'], 'OAuth error')
         self.assertNotIn('secret', result['details'])
 
     def test_token_endpoint_without_refresh_token_fails(self):
@@ -212,7 +212,7 @@ class GraphTokenExtractorTests(unittest.TestCase):
         )
 
         self.assertFalse(result['success'])
-        self.assertEqual(result['error'], '未获取到 refresh_token')
+        self.assertEqual(result['error'], 'refresh_token not obtained')
 
 
 class GraphOauthRouteTests(unittest.TestCase):
@@ -233,11 +233,9 @@ class GraphOauthRouteTests(unittest.TestCase):
             db.execute('DELETE FROM tags')
             db.execute('DELETE FROM accounts')
             db.execute('DELETE FROM outlook_upload_accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.execute(
-                "UPDATE groups SET parent_id = NULL, level = 1, "
-                "proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' "
-                "WHERE name IN ('默认分组', '临时邮箱')"
+                "UPDATE groups SET parent_id = NULL, level = 1, proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' WHERE name IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')"
             )
             db.commit()
 
@@ -477,7 +475,7 @@ class GraphOauthRouteTests(unittest.TestCase):
     # --- Task 3.1: Successful auth overwrites formal account credentials ---
 
     def test_3_1_successful_auth_keeps_single_account_and_overwrites_credentials(self):
-        """同邮箱自动化授权成功后只保留一个正式账号，覆盖密码/client_id/refresh_token/授权时间。"""
+        'After successful automatic authorization with the same email address, only one official account will be retained, covering the password/client_id/refresh_token/authorization time.'
         account_id = self._add_upload_account(
             email='overwrite@example.com', password='new-mail-password'
         )
@@ -535,7 +533,7 @@ class GraphOauthRouteTests(unittest.TestCase):
     # --- Task 3.2: Successful auth preserves business metadata ---
 
     def test_3_2_successful_auth_preserves_business_metadata(self):
-        """重复自动化授权成功后保留正式账号分组/备注/别名/标签/代理/转发/排序/启停。"""
+        'After repeated automatic authorization is successful, the official account grouping/notes/alias/label/agent/forwarding/sorting/starting and stopping will be retained.'
         account_id = self._add_upload_account(
             email='preserve@example.com', password='refresh-pwd'
         )
@@ -560,7 +558,7 @@ class GraphOauthRouteTests(unittest.TestCase):
             web_outlook_app.replace_account_aliases(
                 account['id'], 'preserve@example.com', ['alias@example.com']
             )
-            tag_id = web_outlook_app.add_tag('业务标签', '#abc')
+            tag_id = web_outlook_app.add_tag('Business tag', '#abc')
             db = web_outlook_app.get_db()
             db.execute(
                 'INSERT INTO account_tags (account_id, tag_id) VALUES (?, ?)',
@@ -595,14 +593,14 @@ class GraphOauthRouteTests(unittest.TestCase):
         self.assertEqual(account['fallback_proxy_url_1'], 'http://fallback:7890')
         self.assertEqual(account['fallback_proxy_url_2'], 'direct')
         self.assertEqual(aliases, ['alias@example.com'])
-        self.assertEqual(tags, ['业务标签'])
+        self.assertEqual(tags, ['Business tag'])
 
     def test_stream_success_applies_upload_group_tags_proxy_only_when_creating(self):
-        """新建正式账号时应用 upload 的分组/标签/代理；已有账号不覆盖业务字段。"""
+        'The group/label/agent of upload is applied when creating a new official account; existing accounts do not cover business fields.'
         with self.app.app_context():
-            group_id = web_outlook_app.add_group('授权目标分组')
+            group_id = web_outlook_app.add_group('Authorization target grouping')
             self.assertIsNotNone(group_id)
-            tag_id = web_outlook_app.add_tag('授权标签', '#789')
+            tag_id = web_outlook_app.add_tag('Authorization label', '#789')
             self.assertIsNotNone(tag_id)
             created = web_outlook_app.add_upload_account(
                 'create-prefs@example.com',
@@ -615,11 +613,11 @@ class GraphOauthRouteTests(unittest.TestCase):
             web_outlook_app.get_db().commit()
             create_upload_id = created['id']
 
-            keep_group_id = web_outlook_app.add_group('保留分组')
+            keep_group_id = web_outlook_app.add_group('Reserved grouping')
             self.assertIsNotNone(keep_group_id)
-            keep_tag_id = web_outlook_app.add_tag('保留标签', '#abc')
+            keep_tag_id = web_outlook_app.add_tag('Keep tags', '#abc')
             self.assertIsNotNone(keep_tag_id)
-            upload_tag_id = web_outlook_app.add_tag('不应覆盖标签', '#def')
+            upload_tag_id = web_outlook_app.add_tag('Tags should not be overwritten', '#def')
             self.assertIsNotNone(upload_tag_id)
             existing_upload = web_outlook_app.add_upload_account(
                 'keep-prefs@example.com',
@@ -686,7 +684,7 @@ class GraphOauthRouteTests(unittest.TestCase):
     # --- Task 3.3: Token extraction failure does not overwrite ---
 
     def test_3_3_extraction_failure_does_not_overwrite_existing_formal_account(self):
-        """Graph token 提取失败时不覆盖已有正式账号数据，暂存记录保持未授权。"""
+        'When Graph token extraction fails, the existing official account data will not be overwritten, and the temporary records will remain unauthorized.'
         account_id = self._add_upload_account(
             email='extract-fail@example.com', password='upload-pwd'
         )
@@ -708,7 +706,7 @@ class GraphOauthRouteTests(unittest.TestCase):
 
         with patch.object(web_outlook_app, 'extract_graph_refresh_token', return_value={
             'success': False,
-            'error': 'OAuth 错误',
+            'error': 'OAuth error',
             'details': 'access_denied',
         }):
             _, events = self._consume_stream(self._start_graph_task(account_id))
@@ -751,9 +749,9 @@ class GraphOauthFrontendContractTests(unittest.TestCase):
         ) as handle:
             html = handle.read()
 
-        # 独立的 Graph API 授权弹窗已移除，授权日志面板内嵌到上传账号弹窗右侧
+        # The independent Graph API authorization pop-up window has been removed, and the authorization log panel is embedded to the right of the upload account pop-up window.
         self.assertNotIn('id="graphAuthModal"', html)
-        # 不再渲染任何明文或掩码密码容器，右侧面板只展示授权日志
+        # No longer render any clear text or masked password containers, the right panel only displays the authorization log
         self.assertNotIn('id="graphAuthPassword"', html)
         self.assertNotIn('id="graphAuthPasswordMasked"', html)
         self.assertIn('id="graphAuthLog"', html)
@@ -779,7 +777,7 @@ class GraphOauthFrontendContractTests(unittest.TestCase):
         self.assertNotIn('Graph-only', js)
 
     def test_upload_accounts_modal_explains_four_auth_entry_points(self):
-        """Outlook邮箱授权弹窗提示批量导入 / 授权保存 / 重新授权入口及区别。"""
+        'Outlook mailbox authorization pop-up window prompts batch import/authorization save/re-authorization entrance and differences.'
         root = os.path.dirname(os.path.dirname(__file__))
         with open(
             os.path.join(root, 'templates/partials/index/dialogs-management.html'),
@@ -793,10 +791,10 @@ class GraphOauthFrontendContractTests(unittest.TestCase):
             js = handle.read()
 
         self.assertIn('upload-accounts-guide', html)
-        self.assertIn('批量导入邮箱', html)
-        self.assertIn('授权并保存 Outlook 账号', html)
-        self.assertIn('重新授权并刷新', html)
-        self.assertIn('怎么选', html)
+        self.assertIn('Import mailboxes in batches', html)
+        self.assertIn('Authorize and save Outlook account', html)
+        self.assertIn('Reauthorize and refresh', html)
+        self.assertIn('How to choose', html)
         self.assertIn('openBatchImportFromUploadGuide', html)
         self.assertIn('openOauthSaveFromUploadGuide', html)
         self.assertIn('function openBatchImportFromUploadGuide', js)
@@ -805,7 +803,7 @@ class GraphOauthFrontendContractTests(unittest.TestCase):
         self.assertIn('showGetRefreshTokenModal', js)
 
     def test_4_1_outlook_account_menu_has_auto_auth_imap_does_not(self):
-        """Outlook 账号菜单包含"加入自动授权"，IMAP 账号不包含该入口。"""
+        'The Outlook account menu includes "Add automatic authorization", but the IMAP account does not include this entry.'
         with open(
             os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static/js/index/02-groups.js'),
             encoding='utf-8',
@@ -817,7 +815,7 @@ class GraphOauthFrontendContractTests(unittest.TestCase):
         self.assertIn("(acc.account_type || 'outlook') !== 'imap'", js)
 
     def test_4_5_frontend_does_not_pass_or_render_plain_password(self):
-        """前端不传递、不记录、不渲染明文密码。"""
+        'The front end does not pass, record, or render clear text passwords.'
         with open(
             os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static/js/index/12-outlook-upload-accounts.js'),
             encoding='utf-8',

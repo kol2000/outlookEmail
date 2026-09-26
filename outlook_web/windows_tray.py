@@ -24,8 +24,8 @@ class WindowsTrayApp:
 
     def run(self) -> None:
         menu = pystray.Menu(
-            pystray.MenuItem(_tr('打开界面'), self._handle_open, default=True),
-            pystray.MenuItem(_tr('退出'), self._handle_exit),
+            pystray.MenuItem(_tr('Open the interface'), self._handle_open, default=True),
+            pystray.MenuItem(_tr('Exit'), self._handle_exit),
         )
         self._icon = pystray.Icon(
             "OutlookEmail",

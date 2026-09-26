@@ -1,4 +1,4 @@
-        /* 内容区域 */
+        /* Content area */
         .content-area {
             flex: 1;
             display: flex;
@@ -7,7 +7,7 @@
             min-height: 0;
         }
 
-        /* 邮件列表面板 */
+        /* Mailing list panel */
         .email-list-panel {
             width: 400px;
             background-color: var(--skin-surface);
@@ -24,7 +24,7 @@
             display: none;
         }
 
-        /* 邮件列表头部 */
+        /* Mailing list header */
         .email-list-header {
             padding: 18px 20px 16px;
             border-bottom: 1px solid var(--skin-border);
@@ -440,7 +440,7 @@
             flex-shrink: 0;
         }
 
-        /* 邮件详情面板 */
+        /* Email details panel */
         .email-detail-panel {
             flex: 1;
             background-color: var(--skin-surface);
@@ -758,7 +758,7 @@
             color: #1e40af;
         }
 
-        /* 全屏查看邮件 */
+        /* View email in full screen */
         .fullscreen-email-modal {
             display: none;
             position: fixed;
@@ -908,7 +908,7 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* 空状态 */
+        /* Empty state */
         .empty-state {
             display: flex;
             flex-direction: column;
@@ -960,7 +960,7 @@
             flex-shrink: 0;
         }
 
-        /* 加载状态 */
+        /* Loading status */
         .loading {
             display: flex;
             align-items: center;
@@ -993,7 +993,7 @@
             }
         }
 
-        /* 详情工具栏图标样式 */
+        /* Details toolbar icon style */
         .email-detail-action-btn {
             display: inline-flex;
             align-items: center;

@@ -91,7 +91,7 @@ def record_startup_error(exc: BaseException) -> Path:
 
 def notify_startup_error(log_path: Path) -> None:
     message = (
-        _tr('OutlookEmail 启动失败。\n\n错误日志已写入:\n{__0__}\n\n请把这个日志发给开发者。', f'{log_path}')
+        _tr('OutlookEmail failed to start.\n\nThe error log has been written:\n{__0__}\n\nPlease send this log to the developer.', f'{log_path}')
     )
 
     if os.name == "nt":

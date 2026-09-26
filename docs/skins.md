@@ -1,19 +1,19 @@
-# 外观皮肤
+# Appearance skin
 
-外观皮肤是系统级设置。登录后切换的皮肤会保存到服务端 `settings` 表里的 `active_skin_id`，所有设备和浏览器会使用同一套当前皮肤。
+Appearance skins are system-level settings. The skin switched after logging in will be saved to `active_skin_id` in the `settings` table on the server, and all devices and browsers will use the same set of current skins.
 
-## 使用入口
+## Use the entrance
 
-1. 登录 Web 界面。
-2. 打开「设置」。
-3. 进入「外观皮肤」。
-4. 选择已有皮肤，或通过 zip 上传、Git 仓库安装自定义皮肤。
+1. Log in to the web interface.
+2. Open "Settings".
+3. Enter "Appearance Skin".
+4. Select an existing skin, or install a custom skin through zip upload or Git repository.
 
-内置皮肤 ID 是 `classic`。当当前配置的皮肤不存在、格式无效或 CSS 读取失败时，前端会自动回退到 `classic`，并在皮肤列表里记录错误信息。
+The built-in skin ID is `classic`. When the currently configured skin does not exist, has an invalid format, or fails to read CSS, the front end will automatically fall back to `classic` and record error information in the skin list.
 
-## 皮肤包格式
+## Skin pack format
 
-皮肤包根目录必须包含 `skin.json`，并至少包含一个 CSS 入口文件。
+The root directory of the skin package must contain `skin.json` and contain at least one CSS entry file.
 
 ```json
 {
@@ -26,22 +26,22 @@
 }
 ```
 
-字段说明：
+Field description:
 
-| 字段 | 必填 | 说明 |
+| Field | Required | Description |
 | --- | --- | --- |
-| `id` | 是 | 皮肤 ID，只能使用小写字母、数字、下划线和短横线，最长 64 个字符；不能使用 `classic` |
-| `name` | 是 | 显示名称 |
-| `version` | 是 | 皮肤版本 |
-| `entry` | 是 | CSS 入口文件路径，必须指向包内 `.css` 文件 |
-| `description` | 否 | 皮肤说明 |
-| `preview` | 否 | 预览图片路径，支持 `png`、`jpg`、`jpeg`、`gif`、`webp` |
+| `id` | is the | skin ID. Only lowercase letters, numbers, underscores and dashes can be used, up to 64 characters; `classic` | cannot be used
+| `name` | is | display name |
+| `version` | is the | skin version |
+| `entry` | is the | CSS entry file path, which must point to the `.css` file | in the package
+| `description` | No | Skin description |
+| `preview` | No | preview image path, supports `png`, `jpg`, `jpeg`, `gif`, `webp` |
 
-仓库内提供了示例皮肤：[`docs/skin-example`](skin-example)。
+A sample skin is available in the repository: [`docs/skin-example`](../skin-example).
 
-## CSS 变量
+## CSS variables
 
-自定义皮肤主要通过覆盖 CSS 变量改变界面外观。当前支持的核心变量包括：
+Custom skins mainly change the appearance of the interface by overriding CSS variables. Currently supported core variables include:
 
 ```css
 :root {
@@ -67,59 +67,59 @@
 }
 ```
 
-当前版本只完成第一批核心区域变量化。少量细节颜色仍可能由基础样式控制，深色皮肤需要在实际页面中检查对比度和可读性。
+The current version has only completed the first batch of core area variableization. Small detail colors may still be controlled by the base style, and darker skins will need to be checked for contrast and readability in the actual page.
 
-## zip 上传
+## zip upload
 
-上传文件必须是 zip 包，包根目录应直接包含 `skin.json`。服务端会执行以下校验：
+The uploaded file must be a zip package, and the package root directory should directly contain `skin.json`. The server will perform the following verification:
 
-- zip 文件最大 5 MB。
-- CSS 文件最大 200 KB。
-- 预览图片最大 1 MB。
-- 拒绝绝对路径、路径穿越和符号链接。
-- 拒绝脚本、HTML、可执行文件等不允许的文件类型。
-- 只安装通过 `skin.json` 校验的皮肤。
+- Maximum zip file size is 5 MB.
+- CSS file size maximum 200 KB.
+- Maximum preview image size is 1 MB.
+- Reject absolute paths, path traversals, and symbolic links.
+- Reject unallowed file types such as scripts, HTML, executables, etc.
+- Only install skins that pass `skin.json` verification.
 
-上传同 ID、同来源的皮肤会覆盖旧版本；如果同一个 ID 已经由其他来源安装，会拒绝安装。
+Uploading skins with the same ID and source will overwrite the old version; if the same ID has been installed by other sources, the installation will be refused.
 
-## Git 仓库来源
+## Git warehouse source
 
-Git 来源适合把皮肤做成独立仓库。仓库根目录需要包含 `skin.json` 和 CSS 入口文件。
+Git source is suitable for making skins into independent warehouses. The warehouse root directory needs to contain `skin.json` and CSS entry files.
 
-设置页填写：
+Fill in the settings page:
 
-- Git 仓库地址，例如 `https://github.com/user/outlook-skin.git`
-- 可选 ref，例如分支名、tag 或 commit 可解析的 ref
+- Git warehouse address, such as `https://github.com/user/outlook-skin.git`
+- Optional ref, such as branch name, tag or commit resolvable ref
 
-服务端使用 `git clone --depth 1` 拉取仓库。安装或更新失败时不会改变当前启用皮肤，也不会覆盖现有皮肤文件。
+The server uses `git clone --depth 1` to pull the warehouse. Failure to install or update will not change the currently enabled skin, nor will it overwrite existing skin files.
 
-注意：
+Note:
 
-- 运行环境必须安装 `git`。
-- 私有仓库凭据没有专门管理入口；不要在多人可见环境中把凭据直接写进 URL。
-- Git 安装会让服务器主动访问指定仓库地址，建议只给可信管理员开放设置入口。
+- `git` must be installed in the operating environment.
+- There is no dedicated management entry for private repository credentials; do not write credentials directly into the URL in an environment visible to many people.
+- Git installation will allow the server to actively access the specified warehouse address. It is recommended that only trusted administrators open the setting entrance.
 
-## 文件存储与备份
+## File storage and backup
 
-皮肤文件保存在数据库文件同目录下的 `skins/` 目录。例如默认数据库是 `data/outlook_accounts.db` 时，皮肤目录是：
+Skin files are saved in the `skins/` directory in the same directory as the database file. For example, when the default database is `data/outlook_accounts.db`, the skin directory is:
 
 ```txt
 data/skins/
 ```
 
-Docker 部署时，如果已按推荐方式挂载 `./data:/app/data`，数据库和皮肤文件会一起持久化。备份或迁移时应同时保留：
+During Docker deployment, if `./data:/app/data` has been mounted as recommended, the database and skin files will be persisted together. When backing up or migrating, you should also keep:
 
 - `outlook_accounts.db`
 - `skins/`
 
-只备份数据库会保留当前皮肤 ID，但不会保留自定义皮肤文件；恢复后会回退到 `classic`。
+Only backing up the database will retain the current skin ID, but not the custom skin files; it will fall back to `classic` after restoration.
 
-## 安全边界
+## Security Boundary
 
-皮肤系统只负责加载 CSS，不执行皮肤包里的脚本或安装命令。服务端会拒绝常见脚本和 HTML 文件。
+The skin system is only responsible for loading CSS and does not execute scripts or installation commands in the skin package. The server will reject common scripts and HTML files.
 
-仍需注意：
+Still need to pay attention to:
 
-- CSS 可以改变界面视觉、隐藏元素或加载远程资源。
-- 自定义皮肤应视为可信管理员配置，不适合允许普通用户上传。
-- 如果部署在多人共用环境，建议通过网络访问控制或反向代理限制设置页访问来源。
+- CSS can change the visual appearance of the interface, hide elements, or load remote resources.
+- Custom skins should be considered trusted administrator configurations and should not be allowed to be uploaded by ordinary users.
+- If deployed in a multi-person shared environment, it is recommended to restrict the source of access to the settings page through network access control or reverse proxy.

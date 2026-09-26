@@ -1,124 +1,124 @@
 # group-tree-ui Specification
 
 ## Purpose
-定义分组树形界面能力，确保左侧分组面板、分组下拉选择器、折叠状态、拖拽移动和删除确认能够正确表达最多三级分组结构。
+Define the grouping tree interface capabilities to ensure that the left grouping panel, grouping drop-down selector, folded state, drag and drop movement, and delete confirmation can correctly express up to three levels of grouping structure.
 
 ## Requirements
 
-### Requirement: 树形分组面板渲染
-分组面板 SHALL 以树形结构渲染分组列表，各级通过缩进区分层级。
+### Requirement: Tree grouping panel rendering
+Grouping panel SHALL renders the grouping list in a tree structure, with each level distinguished by indentation.
 
-#### Scenario: 三级分组树形展示
-- **WHEN** 系统加载分组数据包含一级、二级、三级分组
-- **THEN** 分组面板按树形缩进展示：一级分组无缩进、二级缩进 20px、三级缩进 40px
+#### Scenario: Three-level grouping tree display
+- **WHEN** The system loads group data including first-level, second-level and third-level groupings
+- **THEN** The grouping panel is displayed in a tree-shaped indentation: no indentation for the first-level grouping, 20px for the second-level grouping, and 40px for the third-level grouping.
 
-#### Scenario: 临时邮箱分组固定最前
-- **WHEN** 分组列表渲染
-- **THEN** 临时邮箱分组始终位于列表最前，不可拖拽，无折叠箭头
+#### Scenario: Temporary mailbox group is fixed at the front
+- **WHEN** Grouped list rendering
+- **THEN** The temporary mailbox group is always at the top of the list, cannot be dragged, and has no folding arrow.
 
-#### Scenario: 默认分组显示
-- **WHEN** 默认分组 (id=1) 存在
-- **THEN** 默认分组显示在分组列表中，不可删除，按其层级位置排序
+#### Scenario: Default group display
+- **WHEN** Default group (id=1) exists
+- **THEN** The default group is displayed in the group list, cannot be deleted, and is sorted by its hierarchical position.
 
-### Requirement: 折叠/展开交互
-非叶子分组 SHALL 显示折叠/展开箭头（▶/▼），点击箭头切换子分组的显示/隐藏。叶子分组不显示箭头。
+### Requirement: Collapse/expand interaction
+Non-leaf group SHALL displays the folding/expanding arrows (▶/▼). Click the arrow to switch the display/hide of sub-groups. Leaf grouping does not show arrows.
 
-#### Scenario: 展开分组
-- **WHEN** 用户点击一级分组的 ▶ 箭头
-- **THEN** 该分组的子分组显示出来，箭头变为 ▼
+#### Scenario: Expand grouping
+- **WHEN** The user clicks the ▶ arrow of the first-level group
+- **THEN** The subgroups of this group are displayed and the arrow changes to ▼
 
-#### Scenario: 折叠分组
-- **WHEN** 用户点击一级分组的 ▼ 箭头
-- **THEN** 该分组的子分组隐藏，箭头变为 ▶
+#### Scenario: Collapse grouping
+- **WHEN** The user clicks the ▼ arrow of the first-level group
+- **THEN** The subgroups of this group are hidden and the arrow changes to ▶
 
-#### Scenario: 折叠状态持久化
-- **WHEN** 用户折叠/展开分组后刷新页面
-- **THEN** 折叠状态从 localStorage 恢复
+#### Scenario: Folding state persistence
+- **WHEN** User refreshes the page after folding/expanding the group
+- **THEN** Collapse state is restored from localStorage
 
-#### Scenario: 点击分组名不改变折叠状态
-- **WHEN** 用户点击分组名称（而非箭头）选中分组
-- **THEN** 折叠状态不改变，仅选中该分组
+#### Scenario: Clicking on the group name does not change the folded state
+- **WHEN** The user clicks on the group name (not the arrow) to select the group
+- **THEN** The folding state does not change, only the group is selected
 
-#### Scenario: 选中已折叠的子分组时自动展开祖先
-- **WHEN** 用户通过缓存或 URL 选中一个被折叠的子分组
-- **THEN** 系统自动展开该分组的所有祖先使其可见
+#### Scenario: Automatically expand ancestors when a collapsed subgroup is selected
+- **WHEN** The user selected a collapsed subgroup via cache or URL
+- **THEN** The system automatically expands all ancestors of the group to make them visible
 
-### Requirement: 层级缩进样式
-各级分组 SHALL 通过不同的左内边距区分层级深度。
+### Requirement: Hierarchical indentation style
+Each level of grouping SHALL distinguishes the depth of levels through different left padding.
 
-#### Scenario: 缩进层级
-- **WHEN** 渲染一级分组
-- **THEN** 左内边距为 16px（当前默认值）
+#### Scenario: Indentation level
+- **WHEN** renders first-level grouping
+- **THEN** Left padding is 16px (current default)
 
-- **WHEN** 渲染二级分组
-- **THEN** 左内边距为 36px（增加 20px 缩进）
+- **WHEN** renders secondary grouping
+- **THEN** Left padding is 36px (add 20px indent)
 
-- **WHEN** 渲染三级分组
-- **THEN** 左内边距为 56px（再增加 20px 缩进）
+- **WHEN** Render three-level grouping
+- **THEN** Left padding is 56px (plus 20px for indentation)
 
-### Requirement: 账号数显示
-所有分组 SHALL 显示其后代账号数，与选中分组后的邮箱列表保持一致。
+### Requirement: Account number display
+SHALL for all groups displays the number of their descendant accounts, which is consistent with the mailbox list after the selected group.
 
-#### Scenario: 非叶子分组显示后代数
-- **WHEN** 一级分组含直属 3 个账号，子分组共 7 个账号
-- **THEN** 该分组旁显示"10 个邮箱"
+#### Scenario: Non-leaf grouping displays the number of descendants
+- **WHEN** The first-level group contains 3 accounts directly under it, and the sub-group has a total of 7 accounts
+- **THEN** "10 mailboxes" is displayed next to this group
 
-#### Scenario: 叶子分组显示后代数
-- **WHEN** 三级分组有 5 个直属账号
-- **THEN** 该分组旁显示"5 个邮箱"
+#### Scenario: Leaf grouping displays the number of descendants
+- **WHEN** The third-level group has 5 direct accounts
+- **THEN** "5 mailboxes" is displayed next to this group
 
-### Requirement: 跨层级拖拽交互
-拖拽分组 SHALL 支持两种目标：移入另一个分组（成为子分组）和在同级内重新排序。
+### Requirement: Cross-level drag and drop interaction
+Drag-and-drop grouping SHALL supports two goals: moving into another group (becoming a subgroup) and reordering within a sibling.
 
-#### Scenario: 拖入分组触发移入
-- **WHEN** 用户将分组拖到另一个分组的上部区域
-- **THEN** 目标分组高亮边框，释放后拖动分组成为目标分组的子分组
+#### Scenario: Dragging into a group triggers move in
+- **WHEN** The user drags a group to the upper area of another group
+- **THEN** Highlight the border of the target group. After releasing, drag the group to become a subgroup of the target group.
 
-#### Scenario: 拖入间隙触发排序
-- **WHEN** 用户将分组拖到同级分组之间的间隔线
-- **THEN** 显示插入指示线，释放后在该位置插入
+#### Scenario: Drag into the gap to trigger sorting
+- **WHEN** The user drags the group to the spacer line between sibling groups
+- **THEN** displays the insertion indicator line and inserts at this position after releasing
 
-#### Scenario: 拖拽导致超过三级深度时提示
-- **WHEN** 跨层级拖拽将导致层级深度超过 3
-- **THEN** 目标区域显示拒绝高亮（如红色边框），释放后操作被取消并 Toast 提示
+#### Scenario: Prompt when dragging causes the depth to exceed three levels
+- **WHEN** Dragging across levels will cause the level depth to exceed 3
+- **THEN** The target area displays rejection highlighting (such as a red border), and the operation is canceled and Toast prompts after release.
 
-### Requirement: 添加/编辑分组模态框支持父分组选择
-分组模态框 SHALL 包含"父分组"下拉选择器，动态约束层级不超过 3 级。
+### Requirement: Add/edit group modal box supports parent group selection
+The group modal box SHALL contains the "parent group" drop-down selector, and the dynamic constraint level does not exceed 3 levels.
 
-#### Scenario: 添加分组时选择父分组
-- **WHEN** 用户点击添加分组
-- **THEN** 模态框显示"父分组"下拉，可选"无（一级分组）"和所有可挂载的分组
+#### Scenario: Select the parent group when adding a group
+- **WHEN** The user clicks to add a group
+- **THEN** The modal box displays the "Parent Group" drop-down, optional "None (first-level group)" and all mountable groups
 
-#### Scenario: 三级分组不出现在父分组下拉中
-- **WHEN** 用户添加分组
-- **THEN** 父分组下拉中不包含三级分组（因其下不可再建子分组）
+#### Scenario: Third-level grouping does not appear in the parent grouping drop-down
+- **WHEN** User adds group
+- **THEN** The third-level grouping is not included in the parent group drop-down (because no subgroups can be created under it)
 
-#### Scenario: 编辑分组时更改父分组
-- **WHEN** 用户编辑分组并更改父分组
-- **THEN** 系统 SHALL 校验移动后层级深度，合法则保存，非法则提示拒绝
+#### Scenario: Change parent group when editing group
+- **WHEN** User edits group and changes parent group
+- **THEN** System SHALL verifies the level depth after the move. If it is legal, save it. If it is not legal, it will prompt rejection.
 
-#### Scenario: 临时邮箱分组不可作为父分组
-- **WHEN** 用户添加/编辑分组
-- **THEN** 临时邮箱分组不出现在父分组下拉中
+#### Scenario: Temporary mailbox group cannot be used as a parent group
+- **WHEN** User adds/edits group
+- **THEN** Temporary mailbox groups do not appear in the parent group drop-down
 
-### Requirement: 分组下拉选择器树形展示
-所有分组下拉选择器（导入、编辑账号、Token 保存、批量移动等）SHALL 以树形缩进展示分组层级。
+### Requirement: Group drop-down selector tree display
+All group drop-down selectors (import, edit account, token save, batch move, etc.) SHALL display the group level in a tree-like indentation.
 
-#### Scenario: 下拉框层级缩进
-- **WHEN** 用户打开导入邮箱的分组选择下拉
-- **THEN** 一级分组无缩进、二级缩进 2 个空格、三级缩进 4 个空格
+#### Scenario: Drop-down box level indentation
+- **WHEN** The user opens the group selection drop-down of the imported mailbox
+- **THEN** There is no indentation for the first-level grouping, 2 spaces for the second-level grouping, and 4 spaces for the third-level grouping.
 
-#### Scenario: 折叠分组不出现在子分组上下文中
-- **WHEN** 分组被折叠
-- **THEN** 下拉选择器仍完整展示所有分组（折叠仅影响左侧面板，不影响下拉）
+#### Scenario: Collapse group does not appear in subgroup context
+- **WHEN** group is collapsed
+- **THEN** The drop-down selector still fully displays all groups (collapse only affects the left panel, not the drop-down)
 
-### Requirement: 删除分组确认提示
-删除含有子分组的分组时，确认弹窗 SHALL 提示将级联删除的子分组数量。
+### Requirement: Delete group confirmation prompt
+When deleting a group containing sub-groups, the confirmation pop-up window SHALL prompts the number of sub-groups to be deleted in cascade.
 
-#### Scenario: 删除含子分组的确认提示
-- **WHEN** 用户删除含 2 个子分组的一级分组
-- **THEN** 确认弹窗提示"该分组下有 2 个子分组，删除后子分组将一并删除，所有邮箱将移至默认分组"
+#### Scenario: Confirmation prompt for deleting subgroups
+- **WHEN** User deletes a first-level group with 2 subgroups
+- **THEN** The confirmation pop-up window prompts "There are 2 sub-groups under this group. After deletion, the sub-groups will be deleted together, and all mailboxes will be moved to the default group."
 
-#### Scenario: 删除不含子分组的确认提示
-- **WHEN** 用户删除叶子分组
-- **THEN** 确认弹窗提示"确定要删除该分组吗？分组下的邮箱将移至默认分组。"（与当前行为一致）
+#### Scenario: Delete confirmation prompt without subgroups
+- **WHEN** User deletes leaf group
+- **THEN** Confirmation pop-up window prompts "Are you sure you want to delete this group? The mailboxes under the group will be moved to the default group." (consistent with the current behavior)

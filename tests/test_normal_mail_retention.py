@@ -38,7 +38,7 @@ class NormalMailRetentionTests(unittest.TestCase):
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM account_tags')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.commit()
             added = web_outlook_app.add_account(
                 'retained@example.com',
@@ -52,7 +52,7 @@ class NormalMailRetentionTests(unittest.TestCase):
             self.assertTrue(added)
             self.account = web_outlook_app.get_account_by_email('retained@example.com')
             if hasattr(web_outlook_app, 'set_normal_mail_retention_clear_status'):
-                web_outlook_app.set_normal_mail_retention_clear_status('idle', '普通邮箱本地缓存清理空闲')
+                web_outlook_app.set_normal_mail_retention_clear_status('idle', 'No cache cleanup is running')
             if hasattr(web_outlook_app, 'clear_normal_mail_local_retention_enabled_cache'):
                 web_outlook_app.clear_normal_mail_local_retention_enabled_cache()
 
@@ -687,7 +687,7 @@ class NormalMailRetentionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 payload = response.get_json()
                 self.assertFalse(payload['success'])
-                self.assertEqual(payload['error'], '参数不完整')
+                self.assertEqual(payload['error'], 'Incomplete parameters')
 
     def test_delete_emails_imap_uses_imap_oauth_token_and_expunges(self):
         with patch.object(web_outlook_app, 'get_access_token_graph') as graph_token_mock, \
@@ -906,7 +906,7 @@ class NormalMailRetentionTests(unittest.TestCase):
         self.assertFalse(disabled_payload['local_retention'])
         self.assertEqual(disabled_payload['emails'], [])
         self.assertEqual(disabled_payload['count'], 0)
-        self.assertEqual(disabled_payload['message'], '本地存储未启用')
+        self.assertEqual(disabled_payload['message'], 'Local storage is not enabled')
 
         with self.app.app_context():
             self.assertTrue(web_outlook_app.set_setting(
@@ -1654,7 +1654,7 @@ class NormalMailRetentionTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertFalse(payload['local_retention_enabled'])
-        self.assertIn('本地保留未启用', payload['error'])
+        self.assertIn('local retention is not enabled', payload['error'])
         detail_mock.assert_not_called()
         attachments_mock.assert_not_called()
 

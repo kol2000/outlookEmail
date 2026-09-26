@@ -1,4 +1,4 @@
-        /* 方法标签 */
+        /* Method label */
         .method-tag {
             font-size: 11px;
             padding: 4px 10px;
@@ -8,7 +8,7 @@
             font-weight: 600;
         }
 
-        /* 文件夹切换标签 */
+        /* Folder switching label */
         .folder-tabs {
             display: inline-flex;
             gap: 8px;

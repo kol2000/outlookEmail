@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 
 
 DIRECT_PROXY_SENTINEL = "__DIRECT__"
-# PySocks 仅在 username 与 password 均为真值时启用 SOCKS5 UserPass。
-# 密码为空时会退化为 NO AUTH，Resin 收不到 Platform.Account，粘性租约不会创建。
-# 用非空占位密码强制走 UserPass；Resin 在 RESIN_PROXY_TOKEN="" 时接受任意密码。
+# PySocks only enables SOCKS5 UserPass if username and password are both true.
+# When the password is empty, it will degenerate to NO AUTH, Resin will not receive Platform.Account, and the sticky lease will not be created.
+# Use a non-empty placeholder password to force UserPass; Resin accepts any password when RESIN_PROXY_TOKEN="".
 SOCKS_EMPTY_PASSWORD_PLACEHOLDER = "\x00"
 
 
@@ -24,7 +24,7 @@ def resolve_socks_proxy_auth(
     username: Optional[str],
     password: Optional[str],
 ) -> tuple[Optional[str], Optional[str]]:
-    """为 PySocks 规范化认证：有用户名但密码为空时补占位密码，确保发送 UserPass。"""
+    'Standardize authentication for PySocks: fill in the placeholder password when there is a username but the password is empty, and ensure that UserPass is sent.'
     if not username:
         return None, None
     if password:
@@ -33,7 +33,7 @@ def resolve_socks_proxy_auth(
 
 
 def prepare_proxy_url_for_transport(proxy_url: str) -> str:
-    """把代理 URL 转成底层客户端可用的形式（修复 SOCKS 空密码不发认证）。"""
+    'Convert the proxy URL into a form usable by the underlying client (fix SOCKS empty password and not issue authentication).'
     value = str(proxy_url or "").strip()
     if not value or value == DIRECT_PROXY_SENTINEL:
         return value
@@ -51,7 +51,7 @@ def prepare_proxy_url_for_transport(proxy_url: str) -> str:
     auth_user, auth_pass = resolve_socks_proxy_auth(username, raw_password)
     if not auth_user or auth_pass is None:
         return value
-    # 已有非空密码且无需改写
+    # There is already a non-empty password and no need to rewrite it
     if raw_password:
         return value
 
@@ -76,7 +76,7 @@ def prepare_proxy_url_for_transport(proxy_url: str) -> str:
 
 
 def build_proxies(proxy_url: str) -> Optional[Dict[str, str]]:
-    """构建 requests 的 proxies 参数"""
+    'Construct proxies parameters of requests'
     if not proxy_url:
         return None
     transport_url = prepare_proxy_url_for_transport(proxy_url)
@@ -84,7 +84,7 @@ def build_proxies(proxy_url: str) -> Optional[Dict[str, str]]:
 
 
 def build_direct_proxies() -> Dict[str, None]:
-    """显式禁用 requests 的环境代理，确保走直连"""
+    'Explicitly disable the environment proxy of requests to ensure direct connection'
     return {"http": None, "https": None, "all": None}
 
 
@@ -92,7 +92,7 @@ def normalize_proxy_candidate(proxy_value: Any) -> str:
     value = str(proxy_value or '').strip()
     if not value:
         return ''
-    if value.lower() == 'direct' or value == '直连':
+    if value.lower() == 'direct' or value == 'direct':
         return DIRECT_PROXY_SENTINEL
     return value
 
@@ -139,10 +139,10 @@ def should_retry_next_proxy(exc: Exception, proxy_candidate: str) -> bool:
     return is_proxy_connection_error(exc)
 
 
-def build_mail_fetch_error(exc: Exception, proxy_url: str = '', operation: str = '获取邮件',
+def build_mail_fetch_error(exc: Exception, proxy_url: str = '', operation: str = 'Fetch mail',
                            legacy_code: str = '', legacy_message: str = '',
                            legacy_type: str = '', legacy_status: Optional[int] = None) -> Dict[str, Any]:
-    """把代理、网络和超时异常转换成前端可直接展示的错误。"""
+    'Convert proxy, network, and timeout exceptions into errors that can be directly displayed by the front end.'
     error_type = type(exc).__name__
     raw_details = sanitize_error_details(str(exc)).strip()
     details_lower = raw_details.lower()
@@ -157,7 +157,7 @@ def build_mail_fetch_error(exc: Exception, proxy_url: str = '', operation: str =
     )
     timeout_related = (
         isinstance(exc, (requests.exceptions.Timeout, TimeoutError, socket.timeout))
-        or any(marker in details_lower for marker in ('timed out', 'timeout', '超时'))
+        or any(marker in details_lower for marker in ('timed out', 'timeout', 'Timeout'))
     )
     tls_related = isinstance(exc, requests.exceptions.SSLError) or any(
         marker in details_lower for marker in ('ssl', 'tls', 'certificate verify failed')
@@ -178,27 +178,27 @@ def build_mail_fetch_error(exc: Exception, proxy_url: str = '', operation: str =
         reason_code = 'MAIL_PROXY_FAILED'
         category = 'proxy'
         status = 502
-        message = '代理连接失败：无法通过当前代理访问邮件服务，请检查代理地址、端口、认证信息和回退代理设置'
+        message = 'Proxy connection failed: Unable to access the mail service through the current proxy, please check the proxy address, port, authentication information and fallback proxy settings'
     elif timeout_related:
         reason_code = 'MAIL_NETWORK_TIMEOUT'
         category = 'network'
         status = 504
-        message = '网络连接超时：邮件服务未在规定时间内响应，请检查网络、代理和服务地址'
+        message = 'Network connection timeout: The email service did not respond within the specified time, please check the network, proxy and service address'
     elif tls_related:
         reason_code = 'MAIL_TLS_FAILED'
         category = 'network'
         status = 502
-        message = 'TLS/SSL 连接失败：请检查邮件服务地址、端口和系统证书'
+        message = 'TLS/SSL connection failed: please check the mail service address, port and system certificate'
     elif connection_related:
         reason_code = 'MAIL_NETWORK_FAILED'
         category = 'network'
         status = 502
-        message = '网络连接失败：无法连接邮件服务，请检查 DNS、防火墙、代理和服务地址'
+        message = 'Network connection failed: Unable to connect to the mail service, please check DNS, firewall, proxy and service address'
     else:
         reason_code = 'MAIL_FETCH_EXCEPTION'
         category = 'mail'
         status = 500
-        message = legacy_message or f'{operation}失败，请查看详细错误信息'
+        message = legacy_message or f'{operation} failed, please check the detailed error message'
 
     if proxy_failures:
         error_details: Any = {
@@ -223,11 +223,11 @@ def build_mail_fetch_error(exc: Exception, proxy_url: str = '', operation: str =
 
 
 def format_proxy_for_log(proxy_value: Any) -> str:
-    """控制台/日志用代理展示：保留用户名（Resin Platform.Account），隐藏密码。"""
+    'Console/log display using proxy: retain username (Resin Platform.Account) and hide password.'
     value = str(proxy_value or '').strip()
     if not value:
-        return '直连(未配置应用代理)'
-    if value == DIRECT_PROXY_SENTINEL or value.lower() in ('direct', '直连'):
+        return 'Direct connection (no application proxy configured)'
+    if value == DIRECT_PROXY_SENTINEL or value.lower() in ('direct', 'direct'):
         return 'direct'
     parsed = urlparse(value)
     if not parsed.scheme or not parsed.hostname:
@@ -251,7 +251,7 @@ def format_proxy_for_log(proxy_value: Any) -> str:
 
 
 def parse_resin_proxy_identity(proxy_value: Any) -> tuple[str, str]:
-    """按 Resin V1 规则从代理 URL 用户名解析 Platform / Account（第一个 '.' 分割）。"""
+    "Platform / Account (first '.' separator) is resolved from proxy URL username by Resin V1 rules."
     value = str(proxy_value or '').strip()
     if not value or value == DIRECT_PROXY_SENTINEL:
         return '', ''
@@ -266,14 +266,14 @@ def parse_resin_proxy_identity(proxy_value: Any) -> tuple[str, str]:
 
 
 def log_outbound_proxy_usage(context: str, proxy_value: Any = '', *, label: str = '') -> None:
-    """记录本次实际使用的代理（受 LOG_LEVEL 控制，默认 INFO 可见）。"""
+    'Record the actual agent used this time (controlled by LOG_LEVEL, visible by default INFO).'
     display = format_proxy_for_log(proxy_value)
     suffix = f' ({label})' if label else ''
     platform, account = parse_resin_proxy_identity(proxy_value)
     identity = ''
     if platform or account:
-        identity = f' | Resin身份 Platform={platform or "(空)"} Account={account or "(空-无粘性租约)"}'
-    message = f'[代理] {context}{suffix}: {display}{identity}'
+        identity = f" | Resin Identity Platform={platform or '(empty)'} Account={account or '(empty - no sticky lease)'}"
+    message = f'[Agent] {context}{suffix}: {display}{identity}'
     try:
         app.logger.info(message)
     except Exception:
@@ -338,7 +338,7 @@ def request_with_proxy_failover(method: str, url: str, *, proxy_url: str = None,
 
     if last_exc:
         raise last_exc
-    raise RuntimeError(f"请求失败: {method.upper()} {url}")
+    raise RuntimeError(f'Request failed: {method.upper()} {url}')
 
 
 def post_with_proxy_fallback(url: str, *, proxy_url: str = None,
@@ -421,7 +421,7 @@ def is_graph_token_scope_retryable_response(response) -> bool:
 def request_graph_token_response(client_id: str, refresh_token: str, proxy_url: str = None,
                                  fallback_proxy_urls: Optional[List[str]] = None,
                                  include_original_scope_fallback: bool = False):
-    """请求 Graph token，优先使用授权时的显式委托 scope，避免 .default 依赖应用预配置权限。"""
+    'When requesting Graph token, give priority to using explicit delegation scope during authorization to avoid .default relying on application pre-configured permissions.'
     last_response = None
     candidates = get_graph_token_scope_candidates(include_original_scope_fallback)
     for index, (_label, scope) in enumerate(candidates):
@@ -478,12 +478,12 @@ def proxy_socket_context(proxy_url: str):
     }
     proxy_type = proxy_type_map.get(scheme)
     if not proxy_type or not parsed.hostname or not parsed.port:
-        log_outbound_proxy_usage('IMAP socket(无效代理,回退直连)', proxy_url)
+        log_outbound_proxy_usage('IMAP socket (invalid proxy, fallback to direct connection)', proxy_url)
         yield
         return
 
     username = unquote(parsed.username) if parsed.username else None
-    # 区分「无密码字段」与「空密码」：password 可能是 ''
+    # Distinguish between "no password field" and "empty password": password may be ''
     password = unquote(parsed.password) if parsed.password is not None else None
     username, password = resolve_socks_proxy_auth(username, password)
     rdns = scheme == 'socks5h'
@@ -509,7 +509,7 @@ def proxy_socket_context(proxy_url: str):
 
 def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url: str = None,
                                   fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """获取 Graph API access_token（包含错误详情）"""
+    'Get Graph API access_token (including error details)'
     try:
         res = request_graph_token_response(
             client_id,
@@ -524,7 +524,7 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
                 "success": False,
                 "error": build_error_payload(
                     "GRAPH_TOKEN_FAILED",
-                    "获取访问令牌失败",
+                    'Failed to obtain access token',
                     "GraphAPIError",
                     res.status_code,
                     details
@@ -538,7 +538,7 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
                 "success": False,
                 "error": build_error_payload(
                     "GRAPH_TOKEN_MISSING",
-                    "获取访问令牌失败",
+                    'Failed to obtain access token',
                     "GraphAPIError",
                     res.status_code,
                     payload
@@ -552,9 +552,9 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
             "error": build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取访问令牌',
+                'Get access token',
                 legacy_code='GRAPH_TOKEN_EXCEPTION',
-                legacy_message='获取访问令牌失败',
+                legacy_message='Failed to obtain access token',
                 legacy_status=500,
             )
         }
@@ -562,7 +562,7 @@ def get_access_token_graph_result(client_id: str, refresh_token: str, proxy_url:
 
 def get_access_token_graph(client_id: str, refresh_token: str, proxy_url: str = None,
                            fallback_proxy_urls: Optional[List[str]] = None) -> Optional[str]:
-    """获取 Graph API access_token"""
+    'Get Graph API access_token'
     result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if result.get("success"):
         return result.get("access_token")
@@ -585,7 +585,7 @@ _GRAPH_SEND_REAUTH_MARKERS = (
 
 
 def post_once_with_primary_proxy(url: str, *, proxy_url: str = None, **kwargs):
-    """通过主代理仅提交一次 POST，避免结果不确定时重复写入远端服务。"""
+    'Submit POST only once through the main proxy to avoid repeated writing to the remote service when the result is uncertain.'
     proxy_candidate = normalize_proxy_candidate(proxy_url)
     if proxy_candidate:
         log_outbound_proxy_usage(f'POST {url}', proxy_candidate, label='primary')
@@ -598,33 +598,33 @@ def post_once_with_primary_proxy(url: str, *, proxy_url: str = None, **kwargs):
 
 
 def normalize_graph_send_mail_payload(recipients: Any, subject: Any, body: Any) -> tuple[Optional[Dict[str, Any]], str]:
-    """校验并规范化 Graph 基础发信字段。"""
+    'Verify and normalize Graph basic signaling fields.'
     if not isinstance(recipients, list):
-        return None, '收件人格式无效'
+        return None, 'Invalid recipient format'
 
     normalized_recipients = []
     seen = set()
     for raw_recipient in recipients:
         if not isinstance(raw_recipient, str):
-            return None, '收件人格式无效'
+            return None, 'Invalid recipient format'
         address = raw_recipient.strip()
         normalized_address = address.lower()
         if not _GRAPH_SEND_RECIPIENT_PATTERN.fullmatch(address):
-            return None, '收件人邮箱地址无效'
+            return None, 'The recipient email address is invalid'
         if normalized_address not in seen:
             seen.add(normalized_address)
             normalized_recipients.append(normalized_address)
 
     if not normalized_recipients:
-        return None, '请至少填写一个收件人'
+        return None, 'Please fill in at least one recipient'
     if not isinstance(subject, str) or not isinstance(body, str):
-        return None, '主题和正文必须为文本'
+        return None, 'The subject and body must be text'
     if '\x00' in subject or '\x00' in body:
-        return None, '主题和正文不能包含空字符'
+        return None, 'The subject and body cannot contain null characters'
     if '\r' in subject or '\n' in subject:
-        return None, '主题不能包含换行符'
+        return None, 'The subject cannot contain line breaks'
     if not subject.strip() and not body.strip():
-        return None, '主题和正文不能同时为空'
+        return None, 'The subject and body cannot be empty at the same time'
 
     return {
         'recipients': normalized_recipients,
@@ -634,7 +634,7 @@ def normalize_graph_send_mail_payload(recipients: Any, subject: Any, body: Any) 
 
 
 def is_graph_send_reauthorization_error(status: Any, details: Any) -> bool:
-    """判断发信失败是否需要用户重新完成 Graph 授权。"""
+    'Determine whether the failure of sending the message requires the user to complete the Graph authorization again.'
     try:
         status_code = int(status or 0)
     except (TypeError, ValueError):
@@ -651,7 +651,7 @@ def is_graph_send_reauthorization_error(status: Any, details: Any) -> bool:
 def build_graph_send_error_result(code: str, message: str, status: int, details: Any = None,
                                   *, retryable: bool = False, submission_unknown: bool = False,
                                   retry_after: Optional[int] = None) -> Dict[str, Any]:
-    """构造基础发信的稳定失败结果，避免向客户端暴露敏感凭据。"""
+    'Construct stable failure results for basic messaging to avoid exposing sensitive credentials to the client.'
     result = {
         'success': False,
         'submitted': False,
@@ -665,7 +665,7 @@ def build_graph_send_error_result(code: str, message: str, status: int, details:
 
 
 def get_graph_send_retry_after(response) -> Optional[int]:
-    """读取 Graph 429 响应中的秒级 Retry-After；非秒值交给用户稍后重试。"""
+    'Read the second-level Retry-After in the Graph 429 response; non-second values \u200b\u200bare given to the user to try again later.'
     try:
         raw_value = str((response.headers or {}).get('Retry-After') or '').strip()
         retry_after = int(raw_value)
@@ -677,7 +677,7 @@ def get_graph_send_retry_after(response) -> Optional[int]:
 def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, subject: Any, body: Any,
                            proxy_url: str = None,
                            fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """以当前 Graph 委托账号单次提交一封基础纯文本邮件。"""
+    'Use the current Graph delegation account to submit a basic plain text email at a time.'
     payload, validation_error = normalize_graph_send_mail_payload(recipients, subject, body)
     if validation_error:
         return build_graph_send_error_result(
@@ -699,13 +699,13 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
         if is_graph_send_reauthorization_error(token_status, token_details):
             return build_graph_send_error_result(
                 'GRAPH_SEND_REAUTH_REQUIRED',
-                '发信权限不足或授权已失效，请重新完成 Graph 授权后再试',
+                'Insufficient permission to send messages or the authorization has expired. Please complete the Graph authorization again and try again.',
                 403,
                 token_details,
             )
         return build_graph_send_error_result(
             'GRAPH_SEND_TOKEN_FAILED',
-            '获取发信访问令牌失败，请稍后重试',
+            'Failed to obtain the sending access token, please try again later.',
             int(token_status or 502),
             token_details,
             retryable=bool(token_error.get('retryable')) if isinstance(token_error, dict) else False,
@@ -740,7 +740,7 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
     except Exception as exc:
         return build_graph_send_error_result(
             'GRAPH_SEND_RESULT_UNKNOWN',
-            '邮件提交结果不确定，请确认后再决定是否重新发送',
+            'The result of email submission is uncertain, please confirm before deciding whether to resend.',
             503,
             sanitize_error_details(str(exc)),
             submission_unknown=True,
@@ -750,7 +750,7 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
         return {
             'success': True,
             'submitted': True,
-            'message': '邮件已提交发送',
+            'message': 'The email has been submitted for sending',
         }
 
     response_status = int(response.status_code or 502)
@@ -759,7 +759,7 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
         retry_after = get_graph_send_retry_after(response)
         return build_graph_send_error_result(
             'GRAPH_SEND_THROTTLED',
-            '发送请求过于频繁，请稍后重试',
+            'Requests are sent too frequently, please try again later.',
             429,
             response_details,
             retryable=True,
@@ -768,7 +768,7 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
     if 300 <= response_status < 400 or response_status == 408 or response_status >= 500:
         return build_graph_send_error_result(
             'GRAPH_SEND_RESULT_UNKNOWN',
-            '邮件提交结果不确定，请确认后再决定是否重新发送',
+            'The result of email submission is uncertain, please confirm before deciding whether to resend.',
             response_status,
             response_details,
             submission_unknown=True,
@@ -776,13 +776,13 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
     if is_graph_send_reauthorization_error(response_status, response_details):
         return build_graph_send_error_result(
             'GRAPH_SEND_REAUTH_REQUIRED',
-            '发信权限不足或授权已失效，请重新完成 Graph 授权后再试',
+            'Insufficient permission to send messages or the authorization has expired. Please complete the Graph authorization again and try again.',
             403,
             response_details,
         )
     return build_graph_send_error_result(
         'GRAPH_SEND_FAILED',
-        '邮件提交失败，请检查收件人和账号状态后重试',
+        'Email submission failed, please check the recipient and account status and try again',
         response_status,
         response_details,
     )
@@ -791,7 +791,7 @@ def send_graph_mail_result(client_id: str, refresh_token: str, recipients: Any, 
 def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0,
                      top: int = 20, proxy_url: str = None,
                      fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 Graph API 获取邮件列表（支持分页和文件夹选择）"""
+    'Use Graph API to get the mailing list (supports paging and folder selection)'
     token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
@@ -799,13 +799,13 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
     access_token = token_result.get("access_token")
 
     try:
-        # 根据文件夹类型选择 API 端点
-        # 使用 Well-known folder names，这些是 Microsoft Graph API 的标准文件夹名称
+        # Select API endpoint based on folder type
+        # Use Well-known folder names, which are standard folder names for the Microsoft Graph API
         folder_map = {
             'inbox': 'inbox',
-            'junkemail': 'junkemail',  # 垃圾邮件的标准名称
-            'deleteditems': 'deleteditems',  # 已删除邮件的标准名称
-            'trash': 'deleteditems'  # 垃圾箱的别名
+            'junkemail': 'junkemail',  # Standard name for spam
+            'deleteditems': 'deleteditems',  # The fully qualified name of a deleted message
+            'trash': 'deleteditems'  # Alias for trash can
         }
         folder_name = folder_map.get(folder.lower(), 'inbox')
 
@@ -836,7 +836,7 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
                 "success": False,
                 "error": build_error_payload(
                     "EMAIL_FETCH_FAILED",
-                    "获取邮件失败，请检查账号配置",
+                    'Failed to obtain email, please check account configuration',
                     "GraphAPIError",
                     res.status_code,
                     details
@@ -850,9 +850,9 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
             "error": build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取邮件',
+                'Fetch mail',
                 legacy_code='EMAIL_FETCH_FAILED',
-                legacy_message='获取邮件失败，请检查账号配置',
+                legacy_message='Failed to obtain email, please check account configuration',
                 legacy_status=500,
             )
         }
@@ -860,7 +860,7 @@ def get_emails_graph(client_id: str, refresh_token: str, folder: str = 'inbox', 
 
 def get_raw_email_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None,
                         fallback_proxy_urls: Optional[List[str]] = None) -> Optional[bytes]:
-    """使用 Graph API 获取原始 MIME 邮件源码。"""
+    'Use Graph API to obtain the original MIME email source code.'
     access_token = get_access_token_graph(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return None
@@ -886,7 +886,7 @@ def get_raw_email_graph(client_id: str, refresh_token: str, message_id: str, pro
 
 def get_email_detail_graph_result(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None,
                                   fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 Graph API 获取邮件详情（包含结构化错误）"""
+    'Use Graph API to get email details (including structured errors)'
     token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get('success'):
         return {'success': False, 'error': token_result.get('error')}
@@ -917,7 +917,7 @@ def get_email_detail_graph_result(client_id: str, refresh_token: str, message_id
                 'success': False,
                 'error': build_error_payload(
                     'EMAIL_DETAIL_FETCH_FAILED',
-                    '获取邮件详情失败',
+                    'Failed to obtain email details',
                     'GraphAPIError',
                     res.status_code,
                     details,
@@ -931,9 +931,9 @@ def get_email_detail_graph_result(client_id: str, refresh_token: str, message_id
             'error': build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取邮件详情',
+                'Get email details',
                 legacy_code='EMAIL_DETAIL_FETCH_FAILED',
-                legacy_message='获取邮件详情失败',
+                legacy_message='Failed to obtain email details',
                 legacy_status=500,
             ),
         }
@@ -941,7 +941,7 @@ def get_email_detail_graph_result(client_id: str, refresh_token: str, message_id
 
 def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None,
                            fallback_proxy_urls: Optional[List[str]] = None) -> Optional[Dict]:
-    """使用 Graph API 获取邮件详情"""
+    'Use Graph API to get email details'
     result = get_email_detail_graph_result(
         client_id, refresh_token, message_id, proxy_url, fallback_proxy_urls
     )
@@ -953,7 +953,7 @@ def get_email_detail_graph(client_id: str, refresh_token: str, message_id: str, 
 def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_ids: List[str],
                                   proxy_url: str = None,
                                   fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 Graph API 批量标记邮件为已读"""
+    'Mark emails as read in batches using Graph API'
     normalized_ids = [str(message_id or '').strip() for message_id in (message_ids or []) if str(message_id or '').strip()]
     if not normalized_ids:
         return {
@@ -961,7 +961,7 @@ def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_id
             'success_count': 0,
             'failed_count': 0,
             'updated_ids': [],
-            'errors': ['message_ids 不能为空'],
+            'errors': ['message_ids cannot be empty'],
         }
 
     token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
@@ -1015,7 +1015,7 @@ def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_id
                 'id': message_id,
                 'error': build_error_payload(
                     'EMAIL_MARK_READ_FAILED',
-                    '标记邮件已读失败',
+                    'Failed to mark email as read',
                     type(exc).__name__,
                     500,
                     str(exc)
@@ -1026,7 +1026,7 @@ def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_id
         if response.status_code != 200:
             error_payload = build_error_payload(
                 'EMAIL_MARK_READ_FAILED',
-                '标记邮件已读失败',
+                'Failed to mark email as read',
                 'GraphAPIError',
                 response.status_code,
                 get_response_details(response)
@@ -1049,10 +1049,10 @@ def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_id
                 'id': message_id,
                 'error': build_error_payload(
                     'EMAIL_MARK_READ_FAILED',
-                    '标记邮件已读失败',
+                    'Failed to mark email as read',
                     'GraphAPIError',
                     status_code or 500,
-                    error_body or '批处理返回空响应'
+                    error_body or 'Batch processing returns empty response'
                 )
             })
 
@@ -1069,7 +1069,7 @@ def mark_emails_read_graph_result(client_id: str, refresh_token: str, message_id
 
 def get_email_attachments_graph(client_id: str, refresh_token: str, message_id: str, proxy_url: str = None,
                                 fallback_proxy_urls: Optional[List[str]] = None) -> Optional[List[Dict[str, Any]]]:
-    """使用 Graph API 获取邮件附件列表"""
+    'Use Graph API to get email attachment list'
     access_token = get_access_token_graph(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return None
@@ -1114,7 +1114,7 @@ def get_email_attachments_graph(client_id: str, refresh_token: str, message_id: 
 def download_email_attachment_graph_result(client_id: str, refresh_token: str, message_id: str, attachment_id: str,
                                            proxy_url: str = None,
                                            fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 Graph API 下载邮件附件"""
+    'Use Graph API to download email attachments'
     token_result = get_access_token_graph_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
@@ -1138,7 +1138,7 @@ def download_email_attachment_graph_result(client_id: str, refresh_token: str, m
                 "success": False,
                 "error": build_error_payload(
                     "ATTACHMENT_FETCH_FAILED",
-                    "获取附件失败",
+                    'Failed to obtain attachment',
                     "GraphAPIError",
                     metadata_res.status_code,
                     get_response_details(metadata_res)
@@ -1155,7 +1155,7 @@ def download_email_attachment_graph_result(client_id: str, refresh_token: str, m
                     "success": False,
                     "error": build_error_payload(
                         "ATTACHMENT_DECODE_FAILED",
-                        "解析附件内容失败",
+                        'Failed to parse attachment content',
                         type(exc).__name__,
                         500,
                         str(exc)
@@ -1175,7 +1175,7 @@ def download_email_attachment_graph_result(client_id: str, refresh_token: str, m
                     "success": False,
                     "error": build_error_payload(
                         "ATTACHMENT_FETCH_FAILED",
-                        "获取附件失败",
+                        'Failed to obtain attachment',
                         "GraphAPIError",
                         content_res.status_code,
                         get_response_details(content_res)
@@ -1194,7 +1194,7 @@ def download_email_attachment_graph_result(client_id: str, refresh_token: str, m
             "success": False,
             "error": build_error_payload(
                 "ATTACHMENT_FETCH_FAILED",
-                "获取附件失败",
+                'Failed to obtain attachment',
                 type(exc).__name__,
                 500,
                 str(exc)
@@ -1202,7 +1202,7 @@ def download_email_attachment_graph_result(client_id: str, refresh_token: str, m
         }
 
 
-# ==================== IMAP 方式 ====================
+# ==================== IMAP method ====================
 
 IMAP_TOKEN_SCOPE = "https://outlook.office.com/IMAP.AccessAsUser.All offline_access"
 
@@ -1225,7 +1225,7 @@ def request_imap_token_response(client_id: str, refresh_token: str, proxy_url: s
 
 def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: str = None,
                                  fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """获取 IMAP access_token（包含错误详情）"""
+    'Get IMAP access_token (with error details)'
     try:
         res = request_imap_token_response(client_id, refresh_token, proxy_url, fallback_proxy_urls)
 
@@ -1235,7 +1235,7 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
                 "success": False,
                 "error": build_error_payload(
                     "IMAP_TOKEN_FAILED",
-                    "获取访问令牌失败",
+                    'Failed to obtain access token',
                     "IMAPError",
                     res.status_code,
                     details
@@ -1249,7 +1249,7 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
                 "success": False,
                 "error": build_error_payload(
                     "IMAP_TOKEN_MISSING",
-                    "获取访问令牌失败",
+                    'Failed to obtain access token',
                     "IMAPError",
                     res.status_code,
                     payload
@@ -1263,9 +1263,9 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
             "error": build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取 IMAP 访问令牌',
+                'Get IMAP access token',
                 legacy_code='IMAP_TOKEN_EXCEPTION',
-                legacy_message='获取访问令牌失败',
+                legacy_message='Failed to obtain access token',
                 legacy_status=500,
             )
         }
@@ -1273,7 +1273,7 @@ def get_access_token_imap_result(client_id: str, refresh_token: str, proxy_url: 
 
 def get_access_token_imap(client_id: str, refresh_token: str, proxy_url: str = None,
                           fallback_proxy_urls: Optional[List[str]] = None) -> Optional[str]:
-    """获取 IMAP access_token"""
+    'Get IMAP access_token'
     result = get_access_token_imap_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if result.get("success"):
         return result.get("access_token")
@@ -1283,7 +1283,7 @@ def get_access_token_imap(client_id: str, refresh_token: str, proxy_url: str = N
 def get_emails_imap(account: str, client_id: str, refresh_token: str, folder: str = 'inbox', skip: int = 0,
                     top: int = 20, proxy_url: str = None,
                     fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 IMAP 获取邮件列表（支持分页和文件夹选择）- 默认使用新版服务器"""
+    'Get mailing list using IMAP (supports paging and folder selection) - uses newer server by default'
     return get_emails_imap_with_server(
         account,
         client_id,
@@ -1301,7 +1301,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                                 skip: int = 0, top: int = 20, server: str = IMAP_SERVER_NEW,
                                 proxy_url: str = None,
                                 fallback_proxy_urls: Optional[List[str]] = None) -> Dict[str, Any]:
-    """使用 IMAP 获取邮件列表（支持分页、文件夹选择和服务器选择）"""
+    'Get mailing list using IMAP (supports paging, folder selection, and server selection)'
     token_result = get_access_token_imap_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get("success"):
         return {"success": False, "error": token_result.get("error")}
@@ -1321,7 +1321,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                 "success": False,
                 "error": build_error_payload(
                     "EMAIL_FETCH_FAILED",
-                    f"无法访问文件夹，请检查账号配置",
+                    f'Unable to access the folder, please check the account configuration',
                     "IMAPSelectError",
                     500,
                     folder_diagnostics
@@ -1334,7 +1334,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
                 "success": False,
                 "error": build_error_payload(
                     "EMAIL_FETCH_FAILED",
-                    "获取邮件失败，请检查账号配置",
+                    'Failed to obtain email, please check account configuration',
                     "IMAPSearchError",
                     500,
                     f"search status={status}"
@@ -1344,7 +1344,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
             return {"success": True, "emails": []}
 
         message_ids = messages[0].split()
-        # 计算分页范围
+        # Calculate paging range
         total = len(message_ids)
         start_idx = max(0, total - skip - top)
         end_idx = total - skip
@@ -1352,7 +1352,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
         if start_idx >= end_idx:
             return {"success": True, "emails": []}
 
-        paged_ids = message_ids[start_idx:end_idx][::-1]  # 倒序，最新的在前
+        paged_ids = message_ids[start_idx:end_idx][::-1]  # Reverse order, latest first
 
         emails = []
         for msg_id in paged_ids:
@@ -1366,10 +1366,10 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
 
                     emails.append({
                         'id': msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id),
-                        'subject': decode_header_value(msg.get("Subject", "无主题")),
-                        'from': decode_header_value(msg.get("From", "未知发件人")),
+                        'subject': decode_header_value(msg.get("Subject", 'No topic')),
+                        'from': decode_header_value(msg.get("From", 'Unknown sender')),
                         'to': decode_header_value(msg.get("To", "")),
-                        'date': internal_date or msg.get("Date", "未知时间"),
+                        'date': internal_date or msg.get("Date", 'Unknown time'),
                         'id_mode': 'sequence',
                         'body_preview': body_preview[:200] + "..." if len(body_preview) > 200 else body_preview
                     })
@@ -1384,9 +1384,9 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
             "error": build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取邮件',
+                'Fetch mail',
                 legacy_code='EMAIL_FETCH_FAILED',
-                legacy_message='获取邮件失败，请检查账号配置',
+                legacy_message='Failed to obtain email, please check account configuration',
                 legacy_status=500,
             )
         }
@@ -1401,7 +1401,7 @@ def get_emails_imap_with_server(account: str, client_id: str, refresh_token: str
 def get_raw_email_imap(account: str, client_id: str, refresh_token: str, message_id: str,
                        folder: str = 'inbox', proxy_url: str = None,
                        fallback_proxy_urls: Optional[List[str]] = None) -> Optional[bytes]:
-    """使用 Outlook IMAP 获取原始 MIME 邮件源码。"""
+    'Use Outlook IMAP to obtain the original MIME email source code.'
     access_token = get_access_token_imap(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return None
@@ -1436,7 +1436,7 @@ EMAIL_DETAIL_IMAP_RETRY_DELAY_SECONDS = 0.4
 
 
 def is_retryable_email_detail_error(error_payload: Any) -> bool:
-    """仅对代理/网络/超时等传输类错误允许详情重试。"""
+    'Detailed retries are only allowed for transport errors such as proxy/network/timeout.'
     if not isinstance(error_payload, dict):
         return False
     if error_payload.get('retryable') is True:
@@ -1485,7 +1485,7 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
                                        folder: str = 'inbox', proxy_url: str = None,
                                        fallback_proxy_urls: Optional[List[str]] = None,
                                        preferred_id_mode: str = 'uid') -> Dict[str, Any]:
-    """单次 IMAP 详情获取（不含重试）。"""
+    'Single IMAP details retrieval (excluding retries).'
     token_result = get_access_token_imap_result(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not token_result.get('success'):
         return {'success': False, 'error': token_result.get('error')}
@@ -1503,7 +1503,7 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_AUTH_FAILED',
-                    sanitize_error_details(str(exc)) or 'IMAP 认证失败',
+                    sanitize_error_details(str(exc)) or 'IMAP authentication failed',
                     'IMAPAuthError',
                     401,
                     '',
@@ -1518,7 +1518,7 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_FOLDER_NOT_FOUND',
-                    'IMAP 文件夹不存在或无权访问',
+                    'IMAP folder does not exist or does not have access rights',
                     'IMAPSelectError',
                     400,
                     folder_diagnostics,
@@ -1539,7 +1539,7 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
                 'success': False,
                 'error': build_error_payload(
                     'EMAIL_DETAIL_FETCH_FAILED',
-                    '获取邮件详情失败',
+                    'Failed to obtain email details',
                     'IMAPFetchError',
                     502,
                     {
@@ -1558,7 +1558,7 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
                 'success': False,
                 'error': build_error_payload(
                     'EMAIL_DETAIL_FETCH_FAILED',
-                    '获取邮件详情失败',
+                    'Failed to obtain email details',
                     'IMAPFetchError',
                     502,
                     {
@@ -1584,9 +1584,9 @@ def _get_email_detail_imap_result_once(account: str, client_id: str, refresh_tok
             'error': build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取邮件详情',
+                'Get email details',
                 legacy_code='EMAIL_DETAIL_FETCH_FAILED',
-                legacy_message='获取邮件详情失败',
+                legacy_message='Failed to obtain email details',
                 legacy_status=500,
             ),
         }
@@ -1602,9 +1602,9 @@ def get_email_detail_imap_result(account: str, client_id: str, refresh_token: st
                                  folder: str = 'inbox', proxy_url: str = None,
                                  fallback_proxy_urls: Optional[List[str]] = None,
                                  preferred_id_mode: str = 'uid') -> Dict[str, Any]:
-    """使用 IMAP 获取邮件详情（包含结构化错误；传输类失败会有限重试一次）。"""
+    'Use IMAP to get email details (including structured errors; transmission failure will be retried once in a limited time).'
     max_attempts = max(1, int(EMAIL_DETAIL_IMAP_MAX_ATTEMPTS or 1))
-    last_result: Dict[str, Any] = {'success': False, 'error': '获取邮件详情失败'}
+    last_result: Dict[str, Any] = {'success': False, 'error': 'Failed to obtain email details'}
     attempt = 0
 
     for attempt in range(1, max_attempts + 1):
@@ -1633,7 +1633,7 @@ def get_email_detail_imap_result(account: str, client_id: str, refresh_token: st
 
     if isinstance(last_result, dict) and last_result.get('error') is not None:
         annotated = dict(last_result)
-        # attempt 记录实际执行次数；不可重试失败为 1，重试后仍失败为 max_attempts
+        # attempt records the actual number of executions; failure that cannot be retried is 1, and failure after retry is max_attempts
         annotated['error'] = annotate_email_detail_retry(
             last_result.get('error'),
             max(1, attempt),
@@ -1647,7 +1647,7 @@ def get_email_detail_imap(account: str, client_id: str, refresh_token: str, mess
                           folder: str = 'inbox', proxy_url: str = None,
                           fallback_proxy_urls: Optional[List[str]] = None,
                           preferred_id_mode: str = 'uid') -> Optional[Dict]:
-    """使用 IMAP 获取邮件详情"""
+    'Use IMAP to get email details'
     result = get_email_detail_imap_result(
         account,
         client_id,
@@ -1663,7 +1663,7 @@ def get_email_detail_imap(account: str, client_id: str, refresh_token: str, mess
     return None
 
 
-# ==================== 登录验证 ====================
+# ==================== Login verification ====================
 
 def extract_imap_internaldate(fetch_metadata: Any) -> str:
     if isinstance(fetch_metadata, (bytes, bytearray)):
@@ -1783,7 +1783,7 @@ def get_message_attachment_by_id(msg, attachment_id: str) -> Optional[Dict[str, 
 def get_raw_email_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                                imap_port: int, message_id: str, folder: str = 'inbox',
                                provider: str = 'custom', proxy_url: str = '') -> Optional[bytes]:
-    """使用通用 IMAP 获取原始 MIME 邮件源码。"""
+    'Use Universal IMAP to obtain the original MIME email source code.'
     if not message_id:
         return None
 
@@ -1818,8 +1818,8 @@ def build_email_detail_from_message(msg, message_id: str, date_value: str = '') 
     body_text, body_html = extract_text_and_html(msg)
     return {
         'id': str(message_id),
-        'subject': decode_header_value(msg.get('Subject', '无主题')),
-        'from': decode_header_value(msg.get('From', '未知发件人')),
+        'subject': decode_header_value(msg.get('Subject', 'No topic')),
+        'from': decode_header_value(msg.get('From', 'Unknown sender')),
         'to': decode_header_value(msg.get('To', '')),
         'cc': decode_header_value(msg.get('Cc', '')),
         'date': date_value or msg.get('Date', ''),
@@ -1837,7 +1837,7 @@ def create_imap_connection(imap_host: str, imap_port: int = 993, proxy_url: str 
     host = (imap_host or '').strip()
     port = int(imap_port or 993)
     if not host:
-        raise ValueError('IMAP host 不能为空')
+        raise ValueError('IMAP host cannot be empty')
     try:
         with proxy_socket_context(proxy_url):
             return imaplib.IMAP4_SSL(host, port, timeout=IMAP_TIMEOUT)
@@ -2012,15 +2012,15 @@ def resolve_imap_folder(mail, provider: str, folder: str, readonly: bool = True)
 
 
 def normalize_imap_auth_error(provider: str, imap_host: str, raw_message: str) -> str:
-    message = sanitize_error_details(str(raw_message or '')).strip() or 'IMAP 认证失败'
+    message = sanitize_error_details(str(raw_message or '')).strip() or 'IMAP authentication failed'
     if 'unsafe login' in message.lower():
         if (provider or '').strip().lower() in {'126', '163'}:
-            return '网易邮箱拦截了当前 IMAP 登录（Unsafe Login），请在网页端开启 IMAP 并使用客户端授权码；若仍失败，说明当前网络或服务器 IP 被风控'
-        return '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查是否已开启 IMAP 并改用授权码'
+            return 'NetEase Mailbox has intercepted the current IMAP login (Unsafe Login). Please enable IMAP on the web page and use the client authorization code; if it still fails, it means that the current network or server IP is under risk control.'
+        return 'The email service provider has blocked the current IMAP login (Unsafe Login). Please check whether IMAP is turned on and use the authorization code instead.'
     if (provider or '').strip().lower() == 'gmail':
-        return 'IMAP 认证失败，请使用 Gmail 应用专用密码并确认已开启 IMAP'
+        return 'IMAP authentication failed, please use Gmail application-specific password and confirm that IMAP is turned on'
     if ((provider or '').strip().lower() == 'outlook' or (imap_host or '').strip().lower() in {IMAP_SERVER_NEW, IMAP_SERVER_OLD}) and 'basicauthblocked' in message.lower():
-        return 'Outlook 已阻止 Basic Auth，请改用 Outlook OAuth 导入'
+        return 'Outlook has blocked Basic Auth, please use Outlook OAuth import instead'
     return message
 
 
@@ -2038,9 +2038,9 @@ def get_imap_access_block_error(provider: str, folder: str, diagnostics: Dict[st
 
     provider_key = (provider or '').strip().lower()
     if provider_key in {'126', '163'}:
-        message = '网易邮箱拦截了当前 IMAP 登录（Unsafe Login），请在网页端开启 IMAP 并使用客户端授权码；若仍失败，说明当前网络或服务器 IP 被网易风控'
+        message = 'NetEase Mailbox has intercepted the current IMAP login (Unsafe Login). Please enable IMAP on the web page and use the client authorization code; if it still fails, it means that the current network or server IP is controlled by NetEase.'
     else:
-        message = '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请确认已开启 IMAP、使用授权码，并检查当前网络或代理是否被风控'
+        message = 'The email service provider has intercepted the current IMAP login (Unsafe Login). Please confirm that IMAP has been turned on, use the authorization code, and check whether the current network or proxy is risk controlled.'
 
     return build_error_payload(
         'IMAP_UNSAFE_LOGIN_BLOCKED',
@@ -2246,7 +2246,7 @@ def mark_email_items_seen_imap(mail, items: List[Dict[str, Any]], provider: str,
                 'id': '',
                 'error': build_error_payload(
                     'EMAIL_MARK_READ_INVALID',
-                    'message_id 不能为空',
+                    'message_id cannot be empty',
                     'ValidationError',
                     400,
                     item
@@ -2264,7 +2264,7 @@ def mark_email_items_seen_imap(mail, items: List[Dict[str, Any]], provider: str,
         if not selected_folder:
             folder_error = build_error_payload(
                 'IMAP_FOLDER_NOT_FOUND',
-                'IMAP 文件夹不存在或无权访问',
+                'IMAP folder does not exist or does not have access rights',
                 'IMAPFolderError',
                 400,
                 {
@@ -2293,7 +2293,7 @@ def mark_email_items_seen_imap(mail, items: List[Dict[str, Any]], provider: str,
                 'id': item['id'],
                 'error': build_error_payload(
                     'EMAIL_MARK_READ_FAILED',
-                    '标记邮件已读失败',
+                    'Failed to mark email as read',
                     'IMAPStoreError',
                     502,
                     {
@@ -2327,7 +2327,7 @@ def mark_emails_read_imap_batch(email_addr: str, client_id: str, refresh_token: 
             'success_count': 0,
             'failed_count': len(items or []),
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_TOKEN_FAILED', '获取访问令牌失败', 'IMAPError', 401, '')],
+            'errors': [build_error_payload('IMAP_TOKEN_FAILED', 'Failed to obtain access token', 'IMAPError', 401, '')],
         }
 
     connection = None
@@ -2343,7 +2343,7 @@ def mark_emails_read_imap_batch(email_addr: str, client_id: str, refresh_token: 
             'success_count': 0,
             'failed_count': len(items or []),
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_CONNECT_FAILED', 'IMAP 连接失败', type(exc).__name__, 502, str(exc))],
+            'errors': [build_error_payload('IMAP_CONNECT_FAILED', 'IMAP connection failed', type(exc).__name__, 502, str(exc))],
         }
     finally:
         if connection:
@@ -2384,7 +2384,7 @@ def mark_emails_read_imap_generic_result(email_addr: str, imap_password: str, im
             'success_count': 0,
             'failed_count': len(items or []),
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP 连接失败', 'IMAPConnectError', 502, '')],
+            'errors': [build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP connection failed', 'IMAPConnectError', 502, '')],
         }
     finally:
         if mail:
@@ -2396,7 +2396,7 @@ def mark_emails_read_imap_generic_result(email_addr: str, imap_password: str, im
 
 def delete_email_items_imap(mail, items: List[Dict[str, Any]], provider: str,
                             default_mode: str = 'uid') -> Dict[str, Any]:
-    """通过 IMAP 永久删除邮件：标记 \\Deleted 后 EXPUNGE。"""
+    '\u901a\u8fc7 IMAP \u6c38\u4e45\u5220\u9664\u90ae\u4ef6：\u6807\u8bb0 \\Deleted \u540e EXPUNGE。'
     success_count = 0
     deleted_ids: List[str] = []
     errors: List[Any] = []
@@ -2410,7 +2410,7 @@ def delete_email_items_imap(mail, items: List[Dict[str, Any]], provider: str,
                 'id': '',
                 'error': build_error_payload(
                     'EMAIL_DELETE_INVALID',
-                    'message_id 不能为空',
+                    'message_id cannot be empty',
                     'ValidationError',
                     400,
                     item
@@ -2428,7 +2428,7 @@ def delete_email_items_imap(mail, items: List[Dict[str, Any]], provider: str,
         if not selected_folder:
             folder_error = build_error_payload(
                 'IMAP_FOLDER_NOT_FOUND',
-                'IMAP 文件夹不存在或无权访问',
+                'IMAP folder does not exist or does not have access rights',
                 'IMAPFolderError',
                 400,
                 {
@@ -2459,7 +2459,7 @@ def delete_email_items_imap(mail, items: List[Dict[str, Any]], provider: str,
                 'id': item['id'],
                 'error': build_error_payload(
                     'EMAIL_DELETE_FAILED',
-                    '删除邮件失败',
+                    'Failed to delete message',
                     'IMAPStoreError',
                     502,
                     {
@@ -2483,7 +2483,7 @@ def delete_email_items_imap(mail, items: List[Dict[str, Any]], provider: str,
         except Exception as exc:
             expunge_error = build_error_payload(
                 'EMAIL_DELETE_EXPUNGE_FAILED',
-                '邮件已标记删除，但永久清除失败',
+                'Message marked for deletion, but permanent purge failed',
                 type(exc).__name__,
                 502,
                 {
@@ -2519,7 +2519,7 @@ def delete_emails_imap_batch(email_addr: str, client_id: str, refresh_token: str
             'failed_count': len(items or []),
             'deleted_ids': [],
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_TOKEN_FAILED', '获取访问令牌失败', 'IMAPError', 401, '')],
+            'errors': [build_error_payload('IMAP_TOKEN_FAILED', 'Failed to obtain access token', 'IMAPError', 401, '')],
         }
 
     connection = None
@@ -2536,7 +2536,7 @@ def delete_emails_imap_batch(email_addr: str, client_id: str, refresh_token: str
             'failed_count': len(items or []),
             'deleted_ids': [],
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_CONNECT_FAILED', 'IMAP 连接失败', type(exc).__name__, 502, str(exc))],
+            'errors': [build_error_payload('IMAP_CONNECT_FAILED', 'IMAP connection failed', type(exc).__name__, 502, str(exc))],
         }
     finally:
         if connection:
@@ -2579,7 +2579,7 @@ def delete_emails_imap_generic_result(email_addr: str, imap_password: str, imap_
             'failed_count': len(items or []),
             'deleted_ids': [],
             'updated_ids': [],
-            'errors': [build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP 连接失败', 'IMAPConnectError', 502, '')],
+            'errors': [build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP connection failed', 'IMAPConnectError', 502, '')],
         }
     finally:
         if mail:
@@ -2630,7 +2630,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_FOLDER_NOT_FOUND',
-                    'IMAP 文件夹不存在或无权访问',
+                    'IMAP folder does not exist or does not have access rights',
                     'IMAPFolderError',
                     400,
                     {
@@ -2655,7 +2655,7 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_SEARCH_FAILED',
-                    'IMAP 搜索邮件失败',
+                    'IMAP search for mail failed',
                     'IMAPSearchError',
                     502,
                     {'attempts': search_attempts[:10]}
@@ -2696,8 +2696,8 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
                 preview = preview_source[:200] + ('...' if len(preview_source) > 200 else '')
                 emails_data.append({
                     'id': uid.decode('utf-8', errors='ignore') if isinstance(uid, (bytes, bytearray)) else str(uid),
-                    'subject': decode_header_value(msg.get('Subject', '无主题')),
-                    'from': decode_header_value(msg.get('From', '未知')),
+                    'subject': decode_header_value(msg.get('Subject', 'No topic')),
+                    'from': decode_header_value(msg.get('From', 'Unknown')),
                     'to': decode_header_value(msg.get('To', '')),
                     'date': internal_date or msg.get('Date', ''),
                     'id_mode': search_mode or 'uid',
@@ -2721,9 +2721,9 @@ def get_emails_imap_generic(email_addr: str, imap_password: str, imap_host: str,
             'error': build_mail_fetch_error(
                 exc,
                 proxy_url,
-                '获取邮件',
+                'Fetch mail',
                 legacy_code='IMAP_CONNECT_FAILED',
-                legacy_message=sanitize_error_details(str(exc)) or 'IMAP 连接失败',
+                legacy_message=sanitize_error_details(str(exc)) or 'IMAP connection failed',
                 legacy_type='IMAPConnectError',
                 legacy_status=502,
             ),
@@ -2742,7 +2742,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                                          folder: str = 'inbox', provider: str = 'custom',
                                          proxy_url: str = '') -> Dict[str, Any]:
     if not message_id:
-        return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_INVALID', 'message_id 不能为空', 'ValidationError', 400, '')}
+        return {'success': False, 'error': build_error_payload('EMAIL_DETAIL_INVALID', 'message_id cannot be empty', 'ValidationError', 400, '')}
 
     mail = None
     imap_id_info = {}
@@ -2777,7 +2777,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_FOLDER_NOT_FOUND',
-                    'IMAP 文件夹不存在或无权访问',
+                    'IMAP folder does not exist or does not have access rights',
                     'IMAPFolderError',
                     400,
                     {
@@ -2796,7 +2796,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 'success': False,
                 'error': build_error_payload(
                     'EMAIL_DETAIL_FETCH_FAILED',
-                    '获取邮件详情失败',
+                    'Failed to obtain email details',
                     'IMAPFetchError',
                     502,
                     {
@@ -2819,7 +2819,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
                 'success': False,
                 'error': build_error_payload(
                     'EMAIL_DETAIL_FETCH_FAILED',
-                    '获取邮件详情失败',
+                    'Failed to obtain email details',
                     'IMAPFetchError',
                     502,
                     {
@@ -2837,7 +2837,7 @@ def get_email_detail_imap_generic_result(email_addr: str, imap_password: str, im
             'email': build_email_detail_from_message(msg, str(message_id))
         }
     except Exception as exc:
-        return {'success': False, 'error': build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP 连接失败', 'IMAPConnectError', 502, '')}
+        return {'success': False, 'error': build_error_payload('IMAP_CONNECT_FAILED', sanitize_error_details(str(exc)) or 'IMAP connection failed', 'IMAPConnectError', 502, '')}
     finally:
         if mail:
             try:
@@ -2850,14 +2850,14 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
                                           attachment_id: str, folder: str = 'inbox', proxy_url: str = None,
                                           fallback_proxy_urls: Optional[List[str]] = None,
                                           preferred_id_mode: str = 'uid') -> Dict[str, Any]:
-    """使用 Outlook IMAP 下载邮件附件"""
+    'Download email attachments using Outlook IMAP'
     access_token = get_access_token_imap(client_id, refresh_token, proxy_url, fallback_proxy_urls)
     if not access_token:
         return {
             'success': False,
             'error': build_error_payload(
                 'IMAP_TOKEN_FAILED',
-                '获取访问令牌失败',
+                'Failed to obtain access token',
                 'IMAPError',
                 401,
                 ''
@@ -2877,7 +2877,7 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_FOLDER_NOT_FOUND',
-                    'IMAP 文件夹不存在或无权访问',
+                    'IMAP folder does not exist or does not have access rights',
                     'IMAPFolderError',
                     400,
                     {'folder': folder}
@@ -2898,7 +2898,7 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_FETCH_FAILED',
-                    '获取附件失败',
+                    'Failed to obtain attachment',
                     'IMAPFetchError',
                     502,
                     {'message_id': str(message_id), 'fetch_attempts': fetch_attempts[:10]}
@@ -2911,7 +2911,7 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_FETCH_FAILED',
-                    '获取附件失败',
+                    'Failed to obtain attachment',
                     'IMAPFetchError',
                     502,
                     {'message_id': str(message_id), 'fetch_attempts': fetch_attempts[:10]}
@@ -2924,7 +2924,7 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_NOT_FOUND',
-                    '附件不存在',
+                    'Attachment does not exist',
                     'NotFoundError',
                     404,
                     {'attachment_id': attachment_id}
@@ -2942,7 +2942,7 @@ def download_email_attachment_imap_result(account: str, client_id: str, refresh_
             'success': False,
             'error': build_error_payload(
                 'ATTACHMENT_FETCH_FAILED',
-                '获取附件失败',
+                'Failed to obtain attachment',
                 type(exc).__name__,
                 500,
                 str(exc)
@@ -2960,9 +2960,9 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
                                                   imap_port: int = 993, message_id: str = '',
                                                   attachment_id: str = '', folder: str = 'inbox',
                                                   provider: str = 'custom', proxy_url: str = '') -> Dict[str, Any]:
-    """使用通用 IMAP 下载邮件附件"""
+    'Download email attachments using Universal IMAP'
     if not message_id or not attachment_id:
-        return {'success': False, 'error': build_error_payload('ATTACHMENT_INVALID', '附件参数不完整', 'ValidationError', 400, '')}
+        return {'success': False, 'error': build_error_payload('ATTACHMENT_INVALID', 'Attachment parameters are incomplete', 'ValidationError', 400, '')}
 
     mail = None
     try:
@@ -2994,7 +2994,7 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
                 'success': False,
                 'error': build_error_payload(
                     'IMAP_FOLDER_NOT_FOUND',
-                    'IMAP 文件夹不存在或无权访问',
+                    'IMAP folder does not exist or does not have access rights',
                     'IMAPFolderError',
                     400,
                     {
@@ -3013,7 +3013,7 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_FETCH_FAILED',
-                    '获取附件失败',
+                    'Failed to obtain attachment',
                     'IMAPFetchError',
                     502,
                     {
@@ -3035,7 +3035,7 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_FETCH_FAILED',
-                    '获取附件失败',
+                    'Failed to obtain attachment',
                     'IMAPFetchError',
                     502,
                     {
@@ -3053,7 +3053,7 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
                 'success': False,
                 'error': build_error_payload(
                     'ATTACHMENT_NOT_FOUND',
-                    '附件不存在',
+                    'Attachment does not exist',
                     'NotFoundError',
                     404,
                     {'attachment_id': attachment_id}
@@ -3071,7 +3071,7 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
             'success': False,
             'error': build_error_payload(
                 'IMAP_CONNECT_FAILED',
-                sanitize_error_details(str(exc)) or 'IMAP 连接失败',
+                sanitize_error_details(str(exc)) or 'IMAP connection failed',
                 'IMAPConnectError',
                 502,
                 ''
@@ -3086,19 +3086,19 @@ def download_email_attachment_imap_generic_result(email_addr: str, imap_password
 
 
 def parse_email_datetime(value: str) -> Optional[datetime]:
-    """兼容旧共享全局名，实际实现位于 outlook_web.mail_datetime。"""
+    'Compatible with old shared global names, the actual implementation is located at outlook_web.mail_datetime.'
     return parse_mail_datetime(value)
 
 
 def login_required(f):
-    """登录验证装饰器"""
+    'Login verification decorator'
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_web_login_session_valid():
             if session.get('logged_in'):
                 clear_web_login_session()
             if request.is_json or request.path.startswith('/api/'):
-                return jsonify({'success': False, 'error': '请先登录', 'need_login': True}), 401
+                return jsonify({'success': False, 'error': 'Please log in first', 'need_login': True}), 401
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     decorated_function._requires_login = True
@@ -3106,30 +3106,30 @@ def login_required(f):
 
 
 def normalize_api_key(value: Any) -> str:
-    """规范化 API Key，确保比较输入为稳定字符串。"""
+    'Normalize API Key to ensure that the comparison input is a stable string.'
     return str(value or '').strip()
 
 
 def api_key_required(f):
-    """API Key 验证装饰器（用于对外 API）"""
+    'API Key verification decorator (for external API)'
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 从 Header 或查询参数获取 API Key
+        # Get API Key from Header or query parameters
         api_key = normalize_api_key(
             request.headers.get('X-API-Key')
             or request.args.get('api_key')
             or request.args.get('apikey')
         )
         if not api_key:
-            return jsonify({'success': False, 'error': '缺少 API Key，请通过 Header X-API-Key 或查询参数 api_key 提供'}), 401
+            return jsonify({'success': False, 'error': 'API Key is missing, please provide it through Header X-API-Key or query parameter api_key'}), 401
 
-        # 验证 API Key
+        # Verify API Key
         stored_key = normalize_api_key(get_external_api_key())
         if not stored_key:
-            return jsonify({'success': False, 'error': '未配置对外 API Key，请在系统设置中配置'}), 403
+            return jsonify({'success': False, 'error': 'The external API Key is not configured, please configure it in the system settings.'}), 403
 
         if not secrets.compare_digest(api_key, stored_key):
-            return jsonify({'success': False, 'error': 'API Key 无效'}), 401
+            return jsonify({'success': False, 'error': 'API Key is invalid'}), 401
 
         return f(*args, **kwargs)
     decorated_function._requires_api_key = True
@@ -3137,12 +3137,12 @@ def api_key_required(f):
 
 
 def assert_endpoint_protection(endpoint: str, protection_attr: str, protection_name: str):
-    """确保动态替换后的 endpoint 仍然保留必须的鉴权保护。"""
+    'Ensure that the dynamically replaced endpoint still retains necessary authentication protection.'
     view_func = app.view_functions.get(endpoint)
     if view_func is None:
-        raise RuntimeError(f'Endpoint 未注册: {endpoint}')
+        raise RuntimeError(f'Endpoint not registered: {endpoint}')
     if not getattr(view_func, protection_attr, False):
-        raise RuntimeError(f'Endpoint {endpoint} 缺少 {protection_name} 保护')
+        raise RuntimeError(f'Endpoint {endpoint} lacks {protection_name} protection')
 
 
-# ==================== Flask 路由 ====================
+# ==================== Flask routing ====================

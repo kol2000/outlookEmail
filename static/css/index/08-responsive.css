@@ -1,4 +1,4 @@
-        /* 响应式 */
+        /* Responsive */
         @media (max-width: 1200px) {
             .group-panel {
                 width: 180px;
@@ -568,14 +568,14 @@
             }
 
             .email-detail-meta-collapsible__summary::after {
-                content: '展开';
+                content: 'expand';
                 margin-left: 8px;
                 color: #94a3b8;
                 font-weight: 500;
             }
 
             .email-detail-meta-collapsible[open] .email-detail-meta-collapsible__summary::after {
-                content: '收起';
+                content: 'Collapse';
             }
 
             .email-detail-meta--compact {

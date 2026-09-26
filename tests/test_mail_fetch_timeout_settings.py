@@ -73,7 +73,7 @@ class MailFetchTimeoutSettingsTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(payload['success'])
-        self.assertIn('邮件获取超时', payload['message'])
+        self.assertIn('Mail retrieval timeout', payload['message'])
         with self.app.app_context():
             self.assertEqual(web_outlook_app.get_setting('mail_fetch_timeout_seconds'), '180')
 

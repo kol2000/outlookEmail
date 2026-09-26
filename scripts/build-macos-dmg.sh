@@ -5,23 +5,23 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "错误：macOS DMG 只能在 macOS 上构建。"
+  echo "Error: macOS DMG can only be built on macOS."
   exit 1
 fi
 
 if ! command -v hdiutil >/dev/null 2>&1; then
-  echo "错误：未找到 hdiutil。请在 macOS 环境中运行。"
+  echo "Error: hdiutil not found. Please run in macOS environment."
   exit 1
 fi
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
-  echo "错误：未找到 Python：$PYTHON_BIN"
+  echo "Error: Python not found: $PYTHON_BIN"
   exit 1
 fi
 
 if ! "$PYTHON_BIN" -m PyInstaller --version >/dev/null 2>&1; then
-  echo "错误：未安装 PyInstaller。请先运行：$PYTHON_BIN -m pip install -r requirements.txt pyinstaller"
+  echo "Error: PyInstaller is not installed. Please run first: $PYTHON_BIN -m pip install -r requirements.txt pyinstaller"
   exit 1
 fi
 
@@ -35,7 +35,7 @@ normalize_arch() {
 
 VERSION="$(tr -d '[:space:]' < VERSION)"
 if [[ -z "$VERSION" ]]; then
-  echo "错误：VERSION 文件为空。"
+  echo "Error: VERSION file is empty."
   exit 1
 fi
 
@@ -49,7 +49,7 @@ DMG_PATH="$PROJECT_ROOT/dist/$DMG_NAME"
 "$PYTHON_BIN" -m PyInstaller --noconfirm --clean outlookEmail.spec
 
 if [[ ! -d "$APP_PATH" ]]; then
-  echo "错误：未生成 $APP_PATH"
+  echo "Error: $APP_PATH not generated"
   exit 1
 fi
 
@@ -67,4 +67,4 @@ hdiutil create \
   -format UDZO \
   "$DMG_PATH"
 
-echo "macOS 安装包已生成：$DMG_PATH"
+echo "macOS installation package has been generated: $DMG_PATH"

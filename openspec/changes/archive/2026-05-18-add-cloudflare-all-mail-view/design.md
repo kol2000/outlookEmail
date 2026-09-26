@@ -1,92 +1,92 @@
-## 背景
+## Background
 
-本项目已经在临时邮箱区域支持 GPTMail、DuckMail 和 Cloudflare Temp Email。当前 Cloudflare 支持的前提是用户选中了一个本地 `temp_emails` 记录，然后系统使用该记录保存的 JWT 调用 `/api/mails` 读取单个地址的邮件。Worker 域名、邮箱域名和管理员密码目前都是全局设置。
+This project already supports GPTMail, DuckMail and Cloudflare Temp Email in the temporary mailbox area. The premise of current Cloudflare support is that the user selects a local `temp_emails` record, and then the system uses the JWT saved in the record to call `/api/mails` to read the email of a single address. The Worker domain name, email domain name, and administrator password are currently global settings.
 
-Cloudflare Temp Email 还提供管理员邮件列表接口 `/admin/mails`，可以列出 Worker 邮件池，并支持可选的 `address` 过滤。该接口使用管理员密码，而不是单个地址的 JWT，因此更适合作为独立的“Cloudflare 全部邮件”视图，而不是复用现有“某个临时邮箱的邮件”接口。
+Cloudflare Temp Email also provides the administrator mail list interface `/admin/mails`, which can list Worker mail pools and supports optional `address` filtering. This interface uses the admin password rather than a JWT for a single address, so it is better suited as a standalone "Cloudflare All Mail" view rather than reusing the existing "Mail for a temporary mailbox" interface.
 
-普通邮箱 API 已经有 plus-address 别名回退逻辑。该逻辑位于账号解析辅助函数中，并被内部和对外邮件 API 复用。
+Ordinary email API already has plus-address alias fallback logic. This logic is in the account resolution helper function and is reused by the internal and external email APIs.
 
-## 目标 / 非目标
+## target / non-target
 
-**目标：**
+**Target:**
 
-- 为当前配置的一套 Cloudflare 渠道提供 Cloudflare Temp Email 全局邮件列表。
-- 允许用户按收件地址过滤 Cloudflare 全局邮件列表。
-- 查询指定地址时，如果第一个候选地址没有命中，支持 `@gmail.com` 和 `@googlemail.com` 之间互相回退。
-- 保留现有 plus-address 回退行为，并让回退顺序明确且可测试。
-- 返回元数据说明请求地址、实际查询或解析地址，以及是否使用了回退。
-- 在可行范围内，让解析后的邮件响应字段兼容现有邮件列表和详情渲染路径。
+- Provides a Cloudflare Temp Email global mailing list for the currently configured set of Cloudflare channels.
+- Allows users to filter the Cloudflare global mailing list by recipient address.
+- When querying the specified address, if the first candidate address does not hit, support mutual fallback between `@gmail.com` and `@googlemail.com`.
+- Preserve the existing plus-address fallback behavior and make the fallback order clear and testable.
+- Returns metadata describing the request address, the actual query or resolution address, and whether fallback was used.
+- To the extent feasible, make parsed email response fields compatible with existing email lists and detail rendering paths.
 
-**非目标：**
+**Non-target:**
 
-- 本次不支持多套 Cloudflare 渠道配置。
-- 不修改 Cloudflare 地址创建、删除、单地址 JWT 存储语义。
-- 不把 Cloudflare 全局邮件池持久化写入 `temp_email_messages`。
-- 不做 `gmail.com` 和 `googlemail.com` 之外的邮箱服务商归一化。
-- 不新增 Cloudflare 全局邮件附件下载能力，除非已有解析内容元数据可直接复用。
+- Multiple Cloudflare channel configurations are not supported this time.
+- Does not modify Cloudflare address creation, deletion, single-address JWT storage semantics.
+- Do not write Cloudflare global mail pool persistence to `temp_email_messages`.
+- Do not normalize email service providers other than `gmail.com` and `googlemail.com`.
+- Cloudflare’s global email attachment download capability will not be added unless the content metadata already parsed can be directly reused.
 
-## 设计决策
+## Design Decisions
 
-### 使用独立的 Cloudflare 管理员邮件 API
+### Use the standalone Cloudflare admin email API
 
-新增一个后端路由承载 Cloudflare 全局视图，例如 `GET /api/cloudflare/messages`，不复用或重载 `GET /api/temp-emails/<email>/messages`。
+Add a new backend route to carry the Cloudflare global view, such as `GET /api/cloudflare/messages`, and do not reuse or reload `GET /api/temp-emails/<email>/messages`.
 
-原因：现有临时邮件路由的作用域是某个本地临时邮箱记录。管理员接口可能返回本地不存在的地址邮件，如果把它当作某个邮箱的缓存，会让数据归属变得不清晰。
+Cause: An existing temporary mail route is scoped to a local temporary mailbox record. The administrator interface may return emails to addresses that do not exist locally. If it is used as a cache for a certain mailbox, the data ownership will become unclear.
 
-备选方案：在现有临时邮箱列表中放一个特殊伪邮箱。这样可以减少 UI 入口，但会引入假的邮箱身份，并且邮件详情路由需要额外特判。
+Alternative: Put a special pseudo mailbox in the list of existing temporary mailboxes. This can reduce the number of UI entries, but it will introduce fake email identities, and the routing of email details requires additional special judgment.
 
-### 不把管理员列表邮件写入 `temp_email_messages`
+### Do not write the administrator list email to `temp_email_messages`
 
-Cloudflare 全局邮件列表应当实时获取并解析用于展示，但不写入现有临时邮件缓存表。
+Cloudflare global mailing lists should be fetched and parsed in real time for display, but not written to existing temporary mail cache tables.
 
-原因：`temp_email_messages.email_address` 绑定本地 `temp_emails.email` 外键。管理员结果可能包含 Worker 邮件池里的任意收件地址，包括没有导入到本项目的地址。
+Reason: `temp_email_messages.email_address` binds the local `temp_emails.email` foreign key. Administrator results may contain any recipient address in the Worker mail pool, including addresses not imported into this project.
 
-备选方案：自动创建缺失的临时邮箱记录。这样会意外改变用户的邮箱清单，并且需要定义清理语义，不属于本次需求。
+Alternative: Automatically create missing temporary mailbox records. This will accidentally change the user's mailbox list and requires definition of cleanup semantics, which is not part of this requirement.
 
-### 通过 Cloudflare 响应适配器复用原始 MIME 解析
+### Reuse raw MIME parsing via Cloudflare response adapter
 
-在解析原始 RFC822 内容前，先把每条 Cloudflare 管理员邮件记录中的 `id`、`message_id`、`source`、`address`、`raw`、`created_at` 等字段适配成现有展示逻辑可使用的数据形状。
+Before parsing the original RFC822 content, first adapt the `id`, `message_id`, `source`, `address`, `raw`, `created_at` and other fields in each Cloudflare administrator email record into a data shape that can be used by the existing display logic.
 
-原因：项目已经能解析按地址 JWT 返回的 Cloudflare 原始邮件。增加一个小型适配层，可以保持解析行为一致，同时从管理员响应中获取收件人元数据。
+Reason: The project has been able to parse Cloudflare raw emails returned by address JWT. Adding a small adaptation layer keeps parsing behavior consistent while obtaining recipient metadata from the administrator response.
 
-备选方案：依赖 Cloudflare 的 parsed mail 接口。但管理员 parsed 接口是否覆盖全局视图并不明确，而 `/admin/mails` 是已文档化的管理员列表接口。
+Alternative: Rely on Cloudflare's parsed mail interface. However, it is not clear whether the administrator parsed interface covers the global view, and `/admin/mails` is a documented administrator list interface.
 
-### 集中生成地址回退候选
+### Centrally generate address fallback candidates
 
-把当前只服务 plus-address 的辅助函数扩展为统一候选地址构建器，生成：
+Extend the auxiliary function that currently only serves plus-address into a unified candidate address builder to generate:
 
-1. 完整归一化后的原始地址。
-2. 同域名下的 plus-address 回退地址。
-3. 当域名是 `gmail.com` 或 `googlemail.com` 时，为每个 plus-address 候选生成另一后缀的对应地址。
+1. Completely normalized original address.
+2. The plus-address fallback address under the same domain name.
+3. When the domain name is `gmail.com` or `googlemail.com`, generate the corresponding address of another suffix for each plus-address candidate.
 
-原因：账号解析和 Cloudflare 地址过滤查询都需要相同的顺序规则。集中生成可以避免不同路由各自实现后产生行为漂移。
+Reason: Both account resolution and Cloudflare address filtering queries require the same ordering rules. Centralized generation can avoid behavioral drift caused by different routes being implemented separately.
 
-备选方案：只在新的 Cloudflare 路由里做 Gmail 后缀回退。这样只能满足部分需求，会让 `/api/emails/<email>` 和 `/api/external/emails` 行为不一致。
+Alternative: Only do Gmail suffix fallback in the new Cloudflare route. This can only meet part of the requirements and will make `/api/emails/<email>` and `/api/external/emails` behave inconsistently.
 
-### Cloudflare 地址回退以“无结果”为触发条件
+### Cloudflare address fallback is triggered by "no result"
 
-对 `GET /api/cloudflare/messages?address=...`，先查询第一个候选地址。如果请求成功但返回 0 封邮件，则继续查询下一个候选地址，直到找到结果或候选地址耗尽。
+For `GET /api/cloudflare/messages?address=...`, first query the first candidate address. If the request succeeds but returns 0 messages, querying continues for the next candidate address until a result is found or candidates are exhausted.
 
-原因：Cloudflare 管理员列表不解析本地账号记录，能观察到的“未找到”状态就是空结果集。这样也能让全局列表保持简单：不传 address 就不触发回退。
+Reason: Cloudflare administrator list does not parse local account records, and the observed "not found" status is an empty result set. This also keeps the global list simple: no address is passed and no fallback is triggered.
 
-备选方案：总是查询两个 Gmail 后缀并合并。这样可能在 Worker 存在等价地址时产生重复，也可能违背用户对精确地址查询的预期。
+Alternative: Always query both Gmail suffixes and merge. This may cause duplication when equivalent addresses exist in the Worker, and may also violate the user's expectations for precise address queries.
 
-## 风险 / 权衡
+## Risk/Trade-off
 
-- Cloudflare 管理员列表可以暴露 Worker 邮件池中的所有邮件 -> 保持 session 登录鉴权，除非后续明确要求，否则不暴露到 API Key 对外接口。
-- 全局邮件池较大时获取成本可能较高 -> 限制分页大小，并保留 `limit` / `offset` 语义。
-- 当 offset 非 0 时，第一页为空不一定代表该过滤邮箱整体为空 -> 只在当前请求 offset 下按空结果触发回退，并通过响应元数据暴露 `fallback_used` 供调用方判断。
-- Cloudflare 原始邮件响应可能随上游版本变化 -> 响应归一化应防御式实现，并保留有用的上游错误细节。
-- 如果两个 Gmail 后缀都配置了账号，回退顺序可能让用户意外 -> 在响应中暴露 `requested_email`、`queried_email` 或 `resolved_email`、`fallback_used`。
+- The Cloudflare administrator list can expose all emails in the Worker mail pool -> Maintain session login authentication and will not expose it to the API Key external interface unless explicitly required later.
+- Acquisition cost may be higher when global mail pool is large -> Limit paging size and preserve `limit` / `offset` semantics.
+- When the offset is non-0, the empty first page does not necessarily mean that the filtered mailbox is empty as a whole -> The rollback is only triggered by the empty result under the current request offset, and `fallback_used` is exposed through the response metadata for the caller to judge.
+- Cloudflare raw email responses may change with upstream versions -> Response normalization should be implemented defensively and preserve useful upstream error details.
+- If both Gmail suffixes are configured with accounts, the fallback sequence may surprise users -> exposing `requested_email`, `queried_email` or `resolved_email`, `fallback_used` in the response.
 
-## 迁移计划
+## Migration plan
 
-- 新增辅助函数和路由，不修改现有数据库 schema。
-- 保持现有按临时邮箱 JWT 获取 Cloudflare 邮件的行为不变。
-- 更新文档，将新的 Cloudflare 全局列表与现有 `folder=all` 普通邮箱聚合查询分开说明。
-- 回滚时移除新路由、UI 入口和 Gmail 后缀回退辅助逻辑即可，不需要数据迁移。
+- Added auxiliary functions and routes without modifying the existing database schema.
+- Keep existing behavior of getting Cloudflare mail by temporary mailbox JWT unchanged.
+- Updated documentation to describe the new Cloudflare global list separately from the existing `folder=all` general mailbox aggregation query.
+- When rolling back, just remove the new routing, UI entry and Gmail suffix rollback auxiliary logic, no data migration is required.
 
-## 待确认问题
+## Questions to be confirmed
 
-- Cloudflare 全局列表后续是否需要暴露到对外 API Key 接口，还是保持仅登录 session 可用？
-- 第一版 UI 是否直接包含收件人过滤输入框，还是先提供路由/API 能力和简单全部邮件视图？
+- Does the Cloudflare global list need to be exposed to the external API Key interface in the future, or should it remain available only for login sessions?
+- Will the first version of the UI include the recipient filtering input box directly, or will routing/API capabilities and a simple all-mail view be provided first?

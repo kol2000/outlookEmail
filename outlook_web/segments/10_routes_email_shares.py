@@ -224,7 +224,7 @@ def normalize_email_share_bool(value: Any) -> tuple[Optional[bool], Optional[str
             return True, None
         if normalized in {'false', '0', 'no', 'off', ''}:
             return False, None
-    return None, 'never_expires 参数无效'
+    return None, 'never_expires parameter is invalid'
 
 
 def parse_email_share_create_payload(data: Dict[str, Any]) -> tuple[Optional[int], bool, Optional[str]]:
@@ -237,17 +237,17 @@ def parse_email_share_create_payload(data: Dict[str, Any]) -> tuple[Optional[int
         data.get('duration_minutes', EMAIL_SHARE_DEFAULT_DURATION_MINUTES)
     )
     if duration is None:
-        return None, False, '分享时长无效'
+        return None, False, 'Invalid sharing duration'
     return duration, False, None
 
 
 def email_share_error_payload(status: str) -> Dict[str, Any]:
     if status == EMAIL_SHARE_STATUS_EXPIRED:
-        message = '分享链接已过期'
+        message = 'The sharing link has expired'
     elif status == EMAIL_SHARE_STATUS_REVOKED:
-        message = '分享链接已取消'
+        message = 'Sharing link has been canceled'
     else:
-        message = '分享链接无效'
+        message = 'Sharing link is invalid'
     return {'success': False, 'status': status, 'error': message}
 
 
@@ -256,7 +256,7 @@ def reject_share_if_account_mismatch(account: Dict[str, Any]) -> Optional[Any]:
     if not requested_email:
         return None
     if normalize_email_address(requested_email) != normalize_email_address(account.get('email', '')):
-        return jsonify({'success': False, 'error': '分享链接无权访问该邮箱'}), 403
+        return jsonify({'success': False, 'error': 'The shared link does not have permission to access the email address'}), 403
     return None
 
 
@@ -264,7 +264,7 @@ def normalize_email_share_folder_response(raw_folder: Any) -> tuple[Optional[str
     folder = normalize_folder_name(raw_folder or 'inbox')
     if folder not in EMAIL_SHARE_ALLOWED_FOLDERS:
         allowed = ', '.join(sorted(EMAIL_SHARE_ALLOWED_FOLDERS))
-        return None, (jsonify({'success': False, 'error': f'分享链接仅支持访问: {allowed}'}), 400)
+        return None, (jsonify({'success': False, 'error': f'Sharing link only supports access: {allowed}'}), 400)
     return folder, None
 
 
@@ -287,7 +287,7 @@ def api_create_email_share():
         if email_addr:
             account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
+        return jsonify({'success': False, 'error': 'The email account does not exist'}), 404
 
     duration_minutes, never_expires, duration_error = parse_email_share_create_payload(data)
     if duration_error:
@@ -329,9 +329,9 @@ def api_list_email_shares():
         try:
             normalized_account_id = int(account_id)
         except (TypeError, ValueError):
-            return jsonify({'success': False, 'error': 'account_id 参数无效'}), 400
+            return jsonify({'success': False, 'error': 'The account_id parameter is invalid'}), 400
         if normalized_account_id <= 0:
-            return jsonify({'success': False, 'error': 'account_id 参数无效'}), 400
+            return jsonify({'success': False, 'error': 'The account_id parameter is invalid'}), 400
     return jsonify({'success': True, 'shares': query_email_share_rows(normalized_account_id)})
 
 
@@ -340,7 +340,7 @@ def api_list_email_shares():
 def api_cancel_email_share(share_id):
     share = get_email_share_row_by_id(share_id)
     if not share:
-        return jsonify({'success': False, 'error': '分享记录不存在'}), 404
+        return jsonify({'success': False, 'error': 'Sharing record does not exist'}), 404
 
     db = get_db()
     db.execute(
@@ -362,7 +362,7 @@ def api_cancel_email_share(share_id):
 def api_delete_email_share(share_id):
     share = get_email_share_row_by_id(share_id)
     if not share:
-        return jsonify({'success': False, 'error': '分享记录不存在'}), 404
+        return jsonify({'success': False, 'error': 'Sharing record does not exist'}), 404
 
     db = get_db()
     try:
@@ -370,7 +370,7 @@ def api_delete_email_share(share_id):
         db.commit()
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'error': f'删除失败: {str(e)}'})
+        return jsonify({'success': False, 'error': f'Deletion failed: {str(e)}'})
 
 
 @app.route('/api/email-shares/batch-cancel', methods=['POST'])
@@ -379,14 +379,14 @@ def api_batch_cancel_email_shares():
     data = request.get_json(silent=True) or {}
     share_ids = data.get('share_ids') or []
     if not isinstance(share_ids, list):
-        return jsonify({'success': False, 'error': '参数无效'}), 400
+        return jsonify({'success': False, 'error': 'Invalid parameter'}), 400
     if not share_ids:
-        return jsonify({'success': True, 'message': '未选择任何记录'})
+        return jsonify({'success': True, 'message': 'No records selected'})
 
     try:
         ids = [int(x) for x in share_ids]
     except (TypeError, ValueError):
-        return jsonify({'success': False, 'error': '包含无效的 ID'}), 400
+        return jsonify({'success': False, 'error': 'Contains an invalid ID'}), 400
 
     db = get_db()
     try:
@@ -403,7 +403,7 @@ def api_batch_cancel_email_shares():
         db.commit()
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'error': f'批量取消失败: {str(e)}'})
+        return jsonify({'success': False, 'error': f'Batch cancellation failed: {str(e)}'})
 
 
 @app.route('/api/email-shares/batch-delete', methods=['POST'])
@@ -412,14 +412,14 @@ def api_batch_delete_email_shares():
     data = request.get_json(silent=True) or {}
     share_ids = data.get('share_ids') or []
     if not isinstance(share_ids, list):
-        return jsonify({'success': False, 'error': '参数无效'}), 400
+        return jsonify({'success': False, 'error': 'Invalid parameter'}), 400
     if not share_ids:
-        return jsonify({'success': True, 'message': '未选择任何记录'})
+        return jsonify({'success': True, 'message': 'No records selected'})
 
     try:
         ids = [int(x) for x in share_ids]
     except (TypeError, ValueError):
-        return jsonify({'success': False, 'error': '包含无效的 ID'}), 400
+        return jsonify({'success': False, 'error': 'Contains an invalid ID'}), 400
 
     db = get_db()
     try:
@@ -431,7 +431,7 @@ def api_batch_delete_email_shares():
         db.commit()
         return jsonify({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'error': f'批量删除失败: {str(e)}'})
+        return jsonify({'success': False, 'error': f'Batch deletion failed: {str(e)}'})
 
 
 

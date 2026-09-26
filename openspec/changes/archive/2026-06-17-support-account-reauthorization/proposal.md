@@ -1,31 +1,31 @@
 ## Why
 
-当前 Outlook 账号的 Refresh Token 失效后，用户只能手动获取新 Token，再进入编辑账号弹窗粘贴 `Client ID` 和 `Refresh Token`，流程容易误改账号其他字段，也会让旧的“刷新失败”状态继续干扰判断。
+After the Refresh Token of the current Outlook account expires, the user can only manually obtain a new Token, and then enter the edit account pop-up window to paste `Client ID` and `Refresh Token`. The process is easy to accidentally change other fields of the account, and the old "Refresh failed" status will continue to interfere with judgment.
 
-需要为已有 Outlook 账号提供明确的重新授权入口：授权成功后更新授权信息，清理旧失败状态，并立即用一次真实的单账号刷新验证新授权是否可用。
+It is necessary to provide a clear re-authorization entry for existing Outlook accounts: update the authorization information after successful authorization, clean up the old failure status, and immediately use a real single account refresh to verify whether the new authorization is available.
 
 ## What Changes
 
-- 为已有 Outlook OAuth 账号新增“重新授权”能力，用户可从账号编辑或失败提示上下文发起。
-- 重新授权流程复用现有 Microsoft OAuth 授权链接和授权码换取 Refresh Token 的能力。
-- 重新授权成功后，只更新目标账号的 `client_id`、`refresh_token`、`refresh_token_updated_at` 和必要的刷新状态字段，不修改邮箱、密码、分组、状态、转发、代理、备注、别名等业务字段。
-- 重新授权成功后清掉旧的刷新失败状态和错误信息，随后自动触发该账号单账号刷新。
-- 自动刷新完成后，以真实刷新结果写回 `last_refresh_status`、`last_refresh_at`、`last_refresh_error`；若刷新失败，界面必须显示新的失败结果，而不是隐藏失败。
-- IMAP 账号不支持重新授权入口。
+- Added "re-authorization" capability for existing Outlook OAuth accounts, which users can initiate from the account editing or failure prompt context.
+- The ability for the re-authorization process to reuse existing Microsoft OAuth authorization links and authorization codes in exchange for Refresh Tokens.
+- After successful re-authorization, only the `client_id`, `refresh_token`, `refresh_token_updated_at` and necessary refresh status fields of the target account will be updated. Business fields such as email, password, group, status, forwarding, agent, remarks, alias, etc. will not be modified.
+- After successful re-authorization, the old refresh failure status and error message will be cleared, and then a single account refresh of the account will be automatically triggered.
+- After the automatic refresh is completed, write back `last_refresh_status`, `last_refresh_at`, and `last_refresh_error` with the real refresh results; if the refresh fails, the interface must display the new failure results instead of hiding the failure.
+- IMAP accounts do not support reauthorization entry.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `account-reauthorization`: 覆盖已有 Outlook OAuth 账号的重新授权、授权信息更新、旧失败状态清理和重新授权后的自动刷新验证。
+- `account-reauthorization`: Covers the re-authorization of existing Outlook OAuth accounts, authorization information update, old failure status cleanup and automatic refresh verification after re-authorization.
 
 ### Modified Capabilities
 
-- 无。
+- None.
 
 ## Impact
 
-- 后端账号 API：新增或扩展已有账号授权更新接口，处理目标账号校验、OAuth code 换 token、敏感字段加密保存、刷新状态更新和单账号刷新触发。
-- 前端账号管理：在 Outlook 账号编辑弹窗和刷新失败上下文提供重新授权入口，并展示授权、换取、更新、自动刷新过程状态。
-- 数据库字段：复用 `accounts.refresh_token_updated_at`、`last_refresh_status`、`last_refresh_at`、`last_refresh_error`，无需新增表。
-- 文档与测试：更新 API 文档，补充后端接口测试与前端流程覆盖，重点验证不会误改账号非授权字段。
+- Backend Account API: Add or expand the existing account authorization update interface to handle target account verification, OAuth code exchange for tokens, encrypted saving of sensitive fields, refresh status updates and single account refresh triggers.
+- Front-end account management: Provides re-authorization entry in the Outlook account editing pop-up window and refresh failure context, and displays the authorization, exchange, update, and automatic refresh process status.
+- Database fields: reuse `accounts.refresh_token_updated_at`, `last_refresh_status`, `last_refresh_at`, `last_refresh_error` without adding new tables.
+- Documentation and testing: Update the API documentation, supplement back-end interface testing and front-end process coverage, and focus on verifying that unauthorized account fields will not be accidentally changed.

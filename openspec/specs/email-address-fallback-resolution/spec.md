@@ -4,66 +4,66 @@
 TBD - created by archiving change add-cloudflare-all-mail-view. Update Purpose after archive.
 ## Requirements
 ### Requirement: Deterministic email query candidates
-系统 SHALL 基于请求邮箱地址生成确定性的邮箱查询候选列表。
+System SHALL generates a deterministic mailbox lookup candidate list based on the requesting email address.
 
-#### Scenario: 完整地址候选
-- **WHEN** 系统为有效请求邮箱地址构建候选列表
-- **THEN** 第一个候选地址 SHALL 是完整归一化后的请求地址。
+#### Scenario: Complete address candidate
+- **WHEN** The system builds a candidate list for valid requesting email addresses
+- **THEN** The first candidate address SHALL is the fully normalized request address.
 
-#### Scenario: Plus-address 候选
-- **WHEN** 请求邮箱的本地部分包含 plus-address 片段
-- **THEN** 系统 SHALL 在保留原始域名的前提下，从右到左逐级移除 plus-address 片段并追加候选地址。
+#### Scenario: Plus-address candidate
+- **WHEN** The local part of the request mailbox contains the plus-address fragment
+- **THEN** System SHALL removes the plus-address fragment from right to left and appends candidate addresses while retaining the original domain name.
 
-#### Scenario: 非 Gmail 地址候选
-- **WHEN** 请求邮箱域名既不是 `gmail.com` 也不是 `googlemail.com`
-- **THEN** 系统 SHALL NOT 添加 Gmail/Googlemail 后缀回退候选地址。
+#### Scenario: Non-Gmail address candidate
+- **WHEN** The requested email domain name is neither `gmail.com` nor `googlemail.com`
+- **THEN** System SHALL NOT add Gmail/Googlemail suffix fallback candidate addresses.
 
 ### Requirement: Gmail and Googlemail suffix fallback
-系统 SHALL 在邮箱查找和 Cloudflare 地址过滤查询中支持 `@gmail.com` 与 `@googlemail.com` 互相回退。
+System SHALL supports mutual fallback of `@gmail.com` and `@googlemail.com` in mailbox lookup and Cloudflare address filtering queries.
 
-#### Scenario: Gmail 回退到 Googlemail
-- **WHEN** 请求地址以 `@gmail.com` 结尾，且该请求地址未找到结果
-- **THEN** 系统 SHALL 使用相同本地部分和 `@googlemail.com` 后缀重试。
+#### Scenario: Gmail fallback to Googlemail
+- **WHEN** The request address ends with `@gmail.com` and no result was found for the request address
+- **THEN** System SHALL retries with the same local part and `@googlemail.com` suffix.
 
-#### Scenario: Googlemail 回退到 Gmail
-- **WHEN** 请求地址以 `@googlemail.com` 结尾，且该请求地址未找到结果
-- **THEN** 系统 SHALL 使用相同本地部分和 `@gmail.com` 后缀重试。
+#### Scenario: Googlemail fallback to Gmail
+- **WHEN** The request address ends with `@googlemail.com` and no result was found for the request address
+- **THEN** System SHALL retries with the same local part and `@gmail.com` suffix.
 
-#### Scenario: Plus 回退与 Gmail 后缀回退组合
-- **WHEN** 请求的 Gmail 或 Googlemail 地址包含 plus-address 片段
-- **THEN** 系统 SHALL 先评估原始后缀下的 plus-address 候选，再评估另一后缀下的等价候选。
+#### Scenario: Plus fallback and Gmail suffix fallback combination
+- **WHEN** The requested Gmail or Googlemail address contains the plus-address fragment
+- **THEN** System SHALL evaluates the plus-address candidate under the original suffix first, and then the equivalent candidate under the other suffix.
 
 ### Requirement: Account API fallback resolution
-系统 SHALL 在内部和对外邮件 API 的账号解析中使用共享邮箱查询候选顺序。
+System SHALL uses shared mailbox query candidate ordering in account resolution for internal and external mail APIs.
 
-#### Scenario: 内部邮件 API 解析 Gmail 另一后缀
-- **WHEN** `/api/emails/<email_addr>` 请求的是 Gmail 或 Googlemail 地址，且没有直接账号匹配
-- **THEN** 系统 SHALL 在返回账号不存在前，使用另一后缀重试账号解析。
+#### Scenario: Internal mail API parsing another suffix for Gmail
+- **WHEN** `/api/emails/<email_addr>` requested a Gmail or Googlemail address, and there was no direct account match
+- **THEN** System SHALL retries account resolution using another suffix before returning that the account does not exist.
 
-#### Scenario: 对外邮件 API 解析 Gmail 另一后缀
-- **WHEN** `/api/external/emails` 请求的是 Gmail 或 Googlemail 地址，且没有直接账号匹配
-- **THEN** 系统 SHALL 在返回账号不存在前，使用另一后缀重试账号解析。
+#### Scenario: External mail API parses another suffix of Gmail
+- **WHEN** `/api/external/emails` requested a Gmail or Googlemail address, and there was no direct account match
+- **THEN** System SHALL retries account resolution using another suffix before returning that the account does not exist.
 
-#### Scenario: 返回解析元数据
-- **WHEN** 内部或对外邮件 API 的账号解析使用了回退候选
-- **THEN** 成功响应 SHALL 包含原始请求邮箱和解析得到的账号邮箱，并在适用时标明别名或回退元数据。
+#### Scenario: Return parsing metadata
+- **WHEN** Account resolution for internal or external mail API uses fallback candidates
+- **THEN** Successful response SHALL contains the original request email and the parsed account email, and indicates the alias or fallback metadata when applicable.
 
 ### Requirement: Cloudflare address-filter fallback
-系统 SHALL 只在 Cloudflare 全局邮件查询提供具体地址过滤条件时，应用 Gmail/Googlemail 回退。
+System SHALL only applies Gmail/Googlemail fallback when specific address filters are provided by the Cloudflare global mail query.
 
-#### Scenario: Cloudflare 地址过滤重试另一后缀
-- **WHEN** Cloudflare 全局邮件查询包含 Gmail 或 Googlemail 地址过滤条件，且第一次查询成功但返回 0 封邮件
-- **THEN** 系统 SHALL 在返回空结果前查询另一后缀候选地址。
+#### Scenario: Cloudflare address filtering retries with another suffix
+- **WHEN** Cloudflare global email query includes Gmail or Googlemail address filter and the first query succeeds but returns 0 emails
+- **THEN** System SHALL queries for another suffix candidate address before returning empty results.
 
-#### Scenario: Cloudflare 地址过滤已有结果时不回退
-- **WHEN** Cloudflare 全局邮件查询包含 Gmail 或 Googlemail 地址过滤条件，且第一次查询返回一封或多封邮件
-- **THEN** 系统 SHALL NOT 查询另一后缀候选地址。
+#### Scenario: Cloudflare does not fall back when address filtering has results.
+- **WHEN** Cloudflare global email query includes Gmail or Googlemail address filters and the first query returns one or more emails
+- **THEN** The system SHALL NOT queries another suffix candidate address.
 
-#### Scenario: Cloudflare 无过滤查询不回退
-- **WHEN** Cloudflare 全局邮件查询不包含地址过滤条件
-- **THEN** 系统 SHALL NOT 生成或应用 Gmail/Googlemail 回退候选地址。
+#### Scenario: Cloudflare unfiltered query does not fall back
+- **WHEN** Cloudflare global email query does not include address filters
+- **THEN** The system SHALL NOT generate or apply Gmail/Googlemail fallback candidate addresses.
 
-#### Scenario: 返回 Cloudflare 回退元数据
-- **WHEN** Cloudflare 地址过滤查询从回退候选地址返回邮件
-- **THEN** 响应 SHALL 包含请求地址、实际查询地址，并将 `fallback_used` 设置为 true。
+#### Scenario: Return Cloudflare fallback metadata
+- **WHEN** Cloudflare address filtering query returns emails from fallback candidate addresses
+- **THEN** response SHALL contains the request address, the actual query address, and sets `fallback_used` to true.
 

@@ -230,12 +230,12 @@ console.log(JSON.stringify({{
         self.assertIn('hasActiveTagFilters()', temp_emails_source)
         self.assertIn('matchesSelectedTagFilters(email.tags)', temp_emails_source)
         self.assertIn('function buildAccountTagFilterOptionsHtml()', tags_source)
-        self.assertIn('>有<', tags_source)
-        self.assertIn('>无<', tags_source)
+        self.assertIn('>Yes<', tags_source)
+        self.assertIn('>None<', tags_source)
         self.assertIn('data-tag-name=', tags_source)
         self.assertIn('filterTagOptions(tagFilterKeyword);', tags_source)
         self.assertNotIn('UNTAGGED_TAG_FILTER', tags_source)
-        self.assertNotIn('无标签</span>', tags_source)
+        self.assertNotIn('No tags</span>', tags_source)
         self.assertNotIn('include_untagged', groups_source)
 
 

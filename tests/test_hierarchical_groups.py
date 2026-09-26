@@ -41,11 +41,9 @@ class HierarchicalGroupTests(unittest.TestCase):
             db.execute('DELETE FROM temp_email_tags')
             db.execute('DELETE FROM temp_email_messages')
             db.execute('DELETE FROM temp_emails')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.execute(
-                "UPDATE groups SET parent_id = NULL, level = 1, "
-                "proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' "
-                "WHERE name IN ('默认分组', '临时邮箱')"
+                "UPDATE groups SET parent_id = NULL, level = 1, proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' WHERE name IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')"
             )
             db.commit()
 
@@ -70,14 +68,14 @@ class HierarchicalGroupTests(unittest.TestCase):
 
     def test_three_level_groups_direct_accounts_proxy_and_delete(self):
         with self.app.app_context():
-            root_id = web_outlook_app.add_group('客户A')
-            second_id = web_outlook_app.add_group('项目1', parent_id=root_id)
-            third_id = web_outlook_app.add_group('子类1', parent_id=second_id)
+            root_id = web_outlook_app.add_group('Customer A')
+            second_id = web_outlook_app.add_group('Project 1', parent_id=root_id)
+            third_id = web_outlook_app.add_group('Subclass 1', parent_id=second_id)
 
             self.assertIsNotNone(root_id)
             self.assertIsNotNone(second_id)
             self.assertIsNotNone(third_id)
-            self.assertIsNone(web_outlook_app.add_group('超过三级', parent_id=third_id))
+            self.assertIsNone(web_outlook_app.add_group('More than level three', parent_id=third_id))
 
             root = web_outlook_app.get_group_by_id(root_id)
             second = web_outlook_app.get_group_by_id(second_id)
@@ -118,9 +116,9 @@ class HierarchicalGroupTests(unittest.TestCase):
 
     def test_group_export_recursively_includes_child_accounts_without_duplicates(self):
         with self.app.app_context():
-            root_id = web_outlook_app.add_group('导出父组')
-            child_id = web_outlook_app.add_group('导出子组', parent_id=root_id)
-            grandchild_id = web_outlook_app.add_group('导出孙组', parent_id=child_id)
+            root_id = web_outlook_app.add_group('Export parent group')
+            child_id = web_outlook_app.add_group('Export subgroup', parent_id=root_id)
+            grandchild_id = web_outlook_app.add_group('Export grandchild group', parent_id=child_id)
             self._insert_account('export-root@example.com', root_id)
             self._insert_account('export-child@example.com', child_id)
             self._insert_account('export-grandchild@example.com', grandchild_id)
@@ -140,38 +138,38 @@ class HierarchicalGroupTests(unittest.TestCase):
 
     def test_api_parent_validation_and_group_payload(self):
         with self.app.app_context():
-            temp_group = next(group for group in web_outlook_app.load_groups() if group['name'] == '临时邮箱')
+            temp_group = next(group for group in web_outlook_app.load_groups() if group['name'] == '\u4e34\u65f6\u90ae\u7bb1')
 
-        blocked = self.client.post('/api/groups', json={'name': '临时邮箱子组', 'parent_id': temp_group['id']}).get_json()
+        blocked = self.client.post('/api/groups', json={'name': 'Temporary mailbox subgroup', 'parent_id': temp_group['id']}).get_json()
         self.assertFalse(blocked['success'])
-        self.assertIn('临时邮箱', blocked['error'])
+        self.assertIn('Temporary mailbox', blocked['error'])
 
         created_root = self.client.post(
             '/api/groups',
-            json={'name': '接口根组', 'description': '接口根组描述'},
+            json={'name': 'Interface root group', 'description': 'Interface root group description'},
         ).get_json()
         self.assertTrue(created_root['success'])
         root_id = created_root['group_id']
 
-        created_child = self.client.post('/api/groups', json={'name': '接口子组', 'parent_id': root_id}).get_json()
+        created_child = self.client.post('/api/groups', json={'name': 'Interface subgroup', 'parent_id': root_id}).get_json()
         self.assertTrue(created_child['success'])
         child_id = created_child['group_id']
 
         groups_payload = self.client.get('/api/groups').get_json()
         root_group = next(group for group in groups_payload['groups'] if group['id'] == root_id)
         child_group = next(group for group in groups_payload['groups'] if group['id'] == child_id)
-        self.assertEqual(root_group['description'], '接口根组描述')
+        self.assertEqual(root_group['description'], 'Interface root group description')
         self.assertEqual(child_group['parent_id'], root_id)
         self.assertEqual(child_group['level'], 2)
         self.assertIn('descendant_account_count', child_group)
 
     def test_default_group_cannot_move_or_be_deleted_through_ancestor(self):
         with self.app.app_context():
-            parent_id = web_outlook_app.add_group('默认保护父级')
+            parent_id = web_outlook_app.add_group('Protect parent by default')
 
             moved = web_outlook_app.update_group(
                 1,
-                '默认分组',
+                '\u9ed8\u8ba4\u5206\u7ec4',
                 '',
                 '#1a1a1a',
                 parent_id=parent_id,
@@ -184,35 +182,35 @@ class HierarchicalGroupTests(unittest.TestCase):
 
             delete_result = web_outlook_app.delete_group_tree(parent_id)
             self.assertFalse(delete_result['success'])
-            self.assertIn('默认分组', delete_result['error'])
+            self.assertIn('default group', delete_result['error'])
             self.assertIsNotNone(web_outlook_app.get_group_by_id(1))
             self.assertIsNotNone(web_outlook_app.get_group_by_id(parent_id))
 
     def test_default_group_edit_without_parent_change_succeeds(self):
-        """编辑默认分组时前端会提交 parent_id=null，不应误报「不可移动」。"""
+        'When editing the default group, the front end will submit parent_id=null and should not falsely report "unmovable".'
         with self.app.app_context():
             ok, err = web_outlook_app.validate_group_move(1, None)
             self.assertTrue(ok, err)
 
             updated = web_outlook_app.update_group(
                 1,
-                '默认分组',
-                '未分组的邮箱-已更新',
+                '\u9ed8\u8ba4\u5206\u7ec4',
+                'Ungrouped mailboxes - updated',
                 '#666666',
                 proxy_url='socks5h://outlook.{mail}:tok@127.0.0.1:2260',
                 parent_id=None,
             )
             self.assertTrue(updated)
             group = web_outlook_app.get_group_by_id(1)
-            self.assertEqual(group['description'], '未分组的邮箱-已更新')
+            self.assertEqual(group['description'], 'Ungrouped mailboxes - updated')
             self.assertEqual(group['proxy_url'], 'socks5h://outlook.{mail}:tok@127.0.0.1:2260')
             self.assertIsNone(group['parent_id'])
 
         response = self.client.put(
             '/api/groups/1',
             json={
-                'name': '默认分组',
-                'description': 'API 编辑描述',
+                'name': '\u9ed8\u8ba4\u5206\u7ec4',
+                'description': 'API edit description',
                 'color': '#666666',
                 'proxy_url': 'socks5h://host:1080',
                 'parent_id': None,
@@ -220,32 +218,32 @@ class HierarchicalGroupTests(unittest.TestCase):
         )
         payload = response.get_json()
         self.assertTrue(payload['success'], payload)
-        self.assertNotIn('不可移动', payload.get('error') or '')
+        self.assertNotIn('Not removable', payload.get('error') or '')
 
         with self.app.app_context():
             group = web_outlook_app.get_group_by_id(1)
-            self.assertEqual(group['description'], 'API 编辑描述')
+            self.assertEqual(group['description'], 'API edit description')
             self.assertEqual(group['proxy_url'], 'socks5h://host:1080')
 
-        # 真正改父级仍应拒绝
+        # Real changes to the parent level should still be rejected
         with self.app.app_context():
-            parent_id = web_outlook_app.add_group('尝试挂载默认分组')
+            parent_id = web_outlook_app.add_group('Try to mount the default group')
             ok, err = web_outlook_app.validate_group_move(1, parent_id)
             self.assertFalse(ok)
-            self.assertEqual(err, '默认分组不可移动')
+            self.assertEqual(err, 'The default group cannot be moved')
 
     def test_project_group_scope_includes_descendant_groups(self):
         with self.app.app_context():
-            root_id = web_outlook_app.add_group('项目父分组')
-            child_id = web_outlook_app.add_group('项目子分组', parent_id=root_id)
-            other_id = web_outlook_app.add_group('项目外分组')
+            root_id = web_outlook_app.add_group('Project parent group')
+            child_id = web_outlook_app.add_group('Project subgroup', parent_id=root_id)
+            other_id = web_outlook_app.add_group('Group outside project')
             self._insert_account('project-root@example.com', root_id)
             self._insert_account('project-child@example.com', child_id)
             self._insert_account('project-other@example.com', other_id)
 
         started = self.client.post(
             '/api/projects/start',
-            json={'project_key': 'hier', 'name': '层级项目', 'group_ids': [root_id]},
+            json={'project_key': 'hier', 'name': 'Hierarchy items', 'group_ids': [root_id]},
         ).get_json()
         self.assertTrue(started['success'])
         self.assertEqual(started['data']['added_count'], 2)
@@ -264,8 +262,8 @@ class HierarchicalGroupTests(unittest.TestCase):
     def test_external_accounts_group_filter_keeps_direct_group_scope(self):
         with self.app.app_context():
             self.assertTrue(web_outlook_app.set_setting('external_api_key', 'test-external-key'))
-            root_id = web_outlook_app.add_group('外部父分组')
-            child_id = web_outlook_app.add_group('外部子分组', parent_id=root_id)
+            root_id = web_outlook_app.add_group('External parent group')
+            child_id = web_outlook_app.add_group('External subgroup', parent_id=root_id)
             self._insert_account('external-root@example.com', root_id)
             self._insert_account('external-child@example.com', child_id)
 

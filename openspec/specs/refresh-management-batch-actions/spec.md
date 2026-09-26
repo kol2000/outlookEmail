@@ -1,126 +1,126 @@
 # refresh-management-batch-actions Specification
 
 ## Purpose
-定义 Token 刷新管理中的账号批量选择与批量操作能力，确保该视图复用主邮箱列表的账号批量动作，同时保留流式刷新任务日志和跨视图状态同步。
+Define the account batch selection and batch operation capabilities in Token refresh management to ensure that this view reuses the account batch actions of the main mailbox list, while retaining the streaming refresh task log and cross-view status synchronization.
 
 ## Requirements
 
 ### Requirement: Token refresh management supports account batch selection
 
-Token 刷新管理账号列表 SHALL 支持与主邮箱列表一致的批量选择体验，包括选择模式、行点击选择、复选框选择、`Shift` 连续范围选择、拖拽选择、全选当前列表和清空选择。
+Token refresh management account list SHALL supports the same batch selection experience as the main mailbox list, including selection mode, row click selection, check box selection, `Shift` continuous range selection, drag and drop selection, select all current list and clear selection.
 
 #### Scenario: Enter selection mode and select rows
 
-- **WHEN** 用户在 Token 刷新管理账号列表中进入批量选择模式并点击账号行
-- **THEN** 系统 SHALL 切换该账号的选中状态并更新已选数量
+- **WHEN** The user enters the batch selection mode in the Token refresh management account list and clicks the account row
+- **THEN** System SHALL switches the selected status of the account and updates the selected quantity
 
 #### Scenario: Select a continuous range
 
-- **WHEN** 用户先选中一个账号，再按住 `Shift` 点击同一 Token 列表中的另一个账号或复选框
-- **THEN** 系统 SHALL 选中两个账号之间的连续范围并更新批量工具条状态
+- **WHEN** The user first selects an account, then holds down `Shift` and clicks another account or checkbox in the same Token list
+- **THEN** System SHALL selects the continuous range between two accounts and updates the batch toolbar status
 
 #### Scenario: Drag selection in selection mode
 
-- **WHEN** 用户在批量选择模式下从账号行或复选框开始拖拽经过多个账号
-- **THEN** 系统 SHALL 按拖拽起点状态批量选中或取消经过的账号
+- **WHEN** User drags through multiple accounts starting from the account row or checkbox in batch selection mode
+- **THEN** System SHALL Select or cancel accounts in batches by dragging the starting point state
 
 #### Scenario: Select and clear current list
 
-- **WHEN** 用户点击 Token 刷新管理批量工具条中的全选当前列表或清空选择
-- **THEN** 系统 SHALL 只更新当前已渲染 Token 列表中的账号选择状态
+- **WHEN** The user clicks Token to refresh the current list of select all or clear the selection in the management batch toolbar.
+- **THEN** System SHALL only updates the account selection status in the currently rendered Token list
 
 ### Requirement: Token refresh management exposes all normal account batch actions
 
-Token 刷新管理账号列表 SHALL 在选中账号后提供主邮箱列表普通账号支持的全部批量动作：刷新 Token、复制邮箱+别名、导出、开启转发、取消转发、账号代理、标签+、标签-、移动分组和删除。
+Token refresh management account list SHALL provides all batch actions supported by ordinary accounts in the main mailbox list after selecting the account: refresh token, copy mailbox + alias, export, enable forwarding, cancel forwarding, account proxy, label +, label -, move group and delete.
 
 #### Scenario: Show full batch action toolbar
 
-- **WHEN** 用户在 Token 刷新管理账号列表中至少选中一个账号
-- **THEN** 系统 SHALL 展示批量工具条，并包含刷新 Token、复制邮箱+别名、导出、开启转发、取消转发、代理、标签+、标签-、移动和删除操作
+- **WHEN** The user selects at least one account in the Token refresh management account list
+- **THEN** System SHALL displays the batch toolbar and includes refresh token, copy mailbox + alias, export, enable forwarding, cancel forwarding, proxy, label +, label -, move and delete operations
 
 #### Scenario: Hide batch action toolbar when nothing is selected
 
-- **WHEN** Token 刷新管理账号列表没有任何账号被选中
-- **THEN** 系统 SHALL 隐藏选中态批量工具条或禁用全部选中态批量动作
+- **WHEN** Token refreshes the management account list and no account is selected.
+- **THEN** System SHALL hides the selected batch toolbar or disables all selected batch actions
 
 #### Scenario: Preserve account action eligibility
 
-- **WHEN** 已选账号不满足某个批量动作的资格条件
-- **THEN** 系统 SHALL 按主邮箱列表同等规则禁用该动作或在执行时跳过不符合条件的账号，并显示明确提示
+- **WHEN** The selected account does not meet the qualifications for a batch action
+- **THEN** System SHALL disables this action according to the same rules as the main mailbox list or skips accounts that do not meet the conditions during execution and displays a clear prompt
 
 ### Requirement: Selected Token refresh uses streaming task logs
 
-Token 刷新管理中的刷新已选动作 MUST 使用现有选中账号流式刷新任务链路，并 SHALL 保留任务日志、停止任务、冲突提示和账号级刷新结果回填。
+The refresh selected action in Token refresh management MUST use the existing selected account to stream the task link, and SHALL retain task logs, stop tasks, conflict prompts, and account-level refresh results for backfilling.
 
 #### Scenario: Start selected refresh task
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击刷新 Token
-- **THEN** 系统 SHALL 通过 `POST /api/accounts/refresh-selected-stream` 初始化任务，并使用返回的 `stream_url` 订阅 SSE 进度
+- **WHEN** The user selects the account in Token refresh management and clicks to refresh Token
+- **THEN** System SHALL initializes the task with `POST /api/accounts/refresh-selected-stream` and uses the returned `stream_url` to subscribe to SSE progress
 
 #### Scenario: Render selected refresh progress
 
-- **WHEN** 选中账号刷新任务返回开始、进度、账号结果、等待、完成、停止、冲突或错误事件
-- **THEN** 系统 SHALL 更新任务日志、刷新统计、当前账号刷新状态和批量按钮可用状态
+- **WHEN** Select the account refresh task to return start, progress, account results, waiting, completion, stop, conflict or error events
+- **THEN** System SHALL updates task logs, refresh statistics, current account refresh status and batch button available status
 
 #### Scenario: Complete selected refresh task
 
-- **WHEN** 选中账号流式刷新任务完成
-- **THEN** 系统 SHALL 清空本次刷新选择、刷新 Token 管理列表，并同步刷新主邮箱列表缓存
+- **WHEN** The selected account streaming refresh task is completed
+- **THEN** System SHALL clears this refresh selection, refreshes the Token management list, and synchronously refreshes the main mailbox list cache
 
 ### Requirement: Account batch actions execute from Token refresh management
 
-Token 刷新管理 SHALL 允许用户对选中账号执行主邮箱列表已有的账号批量动作，并 MUST 复用现有账号批量接口和弹窗流程。
+Token refresh management SHALL allows users to perform batch actions on existing accounts in the main mailbox list for selected accounts, and MUST reuse existing account batch interfaces and pop-up processes.
 
 #### Scenario: Copy selected account emails and aliases
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击复制邮箱+别名
-- **THEN** 系统 SHALL 复制选中账号的主邮箱和别名邮箱，去重后写入剪贴板
+- **WHEN** The user selects the account in Token refresh management and clicks to copy the email address + alias
+- **THEN** System SHALL copies the main email and alias email of the selected account, removes duplicates and writes them to the clipboard
 
 #### Scenario: Export selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击导出
-- **THEN** 系统 SHALL 复用导出二次验证流程，并通过选中账号 ID 导出对应账号文本
+- **WHEN** The user selects the account in Token refresh management and clicks export
+- **THEN** System SHALL reuses and exports the secondary verification process, and exports the corresponding account text by selecting the account ID
 
 #### Scenario: Update forwarding for selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击开启转发或取消转发
-- **THEN** 系统 SHALL 调用账号批量转发接口，仅更新需要变更的账号并提示跳过数量或结果
+- **WHEN** The user selects the account in Token refresh management and clicks to enable forwarding or cancel forwarding
+- **THEN** System SHALL calls the account batch forwarding interface, updates only the accounts that need to be changed, and prompts for the skip quantity or result.
 
 #### Scenario: Update proxy for selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击代理
-- **THEN** 系统 SHALL 复用账号代理设置弹窗，并将代理配置应用到选中账号
+- **WHEN** The user selects the account in Token refresh management and clicks the agent
+- **THEN** System SHALL reuses the account proxy settings pop-up window and applies the proxy configuration to the selected account
 
 #### Scenario: Update tags for selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击标签+或标签-
-- **THEN** 系统 SHALL 复用标签选择弹窗，并对选中账号批量添加或移除目标标签
+- **WHEN** The user selects the account in Token refresh management and clicks the label + or label -
+- **THEN** System SHALL reuses the tag selection pop-up window and adds or removes target tags in batches for the selected account
 
 #### Scenario: Move selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并点击移动
-- **THEN** 系统 SHALL 复用移动分组弹窗，并把选中账号移动到目标普通分组
+- **WHEN** The user selects the account in Token refresh management and clicks Move
+- **THEN** System SHALL reuses the mobile group pop-up window and moves the selected account to the target normal group
 
 #### Scenario: Delete selected accounts
 
-- **WHEN** 用户在 Token 刷新管理中选择账号并确认删除
-- **THEN** 系统 SHALL 调用账号批量删除接口删除选中账号，并从 Token 刷新管理列表中移除已删除账号
+- **WHEN** The user selects the account in Token refresh management and confirms the deletion
+- **THEN** System SHALL calls the account batch deletion interface to delete the selected accounts and remove the deleted accounts from the Token refresh management list
 
 ### Requirement: Batch action results stay synchronized across account views
 
-Token 刷新管理中的批量动作完成后，系统 SHALL 同步 Token 刷新管理列表、主邮箱账号列表、分组计数、当前账号视图和相关前端缓存。
+After the batch action in Token refresh management is completed, the system SHALL synchronizes the Token refresh management list, primary mailbox account list, group count, current account view and related front-end cache.
 
 #### Scenario: Refresh related views after successful batch mutation
 
-- **WHEN** 用户在 Token 刷新管理中完成删除、移动、标签、代理、转发或导出以外的账号状态变更动作
-- **THEN** 系统 SHALL 失效账号缓存、刷新分组列表、刷新 Token 管理列表，并刷新当前可见主邮箱账号列表
+- **WHEN** The user completes account status change actions other than deletion, move, tag, proxy, forward or export in Token refresh management.
+- **THEN** System SHALL caches invalid accounts, refreshes the group list, refreshes the Token management list, and refreshes the currently visible main email account list
 
 #### Scenario: Reset selected account after deletion
 
-- **WHEN** Token 刷新管理批量删除的账号包含当前正在查看的邮箱
-- **THEN** 系统 SHALL 清空当前账号和邮件详情视图，避免继续展示已删除账号的数据
+- **WHEN** Token Refresh management of batch deleted accounts includes the email address currently being viewed
+- **THEN** System SHALL clears the current account and email details view to avoid continuing to display the data of deleted accounts
 
 #### Scenario: Preserve modal safety and feedback
 
-- **WHEN** 用户从 Token 刷新管理执行删除、移动、代理、转发、标签、导出或刷新 Token 批量动作
-- **THEN** 系统 MUST 显示与动作风险匹配的确认、加载、成功和失败反馈，并避免确认弹窗被 Token 管理弹窗遮挡
+- **WHEN** Users perform delete, move, proxy, forward, label, export or refresh Token batch actions from Token refresh management
+- **THEN** The system MUST display confirmation, loading, success and failure feedback that matches the action risk, and avoid the confirmation pop-up window being blocked by the Token management pop-up window.

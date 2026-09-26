@@ -1,23 +1,23 @@
         /* global accountsCache, currentAccountListSource, currentGroupId, excludedTagFilters, handleApiError, handleTagFilterChange, hideModal, invalidateAccountCaches, isTempEmailGroup, loadAccountTagExcludeFilterPreference, loadAccountTagFilterPreference, loadAccountsByGroup, loadTempEmails, normalizeTagFilterSelectionValue, refreshVisibleAccountList, renderFilteredAccountList, renderImportTagOptions, renderTempEmailList, saveAccountTagExcludeFilterPreference, saveAccountTagFilterPreference, selectedTagFilters, setAccountTagFilterSelection, showModal, showToast, updateBatchTagTagOptions, updateCurrentGroupHeader */
 
-        // ==================== 标签管理 ====================
+        // ==================== Tag Management ====================
 
         let allTags = [];
 
-        // ==================== 通用标签下拉组件函数 ====================
-        // 供导入模态框、编辑模态框共用
+        // ==================== General label drop-down component function ====================
+        // Shared by import modal box and edit modal box
 
         /**
-         * 生成 tag-filter-option checkbox 列表 HTML
-         * @param {Array} tags - 标签列表 [{id, name, color}, ...]
-         * @param {Array|Set} selectedIds - 已选中的标签 ID 集合
-         * @param {string} onchangeFn - onchange 调用的函数名（不含括号）
+         * Generate tag-filter-option checkbox list HTML
+         * @param {Array} tags - tag list [{id, name, color}, ...]
+         * @param {Array|Set} selectedIds - The selected tag ID set
+         * @param {string} onchangeFn - the function name called by onchange (without brackets)
          */
         function buildTagFilterOptionsHtml(tags, selectedIds, onchangeFn) {
             const selectedSet = selectedIds instanceof Set ? selectedIds : new Set(selectedIds);
             const items = tags || [];
             if (!items.length) {
-                return I18n.t('<div class="tag-filter-empty" style="display: block;">暂无标签</div>');
+                return I18n.t("<div class=\"tag-filter-empty\" style=\"display: block;\">No tags yet</div>");
             }
             return items.map(tag => `
                 <label class="tag-filter-option ${selectedSet.has(tag.id) ? 'is-checked' : ''}" data-tag-name="${escapeHtml(tag.name)}">
@@ -31,7 +31,7 @@
         }
 
         /**
-         * 在指定 options 容器内按关键字过滤标签选项
+         * Filter label options by keyword in the specified options container
          */
         function filterTagFilterOptions(keyword, optionsContainer) {
             if (!optionsContainer) return;
@@ -48,15 +48,15 @@
                 const hasOptions = optionsContainer.querySelectorAll('.tag-filter-option').length > 0;
                 emptyState.style.display = (visibleCount === 0 && (kw || !hasOptions)) ? 'block' : 'none';
                 if (kw && visibleCount === 0) {
-                    emptyState.textContent = I18n.t('没有匹配的标签');
+                    emptyState.textContent = I18n.t("No matching tags");
                 } else if (!hasOptions) {
-                    emptyState.textContent = I18n.t('暂无标签');
+                    emptyState.textContent = I18n.t("No tags yet");
                 }
             }
         }
 
         /**
-         * 从指定 options 容器获取已选中标签 ID 数组
+         * Get the selected tag ID array from the specified options container
          */
         function getTagFilterSelectedIds(optionsContainer) {
             if (!optionsContainer) return [];
@@ -66,30 +66,30 @@
         }
 
         /**
-         * 更新标签下拉触发器的汇总文本和计数徽章
-         * @param {HTMLElement} triggerTextEl - 汇总文本元素
-         * @param {HTMLElement} countEl - 计数徽章元素
-         * @param {Array} selectedItems - 已选标签对象数组 [{id, name, color}, ...]
-         * @param {string} defaultText - 无选中时的默认文本
+         * Update summary text and count badge for label dropdown trigger
+         * @param {HTMLElement} triggerTextEl - summarize text elements
+         * @param {HTMLElement} countEl - count badge elements
+         * @param {Array} selectedItems - Array of selected label objects [{id, name, color}, ...]
+         * @param {string} defaultText - the default text when no selection is made
          */
         function updateTagFilterSummaryText(triggerTextEl, countEl, selectedItems, defaultText) {
             if (!triggerTextEl || !countEl) return;
             const count = selectedItems.length;
             if (!count) {
-                triggerTextEl.textContent = defaultText || I18n.t('未选择标签');
+                triggerTextEl.textContent = defaultText || I18n.t("No tag selected");
                 countEl.style.display = 'none';
                 countEl.textContent = '';
                 return;
             }
             triggerTextEl.textContent = count <= 2
                 ? selectedItems.map(t => t.name).join('、')
-                : I18n.tpl`已选 ${count} 个标签`;
+                : I18n.tpl`${count} tags selected`;
             countEl.style.display = 'inline-flex';
             countEl.textContent = String(count);
         }
 
         /**
-         * 切换标签下拉面板的开关状态，打开时聚焦搜索框
+         * Switch the label drop-down panel on and off, and focus the search box when it is opened.
          */
         function toggleTagFilterDropdownState(dropdownEl, searchInputEl, keyword) {
             if (!dropdownEl) return;
@@ -104,7 +104,7 @@
         }
 
         /**
-         * 清空标签下拉中所有选中状态（仅 UI 层面）
+         * Clear all selected states in the label drop-down (UI level only)
          */
         function clearTagFilterCheckboxes(dropdownEl) {
             if (!dropdownEl) return;
@@ -116,13 +116,13 @@
             });
         }
 
-        // 显示标签管理模态框
+        // Display tag management modal box
         async function showTagManagementModal() {
             showModal('tagManagementModal');
             await loadTags();
         }
 
-        // 隐藏标签管理模态框
+        // Hide tag management modal box
         function hideTagManagementModal() {
             hideModal('tagManagementModal');
         }
@@ -147,7 +147,7 @@
             excludedTagFilters = prunedExcludedTagFilters;
         }
 
-        // 加载标签列表
+        // Load tag list
         async function loadTags() {
             try {
                 const response = await fetch('/api/tags');
@@ -172,19 +172,19 @@
                     }
                 }
             } catch (error) {
-                showToast(I18n.t('加载标签失败'), 'error');
+                showToast(I18n.t("Failed to load tags"), 'error');
             }
         }
 
         function getTagFilterSummaryText() {
             const parts = [];
             if (selectedTagFilters.size) {
-                parts.push(I18n.tpl`有 ${selectedTagFilters.size}`);
+                parts.push(I18n.tpl`Yes ${selectedTagFilters.size}`);
             }
             if (excludedTagFilters.size) {
-                parts.push(I18n.tpl`无 ${excludedTagFilters.size}`);
+                parts.push(I18n.tpl`None ${excludedTagFilters.size}`);
             }
-            return parts.length ? parts.join(' / ') : I18n.t('全部标签');
+            return parts.length ? parts.join(' / ') : I18n.t("All tags");
         }
 
         function updateTagFilterSummary() {
@@ -235,10 +235,10 @@
                         <div class="tag-filter-state-actions">
                             <button class="tag-filter-state-btn ${included ? 'is-active' : ''}"
                                     type="button" data-tag-filter-state="include" aria-pressed="${included}"
-                                    onclick="setAccountTagFilterSelection(${tagId}, 'include', event)">有</button>
+                                    onclick="setAccountTagFilterSelection(${tagId}, 'include', event)">Yes</button>
                             <button class="tag-filter-state-btn ${excluded ? 'is-active' : ''}"
                                     type="button" data-tag-filter-state="exclude" aria-pressed="${excluded}"
-                                    onclick="setAccountTagFilterSelection(${tagId}, 'exclude', event)">无</button>
+                                    onclick="setAccountTagFilterSelection(${tagId}, 'exclude', event)">None</button>
                         </div>
                     </div>
                 `;
@@ -264,7 +264,7 @@
             updateTagFilterSummary();
         }
 
-        // 更新标签筛选下拉框
+        // Update tag filter drop-down box
         function updateTagFilter() {
             const container = document.getElementById('tagFilterContainer');
             if (!container) return;
@@ -274,7 +274,7 @@
             const optionsHtml = buildAccountTagFilterOptionsHtml();
 
             container.innerHTML = I18n.tpl`
-                <span class="toolbar-label">标签</span>
+                <span class="toolbar-label">Tags</span>
                 <div class="tag-filter-dropdown" id="tagFilterDropdown">
                     <button class="tag-filter-trigger" type="button" onclick="toggleTagFilterDropdown(event)">
                         <span class="tag-filter-trigger-text" id="tagFilterTriggerText">${escapeHtml(getTagFilterSummaryText())}</span>
@@ -287,15 +287,15 @@
                                 type="text"
                                 id="tagFilterSearchInput"
                                 class="tag-filter-search-input"
-                                placeholder="搜索标签..."
+                                placeholder="Search tags..."
                                 oninput="filterTagOptions(this.value)"
                             >
-                            <button class="tag-filter-clear-btn" type="button" onclick="clearTagFilterSelection(event)">清空</button>
+                            <button class="tag-filter-clear-btn" type="button" onclick="clearTagFilterSelection(event)">Clear</button>
                         </div>
-                        <p class="tag-filter-hint">样例：<br>有：A、B → 拥有 A 或 B 任一标签<br>无：C、D → 同时不拥有 C，也不拥有 D<br>有：A、B + 无：C、D → (A OR B) AND !C AND !D</p>
+                        <p class="tag-filter-hint">Example:<br>Has: A, B → has either tag A or B<br>None: C, D → does not own C nor D at the same time<br>Yes: A, B + No: C, D → (A OR B) AND !C AND !D</p>
                         <div class="tag-filter-options" id="tagFilterOptions">
                             ${optionsHtml}
-                            <div class="tag-filter-empty" id="tagFilterEmptyState" style="display: none;">没有匹配的标签</div>
+                            <div class="tag-filter-empty" id="tagFilterEmptyState" style="display: none;">No matching tags</div>
                         </div>
                     </div>
                 </div>
@@ -305,11 +305,11 @@
             filterTagOptions(tagFilterKeyword);
         }
 
-        // 渲染标签列表
+        // Render tag list
         function renderTagList() {
             const listEl = document.getElementById('tagList');
             if (!allTags.length) {
-                listEl.innerHTML = I18n.t('<div style="text-align: center; color: #999; padding: 20px;">暂无标签</div>');
+                listEl.innerHTML = I18n.t("<div style=\"text-align: center; color: #999; padding: 20px;\">No tags yet</div>");
                 return;
             }
 
@@ -320,14 +320,14 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span class="tag-badge" style="background-color: ${tag.color};">${escapeHtml(tag.name)}</span>
                         </div>
-                        <button class="btn btn-sm btn-danger" onclick="deleteTag(${tag.id})">删除</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTag(${tag.id})">Delete</button>
                     </div>
                 `;
             });
             listEl.innerHTML = html;
         }
 
-        // 创建标签
+        // Create tags
         async function createTag() {
             const nameInput = document.getElementById('newTagName');
             const colorInput = document.getElementById('newTagColor');
@@ -335,7 +335,7 @@
             const color = colorInput.value;
 
             if (!name) {
-                showToast(I18n.t('请输入标签名称'), 'error');
+                showToast(I18n.t("Please enter the label name"), 'error');
                 return;
             }
 
@@ -349,34 +349,34 @@
 
                 if (data.success) {
                     nameInput.value = '';
-                    showToast(I18n.t('标签创建成功'), 'success');
+                    showToast(I18n.t("Label created successfully"), 'success');
                     await loadTags();
-                    // 刷新账号列表以重新加载标签（如果是在查看列表时添加标签，可能不需要立即刷新列表，但为了保持一致性可以刷新）
-                    // 但通常添加标签不影响当前列表显示，除非是给账号打标
+                    // Refresh the account list to reload tags (if you add tags while viewing the list, you may not need to refresh the list immediately, but you can refresh for consistency)
+                    // But usually adding tags does not affect the current list display unless the account is marked.
                 } else {
-                    showToast(data.error || I18n.t('创建失败'), 'error');
+                    showToast(data.error || I18n.t("Creation failed"), 'error');
                 }
             } catch (error) {
-                showToast(I18n.t('创建标签失败'), 'error');
+                showToast(I18n.t("Failed to create label"), 'error');
             }
         }
 
-        // 删除标签
+        // Delete tag
         async function deleteTag(id) {
-            if (!(await showConfirmModal(I18n.t('确定要删除这个标签吗？'), { title: I18n.t('删除标签'), confirmText: I18n.t('确认删除') }))) return;
+            if (!(await showConfirmModal(I18n.t("Are you sure you want to delete this tag?"), { title: I18n.t("Delete tag"), confirmText: I18n.t("Confirm deletion") }))) return;
 
             try {
                 const response = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(I18n.t('标签已删除'), 'success');
+                    showToast(I18n.t("Tag deleted"), 'success');
                     await loadTags();
                     await refreshVisibleAccountList(true);
                 } else {
-                    showToast(data.error || I18n.t('删除失败'), 'error');
+                    showToast(data.error || I18n.t("Delete failed"), 'error');
                 }
             } catch (error) {
-                showToast(I18n.t('删除标签失败'), 'error');
+                showToast(I18n.t("Failed to delete tag"), 'error');
             }
         }

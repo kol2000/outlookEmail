@@ -1,68 +1,68 @@
-    <!-- 设置模态框 -->
+    <!-- Set modal box-->
     <div class="modal" id="settingsModal" onmousedown="if(event.target === this) hideSettingsModal()">
         <div class="modal-content settings-modal-content">
             <div class="modal-header">
-                <h3>{{ tr("⚙️ 系统设置") }}</h3>
+                <h3>{{ tr("⚙️ System settings") }}</h3>
                 <button class="modal-close" onclick="hideSettingsModal()">&times;</button>
             </div>
             <div class="modal-body settings-modal-body">
                 <div class="settings-shell">
                     <aside class="settings-sidebar">
                         <div class="settings-sidebar-card">
-                            <span class="settings-sidebar-title">{{ tr("设置导航") }}</span>
+                            <span class="settings-sidebar-title">{{ tr("Set navigation") }}</span>
                             <ul class="settings-sidebar-list">
                                 <li>
                                     <button type="button" class="settings-sidebar-link is-active" data-target="settingsGeneralSection" onclick="scrollSettingsSection('settingsGeneralSection', this)">
-                                        <strong>{{ tr("常规设置") }}</strong>
-                                        <span>{{ tr("登录密码、对外 API Key、时区、邮件获取超时与列表展示") }}</span>
+                                        <strong>{{ tr("General settings") }}</strong>
+                                        <span>{{ tr("Login password, external API Key, time zone, email acquisition timeout and list display") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsSkinSection" onclick="scrollSettingsSection('settingsSkinSection', this)">
-                                        <strong>{{ tr("外观皮肤") }}</strong>
-                                        <span>{{ tr("系统级皮肤、上传包与 Git 来源") }}</span>
+                                        <strong>{{ tr("Appearance skin") }}</strong>
+                                        <span>{{ tr("System-level skins, upload packages and Git sources") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsRefreshSection" onclick="scrollSettingsSection('settingsRefreshSection', this)">
-                                        <strong>{{ tr("刷新策略") }}</strong>
-                                        <span>{{ tr("定时刷新开关、周期策略与请求节奏") }}</span>
+                                        <strong>{{ tr("Refresh strategy") }}</strong>
+                                        <span>{{ tr("Timing refresh switch, periodic strategy and request rhythm") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsNormalMailRetentionSection" onclick="scrollSettingsSection('settingsNormalMailRetentionSection', this)">
-                                        <strong>{{ tr("普通邮箱本地保留") }}</strong>
-                                        <span>{{ tr("开关、空间统计与缓存清理") }}</span>
+                                        <strong>{{ tr("Ordinary mailboxes are kept locally") }}</strong>
+                                        <span>{{ tr("Switch, space statistics and cache cleaning") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsWebdavBackupSection" onclick="scrollSettingsSection('settingsWebdavBackupSection', this)">
-                                        <strong>{{ tr("WebDAV 备份") }}</strong>
-                                        <span>{{ tr("导出全部分组并按 Cron 上传") }}</span>
+                                        <strong>{{ tr("WebDAV Backup") }}</strong>
+                                        <span>{{ tr("Export all groups and upload by Cron") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="forwardingSettingsSection" onclick="scrollSettingsSection('forwardingSettingsSection', this)">
-                                        <strong>{{ tr("邮件转发") }}</strong>
-                                        <span>{{ tr("SMTP、Telegram 渠道及历史记录") }}</span>
+                                        <strong>{{ tr("Email forwarding") }}</strong>
+                                        <span>{{ tr("SMTP, Telegram channels and history") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsCloudflareSection" onclick="scrollSettingsSection('settingsCloudflareSection', this)">
-                                        <strong>{{ tr("Cloudflare 临时邮箱") }}</strong>
-                                        <span>{{ tr("Worker 域名、邮箱域名列表和管理员密码") }}</span>
+                                        <strong>{{ tr("Cloudflare temporary mailbox") }}</strong>
+                                        <span>{{ tr("Worker domain name, email domain name list and administrator password") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsAccessSection" onclick="scrollSettingsSection('settingsAccessSection', this)">
-                                        <strong>{{ tr("GPTMail 临时邮箱设置") }}</strong>
+                                        <strong>{{ tr("GPTMail temporary mailbox settings") }}</strong>
                                         <span>{{ tr("GPTMail API Key") }}</span>
                                     </button>
                                 </li>
                                 <li>
                                     <button type="button" class="settings-sidebar-link" data-target="settingsDuckMailSection" onclick="scrollSettingsSection('settingsDuckMailSection', this)">
-                                        <strong>{{ tr("DuckMail 临时邮箱") }}</strong>
-                                        <span>{{ tr("自部署实例地址与私有域名 API Key") }}</span>
+                                        <strong>{{ tr("DuckMail temporary mailbox") }}</strong>
+                                        <span>{{ tr("Self-deployed instance address and private domain name API Key") }}</span>
                                     </button>
                                 </li>
                             </ul>
@@ -72,63 +72,63 @@
                         <section class="settings-section settings-section--first" id="settingsGeneralSection">
                             <div class="settings-section-head">
                                 <span class="settings-section-kicker">{{ tr("General") }}</span>
-                                <h4>{{ tr("常规设置") }}</h4>
-                                <p>{{ tr("统一管理登录密码、对外 API Key、时区、邮件获取超时和列表展示规则。") }}</p>
+                                <h4>{{ tr("General settings") }}</h4>
+                                <p>{{ tr("Unified management of login password, external API Key, time zone, email acquisition timeout and list display rules.") }}</p>
                             </div>
                             <div class="settings-panel settings-panel-grid">
                                 <div class="form-group">
-                                    <label class="form-label">{{ tr("当前登录密码") }}</label>
-                                    <input type="password" class="form-input" id="settingsCurrentPassword" placeholder="{{ tr("修改密码时必填") }}" autocomplete="current-password">
-                                    <div class="form-hint">{{ tr("修改登录密码时必须验证当前密码。") }}</div>
+                                    <label class="form-label">{{ tr("Current login password") }}</label>
+                                    <input type="password" class="form-input" id="settingsCurrentPassword" placeholder="{{ tr("Required when changing password") }}" autocomplete="current-password">
+                                    <div class="form-hint">{{ tr("The current password must be verified when changing the login password.") }}</div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">{{ tr("新登录密码") }}</label>
-                                    <input type="password" class="form-input" id="settingsPassword" placeholder="{{ tr("输入新密码（留空则不修改）") }}" autocomplete="new-password">
-                                    <div class="form-hint">{{ tr("用于登录当前系统。修改成功后，其他已登录设备/会话需要重新登录。") }}</div>
+                                    <label class="form-label">{{ tr("New login password") }}</label>
+                                    <input type="password" class="form-input" id="settingsPassword" placeholder="{{ tr("Enter the new password (leave it blank to not change it)") }}" autocomplete="new-password">
+                                    <div class="form-hint">{{ tr("Used to log in to the current system. After the modification is successful, other logged-in devices/sessions need to log in again.") }}</div>
                                 </div>
                                 <div class="form-group settings-form-span-full">
-                                    <label class="form-label">{{ tr("对外 API Key") }}</label>
+                                    <label class="form-label">{{ tr("External API Key") }}</label>
                                     <div class="settings-inline-action">
-                                        <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="{{ tr("输入或生成对外 API Key") }}">
-                                        <button class="btn btn-secondary" onclick="generateExternalApiKey()">{{ tr("🔑 随机生成") }}</button>
+                                        <input type="text" class="form-input" id="settingsExternalApiKey" placeholder="{{ tr("Enter or generate external API Key") }}">
+                                        <button class="btn btn-secondary" onclick="generateExternalApiKey()">{{ tr("🔑 Randomly generated") }}</button>
                                     </div>
-                                    <div class="form-hint">{{ tr("用于对外 API 认证，调用时在 Header 中传递") }} <code>X-API-Key</code>。</div>
-                                    <div class="form-hint">{{ tr("如果要求对接的功能比较完整，建议直接对接") }} <a class="inline-link" href="https://github.com/kol2000/outlookEmail/blob/localization/en-ru-v3.0.9/docs/{{ current_language() }}/api.md" target="_blank">{{ tr("完整 API") }}</a>{{ tr("；文档已经整理成适合 AI 读取的形状，直接喂给 AI，让 AI 按完整 API 使用登录密码而不是 API Key 对接即可。") }}</div>
+                                    <div class="form-hint">{{ tr("Used for external API authentication, passed in the Header when calling") }} <code>X-API-Key</code>。</div>
+                                    <div class="form-hint">{{ tr("If the docking function is required to be relatively complete, it is recommended to connect directly") }} <a class="inline-link" href="https://github.com/kol2000/outlookEmail/blob/localization/en-ru-v3.0.9/docs/{{ current_language() }}/api.md" target="_blank">{{ tr("Complete API") }}</a>{{ tr("; The document has been organized into a shape suitable for AI to read, and is fed directly to AI, so that AI can connect according to the complete API using the login password instead of the API Key.") }}</div>
                                     <div class="settings-note"><code>GET /api/external/emails?email=xxx&folder=inbox</code></div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label" for="settingsAppTimezone">{{ tr("时区") }}</label>
+                                    <label class="form-label" for="settingsAppTimezone">{{ tr("Time zone") }}</label>
                                     <select class="form-select" id="settingsAppTimezone"></select>
-                                    <div class="form-hint">{{ tr("影响时间展示与 Cron 调度。") }}</div>
+                                    <div class="form-hint">{{ tr("Controls displayed times and Cron scheduling.") }}</div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">{{ tr("邮件获取超时") }}</label>
+                                    <label class="form-label">{{ tr("Mail retrieval timeout") }}</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="mailFetchTimeoutSeconds" min="30" max="300" value="120" placeholder="120">
-                                        <span>{{ tr("秒") }}</span>
+                                        <span>{{ tr("seconds") }}</span>
                                     </div>
-                                    <div class="form-hint">{{ tr("用于普通 Outlook/IMAP 邮箱读取邮件列表；邮箱较大或 Gmail 响应较慢时可适当调大。") }}</div>
+                                    <div class="form-hint">{{ tr("Used for reading mail lists from ordinary Outlook/IMAP mailboxes; it can be increased appropriately when the mailbox is large or Gmail responds slowly.") }}</div>
                                 </div>
                                 <div class="form-group">
                                     <label class="settings-toggle settings-toggle--card">
                                         <input type="checkbox" id="settingsShowAccountCreatedAt" checked>
-                                        <span class="form-label">{{ tr("展示创建时间") }}</span>
+                                        <span class="form-label">{{ tr("Show creation time") }}</span>
                                     </label>
-                                    <div class="form-hint">{{ tr("关闭后，不在邮箱列表左下角显示创建时间。") }}</div>
+                                    <div class="form-hint">{{ tr("After closing, the creation time will not be displayed in the lower left corner of the mailbox list.") }}</div>
                                 </div>
                                 <div class="form-group">
                                     <label class="settings-toggle settings-toggle--card">
                                         <input type="checkbox" id="settingsShowAccountSortOrder">
-                                        <span class="form-label">{{ tr("展示排序值") }}</span>
+                                        <span class="form-label">{{ tr("Display sorting value") }}</span>
                                     </label>
-                                    <div class="form-hint">{{ tr("关闭后，不在邮箱列表底部显示自定义排序值。") }}</div>
+                                    <div class="form-hint">{{ tr("When turned off, do not display custom sort values ​​at the bottom of the mailbox list.") }}</div>
                                 </div>
                                 <div class="form-group">
                                     <label class="settings-toggle settings-toggle--card">
                                         <input type="checkbox" id="settingsShowGroupId" checked>
-                                        <span class="form-label">{{ tr("展示组ID") }}</span>
+                                        <span class="form-label">{{ tr("Display group ID") }}</span>
                                     </label>
-                                    <div class="form-hint">{{ tr("关闭后，不再展示分组 ID 徽标。") }}</div>
+                                    <div class="form-hint">{{ tr("When closed, the group ID logo is no longer displayed.") }}</div>
                                 </div>
                             </div>
                         </section>
@@ -136,40 +136,40 @@
                 <section class="settings-section" id="settingsSkinSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Appearance") }}</span>
-                        <h4>{{ tr("外观皮肤") }}</h4>
-                        <p>{{ tr("选择所有登录设备统一使用的系统级界面皮肤。") }}</p>
+                        <h4>{{ tr("Appearance skin") }}</h4>
+                        <p>{{ tr("Select a system-level interface skin that is used uniformly by all logged-in devices.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-stack">
                         <div class="settings-action-row settings-action-row--toolbar">
                             <div>
-                                <label class="form-label">{{ tr("当前皮肤") }}</label>
-                                <div class="form-hint" id="settingsSkinActiveSummary">{{ tr("加载中...") }}</div>
+                                <label class="form-label">{{ tr("Current skin") }}</label>
+                                <div class="form-hint" id="settingsSkinActiveSummary">{{ tr("Loading…") }}</div>
                             </div>
-                            <button class="btn btn-secondary" type="button" onclick="loadSkinSettings()">{{ tr("刷新列表") }}</button>
-                            <button class="btn btn-secondary" type="button" onclick="activateSkin('classic')">{{ tr("恢复经典皮肤") }}</button>
+                            <button class="btn btn-secondary" type="button" onclick="loadSkinSettings()">{{ tr("Refresh list") }}</button>
+                            <button class="btn btn-secondary" type="button" onclick="activateSkin('classic')">{{ tr("Restore classic skin") }}</button>
                         </div>
                         <div class="skin-list" id="settingsSkinList">
-                            <div class="settings-note">{{ tr("正在加载皮肤列表...") }}</div>
+                            <div class="settings-note">{{ tr("Loading skin list...") }}</div>
                         </div>
                         <div class="settings-note" id="settingsSkinStatus" style="display: none;"></div>
                     </div>
                     <div class="settings-panel settings-panel-grid">
                         <div class="form-group">
-                            <label class="form-label" for="settingsSkinUploadFile">{{ tr("上传皮肤包") }}</label>
+                            <label class="form-label" for="settingsSkinUploadFile">{{ tr("Upload skin pack") }}</label>
                             <input type="file" class="form-input" id="settingsSkinUploadFile" accept=".zip,application/zip">
-                            <div class="form-hint">{{ tr("上传包含 skin.json 和 CSS 入口文件的 zip 皮肤包。") }}</div>
-                            <button class="btn btn-secondary" type="button" onclick="uploadSkinPackage()">{{ tr("安装上传皮肤") }}</button>
+                            <div class="form-hint">{{ tr("Upload the zip skin package containing skin.json and CSS entry files.") }}</div>
+                            <button class="btn btn-secondary" type="button" onclick="uploadSkinPackage()">{{ tr("Install and upload skin") }}</button>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="settingsSkinGitUrl">{{ tr("Git 仓库地址") }}</label>
+                            <label class="form-label" for="settingsSkinGitUrl">{{ tr("Git repository URL") }}</label>
                             <input type="text" class="form-input" id="settingsSkinGitUrl" placeholder="https://github.com/user/outlook-skin.git">
-                            <div class="form-hint">{{ tr("公开仓库根目录需要包含 skin.json。") }}</div>
-                            <label class="form-label" for="settingsSkinGitRef">{{ tr("Ref（可选）") }}</label>
+                            <div class="form-hint">{{ tr("The public warehouse root directory needs to contain skin.json.") }}</div>
+                            <label class="form-label" for="settingsSkinGitRef">{{ tr("Ref (optional)") }}</label>
                             <input type="text" class="form-input" id="settingsSkinGitRef" placeholder="main / tag / branch">
-                            <button class="btn btn-secondary" type="button" onclick="installGitSkin()">{{ tr("安装 Git 皮肤") }}</button>
+                            <button class="btn btn-secondary" type="button" onclick="installGitSkin()">{{ tr("Install Git skin") }}</button>
                         </div>
                         <div class="form-group settings-form-span-full">
-                            <div class="settings-note">{{ tr("自定义皮肤仅加载 manifest 指定的 CSS 和可选预览图；系统不会执行皮肤包内脚本或安装命令。") }}</div>
+                            <div class="settings-note">{{ tr("Custom skins only load the CSS and optional preview images specified by the manifest; the system will not execute scripts or installation commands in the skin package.") }}</div>
                         </div>
                     </div>
                 </section>
@@ -177,43 +177,43 @@
                 <section class="settings-section" id="settingsRefreshSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Scheduler") }}</span>
-                        <h4>{{ tr("Token 刷新设置") }}</h4>
-                        <p>{{ tr("控制定时刷新任务的启停、执行策略与邮箱间请求节奏。") }}</p>
+                        <h4>{{ tr("Token refresh settings") }}</h4>
+                        <p>{{ tr("Control the start and stop of scheduled refresh tasks, execution strategies, and inter-mailbox request rhythm.") }}</p>
                     </div>
                         <div class="settings-panel settings-panel-stack">
                         <div class="settings-panel-grid settings-panel-grid--compact">
                             <div class="form-group">
                                 <label class="settings-toggle settings-toggle--card">
                                     <input type="checkbox" id="enableScheduledRefresh" checked>
-                                    <span class="form-label">{{ tr("启用定时刷新") }}</span>
+                                    <span class="form-label">{{ tr("Enable scheduled refresh") }}</span>
                                 </label>
-                                <div class="form-hint">{{ tr("关闭后将不会自动执行定时刷新任务。") }}</div>
+                                <div class="form-hint">{{ tr("After closing, the scheduled refresh task will not be automatically executed.") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">{{ tr("邮箱间刷新间隔") }}</label>
+                                <label class="form-label">{{ tr("Refresh interval between mailboxes") }}</label>
                                 <div class="input-inline">
                                     <input type="number" class="form-input" id="refreshDelaySeconds" min="0" max="60" value="5" placeholder="5">
-                                    <span>{{ tr("秒") }}</span>
+                                    <span>{{ tr("seconds") }}</span>
                                 </div>
-                                <div class="form-hint">{{ tr("建议设置为 5-10 秒，避免频繁请求触发 API 限流。") }}</div>
+                                <div class="form-hint">{{ tr("Use 5–10 seconds to avoid API rate limits.") }}</div>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">{{ tr("刷新策略") }}</label>
+                            <label class="form-label">{{ tr("Refresh strategy") }}</label>
                             <div class="settings-choice-row">
                                 <label class="settings-choice-card">
                                     <input type="radio" name="refreshStrategy" value="days" checked onchange="toggleRefreshStrategy()">
                                     <span class="settings-choice-card__content">
-                                        <span class="settings-choice-card__title">{{ tr("按天数") }}</span>
-                                        <span class="settings-choice-card__meta">{{ tr("适合稳定周期刷新，例如每 30 天自动刷新一次。") }}</span>
+                                        <span class="settings-choice-card__title">{{ tr("By number of days") }}</span>
+                                        <span class="settings-choice-card__meta">{{ tr("Suitable for stable cycle refresh, such as automatic refresh every 30 days.") }}</span>
                                     </span>
                                 </label>
                                 <label class="settings-choice-card">
                                     <input type="radio" name="refreshStrategy" value="cron" onchange="toggleRefreshStrategy()">
                                     <span class="settings-choice-card__content">
-                                        <span class="settings-choice-card__title">{{ tr("Cron 表达式") }}</span>
-                                        <span class="settings-choice-card__meta">{{ tr("适合需要精确控制时段、频率或周期间隔的场景。") }}</span>
+                                        <span class="settings-choice-card__title">{{ tr("Cron expression") }}</span>
+                                        <span class="settings-choice-card__meta">{{ tr("Suitable for scenarios that require precise control of period, frequency or periodic intervals.") }}</span>
                                     </span>
                                 </label>
                             </div>
@@ -221,35 +221,35 @@
 
                         <div id="daysStrategyContainer" class="settings-subpanel">
                             <div class="form-group">
-                                <label class="form-label">{{ tr("定时刷新周期") }}</label>
+                                <label class="form-label">{{ tr("Scheduled refresh cycle") }}</label>
                                 <div class="input-inline">
                                     <input type="number" class="form-input" id="refreshIntervalDays" min="1" max="90" value="30" placeholder="30">
-                                    <span>{{ tr("天") }}</span>
+                                    <span>{{ tr("days") }}</span>
                                 </div>
-                                <div class="form-hint">{{ tr("建议设置为 30 天，防止 Token 因 90 天未使用而过期。") }}</div>
+                                <div class="form-hint">{{ tr("It is recommended to set it to 30 days to prevent the Token from expiring if it is not used for 90 days.") }}</div>
                             </div>
                         </div>
 
                         <div id="cronStrategyContainer" class="settings-subpanel" style="display: none;">
                             <div class="form-group">
-                                <label class="form-label">{{ tr("Cron 表达式") }}</label>
+                                <label class="form-label">{{ tr("Cron expression") }}</label>
                                 <input type="text" class="form-input" id="refreshCron" placeholder="0 2 * * *" value="0 2 * * *">
-                                <div class="form-hint">{{ tr("格式：分 时 日 月 星期，例如") }} <code>0 2 * * *</code> {{ tr("表示每天凌晨 2:00。") }}</div>
+                                <div class="form-hint">{{ tr("Format: minute, hour, day, month, week, for example") }} <code>0 2 * * *</code> {{ tr("means 2:00 AM every day.") }}</div>
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label">{{ tr("常用样例") }}</label>
+                                <label class="form-label">{{ tr("Common examples") }}</label>
                                 <div class="settings-button-grid">
-                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * *')">{{ tr("每天凌晨 2:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * 1')">{{ tr("每周一凌晨 2:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 1 * *')">{{ tr("每月 1 号凌晨 2:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 */3 * *')">{{ tr("每 3 天凌晨 2:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 */12 * * *')">{{ tr("每 12 小时") }}</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * *')">{{ tr("Every day at 2:00 AM") }}</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 * * 1')">{{ tr("Every Monday at 2:00 a.m.") }}</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 1 * *')">{{ tr("2:00 a.m. on the 1st of every month") }}</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 2 */3 * *')">{{ tr("Every 3 days at 2:00 AM") }}</button>
+                                    <button class="btn btn-sm btn-secondary" onclick="selectCronExample('0 */12 * * *')">{{ tr("Every 12 hours") }}</button>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <button class="btn btn-secondary" onclick="validateCronExpression()">{{ tr("验证表达式") }}</button>
+                                <button class="btn btn-secondary" onclick="validateCronExpression()">{{ tr("Validation expression") }}</button>
                                 <div id="cronValidationResult" class="settings-note" style="display: none;"></div>
                             </div>
                         </div>
@@ -259,76 +259,76 @@
                 <section class="settings-section" id="settingsNormalMailRetentionSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Retention") }}</span>
-                        <h4>{{ tr("普通邮箱本地保留") }}</h4>
-                        <p>{{ tr("控制 Outlook/IMAP 普通邮箱列表元数据与部分正文是否保存到本机 SQLite。") }}</p>
+                        <h4>{{ tr("Ordinary mailboxes are kept locally") }}</h4>
+                        <p>{{ tr("Control whether Outlook/IMAP general mailbox list metadata and partial text are saved to native SQLite.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-stack">
                         <div class="settings-panel-grid settings-panel-grid--compact">
                             <div class="form-group settings-form-span-full">
                                 <label class="settings-toggle settings-toggle--card">
                                     <input type="checkbox" id="normalMailLocalRetentionEnabled">
-                                    <span class="form-label">{{ tr("启用普通邮箱本地保留") }}</span>
+                                    <span class="form-label">{{ tr("Enable local retention of ordinary mailboxes") }}</span>
                                 </label>
-                                <div class="form-hint" id="normalMailLocalRetentionExplanation">{{ tr("默认关闭。开启后，普通 Outlook/IMAP 邮箱的列表元数据和已查看的部分正文会保存到本机 SQLite，用于本地优先加载与离线回看；不会保存附件二进制或原始 MIME。") }}</div>
+                                <div class="form-hint" id="normalMailLocalRetentionExplanation">{{ tr("Off by default. When turned on, the list metadata and viewed partial text of ordinary Outlook/IMAP mailboxes will be saved to the local SQLite for local priority loading and offline review; attachment binary or original MIME will not be saved.") }}</div>
                             </div>
                         </div>
 
                         <div class="settings-subpanel" id="normalMailRetentionStats">
                             <div class="settings-action-row settings-action-row--toolbar">
                                 <div>
-                                    <label class="form-label">{{ tr("存储统计") }}</label>
+                                    <label class="form-label">{{ tr("Storage statistics") }}</label>
                                     <div class="form-hint" id="normalMailRetentionStatsError" style="display: none;"></div>
                                 </div>
-                                <button class="btn btn-secondary" type="button" id="refreshNormalMailRetentionStatusBtn" onclick="loadNormalMailRetentionStatus()">{{ tr("刷新统计") }}</button>
+                                <button class="btn btn-secondary" type="button" id="refreshNormalMailRetentionStatusBtn" onclick="loadNormalMailRetentionStatus()">{{ tr("Refresh statistics") }}</button>
                             </div>
                             <div class="settings-panel-grid settings-panel-grid--compact">
-                                <div class="settings-note">{{ tr("已保存邮件：") }}<strong id="normalMailRetentionSavedCount">0</strong></div>
-                                <div class="settings-note">{{ tr("已缓存正文：") }}<strong id="normalMailRetentionCachedBodyCount">0</strong></div>
-                                <div class="settings-note">{{ tr("估算占用空间：") }}<strong id="normalMailRetentionEstimatedBytes">0 B</strong></div>
-                                <div class="settings-note">{{ tr("SQLite 数据库大小：") }}<strong id="normalMailRetentionDbBytes">0 B</strong></div>
+                                <div class="settings-note">{{ tr("Saved messages:") }}<strong id="normalMailRetentionSavedCount">0</strong></div>
+                                <div class="settings-note">{{ tr("Cached text:") }}<strong id="normalMailRetentionCachedBodyCount">0</strong></div>
+                                <div class="settings-note">{{ tr("Estimated storage:") }}<strong id="normalMailRetentionEstimatedBytes">0 B</strong></div>
+                                <div class="settings-note">{{ tr("SQLite database size:") }}<strong id="normalMailRetentionDbBytes">0 B</strong></div>
                             </div>
                         </div>
 
                         <div class="settings-action-row settings-action-row--toolbar">
-                            <button class="btn btn-danger" type="button" id="clearNormalMailRetentionCacheBtn" onclick="clearNormalMailRetentionCache()">{{ tr("清理普通邮箱本地缓存") }}</button>
-                            <div class="form-hint">{{ tr("独立清理本地保留的普通邮箱列表与正文缓存，不会修改上方开关。") }}</div>
+                            <button class="btn btn-danger" type="button" id="clearNormalMailRetentionCacheBtn" onclick="clearNormalMailRetentionCache()">{{ tr("Clear the local cache of ordinary mailboxes") }}</button>
+                            <div class="form-hint">{{ tr("Independently clean up the local reserved general mailbox list and text cache, without modifying the upper switch.") }}</div>
                         </div>
-                        <div id="normalMailRetentionClearStatus" class="settings-note">{{ tr("清理状态：普通邮箱本地缓存清理空闲") }}</div>
+                        <div id="normalMailRetentionClearStatus" class="settings-note">{{ tr("Cleaning status: Ordinary mailbox local cache cleaning is idle") }}</div>
                     </div>
                 </section>
 
                 <section class="settings-section" id="settingsWebdavBackupSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Backup") }}</span>
-                        <h4>{{ tr("WebDAV 备份") }}</h4>
-                        <p>{{ tr("按 Cron 将“导出全部分组”的文件上传到 WebDAV 目录；Cron 时间使用常规设置里的时区。") }}</p>
+                        <h4>{{ tr("WebDAV Backup") }}</h4>
+                        <p>{{ tr("Press Cron to upload the \"Export All Groups\" file to the WebDAV directory; Cron time uses the time zone in the general settings.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-stack">
                         <div class="settings-panel-grid settings-panel-grid--compact">
                             <div class="form-group">
                                 <label class="settings-toggle settings-toggle--card">
                                     <input type="checkbox" id="webdavBackupEnabled">
-                                    <span class="form-label">{{ tr("启用 WebDAV 备份") }}</span>
+                                    <span class="form-label">{{ tr("Enable WebDAV backup") }}</span>
                                 </label>
-                                <div class="form-hint">{{ tr("开启后，调度器会按下方 Cron 表达式上传备份文件。") }}</div>
+                                <div class="form-hint">{{ tr("When enabled, the scheduler will upload backup files according to the Cron expression below.") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">{{ tr("WebDAV 目录 URL") }}</label>
+                                <label class="form-label">{{ tr("WebDAV Directory URL") }}</label>
                                 <input type="text" class="form-input" id="webdavBackupUrl" placeholder="https://dav.example.com/backups">
-                                <div class="form-hint">{{ tr("填写目录地址，系统会自动追加备份文件名。请先在 WebDAV 服务中创建目录；例如坚果云创建 mailBackup 后，这里填写 https://dav.jianguoyun.com/dav/mailBackup。") }}</div>
+                                <div class="form-hint">{{ tr("Fill in the directory address and the system will automatically append the backup file name. Please create a directory in the WebDAV service first; for example, after Nut Cloud creates mailBackup, fill in https://dav.jianguoyun.com/dav/mailBackup。 here") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">{{ tr("用户名") }}</label>
-                                <input type="text" class="form-input" id="webdavBackupUsername" placeholder="{{ tr("可选") }}">
+                                <label class="form-label">{{ tr("Username") }}</label>
+                                <input type="text" class="form-input" id="webdavBackupUsername" placeholder="{{ tr("Optional") }}">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">{{ tr("密码 / App Password") }}</label>
-                                <input type="password" class="form-input" id="webdavBackupPassword" placeholder="{{ tr("可选") }}">
+                                <label class="form-label">{{ tr("Password / App Password") }}</label>
+                                <input type="password" class="form-input" id="webdavBackupPassword" placeholder="{{ tr("Optional") }}">
                             </div>
                             <div class="form-group settings-form-span-full">
                                 <div class="settings-action-row">
-                                    <button class="btn btn-secondary" type="button" id="testWebdavBackupBtn" onclick="testWebdavBackup()">{{ tr("测试 WebDAV") }}</button>
-                                    <div class="form-hint">{{ tr("测试只上传小文件，不需要输入登录密码。") }}</div>
+                                    <button class="btn btn-secondary" type="button" id="testWebdavBackupBtn" onclick="testWebdavBackup()">{{ tr("Testing WebDAV") }}</button>
+                                    <div class="form-hint">{{ tr("The test only uploads small files and does not require entering a login password.") }}</div>
                                 </div>
                                 <div id="webdavBackupTestResult" class="settings-note" style="display: none;"></div>
                             </div>
@@ -336,34 +336,34 @@
 
                         <div class="settings-subpanel">
                             <div class="form-group">
-                                <label class="form-label">{{ tr("备份 Cron 表达式") }}</label>
+                                <label class="form-label">{{ tr("Backup Cron expressions") }}</label>
                                 <input type="text" class="form-input" id="webdavBackupCron" placeholder="0 3 * * *" value="0 3 * * *">
-                                <div class="form-hint">{{ tr("格式：分 时 日 月 星期；计算下次执行时间时使用常规设置里的时区。") }}</div>
+                                <div class="form-hint">{{ tr("Format: minute, hour, day, month, week; use the time zone in the general settings when calculating the next execution time.") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">{{ tr("常用样例") }}</label>
+                                <label class="form-label">{{ tr("Common examples") }}</label>
                                 <div class="settings-button-grid">
-                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 3 * * *')">{{ tr("每天凌晨 3:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 4 * * 1')">{{ tr("每周一凌晨 4:00") }}</button>
-                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('30 2 1 * *')">{{ tr("每月 1 号 2:30") }}</button>
-                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 */12 * * *')">{{ tr("每 12 小时") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 3 * * *')">{{ tr("Every day at 3:00 am") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 4 * * 1')">{{ tr("Every Monday at 4:00 am") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('30 2 1 * *')">{{ tr("2:30 on the 1st of every month") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" onclick="selectWebdavBackupCronExample('0 */12 * * *')">{{ tr("Every 12 hours") }}</button>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <button class="btn btn-secondary" type="button" onclick="validateWebdavBackupCronExpression()">{{ tr("计算下次执行时间") }}</button>
+                                <button class="btn btn-secondary" type="button" onclick="validateWebdavBackupCronExpression()">{{ tr("Calculate the next execution time") }}</button>
                                 <div id="webdavBackupCronValidationResult" class="settings-note" style="display: none;"></div>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">{{ tr("敏感操作确认") }}</label>
-                            <input type="password" class="form-input" id="webdavBackupVerifyPassword" placeholder="{{ tr("修改 WebDAV 备份设置时输入登录密码") }}">
-                            <div class="form-hint">{{ tr("修改备份设置或手动上传真实备份时需要验证登录密码；测试 WebDAV 不需要。") }}</div>
+                            <label class="form-label">{{ tr("Sensitive operation confirmation") }}</label>
+                            <input type="password" class="form-input" id="webdavBackupVerifyPassword" placeholder="{{ tr("Enter the login password when modifying WebDAV backup settings") }}">
+                            <div class="form-hint">{{ tr("Login password verification is required when modifying backup settings or manually uploading real backups; not required for testing WebDAV.") }}</div>
                         </div>
 
                         <div class="settings-action-row settings-action-row--toolbar">
-                            <button class="btn btn-primary" type="button" id="uploadWebdavBackupBtn" onclick="uploadWebdavBackupNow()">{{ tr("手动上传") }}</button>
-                            <div class="form-hint">{{ tr("手动上传会立即上传“导出全部分组”的真实备份。") }}</div>
+                            <button class="btn btn-primary" type="button" id="uploadWebdavBackupBtn" onclick="uploadWebdavBackupNow()">{{ tr("Manual upload") }}</button>
+                            <div class="form-hint">{{ tr("Manual upload will immediately upload the actual backup of \"Export All Groups\".") }}</div>
                         </div>
 
                         <div id="webdavBackupStatus" class="settings-note" style="display: none; white-space: pre-line;"></div>
@@ -373,157 +373,157 @@
                 <section class="settings-section" id="forwardingSettingsSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Forwarding") }}</span>
-                        <h4>{{ tr("邮件转发设置") }}</h4>
-                        <p>{{ tr("这里配置全局转发渠道；实际是否参与转发，仍以每个账号单独开启的状态为准。") }}</p>
+                        <h4>{{ tr("Email forwarding settings") }}</h4>
+                        <p>{{ tr("The global forwarding channel is configured here; whether it actually participates in forwarding is still subject to the status of each account being opened individually.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-stack forwarding-console">
                         <div class="forwarding-toolbar">
                             <div class="forwarding-toolbar__controls">
                                 <div class="forwarding-inline-control">
-                                    <label class="form-label">{{ tr("轮询间隔") }}</label>
+                                    <label class="form-label">{{ tr("Polling interval") }}</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="forwardCheckIntervalSeconds" min="20" max="3600" value="300">
-                                        <span>{{ tr("秒") }}</span>
+                                        <span>{{ tr("seconds") }}</span>
                                     </div>
-                                    <div class="form-hint">{{ tr("系统会按该频率扫描已开启转发的邮箱。") }}</div>
+                                    <div class="form-hint">{{ tr("The system will scan mailboxes with forwarding enabled at this frequency.") }}</div>
                                 </div>
                                 <div class="forwarding-inline-control">
-                                    <label class="form-label">{{ tr("执行模式") }}</label>
+                                    <label class="form-label">{{ tr("Execution mode") }}</label>
                                     <select class="form-select" id="forwardExecutionMode" onchange="syncForwardExecutionModeUI()">
-                                        <option value="serial">{{ tr("串行") }}</option>
-                                        <option value="parallel">{{ tr("并行") }}</option>
+                                        <option value="serial">{{ tr("Serial") }}</option>
+                                        <option value="parallel">{{ tr("Parallel") }}</option>
                                     </select>
-                                    <div class="form-hint">{{ tr("并行会同时扫描多个账号，默认串行更保守。") }}</div>
+                                    <div class="form-hint">{{ tr("Parallel will scan multiple accounts at the same time, and serial is more conservative by default.") }}</div>
                                 </div>
                                 <div class="forwarding-inline-control">
-                                    <label class="form-label">{{ tr("并行 worker") }}</label>
+                                    <label class="form-label">{{ tr("Parallel worker") }}</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="forwardParallelWorkers" min="1" max="10" value="4">
-                                        <span>{{ tr("个") }}</span>
+                                        <span>{{ tr("") }}</span>
                                     </div>
-                                    <div class="form-hint">{{ tr("仅并行模式生效。") }}</div>
+                                    <div class="form-hint">{{ tr("Valid only in parallel mode.") }}</div>
                                 </div>
                                 <div class="forwarding-inline-control">
-                                    <label class="form-label">{{ tr("账号间隔") }}</label>
+                                    <label class="form-label">{{ tr("Account interval") }}</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="forwardAccountDelaySeconds" min="0" max="60" value="0">
-                                        <span>{{ tr("秒") }}</span>
+                                        <span>{{ tr("seconds") }}</span>
                                     </div>
-                                    <div class="form-hint">{{ tr("`0` 表示账号之间不额外等待。") }}</div>
+                                    <div class="form-hint">{{ tr("`0` means no additional waiting between accounts.") }}</div>
                                 </div>
                                 <div class="forwarding-inline-control">
-                                    <label class="form-label">{{ tr("时间窗口") }}</label>
+                                    <label class="form-label">{{ tr("Time window") }}</label>
                                     <div class="input-inline">
                                         <input type="number" class="form-input" id="forwardEmailWindowMinutes" min="0" max="10080" value="0">
-                                        <span>{{ tr("分钟") }}</span>
+                                        <span>{{ tr("minutes") }}</span>
                                     </div>
-                                    <div class="form-hint">{{ tr("`0` 表示不限制最近邮件范围。") }}</div>
+                                    <div class="form-hint">{{ tr("`0` means not limiting the range of recent emails.") }}</div>
                                 </div>
                                 <div class="forwarding-inline-control forwarding-inline-control--toggle">
                                     <label class="settings-toggle settings-toggle--inline forwarding-inline-toggle">
                                         <input type="checkbox" id="forwardIncludeJunkemail">
-                                        <span class="form-label">{{ tr("转发垃圾箱邮件") }}</span>
+                                        <span class="form-label">{{ tr("Forward spam emails") }}</span>
                                     </label>
-                                    <div class="form-hint">{{ tr("开启后，垃圾箱的新邮件也会进入轮询。") }}</div>
+                                    <div class="form-hint">{{ tr("When enabled, new emails in the trash will also be polled.") }}</div>
                                 </div>
                             </div>
                             <div class="settings-action-row settings-action-row--toolbar">
-                                <button class="btn btn-primary" type="button" id="triggerForwardingCheckBtn" onclick="triggerForwardingCheck()">{{ tr("手动触发转发检查") }}</button>
+                                <button class="btn btn-primary" type="button" id="triggerForwardingCheckBtn" onclick="triggerForwardingCheck()">{{ tr("Manually trigger forwarding check") }}</button>
                             </div>
                         </div>
                         <div class="form-group forwarding-channel-group">
                             <div class="forwarding-channel-group__head">
-                                <label class="form-label">{{ tr("转发渠道") }}</label>
-                                <div class="form-hint">{{ tr("支持多选；不选渠道时不会执行自动转发。") }}</div>
+                                <label class="form-label">{{ tr("Forwarding channel") }}</label>
+                                <div class="form-hint">{{ tr("Supports multiple selection; automatic forwarding will not be performed when no channel is selected.") }}</div>
                             </div>
                             <div class="forward-channel-picker" id="forwardChannelPicker">
                                 <label class="forward-channel-option">
                                     <input type="checkbox" id="forwardChannelSmtp" onchange="syncForwardChannelUI()">
                                     <span class="forward-channel-option__content">
                                         <span class="forward-channel-option__title">SMTP</span>
-                                        <span class="forward-channel-option__meta">{{ tr("转发为邮件，适合归档或再次分发。") }}</span>
+                                        <span class="forward-channel-option__meta">{{ tr("Forwarded as email, suitable for archiving or redistribution.") }}</span>
                                     </span>
                                 </label>
                                 <label class="forward-channel-option">
                                     <input type="checkbox" id="forwardChannelTelegram" onchange="syncForwardChannelUI()">
                                     <span class="forward-channel-option__content">
                                         <span class="forward-channel-option__title">TG</span>
-                                        <span class="forward-channel-option__meta">{{ tr("转发到 Telegram，适合即时提醒。") }}</span>
+                                        <span class="forward-channel-option__meta">{{ tr("Forward to Telegram, suitable for instant reminders.") }}</span>
                                     </span>
                                 </label>
                                 <label class="forward-channel-option">
                                     <input type="checkbox" id="forwardChannelWecom" onchange="syncForwardChannelUI()">
                                     <span class="forward-channel-option__content">
-                                        <span class="forward-channel-option__title">{{ tr("企业微信") }}</span>
-                                        <span class="forward-channel-option__meta">{{ tr("通过群机器人 Webhook 推送到企业微信群。") }}</span>
+                                        <span class="forward-channel-option__title">{{ tr("Enterprise WeChat") }}</span>
+                                        <span class="forward-channel-option__meta">{{ tr("Push to the enterprise WeChat group through the group robot Webhook.") }}</span>
                                     </span>
                                 </label>
                             </div>
                         </div>
                         <div class="forward-channel-empty" id="forwardChannelEmptyState" hidden>
-                            {{ tr("当前未选择任何转发渠道。保存后，即使账号已开启转发，也不会向外发送通知。") }}
+                            {{ tr("No forwarding channel is currently selected. After saving, even if the account has forwarding enabled, notifications will not be sent out.") }}
                         </div>
                         <div class="forward-channel-panels" id="forwardChannelPanels">
                             <section class="forward-channel-panel forward-channel-panel--smtp" data-channel="smtp" hidden>
                                 <div class="forward-channel-panel__header">
                                     <div class="forward-channel-panel__heading">
-                                        <h5 class="forward-channel-panel__title">{{ tr("SMTP 转发") }}</h5>
-                                        <p class="forward-channel-panel__desc">{{ tr("配置接收邮箱与 SMTP 服务器，用于邮件形式的二次转发。") }}</p>
+                                        <h5 class="forward-channel-panel__title">{{ tr("SMTP forwarding") }}</h5>
+                                        <p class="forward-channel-panel__desc">{{ tr("Configure the receiving mailbox and SMTP server for secondary forwarding of emails.") }}</p>
                                     </div>
                                     <div class="forward-channel-panel__actions">
-                                        <button class="btn btn-sm btn-secondary" type="button" id="testSmtpBtn" onclick="testForwardChannel('smtp')">{{ tr("发送测试消息") }}</button>
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testSmtpBtn" onclick="testForwardChannel('smtp')">{{ tr("Send test message") }}</button>
                                         <span class="forward-channel-panel__tag">SMTP</span>
                                     </div>
                                 </div>
                                 <div class="forward-grid forward-grid--smtp">
                                     <div class="form-group forward-field forward-field--wide">
-                                        <label class="form-label">{{ tr("转发到邮箱") }}</label>
+                                        <label class="form-label">{{ tr("Forward to email") }}</label>
                                         <input type="text" class="form-input" id="settingsEmailForwardRecipient" placeholder="main@example.com">
                                     </div>
                                     <div class="form-group forward-field">
-                                        <label class="form-label">{{ tr("邮箱类型") }}</label>
+                                        <label class="form-label">{{ tr("Email type") }}</label>
                                         <select class="form-select" id="settingsSmtpProvider" onchange="syncSmtpProviderUI(true)">
                                             <option value="outlook">Outlook</option>
-                                            <option value="qq">{{ tr("QQ邮箱") }}</option>
-                                            <option value="163">{{ tr("163邮箱") }}</option>
-                                            <option value="126">{{ tr("126邮箱") }}</option>
+                                            <option value="qq">{{ tr("QQ mailbox") }}</option>
+                                            <option value="163">{{ tr("163 Email") }}</option>
+                                            <option value="126">{{ tr("126 mailbox") }}</option>
                                             <option value="yahoo">Yahoo</option>
-                                            <option value="aliyun">{{ tr("阿里邮箱") }}</option>
-                                            <option value="custom">{{ tr("自定义") }}</option>
+                                            <option value="aliyun">{{ tr("Ali mailbox") }}</option>
+                                            <option value="custom">{{ tr("Custom") }}</option>
                                         </select>
-                                        <div class="form-hint" id="settingsSmtpProviderHint">{{ tr("选择后会自动带出 SMTP 主机、端口和连接方式，你仍然可以继续手动修改。") }}</div>
+                                        <div class="form-hint" id="settingsSmtpProviderHint">{{ tr("After selection, the SMTP host, port and connection method will be automatically brought out. You can still continue to modify them manually.") }}</div>
                                     </div>
                                     <div class="form-group forward-field forward-field--wide">
-                                        <label class="form-label">{{ tr("SMTP 主机") }}</label>
+                                        <label class="form-label">{{ tr("SMTP host") }}</label>
                                         <input type="text" class="form-input" id="settingsSmtpHost" placeholder="smtp.example.com">
                                     </div>
                                     <div class="form-group forward-field">
-                                        <label class="form-label">{{ tr("发件人邮箱") }}</label>
+                                        <label class="form-label">{{ tr("Sender’s email address") }}</label>
                                         <input type="text" class="form-input" id="settingsSmtpFromEmail" placeholder="noreply@example.com">
-                                        <div class="form-hint" id="settingsSmtpFromEmailHint">{{ tr("可选。留空时默认使用 SMTP 用户名作为发件人邮箱。") }}</div>
+                                        <div class="form-hint" id="settingsSmtpFromEmailHint">{{ tr("Optional. When left blank, the SMTP username is used as the sender email by default.") }}</div>
                                     </div>
                                     <div class="form-group forward-field">
-                                        <label class="form-label">{{ tr("SMTP 用户名") }}</label>
+                                        <label class="form-label">{{ tr("SMTP username") }}</label>
                                         <input type="text" class="form-input" id="settingsSmtpUsername" placeholder="username">
                                     </div>
                                     <div class="form-group forward-field forward-field--port">
-                                        <label class="form-label">{{ tr("SMTP 端口") }}</label>
+                                        <label class="form-label">{{ tr("SMTP port") }}</label>
                                         <input type="number" class="form-input" id="settingsSmtpPort" value="465" min="1" max="65535">
                                     </div>
                                     <div class="form-group forward-field forward-field--password">
-                                        <label class="form-label">{{ tr("SMTP 密码") }}</label>
-                                        <input type="password" class="form-input" id="settingsSmtpPassword" placeholder="{{ tr("密码或授权码") }}">
+                                        <label class="form-label">{{ tr("SMTP password") }}</label>
+                                        <input type="password" class="form-input" id="settingsSmtpPassword" placeholder="{{ tr("Password or authorization code") }}">
                                     </div>
                                     <div class="form-group forward-field forward-field--toggles">
-                                        <label class="form-label">{{ tr("连接选项") }}</label>
+                                        <label class="form-label">{{ tr("Connection options") }}</label>
                                         <div class="forward-toggle-list forward-toggle-list--inline">
                                             <label class="forward-checkbox">
                                                 <input type="checkbox" id="settingsSmtpUseSsl" checked>
-                                                <span class="form-label">{{ tr("使用 SSL") }}</span>
+                                                <span class="form-label">{{ tr("Using SSL") }}</span>
                                             </label>
                                             <label class="forward-checkbox">
                                                 <input type="checkbox" id="settingsSmtpUseTls">
-                                                <span class="form-label">{{ tr("使用 TLS / STARTTLS") }}</span>
+                                                <span class="form-label">{{ tr("Use TLS / STARTTLS") }}</span>
                                             </label>
                                         </div>
                                     </div>
@@ -532,11 +532,11 @@
                             <section class="forward-channel-panel forward-channel-panel--telegram" data-channel="telegram" hidden>
                                 <div class="forward-channel-panel__header">
                                     <div class="forward-channel-panel__heading">
-                                        <h5 class="forward-channel-panel__title">{{ tr("Telegram 转发") }}</h5>
-                                        <p class="forward-channel-panel__desc">{{ tr("使用 Bot Token 与 Chat ID，把新邮件摘要推送到指定 TG 会话。") }}</p>
+                                        <h5 class="forward-channel-panel__title">{{ tr("Telegram forward") }}</h5>
+                                        <p class="forward-channel-panel__desc">{{ tr("Use Bot Token and Chat ID to push new email digests to the specified TG conversation.") }}</p>
                                     </div>
                                     <div class="forward-channel-panel__actions">
-                                        <button class="btn btn-sm btn-secondary" type="button" id="testTelegramBtn" onclick="testForwardChannel('telegram')">{{ tr("发送测试消息") }}</button>
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testTelegramBtn" onclick="testForwardChannel('telegram')">{{ tr("Send test message") }}</button>
                                         <span class="forward-channel-panel__tag">TG</span>
                                     </div>
                                 </div>
@@ -552,31 +552,31 @@
                                     <div class="form-group forward-field">
                                         <label class="form-label">{{ tr("Telegram Topic ID") }}</label>
                                         <input type="text" class="form-input" id="settingsTelegramTopicId" placeholder="123">
-                                        <div class="form-hint">{{ tr("可选。群组开启话题（Topics）后，填写话题 ID 可将消息发送到指定话题。") }}</div>
+                                        <div class="form-hint">{{ tr("Optional. After the group opens the topic (Topics), fill in the topic ID to send the message to the specified topic.") }}</div>
                                     </div>
                                     <div class="form-group forward-field forward-field--full">
-                                        <label class="form-label">{{ tr("Telegram 代理") }}</label>
-                                        <input type="text" class="form-input" id="settingsTelegramProxyUrl" placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
-                                        <div class="form-hint">{{ tr("可选。仅用于 Telegram 转发与测试发送，支持 `http://`、`socks5://`、`direct` / `直连`。") }}</div>
+                                        <label class="form-label">{{ tr("Telegram proxy") }}</label>
+                                        <input type="text" class="form-input" id="settingsTelegramProxyUrl" placeholder="{{ tr("http://host:port、socks5://host:port or direct") }}">
+                                        <div class="form-hint">{{ tr("Optional. Only used for Telegram forwarding and test sending, supports `http://`, `socks5://`, `direct` / `direct connection`.") }}</div>
                                     </div>
                                 </div>
                             </section>
                             <section class="forward-channel-panel forward-channel-panel--wecom" data-channel="wecom" hidden>
                                 <div class="forward-channel-panel__header">
                                     <div class="forward-channel-panel__heading">
-                                        <h5 class="forward-channel-panel__title">{{ tr("企业微信机器人转发") }}</h5>
-                                        <p class="forward-channel-panel__desc">{{ tr("只填写群机器人的 Webhook 地址，系统会以文本消息推送新邮件摘要。") }}</p>
+                                        <h5 class="forward-channel-panel__title">{{ tr("Enterprise WeChat robot forwarding") }}</h5>
+                                        <p class="forward-channel-panel__desc">{{ tr("Only fill in the Webhook address of the group robot, and the system will push a new email summary as a text message.") }}</p>
                                     </div>
                                     <div class="forward-channel-panel__actions">
-                                        <button class="btn btn-sm btn-secondary" type="button" id="testWecomBtn" onclick="testForwardChannel('wecom')">{{ tr("发送测试消息") }}</button>
-                                        <span class="forward-channel-panel__tag">{{ tr("企微") }}</span>
+                                        <button class="btn btn-sm btn-secondary" type="button" id="testWecomBtn" onclick="testForwardChannel('wecom')">{{ tr("Send test message") }}</button>
+                                        <span class="forward-channel-panel__tag">{{ tr("Qiwei") }}</span>
                                     </div>
                                 </div>
                                 <div class="forward-grid forward-grid--telegram">
                                     <div class="form-group forward-field forward-field--full">
-                                        <label class="form-label">{{ tr("Webhook 地址") }}</label>
+                                        <label class="form-label">{{ tr("Webhook address") }}</label>
                                         <input type="text" class="form-input" id="settingsWecomWebhookUrl" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
-                                        <div class="form-hint">{{ tr("在企业微信群机器人里复制完整 Webhook 地址即可，无需额外配置 Bot Token 或 Chat ID。") }}</div>
+                                        <div class="form-hint">{{ tr("Just copy the complete Webhook address in the enterprise WeChat group bot. No additional configuration of Bot Token or Chat ID is required.") }}</div>
                                     </div>
                                 </div>
                             </section>
@@ -587,11 +587,11 @@
                                     <div class="settings-log-drawer__copy">
                                         <span class="settings-log-title">
                                             <span>📨</span>
-                                            <span>{{ tr("最近转发历史") }}</span>
+                                            <span>{{ tr("Recent forwarding history") }}</span>
                                         </span>
-                                        <p class="settings-log-drawer__meta">{{ tr("默认折叠，展开后显示最近 100 条转发记录。") }}</p>
+                                        <p class="settings-log-drawer__meta">{{ tr("Collapsed by default, expanded to display the last 100 forwarding records.") }}</p>
                                     </div>
-                                    <button class="btn btn-sm btn-secondary" type="button" id="forwardingLogsToggleBtn" onclick="toggleForwardingLogsDrawer()">{{ tr("查看历史") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" id="forwardingLogsToggleBtn" onclick="toggleForwardingLogsDrawer()">{{ tr("View history") }}</button>
                                 </div>
                                 <div id="forwardingLogsContainer" class="settings-log-block" hidden>
                                     <div id="forwardingLogsList" class="settings-log-list"></div>
@@ -602,11 +602,11 @@
                                     <div class="settings-log-drawer__copy">
                                         <span class="settings-log-title settings-log-title--danger">
                                             <span>❌</span>
-                                            <span>{{ tr("最近转发失败") }}</span>
+                                            <span>{{ tr("Recent forwarding failed") }}</span>
                                         </span>
-                                        <p class="settings-log-drawer__meta">{{ tr("默认折叠，展开后显示最近 100 条失败记录。") }}</p>
+                                        <p class="settings-log-drawer__meta">{{ tr("Collapsed by default, expanded to display the latest 100 failure records.") }}</p>
                                     </div>
-                                    <button class="btn btn-sm btn-secondary" type="button" id="failedForwardingLogsToggleBtn" onclick="toggleFailedForwardingLogsDrawer()">{{ tr("查看失败") }}</button>
+                                    <button class="btn btn-sm btn-secondary" type="button" id="failedForwardingLogsToggleBtn" onclick="toggleFailedForwardingLogsDrawer()">{{ tr("View failed") }}</button>
                                 </div>
                                 <div id="failedForwardingLogsContainer" class="settings-log-block" hidden>
                                     <div id="failedForwardingLogsList" class="settings-log-list settings-log-list--danger"></div>
@@ -618,53 +618,53 @@
                 <section class="settings-section" id="settingsCloudflareSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">Cloudflare</span>
-                        <h4>{{ tr("Cloudflare 临时邮箱设置") }}</h4>
-                        <p>{{ tr("配置多套自建 Cloudflare Temp Email 实例的连接信息与管理凭证。") }}</p>
+                        <h4>{{ tr("Cloudflare temporary email settings") }}</h4>
+                        <p>{{ tr("Configure the connection information and management credentials of multiple self-built Cloudflare Temp Email instances.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-grid cloudflare-channel-panel">
                         <div class="form-group settings-form-span-full">
-                            <label class="form-label">{{ tr("渠道列表") }}</label>
+                            <label class="form-label">{{ tr("Channel list") }}</label>
                             <div class="cloudflare-channel-list" id="settingsCloudflareChannelList">
-                                <div class="form-hint">{{ tr("加载中...") }}</div>
+                                <div class="form-hint">{{ tr("Loading…") }}</div>
                             </div>
                         </div>
                         <input type="hidden" id="settingsCloudflareChannelId">
                         <div class="form-group">
-                            <label class="form-label">{{ tr("渠道名称") }}</label>
+                            <label class="form-label">{{ tr("Channel name") }}</label>
                             <input type="text" class="form-input" id="settingsCloudflareChannelName" placeholder="cfmail-us">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("Worker 域名") }}</label>
+                            <label class="form-label">{{ tr("Worker domain name") }}</label>
                             <input type="text" class="form-input" id="settingsCloudflareWorkerDomain" placeholder="your-worker.example.workers.dev">
-                            <div class="form-hint">{{ tr("只填写域名部分，不带") }} <code>https://</code>。</div>
+                            <div class="form-hint">{{ tr("Only fill in the domain name part without") }} <code>https://</code>。</div>
                         </div>
                         <div class="form-group settings-form-span-full">
-                            <label class="form-label">{{ tr("邮箱域名列表") }}</label>
+                            <label class="form-label">{{ tr("Email domain name list") }}</label>
                             <input type="text" class="form-input" id="settingsCloudflareEmailDomains" placeholder="mail1.example.com, mail2.example.com">
-                            <div class="form-hint">{{ tr("可选；多个域名使用英文逗号分隔。") }}</div>
+                            <div class="form-hint">{{ tr("Optional; multiple domain names are separated by commas.") }}</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("管理员密码") }}</label>
-                            <input type="password" class="form-input" id="settingsCloudflareAdminPassword" placeholder="{{ tr("对应 Cloudflare Temp Email 的 ADMIN_PASSWORD") }}">
-                            <div class="form-hint">{{ tr("编辑已有渠道时留空表示保留原密码。") }}</div>
+                            <label class="form-label">{{ tr("Administrator password") }}</label>
+                            <input type="password" class="form-input" id="settingsCloudflareAdminPassword" placeholder="{{ tr("ADMIN_PASSWORD corresponding to Cloudflare Temp Email") }}">
+                            <div class="form-hint">{{ tr("When editing an existing channel, leave it blank to keep the original password.") }}</div>
                         </div>
                         <div class="form-group">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="settingsCloudflareEnabled" checked>
-                                <span>{{ tr("启用渠道") }}</span>
+                                <span>{{ tr("Enable channels") }}</span>
                             </label>
                         </div>
                         <div class="form-group">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="settingsCloudflareDefault">
-                                <span>{{ tr("设为默认渠道") }}</span>
+                                <span>{{ tr("Set as default channel") }}</span>
                             </label>
                         </div>
                         <div class="form-group settings-form-span-full cloudflare-channel-actions">
-                            <button class="btn btn-primary" type="button" id="saveCloudflareChannelBtn" onclick="saveCloudflareChannel()">{{ tr("创建渠道") }}</button>
-                            <button class="btn btn-secondary" type="button" id="testCloudflareChannelBtn" onclick="testCloudflareChannelConnection()" style="display: none;">{{ tr("测试连接") }}</button>
-                            <button class="btn btn-secondary" type="button" id="resetCloudflareChannelBtn" onclick="resetCloudflareChannelForm()">{{ tr("清空表单") }}</button>
-                            <button class="btn btn-danger" type="button" id="deleteCloudflareChannelBtn" onclick="deleteCloudflareChannel()" style="display: none;">{{ tr("删除渠道") }}</button>
+                            <button class="btn btn-primary" type="button" id="saveCloudflareChannelBtn" onclick="saveCloudflareChannel()">{{ tr("Create channels") }}</button>
+                            <button class="btn btn-secondary" type="button" id="testCloudflareChannelBtn" onclick="testCloudflareChannelConnection()" style="display: none;">{{ tr("Test connection") }}</button>
+                            <button class="btn btn-secondary" type="button" id="resetCloudflareChannelBtn" onclick="resetCloudflareChannelForm()">{{ tr("Clear the form") }}</button>
+                            <button class="btn btn-danger" type="button" id="deleteCloudflareChannelBtn" onclick="deleteCloudflareChannel()" style="display: none;">{{ tr("Delete channel") }}</button>
                         </div>
                         <div class="form-group settings-form-span-full" id="cloudflareChannelTestResult" style="display: none;">
                             <div class="form-hint" id="cloudflareChannelTestResultText"></div>
@@ -674,42 +674,42 @@
                         <div class="form-group settings-form-span-full">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="settingsCloudflareAiEnabled">
-                                <span>{{ tr("启用 AI 生成用户名") }}</span>
+                                <span>{{ tr("Enable AI to generate usernames") }}</span>
                             </label>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("AI API 地址") }}</label>
+                            <label class="form-label">{{ tr("AI API address") }}</label>
                             <input type="text" class="form-input" id="settingsCloudflareAiApiUrl" placeholder="https://api.example.com/v1">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("AI 模型") }}</label>
+                            <label class="form-label">{{ tr("AI model") }}</label>
                             <input type="text" class="form-input" id="settingsCloudflareAiModel" placeholder="gpt-5.5">
                         </div>
                         <div class="form-group">
                             <label class="form-label">{{ tr("AI API Key") }}</label>
-                            <input type="password" class="form-input" id="settingsCloudflareAiApiKey" placeholder="{{ tr("留空保留已保存的 Key") }}">
-                            <div class="form-hint" id="settingsCloudflareAiApiKeyHint">{{ tr("未配置") }}</div>
+                            <input type="password" class="form-input" id="settingsCloudflareAiApiKey" placeholder="{{ tr("Leave blank to retain the saved Key") }}">
+                            <div class="form-hint" id="settingsCloudflareAiApiKeyHint">{{ tr("Not configured") }}</div>
                         </div>
                         <div class="form-group">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="settingsCloudflareAiClearApiKey">
-                                <span>{{ tr("清空已保存的 AI API Key") }}</span>
+                                <span>{{ tr("Clear the saved AI API Key") }}</span>
                             </label>
                         </div>
                         <div class="form-group settings-form-span-full">
-                            <label class="form-label">{{ tr("用户名生成提示词模板") }}</label>
+                            <label class="form-label">{{ tr("Username generation prompt word template") }}</label>
                             <textarea class="form-textarea" id="settingsCloudflareAiPrompt" rows="5"></textarea>
-                            <div class="form-hint">{{ tr("支持 {count} 和 {seed} 变量。") }}</div>
+                            <div class="form-hint">{{ tr("Support {count} and {seed} variables.") }}</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("测试数量") }}</label>
+                            <label class="form-label">{{ tr("Number of tests") }}</label>
                             <div class="settings-inline-action">
                                 <input type="number" class="form-input" id="settingsCloudflareAiTestCount" min="1" max="50" value="5">
-                                <button class="btn btn-secondary" type="button" id="testCloudflareAiBtn" onclick="testCloudflareAiUsernames()">{{ tr("测试生成用户名") }}</button>
+                                <button class="btn btn-secondary" type="button" id="testCloudflareAiBtn" onclick="testCloudflareAiUsernames()">{{ tr("Test generated username") }}</button>
                             </div>
                         </div>
                         <div class="form-group settings-form-span-full">
-                            <div class="form-hint" id="settingsCloudflareAiTestResult">{{ tr("未测试") }}</div>
+                            <div class="form-hint" id="settingsCloudflareAiTestResult">{{ tr("Not tested") }}</div>
                         </div>
                     </div>
                 </section>
@@ -717,14 +717,14 @@
                 <section class="settings-section" id="settingsAccessSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">GPTMail</span>
-                        <h4>{{ tr("GPTMail 临时邮箱设置") }}</h4>
-                        <p>{{ tr("用于配置 GPTMail 临时邮箱能力所需的 API Key。") }}</p>
+                        <h4>{{ tr("GPTMail temporary mailbox settings") }}</h4>
+                        <p>{{ tr("API Key required to configure GPTMail temporary mailbox capability.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-grid">
                         <div class="form-group">
                             <label class="form-label">{{ tr("GPTMail API Key") }}</label>
-                            <input type="text" class="form-input" id="settingsApiKey" placeholder="{{ tr("输入 GPTMail API Key") }}">
-                            <div class="form-hint">{{ tr("用于临时邮箱功能，可从") }} <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> {{ tr("获取。") }}</div>
+                            <input type="text" class="form-input" id="settingsApiKey" placeholder="{{ tr("Enter GPTMail API Key") }}">
+                            <div class="form-hint">{{ tr("For temporary mailbox functionality, available from") }} <a class="inline-link" href="https://mail.chatgpt.org.uk/api" target="_blank">gptmail.io</a> {{ tr("Get.") }}</div>
                         </div>
                     </div>
                 </section>
@@ -732,19 +732,19 @@
                 <section class="settings-section" id="settingsDuckMailSection">
                     <div class="settings-section-head">
                         <span class="settings-section-kicker">{{ tr("Temp Mail") }}</span>
-                        <h4>{{ tr("DuckMail 临时邮箱设置") }}</h4>
-                        <p>{{ tr("用于接入自部署或私有能力的 DuckMail 服务。") }}</p>
+                        <h4>{{ tr("DuckMail temporary mailbox settings") }}</h4>
+                        <p>{{ tr("DuckMail service for accessing self-deployed or private capabilities.") }}</p>
                     </div>
                     <div class="settings-panel settings-panel-grid">
                         <div class="form-group">
-                            <label class="form-label">{{ tr("DuckMail API 地址") }}</label>
+                            <label class="form-label">{{ tr("DuckMail API address") }}</label>
                             <input type="text" class="form-input" id="settingsDuckmailBaseUrl" placeholder="https://api.duckmail.sbs">
-                            <div class="form-hint">{{ tr("自部署 DuckMail 实例的 API 地址，留空时默认使用官方地址。") }}</div>
+                            <div class="form-hint">{{ tr("The API address of the self-deployed DuckMail instance. If left blank, the official address will be used by default.") }}</div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ tr("DuckMail API Key（可选）") }}</label>
-                            <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="{{ tr("dk_ 前缀的 API Key") }}">
-                            <div class="form-hint">{{ tr("用于获取私有域名，可从") }} <a class="inline-link" href="https://domain.duckmail.sbs" target="_blank">domain.duckmail.sbs</a> {{ tr("获取。") }}</div>
+                            <label class="form-label">{{ tr("DuckMail API Key (optional)") }}</label>
+                            <input type="text" class="form-input" id="settingsDuckmailApiKey" placeholder="{{ tr("API Key with dk_ prefix") }}">
+                            <div class="form-hint">{{ tr("Used to obtain private domain names, available from") }} <a class="inline-link" href="https://domain.duckmail.sbs" target="_blank">domain.duckmail.sbs</a> {{ tr("Get.") }}</div>
                         </div>
                     </div>
                 </section>
@@ -752,32 +752,32 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideSettingsModal()">{{ tr("取消") }}</button>
-                <button class="btn btn-primary" onclick="saveSettings()">{{ tr("保存设置") }}</button>
+                <button class="btn btn-secondary" onclick="hideSettingsModal()">{{ tr("Cancel") }}</button>
+                <button class="btn btn-primary" onclick="saveSettings()">{{ tr("Save settings") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- Token 刷新管理模态框 -->
+    <!-- Token refresh management modal box-->
     <div class="modal" id="refreshModal" onmousedown="if(event.target === this) hideRefreshModal()">
         <div class="modal-content refresh-modal-content">
             <div class="modal-header">
-                <h3>{{ tr("🔄 Token 刷新管理") }}</h3>
+                <h3>{{ tr("🔄 Token refresh management") }}</h3>
                 <button class="modal-close" onclick="hideRefreshModal()">&times;</button>
             </div>
             <div class="modal-body refresh-modal-body">
                 <div class="refresh-workbench">
                     <section class="refresh-snapshot-grid">
                         <article class="refresh-snapshot-card">
-                            <span class="refresh-snapshot-card__label">{{ tr("总邮箱数") }}</span>
+                            <span class="refresh-snapshot-card__label">{{ tr("Total number of mailboxes") }}</span>
                             <div class="refresh-snapshot-card__value" id="totalRefreshCount">0</div>
                         </article>
                         <article class="refresh-snapshot-card">
-                            <span class="refresh-snapshot-card__label">{{ tr("成功邮箱") }}</span>
+                            <span class="refresh-snapshot-card__label">{{ tr("Success email") }}</span>
                             <div class="refresh-snapshot-card__value refresh-snapshot-card__value--success" id="successRefreshCount">0</div>
                         </article>
                         <article class="refresh-snapshot-card">
-                            <span class="refresh-snapshot-card__label">{{ tr("失败邮箱") }}</span>
+                            <span class="refresh-snapshot-card__label">{{ tr("Failure email") }}</span>
                             <div class="refresh-snapshot-card__value refresh-snapshot-card__value--danger" id="failedRefreshCount">0</div>
                         </article>
                     </section>
@@ -785,234 +785,234 @@
                     <section class="refresh-toolbar">
                         <div class="refresh-toolbar__search">
                             <input type="search" class="form-input" id="refreshSearchInput"
-                                placeholder="{{ tr("搜索邮箱、备注或分组") }}" oninput="handleRefreshSearchInput(this.value)">
+                                placeholder="{{ tr("Search mailbox, notes or groups") }}" oninput="handleRefreshSearchInput(this.value)">
                         </div>
                         <div class="refresh-toolbar__filters">
                             <button type="button" class="refresh-filter-chip is-active" data-status="all"
                                 onclick="setRefreshStatusFilter('all', this)">
-                                <span>{{ tr("全部") }}</span>
+                                <span>{{ tr("All") }}</span>
                                 <strong id="refreshFilterCountAll">0</strong>
                             </button>
                             <button type="button" class="refresh-filter-chip" data-status="success"
                                 onclick="setRefreshStatusFilter('success', this)">
-                                <span>{{ tr("成功") }}</span>
+                                <span>{{ tr("Success") }}</span>
                                 <strong id="refreshFilterCountSuccess">0</strong>
                             </button>
                             <button type="button" class="refresh-filter-chip" data-status="failed"
                                 onclick="setRefreshStatusFilter('failed', this)">
-                                <span>{{ tr("失败") }}</span>
+                                <span>{{ tr("Failure") }}</span>
                                 <strong id="refreshFilterCountFailed">0</strong>
                             </button>
                             <button type="button" class="refresh-filter-chip" data-status="never"
                                 onclick="setRefreshStatusFilter('never', this)">
-                                <span>{{ tr("从未刷新") }}</span>
+                                <span>{{ tr("Never refreshed") }}</span>
                                 <strong id="refreshFilterCountNever">0</strong>
                             </button>
                         </div>
                         <div class="refresh-toolbar__actions">
-                            <button class="btn btn-primary" onclick="refreshAllAccounts()" id="refreshAllBtn">{{ tr("全量刷新") }}</button>
-                            <button class="btn btn-danger" onclick="stopFullRefresh()" id="stopRefreshBtn" hidden>{{ tr("停止任务") }}</button>
-                            <button class="btn btn-warning" onclick="retryFailedAccounts()" id="retryFailedBtn">{{ tr("重试失败") }}</button>
+                            <button class="btn btn-primary" onclick="refreshAllAccounts()" id="refreshAllBtn">{{ tr("Full refresh") }}</button>
+                            <button class="btn btn-danger" onclick="stopFullRefresh()" id="stopRefreshBtn" hidden>{{ tr("Stop task") }}</button>
+                            <button class="btn btn-warning" onclick="retryFailedAccounts()" id="retryFailedBtn">{{ tr("Retry failed") }}</button>
                         </div>
                     </section>
 
                     <section class="refresh-log-panel">
                         <div class="refresh-log-panel__head">
                             <div>
-                                <span class="refresh-list-panel__title">{{ tr("任务日志") }}</span>
-                                <div class="refresh-log-panel__summary" id="refreshLogsSummary">{{ tr("暂无任务日志") }}</div>
+                                <span class="refresh-list-panel__title">{{ tr("Task log") }}</span>
+                                <div class="refresh-log-panel__summary" id="refreshLogsSummary">{{ tr("No task log yet") }}</div>
                             </div>
                         </div>
                         <div class="refresh-log-list" id="refreshLogsList">
-                            <div class="refresh-log-empty">{{ tr("暂无任务日志") }}</div>
+                            <div class="refresh-log-empty">{{ tr("No task log yet") }}</div>
                         </div>
                     </section>
 
                     <section class="refresh-list-panel">
                         <div class="refresh-list-panel__head">
                             <div class="refresh-list-panel__heading">
-                                <span class="refresh-list-panel__title">{{ tr("邮箱列表") }}</span>
-                                <span class="refresh-list-panel__meta" id="refreshListSummary">{{ tr("共 0 项") }}</span>
+                                <span class="refresh-list-panel__title">{{ tr("Email list") }}</span>
+                                <span class="refresh-list-panel__meta" id="refreshListSummary">{{ tr("0 items in total") }}</span>
                             </div>
                             <div class="refresh-list-panel__actions">
                                 <div id="refreshPaginationMount"></div>
                                 <button class="panel-action-btn refresh-selection-mode-btn" type="button" id="refreshSelectionModeBtn"
-                                    onclick="toggleRefreshSelectionMode()" title="{{ tr("批量选择") }}" aria-pressed="false">☑</button>
+                                    onclick="toggleRefreshSelectionMode()" title="{{ tr("Select multiple") }}" aria-pressed="false">☑</button>
                             </div>
                         </div>
                         <div class="refresh-batch-actions" id="refreshBatchActions">
-                            <span class="refresh-batch-actions__summary" id="refreshSelectedSummary">{{ tr("未选择账号") }}</span>
+                            <span class="refresh-batch-actions__summary" id="refreshSelectedSummary">{{ tr("No account selected") }}</span>
                             <div class="batch-action-group">
-                                <button class="batch-btn batch-btn-secondary" type="button" id="refreshSelectVisibleBtn" onclick="toggleRefreshVisibleSelection()">{{ tr("全选当前列表") }}</button>
-                                <button class="batch-btn batch-btn-secondary" type="button" id="refreshClearSelectionBtn" onclick="clearRefreshSelection()">{{ tr("清空选择") }}</button>
+                                <button class="batch-btn batch-btn-secondary" type="button" id="refreshSelectVisibleBtn" onclick="toggleRefreshVisibleSelection()">{{ tr("Select all current list") }}</button>
+                                <button class="batch-btn batch-btn-secondary" type="button" id="refreshClearSelectionBtn" onclick="clearRefreshSelection()">{{ tr("Clear selection") }}</button>
                             </div>
                             <div class="batch-action-group batch-action-group--accent">
-                                <button class="batch-btn batch-btn-primary" type="button" id="refreshSelectedBtn" onclick="refreshSelectedRefreshAccounts()">{{ tr("刷新已选") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshCopySelectedBtn" onclick="copySelectedRefreshAccountsWithAliases()">{{ tr("复制邮箱+别名") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshExportSelectedBtn" onclick="exportSelectedRefreshAccounts()">{{ tr("导出") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshEnableForwardingBtn" onclick="enableForwardingForSelectedRefreshAccounts()">{{ tr("开启转发") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshDisableForwardingBtn" onclick="disableForwardingForSelectedRefreshAccounts()">{{ tr("取消转发") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshProxyBtn" onclick="showRefreshBatchProxyModal()">{{ tr("代理") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshAddTagBtn" onclick="showRefreshBatchTagModal('add')">{{ tr("标签+") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshRemoveTagBtn" onclick="showRefreshBatchTagModal('remove')">{{ tr("标签-") }}</button>
-                                <button class="batch-btn batch-btn-accent" type="button" id="refreshMoveGroupBtn" onclick="showRefreshBatchMoveGroupModal()">{{ tr("移动") }}</button>
-                                <button class="batch-btn batch-btn-danger" type="button" id="refreshDeleteSelectedBtn" onclick="deleteSelectedRefreshAccounts()">{{ tr("删除") }}</button>
+                                <button class="batch-btn batch-btn-primary" type="button" id="refreshSelectedBtn" onclick="refreshSelectedRefreshAccounts()">{{ tr("Refresh selected") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshCopySelectedBtn" onclick="copySelectedRefreshAccountsWithAliases()">{{ tr("Copy email + alias") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshExportSelectedBtn" onclick="exportSelectedRefreshAccounts()">{{ tr("Export") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshEnableForwardingBtn" onclick="enableForwardingForSelectedRefreshAccounts()">{{ tr("Enable forwarding") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshDisableForwardingBtn" onclick="disableForwardingForSelectedRefreshAccounts()">{{ tr("Cancel forwarding") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshProxyBtn" onclick="showRefreshBatchProxyModal()">{{ tr("Agent") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshAddTagBtn" onclick="showRefreshBatchTagModal('add')">{{ tr("Tag+") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshRemoveTagBtn" onclick="showRefreshBatchTagModal('remove')">{{ tr("Tag-") }}</button>
+                                <button class="batch-btn batch-btn-accent" type="button" id="refreshMoveGroupBtn" onclick="showRefreshBatchMoveGroupModal()">{{ tr("Move") }}</button>
+                                <button class="batch-btn batch-btn-danger" type="button" id="refreshDeleteSelectedBtn" onclick="deleteSelectedRefreshAccounts()">{{ tr("Delete") }}</button>
                             </div>
                         </div>
                         <div class="refresh-account-table-wrap" id="refreshAccountList">
-                            <!-- 刷新状态列表将通过 JS 动态加载 -->
+                            <!-- Refresh status list will be loaded dynamically through JS-->
                         </div>
                     </section>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideRefreshModal()">{{ tr("关闭") }}</button>
+                <button class="btn btn-secondary" onclick="hideRefreshModal()">{{ tr("Close") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- 标签管理模态框 -->
+    <!-- Tag management modal box-->
     <div class="modal" id="tagManagementModal" onmousedown="if(event.target === this) hideTagManagementModal()">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>{{ tr("🏷️ 标签管理") }}</h3>
+                <h3>{{ tr("🏷️ Tag management") }}</h3>
                 <button class="modal-close" onclick="hideTagManagementModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">{{ tr("新建标签") }}</label>
+                    <label class="form-label">{{ tr("New label") }}</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" class="form-input" id="newTagName" placeholder="{{ tr("标签名称") }}" style="flex: 1;">
+                        <input type="text" class="form-input" id="newTagName" placeholder="{{ tr("Tag name") }}" style="flex: 1;">
                         <input type="color" class="form-control form-control-color" id="newTagColor" value="#563d7c"
-                            title="{{ tr("选择颜色") }}" style="width: 50px; padding: 0;">
-                        <button class="btn btn-primary" onclick="createTag()">{{ tr("添加") }}</button>
+                            title="{{ tr("Select color") }}" style="width: 50px; padding: 0;">
+                        <button class="btn btn-primary" onclick="createTag()">{{ tr("Add") }}</button>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">{{ tr("已有标签") }}</label>
+                    <label class="form-label">{{ tr("Already tagged") }}</label>
                     <div id="tagList"
                         style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
-                        <!-- 标签列表动态加载 -->
-                        <div style="text-align: center; color: #999; padding: 20px;">{{ tr("加载中...") }}</div>
+                        <!-- Dynamic loading of tag list-->
+                        <div style="text-align: center; color: #999; padding: 20px;">{{ tr("Loading…") }}</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 批量打标模态框 -->
+    <!-- Batch marking modal box-->
     <div class="modal" id="batchTagModal" onmousedown="if(event.target === this) hideBatchTagModal()">
         <div class="modal-content" style="width: 400px;">
             <div class="modal-header">
-                <h3 id="batchTagTitle">{{ tr("批量打标") }}</h3>
+                <h3 id="batchTagTitle">{{ tr("Batch marking") }}</h3>
                 <button class="modal-close" onclick="hideBatchTagModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">{{ tr("选择标签") }}</label>
+                    <label class="form-label">{{ tr("Select label") }}</label>
                     <select class="form-select" id="batchTagSelect">
-                        <option value="">{{ tr("请选择标签...") }}</option>
+                        <option value="">{{ tr("Please select a label...") }}</option>
                     </select>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideBatchTagModal()">{{ tr("取消") }}</button>
-                <button class="btn btn-primary" onclick="confirmBatchTag()">{{ tr("确定") }}</button>
+                <button class="btn btn-secondary" onclick="hideBatchTagModal()">{{ tr("Cancel") }}</button>
+                <button class="btn btn-primary" onclick="confirmBatchTag()">{{ tr("OK") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- 通用确认模态框 -->
+    <!-- Universal confirmation modal box-->
     <div class="modal" id="genericConfirmModal" onmousedown="if(event.target === this) hideGenericConfirmModal()">
         <div class="modal-content" style="width: 420px;">
             <div class="modal-header">
-                <h3 id="genericConfirmTitle">{{ tr("确认操作") }}</h3>
+                <h3 id="genericConfirmTitle">{{ tr("Confirm operation") }}</h3>
                 <button class="modal-close" onclick="hideGenericConfirmModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <p id="genericConfirmMsg" style="margin: 0; line-height: 1.6; white-space: pre-wrap;"></p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideGenericConfirmModal()">{{ tr("取消") }}</button>
-                <button class="btn btn-danger" id="genericConfirmBtn" onclick="resolveGenericConfirm()">{{ tr("确认") }}</button>
+                <button class="btn btn-secondary" onclick="hideGenericConfirmModal()">{{ tr("Cancel") }}</button>
+                <button class="btn btn-danger" id="genericConfirmBtn" onclick="resolveGenericConfirm()">{{ tr("Confirm") }}</button>
             </div>
         </div>
     </div>
-    <!-- 批量移动分组模态框 -->
+    <!-- Batch move group modal boxes-->
     <div class="modal" id="batchMoveGroupModal" onmousedown="if(event.target === this) hideBatchMoveGroupModal()">
         <div class="modal-content" style="width: 400px;">
             <div class="modal-header">
-                <h3>{{ tr("移动到分组") }}</h3>
+                <h3>{{ tr("Move to group") }}</h3>
                 <button class="modal-close" onclick="hideBatchMoveGroupModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">{{ tr("选择目标分组") }}</label>
+                    <label class="form-label">{{ tr("Select target group") }}</label>
                     <select class="form-select" id="batchMoveGroupSelect">
-                        <option value="">{{ tr("请选择分组...") }}</option>
+                        <option value="">{{ tr("Please select a group...") }}</option>
                     </select>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideBatchMoveGroupModal()">{{ tr("取消") }}</button>
-                <button class="btn btn-primary" onclick="confirmBatchMoveGroup()">{{ tr("确认移动") }}</button>
+                <button class="btn btn-secondary" onclick="hideBatchMoveGroupModal()">{{ tr("Cancel") }}</button>
+                <button class="btn btn-primary" onclick="confirmBatchMoveGroup()">{{ tr("Confirm move") }}</button>
             </div>
         </div>
     </div>
-    <!-- 批量代理设置模态框 -->
+    <!-- Batch agent setting modal box-->
     <div class="modal" id="batchProxyModal" onmousedown="if(event.target === this) hideBatchProxyModal()">
         <div class="modal-content" style="width: 460px;">
             <div class="modal-header">
-                <h3>{{ tr("设置账号代理") }}</h3>
+                <h3>{{ tr("Set up account proxy") }}</h3>
                 <button class="modal-close" onclick="hideBatchProxyModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">{{ tr("账号代理") }}</label>
+                    <label class="form-label">{{ tr("Account agent") }}</label>
                     <input type="text" class="form-input" id="batchProxyUrl"
-                        placeholder="{{ tr("socks5://host:port、http://host:port 或 direct") }}">
-                    <div class="form-hint">{{ tr("应用到已勾选账号；留空并提交会清空账号级代理，改为继承分组代理。支持") }} <code>{mail}</code> {{ tr("占位符。建议优先使用") }} <code>socks5h://</code>{{ tr("：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。") }}</div>
+                        placeholder="{{ tr("socks5://host:port, http://host:port or direct") }}">
+                    <div class="form-hint">{{ tr("Apply to selected accounts; leaving it blank and submitting will clear the account-level agent and inherit the group agent instead. support") }} <code>{mail}</code> {{ tr("Placeholder. It is recommended to use it first") }} <code>socks5h://</code>{{ tr(": IMAP token request only supports HTTPS CONNECT / SOCKS5 proxy, ordinary HTTP proxy is not available.") }}</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">{{ tr("回退代理 1") }}</label>
+                    <label class="form-label">{{ tr("Fallback proxy 1") }}</label>
                     <input type="text" class="form-input" id="batchFallbackProxyUrl1"
-                        placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
+                        placeholder="{{ tr("http://host:port、socks5://host:port or direct") }}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">{{ tr("回退代理 2") }}</label>
+                    <label class="form-label">{{ tr("Fallback proxy 2") }}</label>
                     <input type="text" class="form-input" id="batchFallbackProxyUrl2"
-                        placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
-                    <div class="form-hint">{{ tr("填写") }} <code>direct</code> {{ tr("或") }} <code>{{ tr("直连") }}</code> {{ tr("可显式直连。") }}</div>
+                        placeholder="{{ tr("http://host:port、socks5://host:port or direct") }}">
+                    <div class="form-hint">{{ tr("Fill in") }} <code>direct</code> {{ tr("or") }} <code>{{ tr("direct") }}</code> {{ tr("Explicit direct connection is available.") }}</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideBatchProxyModal()">{{ tr("取消") }}</button>
-                <button class="btn btn-primary" onclick="confirmBatchProxy()">{{ tr("确认设置") }}</button>
+                <button class="btn btn-secondary" onclick="hideBatchProxyModal()">{{ tr("Cancel") }}</button>
+                <button class="btn btn-primary" onclick="confirmBatchProxy()">{{ tr("Confirm settings") }}</button>
             </div>
         </div>
     </div>
-    <!-- Error 详情模态框 -->
+    <!-- Error details modal box-->
     <div class="modal" id="errorDetailModal" onmousedown="if(event.target === this) hideErrorDetailModal()">
         <div class="modal-content" style="width: 700px; max-width: 90vw;">
             <div class="modal-header" style="background-color: #fef0f0; border-bottom-color: #dc3545;">
-                <h3 style="color: #dc3545;">{{ tr("❌ 错误详情") }}</h3>
+                <h3 style="color: #dc3545;">{{ tr("❌ Error details") }}</h3>
                 <button class="modal-close" onclick="hideErrorDetailModal()">&times;</button>
             </div>
             <div class="modal-body" style="padding-top: 16px;">
-                <div style="font-size: 14px; color: #dc3545; font-weight: 600; margin-bottom: 8px;">{{ tr("错误信息 (用户友好)") }}</div>
+                <div style="font-size: 14px; color: #dc3545; font-weight: 600; margin-bottom: 8px;">{{ tr("Error messages (user friendly)") }}</div>
                 <div class="error-message-box" id="errorModalUserMessage"
                     style="background-color: #fff0f0; border: 1px solid #dc3545; color: #333; font-weight: 500;"></div>
 
                 <div style="margin-top: 20px;">
                     <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 8px;">
-                        {{ tr("技术详情") }}
+                        {{ tr("Technical details") }}
                         <button class="btn btn-sm btn-secondary" id="toggleTraceBtn" onclick="toggleStackTrace()"
                             style="margin-left: 10px;">
-                            {{ tr("显示堆栈/细节") }}
+                            {{ tr("Show stack/details") }}
                         </button>
                         <button class="btn btn-sm btn-secondary" onclick="copyErrorDetails()" style="margin-left: 8px;">
-                            {{ tr("📋 复制全部") }}
+                            {{ tr("📋 Copy all") }}
                         </button>
                     </div>
 
@@ -1024,7 +1024,7 @@
                 </div>
 
                 <div style="margin-top: 20px;">
-                    <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 8px;">{{ tr("错误代码/类型") }}</div>
+                    <div style="font-size: 14px; color: #333; font-weight: 600; margin-bottom: 8px;">{{ tr("Error code/type") }}</div>
                     <div style="display: flex; gap: 16px; font-size: 13px; color: #666;">
                         <div><strong>{{ tr("Code:") }}</strong> <span id="errorModalCode"></span></div>
                         <div><strong>{{ tr("Type:") }}</strong> <span id="errorModalType"></span></div>
@@ -1034,33 +1034,33 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideErrorDetailModal()">{{ tr("关闭") }}</button>
+                <button class="btn btn-secondary" onclick="hideErrorDetailModal()">{{ tr("Close") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- 邮件获取失败详情模态框 -->
+    <!-- Email retrieval failure details modal box-->
     <div class="modal" id="emailFetchErrorModal" onmousedown="if(event.target === this) hideEmailFetchErrorModal()">
         <div class="modal-content" style="width: 700px; max-width: 90vw;">
             <div class="modal-header" style="background-color: #fef0f0; border-bottom-color: #dc3545;">
-                <h3 style="color: #dc3545;">{{ tr("❌ 获取邮件失败") }}</h3>
+                <h3 style="color: #dc3545;">{{ tr("❌ Failed to obtain email") }}</h3>
                 <button class="modal-close" onclick="hideEmailFetchErrorModal()">&times;</button>
             </div>
             <div class="modal-body" style="padding-top: 16px;">
-                <div id="emailFetchErrorSummary" style="color: #666; margin-bottom: 16px;">{{ tr("获取邮件失败，以下是详细错误信息：") }}</div>
+                <div id="emailFetchErrorSummary" style="color: #666; margin-bottom: 16px;">{{ tr("Failed to obtain email, the following is the detailed error message:") }}</div>
                 <div id="emailFetchErrorContent"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideEmailFetchErrorModal()">{{ tr("关闭") }}</button>
+                <button class="btn btn-secondary" onclick="hideEmailFetchErrorModal()">{{ tr("Close") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- 刷新失败提示模态框 -->
+    <!-- Refresh failure prompt modal box-->
     <div class="modal" id="refreshErrorModal" onmousedown="if(event.target === this) hideRefreshErrorModal()">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>{{ tr("⚠️ 刷新失败") }}</h3>
+                <h3>{{ tr("⚠️ Refresh failed") }}</h3>
                 <button class="modal-close" onclick="hideRefreshErrorModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -1070,18 +1070,18 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">{{ tr("💡 解决建议") }}</label>
+                    <label class="form-label">{{ tr("💡 Solution suggestions") }}</label>
                     <ul class="solution-list">
-                        <li>{{ tr("检查账号信息中的") }} <strong>Client ID</strong> {{ tr("和") }} <strong>Refresh Token</strong> {{ tr("是否填写正确且没有多余的空格。") }}</li>
-                        <li>{{ tr("尝试使用\"获取 Refresh Token\"功能，重新为该账号生成一个新的 Token。") }}</li>
-                        <li>{{ tr("检查账号是否在 Microsoft 365 管理中心被禁用或相关权限是否被撤销。") }}</li>
+                        <li>{{ tr("Check account information for") }} <strong>Client ID</strong> {{ tr("and") }} <strong>Refresh Token</strong> {{ tr("Whether it is filled in correctly and there are no extra spaces.") }}</li>
+                        <li>{{ tr("Try to use the \"Get Refresh Token\" function to regenerate a new Token for this account.") }}</li>
+                        <li>{{ tr("Check whether the account has been disabled in the Microsoft 365 admin center or whether related permissions have been revoked.") }}</li>
                     </ul>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideRefreshErrorModal()">{{ tr("关闭") }}</button>
-                <button class="btn btn-secondary" id="reauthorizeAccountFromErrorBtn">{{ tr("重新授权并刷新") }}</button>
-                <button class="btn btn-primary" id="editAccountFromErrorBtn">{{ tr("编辑账号") }}</button>
+                <button class="btn btn-secondary" onclick="hideRefreshErrorModal()">{{ tr("Close") }}</button>
+                <button class="btn btn-secondary" id="reauthorizeAccountFromErrorBtn">{{ tr("Reauthorize and refresh") }}</button>
+                <button class="btn btn-primary" id="editAccountFromErrorBtn">{{ tr("Edit account") }}</button>
             </div>
         </div>
     </div>
@@ -1089,119 +1089,119 @@
     <div class="modal" id="accountForwardingLogsModal" onmousedown="if(event.target === this) hideAccountForwardingLogs()">
         <div class="modal-content" style="width: 760px; max-width: 92vw;">
             <div class="modal-header">
-                <h3 id="accountForwardingLogsTitle">{{ tr("转发日志") }}</h3>
+                <h3 id="accountForwardingLogsTitle">{{ tr("Forward log") }}</h3>
                 <button class="modal-close" onclick="hideAccountForwardingLogs()">&times;</button>
             </div>
             <div class="modal-body">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc;">
                     <div style="min-width: 0; flex: 1;">
-                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">{{ tr("当前转发游标") }}</div>
-                        <div id="accountForwardingCursorValue" style="font-size: 13px; color: #111827; font-weight: 600;">{{ tr("加载中...") }}</div>
-                        <div id="accountForwardingCursorHint" style="font-size: 12px; color: #64748b; margin-top: 6px;">{{ tr("回退游标后，会按当前转发时间范围重新扫描最近邮件；已成功转发过的邮件仍会被去重。") }}</div>
+                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">{{ tr("Current forwarding cursor") }}</div>
+                        <div id="accountForwardingCursorValue" style="font-size: 13px; color: #111827; font-weight: 600;">{{ tr("Loading…") }}</div>
+                        <div id="accountForwardingCursorHint" style="font-size: 12px; color: #64748b; margin-top: 6px;">{{ tr("After rolling back the cursor, the most recent emails will be rescanned according to the current forwarding time range; emails that have been successfully forwarded will still be deduplicated.") }}</div>
                     </div>
-                    <button class="btn btn-secondary" type="button" id="resetAccountForwardingCursorBtn" onclick="resetAccountForwardCursor()">{{ tr("回退游标并重扫") }}</button>
+                    <button class="btn btn-secondary" type="button" id="resetAccountForwardingCursorBtn" onclick="resetAccountForwardCursor()">{{ tr("Roll back the cursor and scan again") }}</button>
                 </div>
                 <label style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer; font-size: 13px; color: #666;">
                     <input type="checkbox" id="accountForwardingLogsFailedOnly" onchange="toggleAccountForwardingLogFilter()">
-                    <span>{{ tr("只看失败") }}</span>
+                    <span>{{ tr("Only look at failures") }}</span>
                 </label>
                 <div id="accountForwardingLogsList" style="max-height: 420px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; background-color: white;">
-                    <div style="padding: 20px; text-align: center; color: #666;">{{ tr("加载中...") }}</div>
+                    <div style="padding: 20px; text-align: center; color: #666;">{{ tr("Loading…") }}</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideAccountForwardingLogs()">{{ tr("关闭") }}</button>
+                <button class="btn btn-secondary" onclick="hideAccountForwardingLogs()">{{ tr("Close") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- 新版本提示模态框 -->
+    <!-- New version prompt modal box-->
     <div class="modal" id="releaseNoticeModal"
         onmousedown="if(event.target === this) dismissReleaseNotice()">
         <div class="modal-content release-notice-modal-content">
             <div class="modal-header">
                 <div>
-                    <div class="release-notice-eyebrow">{{ tr("版本更新") }}</div>
-                    <h3>{{ tr("发现新版本") }}</h3>
+                    <div class="release-notice-eyebrow">{{ tr("Version update") }}</div>
+                    <h3>{{ tr("New version found") }}</h3>
                 </div>
                 <button class="modal-close" onclick="dismissReleaseNotice()">&times;</button>
             </div>
             <div class="modal-body release-notice-body">
-                <div class="release-notice-version" id="releaseNoticeVersionSummary">{{ tr("当前版本：v") }}{{ app_version }}</div>
+                <div class="release-notice-version" id="releaseNoticeVersionSummary">{{ tr("Current version: v") }}{{ app_version }}</div>
                 <div class="release-notice-list" id="releaseNoticeNotesList">
                     <div class="release-notice-card release-notice-entry" id="releaseNoticeNotesCard">
                         <div class="release-notice-entry-header">
-                            <div class="release-notice-card-title" id="releaseNoticeNotesTitle">{{ tr("更新内容") }}</div>
-                            <span class="release-notice-badge">{{ tr("最新") }}</span>
+                            <div class="release-notice-card-title" id="releaseNoticeNotesTitle">{{ tr("Update content") }}</div>
+                            <span class="release-notice-badge">{{ tr("Latest") }}</span>
                         </div>
                         <ul>
-                            <li>{{ tr("暂时无法获取更新内容，可查看完整更新日志。") }}</li>
+                            <li>{{ tr("The update content is temporarily unavailable, please view the complete update log.") }}</li>
                         </ul>
                     </div>
                 </div>
                 <div class="release-notice-hint" id="releaseNoticeHint">
-                    {{ tr("此提示每个新版本只会显示一次。") }}
+                    {{ tr("This prompt will only appear once per new version.") }}
                 </div>
                 <div class="release-notice-hint" id="releaseNoticeDockerHint" hidden>
-                    {{ tr("仅 Docker 版本支持在线更新，请参考") }}
-                    <a href="https://github.com/kol2000/outlookEmail#readme" target="_blank" rel="noreferrer">{{ tr("README 中的「启用界面 Docker 在线更新」") }}</a>
-                    {{ tr("进行设置。") }}
+                    {{ tr("Only Docker version supports online update, please refer to") }}
+                    <a href="https://github.com/kol2000/outlookEmail#readme" target="_blank" rel="noreferrer">{{ tr("\"Enable interface Docker online update\" in README") }}</a>
+                    {{ tr("to make settings.") }}
                 </div>
             </div>
             <div class="modal-footer">
-                <a class="btn btn-secondary" id="releaseNoticeChangelogLink" href="{{ changelog_url }}" target="_blank" rel="noreferrer">{{ tr("查看更新日志") }}</a>
-                <a class="btn btn-primary" id="releaseNoticeUpdateLink" href="{{ changelog_url }}" target="_blank" rel="noreferrer" onclick="markCurrentReleaseNoticeSeen()">{{ tr("前往下载") }}</a>
+                <a class="btn btn-secondary" id="releaseNoticeChangelogLink" href="{{ changelog_url }}" target="_blank" rel="noreferrer">{{ tr("View update log") }}</a>
+                <a class="btn btn-primary" id="releaseNoticeUpdateLink" href="{{ changelog_url }}" target="_blank" rel="noreferrer" onclick="markCurrentReleaseNoticeSeen()">{{ tr("Go to download") }}</a>
                 <button class="btn btn-primary" id="releaseNoticeDockerUpdateBtn" type="button"
-                    data-default-label="{{ tr('Docker 在线更新') }}" data-unavailable-label="{{ tr('不可在线更新') }}"
-                    onclick="startDockerUpdate()" hidden>{{ tr("Docker 在线更新") }}</button>
-                <button class="btn btn-secondary" type="button" onclick="dismissReleaseNotice()">{{ tr("我知道了") }}</button>
+                    data-default-label="{{ tr("Docker online update") }}" data-unavailable-label="{{ tr("Cannot be updated online") }}"
+                    onclick="startDockerUpdate()" hidden>{{ tr("Docker online update") }}</button>
+                <button class="btn btn-secondary" type="button" onclick="dismissReleaseNotice()">{{ tr("I understand") }}</button>
             </div>
         </div>
     </div>
 
-    <!-- Outlook 上传账号模态框 -->
+    <!-- Outlook upload account modal box-->
     <div class="modal" id="outlookUploadAccountsModal" onmousedown="if(event.target === this) hideOutlookUploadAccountsModal()">
         <div class="modal-content" style="width: min(1740px, 96vw);">
             <div class="modal-header">
-                <h3>{{ tr("Outlook邮箱授权") }}</h3>
+                <h3>{{ tr("Outlook email authorization") }}</h3>
                 <button class="modal-close" onclick="hideOutlookUploadAccountsModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="upload-accounts-guide">
                     <details class="upload-accounts-guide__details">
                         <summary class="upload-accounts-guide__summary">
-                            {{ tr("找不到批量导入？四种添加 / 授权方式说明（入口与区别）") }}
+                            {{ tr("Can't find batch import? Description of four addition/authorization methods (entry and difference)") }}
                         </summary>
                         <div class="upload-accounts-guide__body">
                             <div class="upload-accounts-guide__items">
                                 <div class="upload-accounts-guide__item upload-accounts-guide__item--current">
-                                    <div class="upload-accounts-guide__item-title">{{ tr("① 当前页：Outlook邮箱授权") }}</div>
-                                    <div class="upload-accounts-guide__item-entry">{{ tr("入口：顶部导航「Outlook 邮箱」图标 / 移动端「Outlook 邮箱」按钮") }}</div>
-                                    <div class="upload-accounts-guide__item-desc">{{ tr("只填邮箱+密码，由系统自动化登录微软完成授权（默认 GraphAPI，也可选手动切到 IMAP 授权）。适合没有现成 refresh_token、想自动授权的场景；授权成功后会写入邮箱列表。但是由于微软风控等原因，实际上很多账号导入进来就是自动授权不了的，这种情况用同一个IP先登录成功一次，后续应该就能自动授权了") }}</div>
+                                    <div class="upload-accounts-guide__item-title">{{ tr("① Current page: Outlook email authorization") }}</div>
+                                    <div class="upload-accounts-guide__item-entry">{{ tr("Entrance: Top navigation \"Outlook Mailbox\" icon / mobile terminal \"Outlook Mailbox\" button") }}</div>
+                                    <div class="upload-accounts-guide__item-desc">{{ tr("Just fill in your email address and password, and the system will automatically log in to Microsoft to complete the authorization (GraphAPI is the default, you can also choose to manually switch to IMAP authorization). Suitable for scenarios where there is no ready-made refresh_token and automatic authorization is desired; after successful authorization, it will be written to the mailbox list. However, due to Microsoft risk control and other reasons, many accounts cannot be automatically authorized after they are imported. In this case, you can log in successfully once with the same IP, and then you should be able to automatically authorize them later.") }}</div>
                                 </div>
                                 <div class="upload-accounts-guide__item">
-                                    <div class="upload-accounts-guide__item-title">{{ tr("② 批量导入邮箱") }}</div>
-                                    <div class="upload-accounts-guide__item-entry">{{ tr("入口：邮箱列表面板顶部「+」按钮（导入邮箱账号）") }}</div>
-                                    <div class="upload-accounts-guide__item-desc">{{ tr("已有 token 文本时按行批量入库。Outlook 格式：`邮箱----密码----client_id----refresh_token`（也支持后两列对调）。不负责向微软发起新授权。") }}</div>
+                                    <div class="upload-accounts-guide__item-title">{{ tr("② Import mailboxes in batches") }}</div>
+                                    <div class="upload-accounts-guide__item-entry">{{ tr("Entrance: \"+\" button at the top of the email list panel (import email account)") }}</div>
+                                    <div class="upload-accounts-guide__item-desc">{{ tr("When token text already exists, it is stored in batches by rows. Outlook format: `Email----Password----client_id----refresh_token` (Swapping of the last two columns is also supported). is not responsible for initiating new authorizations from Microsoft.") }}</div>
                                 </div>
                                 <div class="upload-accounts-guide__item">
-                                    <div class="upload-accounts-guide__item-title">{{ tr("③ 🔑 授权并保存 Outlook 账号") }}</div>
-                                    <div class="upload-accounts-guide__item-entry">{{ tr("入口：邮箱列表面板顶部「链接」图标按钮") }}</div>
-                                    <div class="upload-accounts-guide__item-desc">{{ tr("手动打开微软授权页、粘贴回调 URL，换取 Token 后保存") }}<strong>{{ tr("单个新账号") }}</strong>{{ tr("。适合手动给一个新号授权入库。") }}</div>
+                                    <div class="upload-accounts-guide__item-title">{{ tr("③ 🔑 Authorize and save Outlook account") }}</div>
+                                    <div class="upload-accounts-guide__item-entry">{{ tr("Entrance: \"Link\" icon button at the top of the mailbox list panel") }}</div>
+                                    <div class="upload-accounts-guide__item-desc">{{ tr("Manually open the Microsoft authorization page, paste the callback URL, exchange for Token and save") }}<strong>{{ tr("Single new account") }}</strong>{{ tr(". It is suitable to manually authorize a new account to be entered into the database.") }}</div>
                                 </div>
                                 <div class="upload-accounts-guide__item">
-                                    <div class="upload-accounts-guide__item-title">{{ tr("④ 重新授权并刷新") }}</div>
-                                    <div class="upload-accounts-guide__item-entry">{{ tr("入口：编辑账号弹窗「重新授权并刷新」，或刷新失败提示中的同名按钮") }}</div>
-                                    <div class="upload-accounts-guide__item-desc">{{ tr("针对") }}<strong>{{ tr("已入库") }}</strong>{{ tr("且 Token 失效的 Outlook 账号：重新授权并更新该账号，随后自动做一次刷新验证。不会新建账号。") }}</div>
+                                    <div class="upload-accounts-guide__item-title">{{ tr("④ Reauthorize and refresh") }}</div>
+                                    <div class="upload-accounts-guide__item-entry">{{ tr("Entrance: Edit account pop-up window \"Reauthorize and refresh\", or the button of the same name in the refresh failure prompt") }}</div>
+                                    <div class="upload-accounts-guide__item-desc">{{ tr("for") }}<strong>{{ tr("Already stored") }}</strong>{{ tr("Outlook account with expired Token: Reauthorize and update the account, and then automatically perform a refresh verification. No new account will be created.") }}</div>
                                 </div>
                             </div>
                             <div class="upload-accounts-guide__compare">
-                                <strong>{{ tr("怎么选：") }}</strong>
-                                {{ tr("已有 token 文本 → ②批量导入；\n                                手动给新号授权入库 → ③🔑授权并保存；\n                                已入库账号 token 挂了 → ④重新授权并刷新；\n                                只有邮箱密码、想自动化授权 → ①当前页。") }}
+                                <strong>{{ tr("How to choose:") }}</strong>
+                                {{ tr("Already have token text → ②Batch import; \n manually authorizes the new account to be entered into the database → ③🔑Authorize and save; \n has entered the database account token and the token has died → ④Reauthorize and refresh; \n only has an email password and wants to authorize automatically → ①Current page.") }}
                             </div>
                             <div class="upload-accounts-guide__actions">
-                                <button type="button" class="btn btn-secondary" onclick="openBatchImportFromUploadGuide()">{{ tr("打开批量导入邮箱") }}</button>
-                                <button type="button" class="btn btn-secondary" onclick="openOauthSaveFromUploadGuide()">{{ tr("打开 🔑 授权并保存") }}</button>
+                                <button type="button" class="btn btn-secondary" onclick="openBatchImportFromUploadGuide()">{{ tr("Open batch import of mailboxes") }}</button>
+                                <button type="button" class="btn btn-secondary" onclick="openOauthSaveFromUploadGuide()">{{ tr("Open 🔑 Authorize and save") }}</button>
                             </div>
                         </div>
                     </details>
@@ -1210,7 +1210,7 @@
                     <div class="upload-accounts-main">
                         <div class="upload-accounts-add-panel">
                             <div class="upload-accounts-add-panel__header" onclick="toggleAddAccountPanel()">
-                                <span class="upload-accounts-add-panel__title">{{ tr("添加新账号") }}</span>
+                                <span class="upload-accounts-add-panel__title">{{ tr("Add new account") }}</span>
                                 <button class="upload-accounts-add-panel__toggle" type="button" id="toggleAddPanelBtn">
                                     <span id="toggleAddPanelIcon">▶</span>
                                 </button>
@@ -1218,84 +1218,84 @@
                             <div class="upload-accounts-add-panel__form is-collapsed" id="addAccountFormContainer">
                                 <div class="upload-accounts-add-form">
                                     <div class="add-form-field add-form-field--email">
-                                        <label class="add-form-label">{{ tr("邮箱前缀") }}</label>
+                                        <label class="add-form-label">{{ tr("Email prefix") }}</label>
                                         <input type="text" id="addUploadAccountEmailPrefix" class="form-input add-form-input"
                                             placeholder="abcd1234" autocomplete="off">
                                     </div>
                                     <div class="add-form-field add-form-field--domain">
-                                        <label class="add-form-label">{{ tr("域名") }}</label>
+                                        <label class="add-form-label">{{ tr("Domain name") }}</label>
                                         <select id="addUploadAccountEmailDomain" class="form-input add-form-input">
                                             <option value="@outlook.com" selected>@outlook.com</option>
                                             <option value="@hotmail.com">@hotmail.com</option>
                                         </select>
                                     </div>
                                     <div class="add-form-field add-form-field--password">
-                                        <label class="add-form-label">{{ tr("密码") }}</label>
+                                        <label class="add-form-label">{{ tr("Password") }}</label>
                                         <input type="password" id="addUploadAccountPassword" class="form-input add-form-input"
-                                            placeholder="{{ tr("密码") }}" autocomplete="off">
+                                            placeholder="{{ tr("Password") }}" autocomplete="off">
                                     </div>
                                     <div class="add-form-field add-form-field--remark">
-                                        <label class="add-form-label">{{ tr("备注") }}</label>
+                                        <label class="add-form-label">{{ tr("Notes") }}</label>
                                         <input type="text" id="addUploadAccountRemark" class="form-input add-form-input"
-                                            placeholder="{{ tr("可选") }}" autocomplete="off">
+                                            placeholder="{{ tr("Optional") }}" autocomplete="off">
                                     </div>
                                     <div class="add-form-field add-form-field--group">
-                                        <label class="add-form-label">{{ tr("分组") }}</label>
+                                        <label class="add-form-label">{{ tr("Groups") }}</label>
                                         <select id="addUploadAccountGroupSelect" class="form-input add-form-input"></select>
                                     </div>
                                     <div class="add-form-field add-form-field--tags">
-                                        <label class="add-form-label">{{ tr("标签") }}</label>
+                                        <label class="add-form-label">{{ tr("Tags") }}</label>
                                         <div class="tag-filter-dropdown" id="addUploadAccountTagDropdown">
                                             <button class="tag-filter-trigger" type="button" onclick="toggleAddUploadAccountTagDropdown(event)">
-                                                <span class="tag-filter-trigger-text" id="addUploadAccountTagTriggerText">{{ tr("未选择标签") }}</span>
+                                                <span class="tag-filter-trigger-text" id="addUploadAccountTagTriggerText">{{ tr("No tag selected") }}</span>
                                                 <span class="tag-filter-trigger-count" id="addUploadAccountTagTriggerCount" style="display: none;"></span>
                                                 <span class="tag-filter-trigger-caret">▾</span>
                                             </button>
                                             <div class="tag-filter-panel">
                                                 <div class="tag-filter-panel-header">
                                                     <input type="text" id="addUploadAccountTagSearchInput" class="tag-filter-search-input"
-                                                        placeholder="{{ tr("搜索标签...") }}" oninput="filterAddUploadAccountTagOptions(this.value)">
-                                                    <button class="tag-filter-clear-btn" type="button" onclick="clearAddUploadAccountTagSelection(event)">{{ tr("清空") }}</button>
+                                                        placeholder="{{ tr("Search tags...") }}" oninput="filterAddUploadAccountTagOptions(this.value)">
+                                                    <button class="tag-filter-clear-btn" type="button" onclick="clearAddUploadAccountTagSelection(event)">{{ tr("Clear") }}</button>
                                                 </div>
                                                 <div class="tag-filter-options" id="addUploadAccountTagOptions"></div>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="add-form-field add-form-field--proxy">
-                                        <label class="add-form-label">{{ tr("账号代理") }}</label>
+                                        <label class="add-form-label">{{ tr("Account agent") }}</label>
                                         <input type="text" id="addUploadAccountProxyUrl" class="form-input add-form-input"
-                                            placeholder="{{ tr("可选，如 socks5://user:pass@host:port") }}" autocomplete="off">
+                                            placeholder="{{ tr("Optional, such as socks5://user:pass@host:port") }}" autocomplete="off">
                                     </div>
                                     <div class="add-form-field add-form-field--action">
-                                        <button class="btn btn-primary add-form-submit" type="button" id="submitAddUploadAccountBtn" onclick="submitAddUploadAccount()">{{ tr("立即添加") }}</button>
+                                        <button class="btn btn-primary add-form-submit" type="button" id="submitAddUploadAccountBtn" onclick="submitAddUploadAccount()">{{ tr("Add now") }}</button>
                                     </div>
                                 </div>
                                 <div class="form-hint" style="margin-top: 8px;">
-                                    {{ tr("分组 / 标签 / 账号代理会在") }}<strong>{{ tr("首次授权成功并新建正式账号") }}</strong>{{ tr("时写入；若正式账号已存在则仅更新授权信息，保留原分组/标签/代理。账号代理支持") }} <code>{mail}</code> {{ tr("占位符，自动授权时也会按该邮箱展开并走代理。建议优先使用") }} <code>socks5h://</code>{{ tr("：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。") }}
+                                    {{ tr("Group/Tag/Account Agent will be in") }}<strong>{{ tr("The first authorization is successful and a new official account is created.") }}</strong>{{ tr("When writing; if the official account already exists, only the authorization information will be updated and the original group/label/agent will be retained. Account agent support") }} <code>{mail}</code> {{ tr("Placeholder. During automatic authorization, it will also be expanded according to the email address and the agent will be used. It is recommended to use it first") }} <code>socks5h://</code>{{ tr(": IMAP token request only supports HTTPS CONNECT / SOCKS5 proxy, ordinary HTTP proxy is not available.") }}
                                 </div>
                             </div>
                         </div>
                         <div class="upload-accounts-toolbar">
                             <input type="text" id="uploadAccountsSearch" class="form-input upload-accounts-search"
-                                placeholder="{{ tr("搜索邮箱 / 备注") }}" autocomplete="off"
+                                placeholder="{{ tr("Search email/notes") }}" autocomplete="off"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();searchUploadAccounts();}">
                             <select id="uploadAccountsAuthStatusFilter" class="form-input upload-accounts-toolbar__select"
-                                aria-label="{{ tr("授权状态") }}" onchange="handleUploadAccountsAuthStatusChange(this.value)">
-                                <option value="all">{{ tr("全部") }}</option>
-                                <option value="unauthorized">{{ tr("未授权") }}</option>
-                                <option value="authorized">{{ tr("已授权") }}</option>
+                                aria-label="{{ tr("Authorization status") }}" onchange="handleUploadAccountsAuthStatusChange(this.value)">
+                                <option value="all">{{ tr("All") }}</option>
+                                <option value="unauthorized">{{ tr("Unauthorized") }}</option>
+                                <option value="authorized">{{ tr("Authorized") }}</option>
                             </select>
-                            <button class="btn btn-secondary" type="button" onclick="searchUploadAccounts()">{{ tr("搜索") }}</button>
-                            <button class="btn btn-secondary" type="button" onclick="reloadUploadAccounts()">{{ tr("刷新") }}</button>
+                            <button class="btn btn-secondary" type="button" onclick="searchUploadAccounts()">{{ tr("Search") }}</button>
+                            <button class="btn btn-secondary" type="button" onclick="reloadUploadAccounts()">{{ tr("Refresh") }}</button>
                         </div>
                         <div class="upload-accounts-batch-bar" id="uploadAccountsBatchBar" style="display: none;">
-                            <span class="upload-accounts-batch-bar__summary" id="uploadAccountsSelectedSummary">{{ tr("已选 0 项") }}</span>
+                            <span class="upload-accounts-batch-bar__summary" id="uploadAccountsSelectedSummary">{{ tr("0 items selected") }}</span>
                             <div class="upload-accounts-batch-bar__actions">
-                                <button class="btn btn-secondary btn-sm" type="button" onclick="toggleSelectVisibleUploadAccounts()">{{ tr("全选当前页") }}</button>
-                                <button class="btn btn-secondary btn-sm" type="button" onclick="clearUploadAccountSelection()">{{ tr("清空") }}</button>
-                                <button class="btn btn-primary btn-sm" type="button" id="batchAuthorizeUploadAccountsBtn" onclick="authorizeSelectedUploadAccounts()">{{ tr("批量授权") }}</button>
-                                <button class="btn btn-danger btn-sm" type="button" id="batchDeleteUploadAccountsBtn" onclick="deleteSelectedUploadAccounts()">{{ tr("批量删除") }}</button>
-                                <button class="btn btn-secondary btn-sm" type="button" id="batchExportUploadAccountsBtn" onclick="exportSelectedUploadAccounts()">{{ tr("批量导出") }}</button>
+                                <button class="btn btn-secondary btn-sm" type="button" onclick="toggleSelectVisibleUploadAccounts()">{{ tr("Select all current page") }}</button>
+                                <button class="btn btn-secondary btn-sm" type="button" onclick="clearUploadAccountSelection()">{{ tr("Clear") }}</button>
+                                <button class="btn btn-primary btn-sm" type="button" id="batchAuthorizeUploadAccountsBtn" onclick="authorizeSelectedUploadAccounts()">{{ tr("Bulk authorization") }}</button>
+                                <button class="btn btn-danger btn-sm" type="button" id="batchDeleteUploadAccountsBtn" onclick="deleteSelectedUploadAccounts()">{{ tr("Batch deletion") }}</button>
+                                <button class="btn btn-secondary btn-sm" type="button" id="batchExportUploadAccountsBtn" onclick="exportSelectedUploadAccounts()">{{ tr("Batch export") }}</button>
                             </div>
                         </div>
                         <div class="upload-accounts-table-wrap">
@@ -1304,65 +1304,65 @@
                                     <tr>
                                         <th style="width: 42px; min-width: 42px;">
                                             <input type="checkbox" id="uploadAccountsSelectAllVisible"
-                                                title="{{ tr("全选当前页") }}" aria-label="{{ tr("全选当前页") }}"
+                                                title="{{ tr("Select all current page") }}" aria-label="{{ tr("Select all current page") }}"
                                                 onchange="toggleSelectVisibleUploadAccounts(this.checked)">
                                         </th>
-                                        <th style="width: 200px; min-width: 160px;">{{ tr("邮箱") }}</th>
-                                        <th style="width: 160px; min-width: 100px;">{{ tr("密码") }}</th>
-                                        <th style="width: 72px; min-width: 72px;">{{ tr("授权") }}</th>
-                                        <th style="width: 160px; min-width: 100px;">{{ tr("标签") }}</th>
-                                        <th style="width: 160px; min-width: 160px;">{{ tr("账号代理") }}</th>
-                                        <th style="width: 80px; min-width: 80px;">{{ tr("备注") }}</th>
-                                        <th style="width: 130px; min-width: 120px;">{{ tr("创建时间") }}</th>
-                                        <th style="width: 210px; min-width: 210px;">{{ tr("操作") }}</th>
+                                        <th style="width: 200px; min-width: 160px;">{{ tr("Mailboxes") }}</th>
+                                        <th style="width: 160px; min-width: 100px;">{{ tr("Password") }}</th>
+                                        <th style="width: 72px; min-width: 72px;">{{ tr("Authorize") }}</th>
+                                        <th style="width: 160px; min-width: 100px;">{{ tr("Tags") }}</th>
+                                        <th style="width: 160px; min-width: 160px;">{{ tr("Account agent") }}</th>
+                                        <th style="width: 80px; min-width: 80px;">{{ tr("Notes") }}</th>
+                                        <th style="width: 130px; min-width: 120px;">{{ tr("Creation time") }}</th>
+                                        <th style="width: 210px; min-width: 210px;">{{ tr("Operation") }}</th>
                                     </tr>
                                 </thead>
                                 <tbody id="uploadAccountsTableBody">
                                     <tr>
-                                        <td colspan="9" class="upload-accounts-empty">{{ tr("正在加载...") }}</td>
+                                        <td colspan="9" class="upload-accounts-empty">{{ tr("Loading...") }}</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                         <div class="upload-accounts-pagination">
-                            <span class="upload-accounts-pagination__info" id="uploadAccountsPageInfo">{{ tr("共 0 条") }}</span>
+                            <span class="upload-accounts-pagination__info" id="uploadAccountsPageInfo">{{ tr("0 items in total") }}</span>
                             <div class="upload-accounts-pagination__controls">
                                 <select id="uploadAccountsPageSizeSelect" class="form-input upload-accounts-pagination__select"
-                                    aria-label="{{ tr("每页数量") }}" onchange="handleUploadAccountsPageSizeChange(this.value)">
-                                    <option value="10">{{ tr("每页 10") }}</option>
-                                    <option value="20" selected>{{ tr("每页 20") }}</option>
-                                    <option value="50">{{ tr("每页 50") }}</option>
-                                    <option value="100">{{ tr("每页 100") }}</option>
+                                    aria-label="{{ tr("Quantity per page") }}" onchange="handleUploadAccountsPageSizeChange(this.value)">
+                                    <option value="10">{{ tr("10 per page") }}</option>
+                                    <option value="20" selected>{{ tr("20 per page") }}</option>
+                                    <option value="50">{{ tr("50 per page") }}</option>
+                                    <option value="100">{{ tr("100 per page") }}</option>
                                 </select>
                                 <button class="btn btn-secondary" type="button" id="uploadAccountsPrevBtn"
-                                    onclick="changeUploadAccountsPage(-1)">{{ tr("上一页") }}</button>
-                                <span class="upload-accounts-pagination__page" id="uploadAccountsPageText">{{ tr("第 1 / 1 页") }}</span>
+                                    onclick="changeUploadAccountsPage(-1)">{{ tr("Previous page") }}</button>
+                                <span class="upload-accounts-pagination__page" id="uploadAccountsPageText">{{ tr("Page 1 / 1") }}</span>
                                 <button class="btn btn-secondary" type="button" id="uploadAccountsNextBtn"
-                                    onclick="changeUploadAccountsPage(1)">{{ tr("下一页") }}</button>
+                                    onclick="changeUploadAccountsPage(1)">{{ tr("Next page") }}</button>
                             </div>
                         </div>
                     </div>
                     <aside class="upload-accounts-auth">
                         <div class="upload-accounts-auth__head">
-                            <span class="upload-accounts-auth__title">{{ tr("授权日志") }}</span>
-                            <span class="upload-accounts-auth__status" id="graphAuthStatus" data-state="idle">{{ tr("空闲") }}</span>
+                            <span class="upload-accounts-auth__title">{{ tr("Authorization log") }}</span>
+                            <span class="upload-accounts-auth__status" id="graphAuthStatus" data-state="idle">{{ tr("idle") }}</span>
                         </div>
-                        <div class="upload-accounts-auth__mode" role="radiogroup" aria-label="{{ tr("授权模式") }}">
+                        <div class="upload-accounts-auth__mode" role="radiogroup" aria-label="{{ tr("Authorization mode") }}">
                             <label class="upload-accounts-auth__mode-option">
                                 <input type="radio" name="graphAuthMode" value="imap">
-                                <span>{{ tr("IMAP授权") }}</span>
+                                <span>{{ tr("IMAP authorization") }}</span>
                             </label>
                             <label class="upload-accounts-auth__mode-option">
                                 <input type="radio" name="graphAuthMode" value="graph" checked>
                                 <span>GraphAPI</span>
                             </label>
                         </div>
-                        <div id="graphAuthLog" class="upload-accounts-auth__log">{{ tr("点击账号「授权 / 重新授权」后，授权日志会显示在这里。") }}</div>
+                        <div id="graphAuthLog" class="upload-accounts-auth__log">{{ tr("After clicking \"Authorize/Reauthorize\" the account, the authorization log will be displayed here.") }}</div>
                     </aside>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideOutlookUploadAccountsModal()">{{ tr("关闭") }}</button>
+                <button class="btn btn-secondary" onclick="hideOutlookUploadAccountsModal()">{{ tr("Close") }}</button>
             </div>
         </div>
     </div>

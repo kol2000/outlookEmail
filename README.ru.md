@@ -46,7 +46,7 @@ admin123
 
 - данные macOS по умолчанию сохраняются в `~/Library/Application Support/OutlookEmail`.
 - Если macOS сообщает, что Apple не может проверить, содержит ли «OutlookEmail» вредоносное ПО, которое может нанести вред безопасности Mac или нарушить конфиденциальность. Вы можете выполнить следующую команду и попробовать еще раз
-  `sudo xattr -rd com.apple.quarantine /Applications/OutlookEmail.app` 
+  `sudo xattr -rd com.apple.quarantine /Applications/OutlookEmail.app`
 - Пароль для входа по умолчанию по-прежнему `admin123`. Рекомендуется изменить его сразу после первого входа в систему.
 
 ### Способ 3. Используйте Docker (рекомендуемое развертывание сервера).
@@ -291,19 +291,19 @@ docker compose -f docker-compose.build.yml down
 ## 📸 Предварительный просмотр интерфейса
 
 ### Интерфейс списка адресов электронной почты
-![Список адресов электронной почты](img/邮箱列表.png)
+[Upstream screenshot: Список адресов электронной почты](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E9%82%AE%E7%AE%B1%E5%88%97%E8%A1%A8.png)
 
 ### Функция глобального поиска
-![Глобальный поиск](img/全局搜索.png)
+[Upstream screenshot: Глобальный поиск](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%85%A8%E5%B1%80%E6%90%9C%E7%B4%A2.png)
 
 ### Импортировать учетную запись электронной почты
-![Импортировать учетную запись электронной почты](img/导入邮箱账号.png)
+[Upstream screenshot: Импортировать учетную запись электронной почты](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%AF%BC%E5%85%A5%E9%82%AE%E7%AE%B1%E8%B4%A6%E5%8F%B7.png)
 
 ### Управление обновлением токенов
-![Обновить все токены](img/全量刷新token.png)
+[Upstream screenshot: Обновить все токены](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%85%A8%E9%87%8F%E5%88%B7%E6%96%B0token.png)
 
 ### Функция управления тегами
-![Управление тегами](img/标签管理.png)
+[Upstream screenshot: Управление тегами](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%A0%87%E7%AD%BE%E7%AE%A1%E7%90%86.png)
 
 ## 📖 Инструкция по применению.
 
@@ -320,13 +320,13 @@ docker compose -f docker-compose.build.yml down
 
 Посетите [Azure Portal](https://portal.azure.com/) и введите «Регистрация приложения»:
 
-![Регистрация заявки](img/应用注册.png)
+[Upstream screenshot: Регистрация заявки](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E5%BA%94%E7%94%A8%E6%B3%A8%E5%86%8C.png)
 
 #### Шаг 2. Создайте новое приложение.
 
 Нажмите «Новая регистрация» и заполните информацию о заявке:
 
-![Зарегистрировать заявку](img/注册应用程序.png)
+[Upstream screenshot: Зарегистрировать заявку](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%B3%A8%E5%86%8C%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F.png)
 
 - Имя ** **: Имя пользовательского приложения.
 - ** Поддерживаемые типы учетных записей **: выберите «Учетные записи в любом каталоге организации и личные учетные записи Microsoft».
@@ -336,7 +336,7 @@ docker compose -f docker-compose.build.yml down
 
 После создания скопируйте «ID приложения (клиента)»:
 
-![Получить идентификатор приложения](img/获取应用程序ID.png)
+[Upstream screenshot: Получить идентификатор приложения](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E8%8E%B7%E5%8F%96%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8FID.png)
 
 #### Шаг 4. Настройте разрешения API. Этот шаг можно пропустить. Текущий встроенный идентификатор клиента можно использовать в обычном режиме без настройки этого шага.
 
@@ -352,7 +352,7 @@ docker compose -f docker-compose.build.yml down
 
 Используйте встроенный помощник OAuth2 этого инструмента для получения токена обновления:
 
-![Обмен на токен](img/换取token.png)
+[Upstream screenshot: Обмен на токен](https://raw.githubusercontent.com/assast/outlookEmail/main/img/%E6%8D%A2%E5%8F%96token.png)
 
 1. Нажмите кнопку «Получить токен» в веб-интерфейсе.
 2. Нажмите «Создать ссылку для авторизации».

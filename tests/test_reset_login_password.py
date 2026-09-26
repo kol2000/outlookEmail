@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""scripts/reset_login_password.py 单元与集成测试。"""
+'scripts/reset_login_password.py unit and integration tests.'
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class ResetLoginPasswordTests(unittest.TestCase):
         self._tmpdir = tempfile.TemporaryDirectory(prefix="reset-login-password-")
         self.db_path = Path(self._tmpdir.name) / "outlook_accounts.db"
         self.old_session = "session-before-reset"
-        # 旧值用明文占位即可；重置后应变成 bcrypt
+        # The old value can be replaced by plain text; it should become bcrypt after reset.
         create_app_like_db(
             self.db_path,
             password_hash="legacy-old-password",
@@ -134,24 +134,24 @@ class ResetLoginPasswordTests(unittest.TestCase):
     def test_validate_mismatched_confirmation(self):
         err = reset_mod.validate_new_password("new-password-1", "new-password-2")
         self.assertIsNotNone(err)
-        self.assertIn("不一致", err or "")
+        self.assertIn('inconsistent', err or "")
 
     def test_validate_format_before_mismatch(self):
-        # 格式错误应优先于“不一致”，避免短密码被误报为两次不一致
+        # Format errors should take precedence over "inconsistency" to avoid short passwords being falsely reported as inconsistent twice.
         err = reset_mod.validate_new_password("short", "other")
         self.assertIsNotNone(err)
         self.assertIn("8", err or "")
-        self.assertNotIn("不一致", err or "")
+        self.assertNotIn('inconsistent', err or "")
 
     def test_prompt_rejects_short_password_before_confirm(self):
-        # 第一次输入格式不过关时，不应再要求确认密码
+        # When the first input format is not satisfactory, you should not be asked to confirm the password again.
         getpass_calls = []
 
         def fake_getpass(prompt=""):
             getpass_calls.append(prompt)
             if len(getpass_calls) == 1:
                 return "short"
-            self.fail("短密码格式校验失败后不应再提示确认密码")
+            self.fail('After the short password format verification fails, you should not be prompted to confirm the password again.')
 
         with patch.object(sys.stdin, "isatty", return_value=True), patch.object(
             sys.stdout, "isatty", return_value=True
@@ -160,7 +160,7 @@ class ResetLoginPasswordTests(unittest.TestCase):
                 reset_mod.prompt_new_password()
         self.assertIn("8", str(ctx.exception))
         self.assertEqual(len(getpass_calls), 1)
-        self.assertIn("新登录密码", getpass_calls[0])
+        self.assertIn('New login password', getpass_calls[0])
 
     def test_missing_database_file(self):
         missing = Path(self._tmpdir.name) / "no-such.db"
@@ -184,7 +184,7 @@ class ResetLoginPasswordTests(unittest.TestCase):
             self.assertEqual(row[0], hashed)
         finally:
             conn.close()
-        # 默认库未被改动
+        # The default library has not been modified
         self.assertEqual(
             self._read_setting(reset_mod.LOGIN_PASSWORD_KEY),
             "legacy-old-password",
@@ -216,7 +216,7 @@ class ResetLoginPasswordTests(unittest.TestCase):
         ):
             with self.assertRaises(reset_mod.ResetError) as ctx:
                 reset_mod.prompt_new_password()
-        self.assertIn("交互", str(ctx.exception))
+        self.assertIn('interactive', str(ctx.exception))
 
     def test_main_success_with_mocked_getpass(self):
         with patch.dict(os.environ, {"DATABASE_PATH": str(self.db_path)}, clear=False), patch.object(

@@ -1,16 +1,16 @@
-    <!-- 顶部导航栏 -->
+    <!-- Top navigation bar-->
     <nav class="navbar">
         <div class="navbar-brand">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                 <polyline points="22,6 12,13 2,6"></polyline>
             </svg>
-            <span class="navbar-brand-title">{{ tr("Outlook 邮件") }}</span>
+            <span class="navbar-brand-title">{{ tr("Outlook Mail") }}</span>
             <div class="navbar-brand-meta">
                 <div class="app-version" id="appVersion">
                     <button class="app-version-chip" id="appVersionChip" type="button" aria-expanded="false"
                         aria-controls="appVersionPopover" onclick="return toggleVersionPopover()">
-                        <span class="app-version-chip__label">{{ tr("版本") }}</span>
+                        <span class="app-version-chip__label">{{ tr("Version") }}</span>
                         <span class="app-version-chip__value" id="appVersionValue">v{{ app_version }}</span>
                         <span class="app-version-chip__upgrade-badge" id="appVersionUpgradeBadge" hidden aria-hidden="true">
                             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -19,31 +19,31 @@
                             </svg>
                         </span>
                     </button>
-                    <div class="app-version-popover" id="appVersionPopover" role="dialog" aria-label="{{ tr("版本信息") }}"
+                    <div class="app-version-popover" id="appVersionPopover" role="dialog" aria-label="{{ tr("Version information") }}"
                         aria-hidden="true" hidden>
-                        <div class="app-version-popover__eyebrow">{{ tr("当前版本") }}</div>
+                        <div class="app-version-popover__eyebrow">{{ tr("Current version") }}</div>
                         <div class="app-version-popover__value" id="appVersionPopoverValue">v{{ app_version }}</div>
                         <div class="app-version-popover__meta">
-                            <span class="app-version-status" id="appVersionStatus" data-state="checking">{{ tr("检查中") }}</span>
-                            <span class="app-version-popover__hint" id="appVersionHint">{{ tr("正在检查仓库版本...") }}</span>
+                            <span class="app-version-status" id="appVersionStatus" data-state="checking">{{ tr("Under inspection") }}</span>
+                            <span class="app-version-popover__hint" id="appVersionHint">{{ tr("Checking warehouse version...") }}</span>
                         </div>
                         <div class="app-version-popover__actions">
                             <button class="app-version-link" id="copyAppVersionBtn" type="button"
-                                onclick="copyAppVersion()">{{ tr("复制版本号") }}</button>
+                                onclick="copyAppVersion()">{{ tr("Copy version number") }}</button>
                             <a href="{{ changelog_url }}" target="_blank" rel="noreferrer" class="app-version-link"
-                                id="appVersionActionLink" data-default-label="{{ tr('查看更新日志') }}">
-                                {{ tr("查看更新日志") }}
+                                id="appVersionActionLink" data-default-label="{{ tr("View update log") }}">
+                                {{ tr("View update log") }}
                             </a>
                             <button class="app-version-link app-version-link--primary" id="appVersionDockerUpdateBtn"
-                                type="button" data-default-label="{{ tr('Docker 更新') }}" data-unavailable-label="{{ tr('不可在线更新') }}"
+                                type="button" data-default-label="{{ tr("Docker updates") }}" data-unavailable-label="{{ tr("Cannot be updated online") }}"
                                 onclick="startDockerUpdate()" hidden>
-                                {{ tr("Docker 更新") }}
+                                {{ tr("Docker updates") }}
                             </button>
                         </div>
                         <div class="app-version-popover__hint">
-                            {{ tr("仅 Docker 版本支持在线更新，请参考") }}
-                            <a href="https://github.com/kol2000/outlookEmail#readme" target="_blank" rel="noreferrer">{{ tr("README 中的「启用界面 Docker 在线更新」") }}</a>
-                            {{ tr("进行设置。") }}
+                            {{ tr("Only Docker version supports online update, please refer to") }}
+                            <a href="https://github.com/kol2000/outlookEmail#readme" target="_blank" rel="noreferrer">{{ tr("\"Enable interface Docker online update\" in README") }}</a>
+                            {{ tr("to make settings.") }}
                         </div>
                     </div>
                 </div>
@@ -51,8 +51,8 @@
             </div>
         </div>
         <div class="navbar-center">
-            <div class="current-account" id="currentAccount" onclick="copyCurrentEmail()" title="{{ tr("点击复制邮箱地址") }}">
-                {{ tr("当前邮箱：") }}<strong id="currentAccountEmail"></strong>
+            <div class="current-account" id="currentAccount" onclick="copyCurrentEmail()" title="{{ tr("Click to copy the email address") }}">
+                {{ tr("Current email:") }}<strong id="currentAccountEmail"></strong>
             </div>
         </div>
         <div class="navbar-actions">
@@ -64,24 +64,24 @@
                     <path d="M2 8h12"></path>
                     <path d="M2 12h12"></path>
                 </svg>
-                {{ tr("操作") }}
+                {{ tr("Operation") }}
             </button>
             <div class="navbar-actions-menu" id="navbarActionsMenu">
-                <!-- Mobile only buttons -->
-                <button class="navbar-btn mobile-only-btn" id="refreshTokensBtn" type="button" onclick="showRefreshModal()">{{ tr("Token刷新管理") }}</button>
-                <button class="navbar-btn mobile-only-btn" id="emailShareManagementBtn" type="button" onclick="showEmailShareManagementModal()">{{ tr("分享管理") }}</button>
-                <button class="navbar-btn mobile-only-btn" id="exportAccountsBtn" type="button" onclick="showExportModal()">{{ tr("导出邮箱") }}</button>
+                <!-- Mobile only buttons-->
+                <button class="navbar-btn mobile-only-btn" id="refreshTokensBtn" type="button" onclick="showRefreshModal()">{{ tr("Token refresh management") }}</button>
+                <button class="navbar-btn mobile-only-btn" id="emailShareManagementBtn" type="button" onclick="showEmailShareManagementModal()">{{ tr("Sharing management") }}</button>
+                <button class="navbar-btn mobile-only-btn" id="exportAccountsBtn" type="button" onclick="showExportModal()">{{ tr("Export mailbox") }}</button>
                 <button class="navbar-btn mobile-only-btn" id="openSettingsBtn" style="display: inline-flex; align-items: center; gap: 4px;" type="button" onclick="showSettingsModal()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l-.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
-                    <span>{{ tr("设置") }}</span>
+                    <span>{{ tr("Settings") }}</span>
                 </button>
-                <button class="navbar-btn mobile-only-btn" id="outlookUploadAccountsBtn" type="button" onclick="showOutlookUploadAccountsModal()">{{ tr("Outlook 邮箱") }}</button>
-                <button class="navbar-btn mobile-only-btn" id="logoutBtn" type="button" onclick="logout()">{{ tr("退出登录") }}</button>
+                <button class="navbar-btn mobile-only-btn" id="outlookUploadAccountsBtn" type="button" onclick="showOutlookUploadAccountsModal()">{{ tr("Outlook mailbox") }}</button>
+                <button class="navbar-btn mobile-only-btn" id="logoutBtn" type="button" onclick="logout()">{{ tr("Sign out") }}</button>
                 
-                <button class="navbar-icon-btn desktop-only-btn" id="desktopSettingsBtn" type="button" onclick="showSettingsModal()" title="{{ tr("系统常规设置") }}">
+                <button class="navbar-icon-btn desktop-only-btn" id="desktopSettingsBtn" type="button" onclick="showSettingsModal()" title="{{ tr("General system settings") }}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="4" y1="21" x2="4" y2="14"></line>
                         <line x1="4" y1="10" x2="4" y2="3"></line>
@@ -95,14 +95,14 @@
                     </svg>
                 </button>
                 
-                <button class="navbar-icon-btn desktop-only-btn" id="desktopOutlookUploadAccountsBtn" type="button" onclick="showOutlookUploadAccountsModal()" title="{{ tr("Outlook 邮箱") }}">
+                <button class="navbar-icon-btn desktop-only-btn" id="desktopOutlookUploadAccountsBtn" type="button" onclick="showOutlookUploadAccountsModal()" title="{{ tr("Outlook mailbox") }}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="5" width="18" height="14" rx="2"></rect>
                         <polyline points="3 7 12 13 21 7"></polyline>
                     </svg>
                 </button>
 
-                <button class="navbar-icon-btn desktop-only-btn" id="desktopLogoutBtn" type="button" onclick="logout()" title="{{ tr("退出登录") }}">
+                <button class="navbar-icon-btn desktop-only-btn" id="desktopLogoutBtn" type="button" onclick="logout()" title="{{ tr("Sign out") }}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                         <polyline points="16 17 21 12 16 7"></polyline>
@@ -110,9 +110,9 @@
                     </svg>
                 </button>
 
-                <!-- Desktop Only "更多功能" Dropdown -->
+                <!-- Desktop Only "More features" Dropdown-->
                 <div class="navbar-dropdown desktop-only-dropdown" id="navbarMoreFunctionsDropdown">
-                    <button class="navbar-icon-btn dropdown-toggle" type="button" title="{{ tr("更多功能") }}">
+                    <button class="navbar-icon-btn dropdown-toggle" type="button" title="{{ tr("More features") }}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="1"></circle>
                             <circle cx="12" cy="5" r="1"></circle>
@@ -120,12 +120,12 @@
                         </svg>
                     </button>
                     <div class="navbar-dropdown-menu">
-                        <button class="dropdown-item" type="button" onclick="showRefreshModal()">{{ tr("Token 刷新管理") }}</button>
-                        <button class="dropdown-item" type="button" onclick="showEmailShareManagementModal()">{{ tr("分享管理") }}</button>
+                        <button class="dropdown-item" type="button" onclick="showRefreshModal()">{{ tr("Token refresh management") }}</button>
+                        <button class="dropdown-item" type="button" onclick="showEmailShareManagementModal()">{{ tr("Sharing management") }}</button>
                     </div>
                 </div>
                 
-                <a class="navbar-icon-btn desktop-only-btn" href="https://github.com/kol2000/outlookEmail" target="_blank" rel="noreferrer noopener" title="{{ tr("前往 GitHub") }}" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                <a class="navbar-icon-btn desktop-only-btn" href="https://github.com/kol2000/outlookEmail" target="_blank" rel="noreferrer noopener" title="{{ tr("Go to GitHub") }}" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
                     </svg>
@@ -134,26 +134,26 @@
         </div>
     </nav>
 
-    <!-- 主容器 -->
+    <!-- Main container-->
     <div class="main-container">
-        <!-- 分组面板 -->
+        <!-- Group panel-->
         <div class="group-panel" id="groupPanel">
             <div class="panel-header">
-                <span class="panel-title">{{ tr("分组") }}</span>
+                <span class="panel-title">{{ tr("Groups") }}</span>
                 <div style="display: flex; gap: 4px;">
-                    <button class="panel-action-btn" id="collapseGroupPanelBtn" onclick="toggleGroupPanelCollapse()" title="{{ tr("折叠分组栏") }}">
+                    <button class="panel-action-btn" id="collapseGroupPanelBtn" onclick="toggleGroupPanelCollapse()" title="{{ tr("Collapse grouping column") }}">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="11 13 4 8 11 3"></polyline>
                         </svg>
                     </button>
                     <button class="panel-action-btn" id="groupDescriptionVisibilityBtn" onclick="toggleGroupDescriptionVisibility()"
-                        title="{{ tr("显示分组描述") }}" aria-label="{{ tr("切换分组描述展示") }}" aria-pressed="false">
+                        title="{{ tr("Show group description") }}" aria-label="{{ tr("Switch group description display") }}" aria-pressed="false">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2.25" y="2.25" width="11.5" height="11.5" rx="1.5"></rect>
                             <path d="M5 5.5h6M5 8h6M5 10.5h3.5"></path>
                         </svg>
                     </button>
-                    <button class="panel-action-btn" onclick="showAddGroupModal()" title="{{ tr("添加分组") }}">
+                    <button class="panel-action-btn" onclick="showAddGroupModal()" title="{{ tr("Add group") }}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -162,14 +162,14 @@
                 </div>
             </div>
             <div class="group-list" id="groupList">
-                <!-- 分组列表将通过 JS 动态加载 -->
+                <!-- The grouped list will be loaded dynamically via JS-->
             </div>
         </div>
 
-        <!-- 邮箱账号面板 -->
+        <!-- Email account panel-->
         <div class="account-panel" id="accountPanel">
             <div class="account-panel-header">
-                <button class="panel-action-btn" id="expandGroupPanelBtn" onclick="toggleGroupPanelCollapse()" title="{{ tr("展开分组栏") }}" style="display: none; flex-shrink: 0; margin-right: 8px;">
+                <button class="panel-action-btn" id="expandGroupPanelBtn" onclick="toggleGroupPanelCollapse()" title="{{ tr("Expand the grouping column") }}" style="display: none; flex-shrink: 0; margin-right: 8px;">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="5 3 12 8 5 13"></polyline>
                     </svg>
@@ -177,7 +177,7 @@
                 <div class="account-panel-title" id="accountPanelTitle">
                     <span class="group-color" id="currentGroupColor" style="background-color: #666"></span>
                     <span class="current-group-title-wrap">
-                        <span id="currentGroupName">{{ tr("选择分组") }}</span>
+                        <span id="currentGroupName">{{ tr("Select group") }}</span>
                         <span class="group-id-badge current-group-id" id="currentGroupIdBadge" style="display: none;"></span>
                     </span>
                 </div>
@@ -185,19 +185,19 @@
                 <div class="account-panel-header-actions">
                     <div class="panel-action-subgroup">
                         <button class="panel-action-btn account-selection-mode-btn" id="accountSelectionModeBtn"
-                            onclick="toggleAccountSelectionMode()" title="{{ tr("批量选择") }}" aria-pressed="false">
+                            onclick="toggleAccountSelectionMode()" title="{{ tr("Select multiple") }}" aria-pressed="false">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="2" y="2" width="12" height="12" rx="2"></rect>
                                 <path d="M5 8l2 2 4-4"></path>
                             </svg>
                         </button>
-                        <button class="panel-action-btn" onclick="showTagManagementModal()" title="{{ tr("管理标签") }}">
+                        <button class="panel-action-btn" onclick="showTagManagementModal()" title="{{ tr("Manage tags") }}">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M7 1.5h6v6L6.5 14 2 9.5 7 1.5z"></path>
                                 <circle cx="9.5" cy="5" r="1.2" fill="currentColor"></circle>
                             </svg>
                         </button>
-                        <button class="panel-action-btn" id="accountMinimalBtn" onclick="toggleAccountMinimalMode()" title="{{ tr("切换极简展示") }}" aria-pressed="false">
+                        <button class="panel-action-btn" id="accountMinimalBtn" onclick="toggleAccountMinimalMode()" title="{{ tr("Toggle compact view") }}" aria-pressed="false">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <rect x="2" y="2.5" width="12" height="2.5" rx="0.5"></rect>
                                 <rect x="2" y="6.75" width="12" height="2.5" rx="0.5"></rect>
@@ -207,13 +207,13 @@
                     </div>
                     <span class="panel-action-separator"></span>
                     <div class="panel-action-subgroup">
-                        <button class="panel-action-btn panel-action-btn-accent" onclick="showGetRefreshTokenModal()" title="{{ tr("授权并保存 Outlook 账号") }}">
+                        <button class="panel-action-btn panel-action-btn-accent" onclick="showGetRefreshTokenModal()" title="{{ tr("Authorize and save Outlook account") }}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                             </svg>
                         </button>
-                        <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="{{ tr("导入邮箱账号") }}">
+                        <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="{{ tr("Import email account") }}">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                 <line x1="8" y1="2" x2="8" y2="14"></line>
                                 <line x1="2" y1="8" x2="14" y2="8"></line>
@@ -225,23 +225,23 @@
             <div class="account-toolbar">
                 <div class="search-container">
                     <textarea id="globalSearch" class="search-input" rows="1"
-                        placeholder="{{ tr("邮箱|别名|备注|标签") }}"
+                        placeholder="{{ tr("Email|Alias|Remarks|Label") }}"
                         autocomplete="off" spellcheck="false"></textarea>
                     <div class="search-scope-wrap" id="accountSearchScopeWrap">
-                        <select id="accountSearchScopeSelect" class="search-scope-select" aria-label="{{ tr("筛选范围") }}"
+                        <select id="accountSearchScopeSelect" class="search-scope-select" aria-label="{{ tr("Filter scope") }}"
                             onchange="handleAccountSearchScopeChange(this.value)">
-                            <option value="all">{{ tr("所有分组") }}</option>
-                            <option value="group" selected>{{ tr("当前分组") }}</option>
+                            <option value="all">{{ tr("All groups") }}</option>
+                            <option value="group" selected>{{ tr("Current group") }}</option>
                         </select>
                     </div>
                 </div>
-                <!-- 临时邮箱渠道筛选 -->
+                <!-- Temporary email channel filtering-->
                 <div id="tempEmailProviderFilter" class="toolbar-row" style="display: none;">
-                    <span class="toolbar-label">{{ tr("渠道") }}</span>
+                    <span class="toolbar-label">{{ tr("Channel") }}</span>
                     <div class="toolbar-chip-group">
                         <button class="provider-filter-btn" data-provider="all"
                             onclick="filterTempEmailByProvider('all')">
-                            {{ tr("全部") }}
+                            {{ tr("All") }}
                         </button>
                         <button class="provider-filter-btn" data-provider="gptmail"
                             onclick="filterTempEmailByProvider('gptmail')">
@@ -258,33 +258,33 @@
                     </div>
                 </div>
                 <div class="sort-control toolbar-row">
-                    <span class="toolbar-label">{{ tr("排序") }}</span>
+                    <span class="toolbar-label">{{ tr("Sort") }}</span>
                     <div class="toolbar-chip-group">
                         <button class="sort-btn active" data-sort="sort_order" onclick="sortAccounts('sort_order')">
-                            {{ tr("排序值") }}
+                            {{ tr("Sorting value") }}
                         </button>
                         <button class="sort-btn" data-sort="created_at" onclick="sortAccounts('created_at')">
-                            {{ tr("创建时间") }}
+                            {{ tr("Creation time") }}
                         </button>
                         <button class="sort-btn" data-sort="email" onclick="sortAccounts('email')">
-                            {{ tr("邮箱名") }}
+                            {{ tr("Email name") }}
                         </button>
                     </div>
                 </div>
                 <div id="accountListOptionsRow" class="toolbar-row account-list-options-row">
                     <div id="tagFilterContainer" class="account-tag-filter-slot">
-                        <!-- Tags checkboxes will be rendered here -->
+                        <!-- Tags checkboxes will be rendered here-->
                     </div>
                     <div id="accountPageSizeContainer" class="account-page-size-row">
                         <select id="accountPageSizeSelect" class="account-page-size-select"
                             onchange="handleAccountPageSizeChange(this.value)">
-                            <option value="100">{{ tr("每页 100") }}</option>
-                            <option value="200" selected>{{ tr("每页 200") }}</option>
-                            <option value="500">{{ tr("每页 500") }}</option>
-                            <option value="1000">{{ tr("每页 1000") }}</option>
-                            <option value="2000">{{ tr("每页 2000") }}</option>
-                            <option value="5000">{{ tr("每页 5000") }}</option>
-                            <option value="10000">{{ tr("每页 10000") }}</option>
+                            <option value="100">{{ tr("100 per page") }}</option>
+                            <option value="200" selected>{{ tr("200 per page") }}</option>
+                            <option value="500">{{ tr("500 per page") }}</option>
+                            <option value="1000">{{ tr("1000 per page") }}</option>
+                            <option value="2000">{{ tr("2000 per page") }}</option>
+                            <option value="5000">{{ tr("5000 per page") }}</option>
+                            <option value="10000">{{ tr("10000 per page") }}</option>
                         </select>
                     </div>
                 </div>
@@ -292,81 +292,81 @@
             <div class="account-list" id="accountList">
                 <div class="empty-state">
                     <div class="empty-state-icon">📁</div>
-                    <div class="empty-state-text">{{ tr("请从左侧选择一个分组") }}</div>
+                    <div class="empty-state-text">{{ tr("Please select a group from the left") }}</div>
                 </div>
             </div>
-            <!-- 批量操作栏 -->
+            <!-- Batch operation bar-->
             <div id="batchActionBar" class="batch-action-bar">
                 <div class="batch-action-bar__summary">
-                    <span id="selectedCount" class="batch-selection-count">{{ tr("已选 0 项") }}</span>
+                    <span id="selectedCount" class="batch-selection-count">{{ tr("0 items selected") }}</span>
                 </div>
                 <div class="batch-action-bar__controls">
                     <div class="batch-action-group">
-                        <button class="batch-btn batch-btn-secondary" id="accountSelectAllBtn" onclick="toggleSelectAllAccounts()">{{ tr("全选") }}</button>
-                        <button class="batch-btn batch-btn-secondary" onclick="clearAccountSelection()">{{ tr("清空") }}</button>
+                        <button class="batch-btn batch-btn-secondary" id="accountSelectAllBtn" onclick="toggleSelectAllAccounts()">{{ tr("Select all") }}</button>
+                        <button class="batch-btn batch-btn-secondary" onclick="clearAccountSelection()">{{ tr("Clear") }}</button>
                     </div>
                     <div class="batch-action-group batch-action-group--accent">
-                        <button class="batch-btn batch-btn-primary" id="batchRefreshTokensBtn" onclick="refreshSelectedAccounts()">{{ tr("刷新 Token") }}</button>
-                        <button class="batch-btn batch-btn-accent" id="batchOutlookAutoAuthBtn" onclick="queueSelectedAccountsForOutlookAutoAuth()">{{ tr("加入自动授权") }}</button>
-                        <button class="batch-btn batch-btn-accent" id="batchCopyEmailsBtn" onclick="copySelectedAccountsWithAliases()">{{ tr("复制邮箱+别名") }}</button>
-                        <button class="batch-btn batch-btn-accent" id="batchExportAccountsBtn" onclick="exportSelectedAccounts()">{{ tr("导出") }}</button>
+                        <button class="batch-btn batch-btn-primary" id="batchRefreshTokensBtn" onclick="refreshSelectedAccounts()">{{ tr("Refresh Token") }}</button>
+                        <button class="batch-btn batch-btn-accent" id="batchOutlookAutoAuthBtn" onclick="queueSelectedAccountsForOutlookAutoAuth()">{{ tr("Add automatic authorization") }}</button>
+                        <button class="batch-btn batch-btn-accent" id="batchCopyEmailsBtn" onclick="copySelectedAccountsWithAliases()">{{ tr("Copy email + alias") }}</button>
+                        <button class="batch-btn batch-btn-accent" id="batchExportAccountsBtn" onclick="exportSelectedAccounts()">{{ tr("Export") }}</button>
 
-                        <!-- 转发和代理组 -->
+                        <!-- Forwarding and proxy groups-->
                         <span class="batch-btn-divider"></span>
-                        <button class="batch-btn batch-btn-info" id="batchEnableForwardingBtn" onclick="enableForwardingForSelectedAccounts()">{{ tr("开启转发") }}</button>
-                        <button class="batch-btn batch-btn-info" id="batchDisableForwardingBtn" onclick="disableForwardingForSelectedAccounts()">{{ tr("取消转发") }}</button>
-                        <button class="batch-btn batch-btn-info" id="batchProxyBtn" onclick="showBatchProxyModal()">{{ tr("代理") }}</button>
+                        <button class="batch-btn batch-btn-info" id="batchEnableForwardingBtn" onclick="enableForwardingForSelectedAccounts()">{{ tr("Enable forwarding") }}</button>
+                        <button class="batch-btn batch-btn-info" id="batchDisableForwardingBtn" onclick="disableForwardingForSelectedAccounts()">{{ tr("Cancel forwarding") }}</button>
+                        <button class="batch-btn batch-btn-info" id="batchProxyBtn" onclick="showBatchProxyModal()">{{ tr("Agent") }}</button>
                         
-                        <!-- 分类和移动组 -->
+                        <!-- Classification and moving groups-->
                         <span class="batch-btn-divider"></span>
-                        <button class="batch-btn batch-btn-neutral" id="batchMoveGroupBtn" onclick="showBatchMoveGroupModal()">{{ tr("移动") }}</button>
-                        <button class="batch-btn batch-btn-neutral" id="batchAddTagBtn" onclick="showBatchTagModal('add')">{{ tr("标签+") }}</button>
-                        <button class="batch-btn batch-btn-neutral" id="batchRemoveTagBtn" onclick="showBatchTagModal('remove')">{{ tr("标签-") }}</button>
+                        <button class="batch-btn batch-btn-neutral" id="batchMoveGroupBtn" onclick="showBatchMoveGroupModal()">{{ tr("Move") }}</button>
+                        <button class="batch-btn batch-btn-neutral" id="batchAddTagBtn" onclick="showBatchTagModal('add')">{{ tr("Tag+") }}</button>
+                        <button class="batch-btn batch-btn-neutral" id="batchRemoveTagBtn" onclick="showBatchTagModal('remove')">{{ tr("Tag-") }}</button>
                         
                         <span class="batch-btn-divider"></span>
-                        <button class="batch-btn batch-btn-danger" id="batchDeleteAccountsBtn" onclick="deleteSelectedAccounts()">{{ tr("删除") }}</button>
+                        <button class="batch-btn batch-btn-danger" id="batchDeleteAccountsBtn" onclick="deleteSelectedAccounts()">{{ tr("Delete") }}</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 内容区域 -->
+        <!-- Content area-->
         <div class="content-area">
             <div class="mobile-quickbar" id="mobileQuickbar">
                 <button class="mobile-quickbar-btn" id="mobileGroupBtn" type="button">
-                    <span class="mobile-quickbar-label">{{ tr("分组") }}</span>
-                    <span class="mobile-quickbar-value" id="mobileCurrentGroup">{{ tr("未选择") }}</span>
+                    <span class="mobile-quickbar-label">{{ tr("Groups") }}</span>
+                    <span class="mobile-quickbar-value" id="mobileCurrentGroup">{{ tr("Not selected") }}</span>
                 </button>
                 <button class="mobile-quickbar-btn" id="mobileAccountBtn" type="button">
-                    <span class="mobile-quickbar-label">{{ tr("邮箱") }}</span>
-                    <span class="mobile-quickbar-value" id="mobileCurrentAccount">{{ tr("未选择") }}</span>
+                    <span class="mobile-quickbar-label">{{ tr("Mailboxes") }}</span>
+                    <span class="mobile-quickbar-value" id="mobileCurrentAccount">{{ tr("Not selected") }}</span>
                 </button>
                 <button class="mobile-quickbar-btn" id="mobileListBtn" type="button">
-                    <span class="mobile-quickbar-label">{{ tr("邮件") }}</span>
-                    <span class="mobile-quickbar-value" id="mobileListButtonHint">{{ tr("当前列表") }}</span>
+                    <span class="mobile-quickbar-label">{{ tr("Messages") }}</span>
+                    <span class="mobile-quickbar-value" id="mobileListButtonHint">{{ tr("Current list") }}</span>
                 </button>
             </div>
 
-            <!-- 邮件列表面板 -->
+            <!-- Mailing list panel-->
             <div class="email-list-panel" id="emailListPanel">
                 <div class="email-list-header">
                     <div class="email-list-header-top">
                         <div class="email-list-title-wrap">
                             <div class="email-list-title-row">
-                                <h2 style="margin: 0;">{{ tr("邮件") }}</h2>
+                                <h2 style="margin: 0;">{{ tr("Messages") }}</h2>
                                 <span class="email-count" id="emailCount"></span>
                             </div>
                             <div class="email-list-header-meta">
                                 <span class="method-tag" id="methodTag" style="display:none;"></span>
-                                <span class="email-list-hint">{{ tr("按时间顺序查看邮件") }}</span>
+                                <span class="email-list-hint">{{ tr("View emails in chronological order") }}</span>
                             </div>
                         </div>
                         <div class="email-list-header-actions">
                             <button class="compose-mail-btn" id="composeGraphMailBtn" type="button" hidden
-                                onclick="openGraphSendMailModal()" title="{{ tr("以当前 Outlook 账号写邮件") }}">
-                                {{ tr("写邮件") }}
+                                onclick="openGraphSendMailModal()" title="{{ tr("Compose an email using the current Outlook account") }}">
+                                {{ tr("Write an email") }}
                             </button>
-                            <button class="refresh-btn" type="button" onclick="refreshEmails()" title="{{ tr("获取邮件") }}">
+                            <button class="refresh-btn" type="button" onclick="refreshEmails()" title="{{ tr("Fetch mail") }}">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
                                 </svg>
@@ -375,13 +375,13 @@
                     </div>
                     <div class="folder-tabs" id="folderTabs" style="display: none;">
                         <button class="folder-tab active" data-folder="all" onclick="switchFolder('all')">
-                            {{ tr("📥 全部邮件") }}
+                            {{ tr("📥 All emails") }}
                         </button>
                         <button class="folder-tab" data-folder="inbox" onclick="switchFolder('inbox')">
-                            {{ tr("📨 收件箱") }}
+                            {{ tr("📨 Inbox") }}
                         </button>
                         <button class="folder-tab" data-folder="junkemail" onclick="switchFolder('junkemail')">
-                            {{ tr("⚠️ 垃圾邮件") }}
+                            {{ tr("⚠️Spam") }}
                         </button>
                     </div>
                     <div class="new-mail-notice" id="newMailNotice" role="status" hidden></div>
@@ -390,52 +390,52 @@
                 <div class="email-list" id="emailList">
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">{{ tr("请从左侧选择一个邮箱账号") }}</div>
+                        <div class="empty-state-text">{{ tr("Select a mailbox on the left") }}</div>
                     </div>
                 </div>
-                <!-- Email Batch Action Bar -->
+                <!-- Email Batch Action Bar-->
                 <div id="emailBatchActionBar" class="batch-action-bar">
                     <div class="batch-action-bar__summary">
-                        <span id="emailSelectedCount" class="batch-selection-count">{{ tr("已选 0 项") }}</span>
+                        <span id="emailSelectedCount" class="batch-selection-count">{{ tr("0 items selected") }}</span>
                     </div>
                     <div class="batch-action-bar__controls">
                         <div class="batch-action-group">
-                            <button class="batch-btn batch-btn-secondary" id="emailSelectAllBtn" onclick="toggleSelectAllEmails()">{{ tr("全选") }}</button>
-                            <button class="batch-btn batch-btn-secondary" onclick="clearEmailSelection()">{{ tr("清空选择") }}</button>
+                            <button class="batch-btn batch-btn-secondary" id="emailSelectAllBtn" onclick="toggleSelectAllEmails()">{{ tr("Select all") }}</button>
+                            <button class="batch-btn batch-btn-secondary" onclick="clearEmailSelection()">{{ tr("Clear selection") }}</button>
                         </div>
                         <button class="batch-btn batch-btn-primary" id="batchMarkReadBtn" onclick="markSelectedEmailsAsRead()">
-                            {{ tr("设为已读") }}
+                            {{ tr("Set as read") }}
                         </button>
                         <button class="batch-btn batch-btn-danger" onclick="confirmBatchDeleteEmails()">
-                            {{ tr("删除") }}
+                            {{ tr("Delete") }}
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- 邮件详情面板 -->
+            <!-- Email details panel-->
             <div class="email-detail-panel">
                 <div class="email-detail-toolbar" id="emailDetailToolbar" style="display:none;">
                     <button class="back-btn email-detail-action-btn email-detail-action-btn--back" type="button"
-                        title="{{ tr("返回邮件列表") }}" aria-label="{{ tr("返回邮件列表") }}" onclick="showEmailList()">
+                        title="{{ tr("Return to mailing list") }}" aria-label="{{ tr("Return to mailing list") }}" onclick="showEmailList()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
                         </svg>
-                        <span class="email-detail-action-btn__text">{{ tr("返回") }}</span>
+                        <span class="email-detail-action-btn__text">{{ tr("Return") }}</span>
                     </button>
                     <button class="toggle-list-btn" onclick="toggleEmailList()">
-                        <span id="toggleListText">{{ tr("隐藏列表") }}</span>
+                        <span id="toggleListText">{{ tr("Hide list") }}</span>
                     </button>
                     <button class="fullscreen-btn email-detail-action-btn email-detail-action-btn--fullscreen" type="button"
-                        title="{{ tr("全屏查看") }}" aria-label="{{ tr("全屏查看") }}" onclick="openFullscreenEmail()">
+                        title="{{ tr("View full screen") }}" aria-label="{{ tr("View full screen") }}" onclick="openFullscreenEmail()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
                         </svg>
-                        <span class="email-detail-action-btn__text">{{ tr("全屏查看") }}</span>
+                        <span class="email-detail-action-btn__text">{{ tr("View full screen") }}</span>
                     </button>
                     <button class="raw-email-btn email-detail-action-btn email-detail-action-btn--raw" type="button"
-                        title="{{ tr("显示邮件源") }}" aria-label="{{ tr("显示邮件源") }}" onclick="openRawEmailModal()">
+                        title="{{ tr("Show mail source") }}" aria-label="{{ tr("Show mail source") }}" onclick="openRawEmailModal()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                             <polyline points="14 2 14 8 20 8"></polyline>
@@ -443,31 +443,31 @@
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
-                        <span class="email-detail-action-btn__text">{{ tr("显示邮件源") }}</span>
+                        <span class="email-detail-action-btn__text">{{ tr("Show mail source") }}</span>
                     </button>
-                    <label class="email-trust-toggle" title="{{ tr("信任此邮件") }}" aria-label="{{ tr("信任此邮件") }}">
+                    <label class="email-trust-toggle" title="{{ tr("Trust this message") }}" aria-label="{{ tr("Trust this message") }}">
                         <input type="checkbox" id="trustEmailCheckbox" onchange="toggleTrustMode(this)">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                         </svg>
-                        <span style="user-select: none;">{{ tr("信任此邮件") }}</span>
+                        <span style="user-select: none;">{{ tr("Trust this message") }}</span>
                     </label>
                     <div class="email-detail-toolbar-spacer"></div>
                     <button class="batch-btn danger email-detail-action-btn email-detail-action-btn--delete" type="button"
-                        title="{{ tr("删除邮件") }}" aria-label="{{ tr("删除邮件") }}" onclick="confirmDeleteCurrentEmail()" style="padding: 4px 8px; font-size: 12px;">
+                        title="{{ tr("Delete mail") }}" aria-label="{{ tr("Delete mail") }}" onclick="confirmDeleteCurrentEmail()" style="padding: 4px 8px; font-size: 12px;">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                             <polyline points="3 6 5 6 21 6"></polyline>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                             <line x1="10" y1="11" x2="10" y2="17"></line>
                             <line x1="14" y1="11" x2="14" y2="17"></line>
                         </svg>
-                        <span class="email-detail-action-btn__text">{{ tr("删除") }}</span>
+                        <span class="email-detail-action-btn__text">{{ tr("Delete") }}</span>
                     </button>
                 </div>
                 <div id="emailDetail">
                     <div class="empty-state">
                         <div class="empty-state-icon">📄</div>
-                        <div class="empty-state-text">{{ tr("选择一封邮件查看详情") }}</div>
+                        <div class="empty-state-text">{{ tr("Select a message to view its contents") }}</div>
                     </div>
                 </div>
             </div>

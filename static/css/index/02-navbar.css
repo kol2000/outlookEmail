@@ -1,4 +1,4 @@
-        /* 顶部导航栏 */
+        /* Top navigation bar */
         .navbar {
             height: 56px;
             background-color: var(--skin-surface);
@@ -341,7 +341,7 @@
             border-color: var(--skin-border-strong);
         }
 
-        /* GitHub Star 按钮 */
+        /* GitHub Star button */
         .github-star-btn {
             display: inline-flex;
             align-items: center;
@@ -415,7 +415,7 @@
             transform: translate(1px, -1px);
         }
 
-        /* 导航栏下拉菜单 */
+        /* Navigation bar drop-down menu */
         .navbar-dropdown {
             position: relative;
             display: inline-flex;
@@ -497,7 +497,7 @@
             transform: rotate(180deg);
         }
 
-        /* 头像框按钮样式 */
+        /* Avatar frame button style */
         .navbar-avatar-btn {
             background: none;
             border: none;
@@ -539,7 +539,7 @@
             display: block;
         }
 
-        /* PC端隐藏移动端专用按钮，移动端隐藏PC端下拉 */
+        /* The PC side hides the mobile side dedicated button, and the mobile side hides the PC side drop-down */
         .mobile-only-btn {
             display: none !important;
         }

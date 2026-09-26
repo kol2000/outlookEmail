@@ -24,7 +24,7 @@
 
   function setConnected(connected) {
     const pill = getEl('statusPill');
-    pill.textContent = connected ? I18n.t('已验证') : I18n.t('未连接');
+    pill.textContent = connected ? I18n.t("Verified") : I18n.t("Not connected");
     pill.classList.toggle('ok', connected);
   }
 
@@ -45,15 +45,15 @@
     await saveFormConfig(config);
     await Storage.setSidePanelPath(nextPath || '/');
     setBusy(true);
-    showMessage(I18n.t('正在打开侧边栏...'));
+    showMessage(I18n.t("Opening sidebar..."));
     try {
       if (!chrome.sidePanel || !chrome.sidePanel.open) {
-        throw new Error(I18n.t('当前浏览器不支持 Side Panel，请升级 Chrome / Edge'));
+        throw new Error(I18n.t("The current browser does not support Side Panel, please upgrade Chrome / Edge"));
       }
       const currentWindow = await chrome.windows.getCurrent();
       await chrome.sidePanel.open({ windowId: currentWindow.id });
       setConnected(true);
-      showMessage(I18n.t('已打开侧边栏控制台'));
+      showMessage(I18n.t("Sidebar console opened"));
     } catch (error) {
       setConnected(false);
       showMessage(Api.friendlyError(error), 'error');
@@ -66,17 +66,17 @@
     const config = readFormConfig();
     await saveFormConfig(config);
     setBusy(true);
-    showMessage(I18n.t('正在验证密码...'));
+    showMessage(I18n.t("Verifying password..."));
     try {
       await Api.loginForLaunch(config, '/');
       setConnected(true);
-      showMessage(I18n.t('密码验证通过，可以打开控制台'));
+      showMessage(I18n.t("Password verification is passed and the console can be opened."));
     } catch (error) {
       if (Api.isMissingExtensionLogin(error)) {
         try {
           await Api.loginWithPasswordSession(config);
           setConnected(true);
-          showMessage(I18n.t('兼容模式密码验证通过，可以打开侧边栏控制台'));
+          showMessage(I18n.t("After the compatibility mode password verification is passed, you can open the sidebar console"));
           return;
         } catch (fallbackError) {
           setConnected(false);
@@ -94,7 +94,7 @@
   async function openLogout() {
     const config = readFormConfig();
     if (!config.serverUrl) {
-      showMessage(I18n.t('请先填写服务地址'), 'error');
+      showMessage(I18n.t("Please fill in the service address first"), 'error');
       return;
     }
     await openSidePanel('/logout');
@@ -106,7 +106,7 @@
     getEl('password').value = '';
     getEl('rememberPassword').checked = false;
     setConnected(false);
-    showMessage(I18n.t('本地配置已清除'));
+    showMessage(I18n.t("Local configuration cleared"));
   }
 
   document.addEventListener('DOMContentLoaded', async () => {

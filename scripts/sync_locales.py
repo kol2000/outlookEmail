@@ -13,8 +13,12 @@ for language in ('en', 'ru'):
         assert sorted(re.findall(r'\{__\d+__\}', source)) == sorted(re.findall(r'\{__\d+__\}', translated)), source
     catalogs[language] = catalog
 assert catalogs['en'].keys() == catalogs['ru'].keys()
+# Legacy lookup aliases are kept for stored statuses and original API clients.
+# Escape those identifiers while leaving the Russian translations readable.
+serialized = json.dumps(catalogs, ensure_ascii=False)
+serialized = re.sub('[\u3400-\u9fff]', lambda match: '\\u%04x' % ord(match[0]), serialized)
 (ROOT / 'browser-extension/catalogs.js').write_text(
-    'globalThis.OUTLOOK_CATALOGS = ' + json.dumps(catalogs, ensure_ascii=False) + ';\n', encoding='utf-8')
+    'globalThis.OUTLOOK_CATALOGS = ' + serialized + ';\n', encoding='utf-8')
 for source, destination in [('static/js/i18n.js', 'browser-extension/i18n.js'), ('static/css/i18n.css', 'browser-extension/i18n.css')]:
     shutil.copyfile(ROOT / source, ROOT / destination)
 print('Validated and synchronized', len(catalogs['en']), 'messages per language.')

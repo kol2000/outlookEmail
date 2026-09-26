@@ -32,7 +32,7 @@ class AccountReauthorizationTests(unittest.TestCase):
             db.execute('DELETE FROM account_tags')
             db.execute('DELETE FROM tags')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.commit()
 
     def _add_outlook_account(self, email='reauth@example.com'):
@@ -61,7 +61,7 @@ class AccountReauthorizationTests(unittest.TestCase):
                 ['alias@example.com'],
             )
             self.assertTrue(alias_success, alias_errors)
-            tag_id = web_outlook_app.add_tag('核心', '#123456')
+            tag_id = web_outlook_app.add_tag('Core', '#123456')
             db = web_outlook_app.get_db()
             db.execute(
                 'INSERT INTO account_tags (account_id, tag_id) VALUES (?, ?)',
@@ -127,7 +127,7 @@ class AccountReauthorizationTests(unittest.TestCase):
                 'success',
                 db_conn=db_conn,
             )
-            return {'success': True, 'message': 'Token 刷新成功'}
+            return {'success': True, 'message': 'Token refreshed successfully'}
 
         with patch.object(web_outlook_app, 'exchange_oauth_code_for_tokens', return_value=self._token_result()), \
              patch.object(web_outlook_app, 'refresh_outlook_account_token', side_effect=fake_refresh):
@@ -165,7 +165,7 @@ class AccountReauthorizationTests(unittest.TestCase):
         self.assertEqual(account['fallback_proxy_url_1'], 'http://account-fallback:7890')
         self.assertEqual(account['fallback_proxy_url_2'], 'direct')
         self.assertEqual(account['aliases'], ['alias@example.com'])
-        self.assertEqual(tag_names, ['核心'])
+        self.assertEqual(tag_names, ['Core'])
         self.assertTrue(raw['refresh_token'].startswith('enc:'))
         self.assertIsNotNone(raw['refresh_token_updated_at'])
         self.assertEqual(raw['last_refresh_status'], 'success')
@@ -241,7 +241,7 @@ class AccountReauthorizationTests(unittest.TestCase):
                 'error_message': 'new validation failure',
                 'error_payload': web_outlook_app.build_error_payload(
                     'TOKEN_REFRESH_FAILED',
-                    'Token 刷新失败',
+                    'Token refresh failed',
                     'RefreshTokenError',
                     400,
                     'new validation failure',

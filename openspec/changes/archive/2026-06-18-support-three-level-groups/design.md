@@ -1,110 +1,110 @@
 ## Context
 
-当前系统分组模型为扁平列表结构，`groups` 表仅有 `id, name, description, color, sort_order, is_system, proxy_url, fallback_proxy_url_1, fallback_proxy_url_2, created_at` 字段，无任何层级关系。所有分组同级排列，通过 `sort_order` 排序。`accounts.group_id` 外键指向单个分组。
+The current system grouping model is a flat list structure, and the `groups` table only has `id, name, description, color, sort_order, is_system, proxy_url, fallback_proxy_url_1, fallback_proxy_url_2, created_at` fields without any hierarchical relationship. All groups are arranged at the same level and sorted by `sort_order`. The `accounts.group_id` foreign key points to a single grouping.
 
-前端分组面板 `#groupList` 渲染为简单列表，支持拖拽排序。分组操作（CRUD、排序、代理继承）均假设扁平结构。
+The front-end grouping panel `#groupList` is rendered as a simple list and supports drag-and-drop sorting. Grouping operations (CRUD, sorting, proxy inheritance) all assume a flat structure.
 
-约束：
-- 技术栈：Flask + SQLite3 + 原生 JS（无框架）
-- SQLite ≥ 3.8.3 支持 `WITH RECURSIVE` CTE
-- 最大 3 级层级深度
-- 已有生产数据需平滑迁移
+Constraints:
+- Technology stack: Flask + SQLite3 + native JS (no framework)
+- SQLite ≥ 3.8.3 supports `WITH RECURSIVE` CTE
+- Maximum level 3 depth
+- Existing production data needs to be migrated smoothly
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 支持最多 3 级的树形分组结构
-- 选中分组时展示该分组及所有后代分组账号
-- 代理配置支持逐级向上回退继承
-- 前端树形渲染，带折叠/展开交互
-- 支持跨层级拖拽移动分组
-- 删除分组时级联删除子分组，账号回退默认分组
-- 所有关联功能（下拉选择器、批量操作等）适配树形展示
+- Supports tree grouping structure up to 3 levels
+- When a group is selected, the group and all descendant group accounts are displayed
+- Agent configuration supports hierarchical upward fallback inheritance
+- Front-end tree rendering with collapse/expand interaction
+- Support cross-level drag and drop to move groups
+- When deleting a group, the sub-groups will be deleted cascaded, and the account will fall back to the default group.
+- All related functions (drop-down selectors, batch operations, etc.) are adapted to tree display
 
 **Non-Goals:**
-- 不支持超过 3 级的更深嵌套
-- 不支持"虚拟分组"或"智能分组"等动态分类
-- 不改变标签(tags)系统的扁平结构
-- 不改变 IMAP 文件夹(folder)的概念
+- Deeper nesting beyond 3 levels is not supported
+- Dynamic classifications such as "Virtual Grouping" or "Smart Grouping" are not supported
+- Does not change the flat structure of the tags system
+- Does not change the concept of IMAP folders
 
 ## Decisions
 
-### D1: 层级数据模型 — Adjacency List (parent_id)
+### D1: Hierarchical data model — Adjacency List (parent_id)
 
-**选择**: 在 `groups` 表新增 `parent_id INTEGER DEFAULT NULL` 和 `level INTEGER DEFAULT 1 CHECK(level IN (1,2,3))`
+**Select**: Add `parent_id INTEGER DEFAULT NULL` and `level INTEGER DEFAULT 1 CHECK(level IN (1,2,3))` to the `groups` table
 
-**替代方案**:
-- Path Enumeration (`level_path TEXT` 如 `"3/7/12"`)：查询子树高效（`LIKE '3/7/%'`），但移动子树需批量改写 path，且 SQLite 字符串操作不够直观。
-- Nested Set (`lft/rgt`)：查询快但插入/移动代价高，对低频写高频读场景过度设计。
-- Closure Table：额外一张表存所有祖先-后代对，3 级深度不值得。
+**Alternatives**:
+- Path Enumeration (`level_path TEXT` such as `"3/7/12"`): Querying subtrees is efficient (`LIKE '3/7/%'`), but moving subtrees requires batch rewriting of paths, and SQLite string operations are not intuitive enough.
+- Nested Set (`lft/rgt`): The query is fast but the insertion/move cost is high, and it is over-designed for low-frequency writing and high-frequency reading scenarios.
+- Closure Table: An extra table to hold all ancestor-descendant pairs, 3 levels of depth is not worth it.
 
-**理由**: 层级最浅（仅 3 级），递归 CTE 性能足够，代码最简单直观。SQLite `WITH RECURSIVE` 可一次查询取全树，且移动/删除操作只需改 `parent_id`。
+**Reason**: The level is the shallowest (only 3 levels), the recursive CTE performance is sufficient, and the code is the simplest and most intuitive. SQLite `WITH RECURSIVE` can query the entire tree at one time, and only need to change `parent_id` for move/deletion operations.
 
-**约束**:
+**Constraints**:
 - `level=1` → `parent_id IS NULL`
-- `level=2` → `parent_id` 指向 `level=1` 的分组
-- `level=3` → `parent_id` 指向 `level=2` 的分组
-- `name` 保持全局 UNIQUE（非同 parent 下唯一）
+- `level=2` → `parent_id` points to the group of `level=1`
+- `level=3` → `parent_id` points to the group of `level=2`
+- `name` maintains global UNIQUE (unique under different parents)
 
-### D2: 代理继承 — 逐级向上回退
+### D2: Proxy inheritance — fallback upwards step by step
 
-**选择**: `get_account_proxy_config()` 逻辑改为：账号自身覆盖 → 挂载分组 → 挂载分组父级 → 挂载分组祖父级 → 全局空值。
+**Selection**: `get_account_proxy_config()` The logic is changed to: account itself coverage → mount group → mount group parent → mount group grandparent → global null value.
 
-**理由**: 最直觉的继承方式——子分组不设代理就"继承"父分组。用户编辑子分组时可看到"当前继承自: XX分组"的提示。
+**Reason**: The most intuitive inheritance method - the child group "inherits" the parent group without a proxy. When users edit subgroups, they can see the prompt "Currently inherited from: XX group".
 
-**实现**: 新增 `get_group_inherited_proxy_config(group_row)` 函数，向上遍历 `parent_id` 直到找到有代理配置的分组或到达根节点。
+**Implementation**: Add `get_group_inherited_proxy_config(group_row)` function, traverse `parent_id` upwards until a group with agent configuration is found or the root node is reached.
 
-### D3: 递归账号展示 — group_id 展开为分组子树
+### D3: Recursive account display — group_id expands into group subtree
 
-**选择**: `load_accounts(group_id=X)`、`count_accounts(group_id=X)` 和 `search_account_records(group_id=X)` 将 `X` 展开为自身及所有后代分组 ID，查询整个分组子树。
+**Select**: `load_accounts(group_id=X)`, `count_accounts(group_id=X)` and `search_account_records(group_id=X)` Expand `X` into its own and all descendant group IDs and query the entire group subtree.
 
-**理由**: 父分组代表其子树范围，用户在邮箱列表或导出中选择父分组时，预期包含子分组账号。后端导出对重叠的父子分组选择做账号去重，避免重复输出。
+**Reason**: The parent group represents the scope of its subtree. When the user selects the parent group in the mailbox list or export, it is expected to include the subgroup account. The back-end export selects account deduplication for overlapping parent-child groups to avoid repeated output.
 
-**API 影响**: `GET /api/accounts?group_id=X`、`GET /api/accounts/search?group_id=X` 和分组导出语义为“X 的子树账号”。
+**API Impact**: `GET /api/accounts?group_id=X`, `GET /api/accounts/search?group_id=X` and group export semantics are "subtree accounts of X".
 
-### D4: 折叠状态 — 前端 localStorage
+### D4: Folded state — front-end localStorage
 
-**选择**: 折叠状态仅存前端 `localStorage`，key 格式 `outlook_group_collapsed_<groupId>`，不去数据库。
+**Selection**: In the folded state, only the front end `localStorage` and key format `outlook_group_collapsed_<groupId>` remain, without going to the database.
 
-**理由**: 折叠是纯 UI 状态，多用户/多设备不应共享。
+**Reason**: Collapse is a pure UI state and should not be shared across multiple users/devices.
 
-### D5: 跨层级拖拽 — 移入 + 排序双模式
+### D5: Cross-level dragging - move + sort dual mode
 
-**选择**:
-1. 拖到另一个分组上方区域 → "移入该分组"（设 `parent_id` 为目标分组，`level` 相应调整）
-2. 拖到分组之间的间隔线 → "在该层级此位置插入"（同 `parent_id` 下 `sort_order` 排序）
+**Select**:
+1. Drag to the area above another group → "Move into this group" (set `parent_id` as the target group, and `level` adjust accordingly)
+2. Drag to the separation line between groups → "Insert at this position at this level" (same as `sort_order` sorting under `parent_id`)
 
-**约束**: 移入时校验目标深度 + 拖动子树深度 ≤ 3。
+**Constraint**: Verify target depth when moving in + dragging subtree depth ≤ 3.
 
-**拒绝的方案**: 仅支持同级排序 + 弹窗移动父级——交互碎片化，不如拖拽直观。
+**Rejected plan**: Only supports sibling sorting + pop-up window moving parent - the interaction is fragmented and not as intuitive as drag and drop.
 
-### D6: 删除策略 — 级联删除 + 账号回退
+### D6: Deletion strategy — cascade deletion + account rollback
 
-**选择**: 删除分组时，递归删除所有子分组。所有被删除分组（含子分组）下的账号 `group_id` 移回默认分组 (id=1)。
+**Select**: When deleting a group, delete all subgroups recursively. All accounts `group_id` under the deleted group (including sub-groups) are moved back to the default group (id=1).
 
-**拒绝的方案**:
-- 子分组上移一级：可能导致同 parent 下名称冲突（需重命名），且语义可能不符用户预期。
-- 拒绝删除有子分组的分组：用户需手动逐层清理，体验差。
+**Rejected Plan**:
+- Moving subgroups up one level: This may lead to name conflicts under the same parent (need to be renamed), and the semantics may not meet user expectations.
+- Refuse to delete groups with sub-groups: users need to manually clean up layer by layer, resulting in poor experience.
 
-### D7: 临时邮箱分组 — 限制为叶子不可的根节点
+### D7: Temporary mailbox grouping — restricted to root nodes with no leaves
 
-**选择**: 临时邮箱分组 (`is_system=1`) 保持一级根分组，不允许在其下创建子分组，也不允许将其移动为其他分组的子分组。
+**SELECT**: The temporary mailbox group (`is_system=1`) remains a one-level root group and does not allow subgroups to be created under it or moved as subgroups of other groups.
 
-**理由**: 临时邮箱是特殊系统分组，其行为（渠道筛选、动态生成）与层级组织无关。
+**Reason**: Temporary mailboxes are special system groupings, and their behavior (channel filtering, dynamic generation) has nothing to do with hierarchical organization.
 
-### D8: 排序范围 — 同 parent 下排序
+### D8: Sorting range — Sort under the same parent
 
-**选择**: `sort_order` 仅在同 `parent_id` 下有意义。`reorder_groups()` 改为 `reorder_groups(parent_id, group_ids)`，只重排指定父级下的子分组。
+**Selection**: `sort_order` is only meaningful if it is the same as `parent_id`. `reorder_groups()` is changed to `reorder_groups(parent_id, group_ids)`, which only rearranges the subgroups under the specified parent.
 
-**理由**: 不同父级的分组排序互不干扰，逻辑更清晰。
+**Reason**: The grouping sorting of different parents does not interfere with each other, and the logic is clearer.
 
 ## Risks / Trade-offs
 
-| 风险 | 缓解 |
+| Risk | Mitigation |
 |------|------|
-| 数据迁移：已有扁平分组需补 `parent_id=NULL, level=1` | `ALTER TABLE` + `UPDATE` 兜底，已有数据自然满足 |
-| 名称全局唯一可能造成用户困扰：不同父级下不能同名 | 保持现有约束不变，避免复杂化；后续可按需放宽为同 parent 下唯一 |
-| 跨层级拖拽校验复杂 | 仅 3 级深度，校验逻辑简单：`target_level + max_child_depth ≤ 3` |
-| 后代范围和直属范围容易混淆 | 账号列表/搜索/导出/侧边栏数量统一使用分组子树；API 保留直属数和后代数两个字段 |
-| 前端树形渲染重写工作量大 | 分组数量通常有限（几十到几百），DOM 操作无性能瓶颈 |
-| 删除级联可能误删大量子分组 | 前端二次确认弹窗提示将删除的子分组数量 |
+| Data migration: There are existing flat groups that need to be supplemented `parent_id=NULL, level=1` | `ALTER TABLE` + `UPDATE`. The existing data is naturally satisfied |
+| Globally unique names may cause user confusion: different parents cannot have the same name | Keep existing constraints unchanged to avoid complications; they can be relaxed to be unique under the same parent as needed in the future |
+| Cross-level drag and drop verification is complex | Only 3 levels of depth, the verification logic is simple: `target_level + max_child_depth ≤ 3` |
+| It is easy to confuse the descendant scope and the direct scope | The account list/search/export/sidebar number uniformly uses the group subtree; the API retains two fields: the number of direct descendants and the number of descendants |
+| The front-end tree rendering rewrite workload is heavy | The number of groups is usually limited (tens to hundreds), and there is no performance bottleneck in DOM operations |
+| Deleting a cascade may accidentally delete a large number of subgroups | The front-end secondary confirmation pop-up window prompts the number of subgroups to be deleted |
