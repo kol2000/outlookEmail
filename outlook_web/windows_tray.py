@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 """Tray/status-bar integration for the packaged desktop app."""
 
+
 from __future__ import annotations
+
+from outlook_web.i18n import translate as _tr
 
 from typing import Callable
 
@@ -21,8 +24,8 @@ class WindowsTrayApp:
 
     def run(self) -> None:
         menu = pystray.Menu(
-            pystray.MenuItem("打开界面", self._handle_open, default=True),
-            pystray.MenuItem("退出", self._handle_exit),
+            pystray.MenuItem(_tr('打开界面'), self._handle_open, default=True),
+            pystray.MenuItem(_tr('退出'), self._handle_exit),
         )
         self._icon = pystray.Icon(
             "OutlookEmail",

@@ -24,7 +24,7 @@
 
   function setConnected(connected) {
     const pill = getEl('statusPill');
-    pill.textContent = connected ? '已验证' : '未连接';
+    pill.textContent = connected ? I18n.t('已验证') : I18n.t('未连接');
     pill.classList.toggle('ok', connected);
   }
 
@@ -45,15 +45,15 @@
     await saveFormConfig(config);
     await Storage.setSidePanelPath(nextPath || '/');
     setBusy(true);
-    showMessage('正在打开侧边栏...');
+    showMessage(I18n.t('正在打开侧边栏...'));
     try {
       if (!chrome.sidePanel || !chrome.sidePanel.open) {
-        throw new Error('当前浏览器不支持 Side Panel，请升级 Chrome / Edge');
+        throw new Error(I18n.t('当前浏览器不支持 Side Panel，请升级 Chrome / Edge'));
       }
       const currentWindow = await chrome.windows.getCurrent();
       await chrome.sidePanel.open({ windowId: currentWindow.id });
       setConnected(true);
-      showMessage('已打开侧边栏控制台');
+      showMessage(I18n.t('已打开侧边栏控制台'));
     } catch (error) {
       setConnected(false);
       showMessage(Api.friendlyError(error), 'error');
@@ -66,17 +66,17 @@
     const config = readFormConfig();
     await saveFormConfig(config);
     setBusy(true);
-    showMessage('正在验证密码...');
+    showMessage(I18n.t('正在验证密码...'));
     try {
       await Api.loginForLaunch(config, '/');
       setConnected(true);
-      showMessage('密码验证通过，可以打开控制台');
+      showMessage(I18n.t('密码验证通过，可以打开控制台'));
     } catch (error) {
       if (Api.isMissingExtensionLogin(error)) {
         try {
           await Api.loginWithPasswordSession(config);
           setConnected(true);
-          showMessage('兼容模式密码验证通过，可以打开侧边栏控制台');
+          showMessage(I18n.t('兼容模式密码验证通过，可以打开侧边栏控制台'));
           return;
         } catch (fallbackError) {
           setConnected(false);
@@ -94,7 +94,7 @@
   async function openLogout() {
     const config = readFormConfig();
     if (!config.serverUrl) {
-      showMessage('请先填写服务地址', 'error');
+      showMessage(I18n.t('请先填写服务地址'), 'error');
       return;
     }
     await openSidePanel('/logout');
@@ -106,7 +106,7 @@
     getEl('password').value = '';
     getEl('rememberPassword').checked = false;
     setConnected(false);
-    showMessage('本地配置已清除');
+    showMessage(I18n.t('本地配置已清除'));
   }
 
   document.addEventListener('DOMContentLoaded', async () => {

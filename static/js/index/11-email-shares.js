@@ -3,17 +3,17 @@
         // ==================== 邮箱分享 ====================
 
         function formatEmailShareStatus(status) {
-            if (status === 'active') return '有效';
-            if (status === 'expired') return '已过期';
-            if (status === 'revoked') return '已取消';
-            return '无效';
+            if (status === 'active') return I18n.t('有效');
+            if (status === 'expired') return I18n.t('已过期');
+            if (status === 'revoked') return I18n.t('已取消');
+            return I18n.t('无效');
         }
 
         function formatEmailShareExpiry(share) {
             if (share.never_expires) {
-                return '永不过期';
+                return I18n.t('永不过期');
             }
-            return share.expires_at || '未设置';
+            return share.expires_at || I18n.t('未设置');
         }
 
         function hideCreateEmailShareModal() {
@@ -76,7 +76,7 @@
             const result = document.getElementById('emailShareCreateResult');
             if (!result) return;
             result.hidden = false;
-            result.innerHTML = `
+            result.innerHTML = I18n.tpl`
                 <div class="share-result__label">分享链接</div>
                 <div class="share-result__row">
                     <input type="text" class="form-input" readonly value="${escapeHtml(share.share_url || '')}">
@@ -91,11 +91,11 @@
             const neverExpires = !!document.getElementById('emailShareNeverExpires')?.checked;
             const durationMinutes = getEmailShareDurationMinutes();
             if (!accountId) {
-                showToast('缺少邮箱账号', 'error');
+                showToast(I18n.t('缺少邮箱账号'), 'error');
                 return;
             }
             if (!neverExpires && durationMinutes <= 0) {
-                showToast('分享时长无效', 'error');
+                showToast(I18n.t('分享时长无效'), 'error');
                 return;
             }
 
@@ -114,23 +114,23 @@
                 const data = await response.json();
                 if (data.success) {
                     renderEmailShareCreateResult(data.share);
-                    showToast('分享链接已创建', 'success');
+                    showToast(I18n.t('分享链接已创建'), 'success');
                     loadEmailShares();
                 } else {
-                    handleApiError(data, '创建分享失败');
+                    handleApiError(data, I18n.t('创建分享失败'));
                 }
             } catch (error) {
-                showToast('创建分享失败: ' + error.message, 'error');
+                showToast(I18n.t('创建分享失败: ') + error.message, 'error');
             } finally {
                 if (button) button.disabled = false;
             }
         }
         function copyEmailShareUrl(url) {
             if (!url) {
-                showToast('分享链接不可用', 'error');
+                showToast(I18n.t('分享链接不可用'), 'error');
                 return;
             }
-            copyTextToClipboard(url, '分享链接已复制');
+            copyTextToClipboard(url, I18n.t('分享链接已复制'));
         }
 
         let allEmailShares = [];
@@ -146,7 +146,7 @@
             }
 
             if (!Array.isArray(shares) || shares.length === 0) {
-                tbody.innerHTML = `
+                tbody.innerHTML = I18n.tpl`
                     <tr>
                         <td colspan="7" class="share-empty">暂无分享记录</td>
                     </tr>
@@ -164,7 +164,7 @@
 
                 const expiryStr = formatEmailShareExpiry(share);
 
-                return `
+                return I18n.tpl`
                     <tr data-share-id="${share.id}">
                         <td>
                             <div class="share-select-all">
@@ -199,7 +199,7 @@
         async function loadEmailShares() {
             const tbody = document.getElementById('emailShareTableBody');
             if (tbody) {
-                tbody.innerHTML = `
+                tbody.innerHTML = I18n.tpl`
                     <tr>
                         <td colspan="7" class="share-empty">正在加载分享记录...</td>
                     </tr>
@@ -218,10 +218,10 @@
                     allEmailShares = data.shares || [];
                     applyShareFilters();
                 } else {
-                    handleApiError(data, '加载分享记录失败');
+                    handleApiError(data, I18n.t('加载分享记录失败'));
                 }
             } catch (error) {
-                showToast('加载分享记录失败: ' + error.message, 'error');
+                showToast(I18n.t('加载分享记录失败: ') + error.message, 'error');
             }
         }
 
@@ -357,7 +357,7 @@
         }
 
         async function cancelEmailShare(shareId) {
-            if (!(await showConfirmModal('确定要取消这个分享链接吗？', { title: '取消分享', confirmText: '确认取消' }))) {
+            if (!(await showConfirmModal(I18n.t('确定要取消这个分享链接吗？'), { title: I18n.t('取消分享'), confirmText: I18n.t('确认取消') }))) {
                 return;
             }
             try {
@@ -366,18 +366,18 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('分享已取消', 'success');
+                    showToast(I18n.t('分享已取消'), 'success');
                     loadEmailShares();
                 } else {
-                    handleApiError(data, '取消分享失败');
+                    handleApiError(data, I18n.t('取消分享失败'));
                 }
             } catch (error) {
-                showToast('取消分享失败: ' + error.message, 'error');
+                showToast(I18n.t('取消分享失败: ') + error.message, 'error');
             }
         }
 
         async function deleteEmailShare(shareId) {
-            if (!(await showConfirmModal('确定要删除这个分享链接吗？删除后链接将永久失效且不可恢复。', { title: '删除分享', confirmText: '确认删除', danger: true }))) {
+            if (!(await showConfirmModal(I18n.t('确定要删除这个分享链接吗？删除后链接将永久失效且不可恢复。'), { title: I18n.t('删除分享'), confirmText: I18n.t('确认删除'), danger: true }))) {
                 return;
             }
             try {
@@ -386,13 +386,13 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('分享已删除', 'success');
+                    showToast(I18n.t('分享已删除'), 'success');
                     loadEmailShares();
                 } else {
-                    handleApiError(data, '删除分享失败');
+                    handleApiError(data, I18n.t('删除分享失败'));
                 }
             } catch (error) {
-                showToast('删除分享失败: ' + error.message, 'error');
+                showToast(I18n.t('删除分享失败: ') + error.message, 'error');
             }
         }
 
@@ -401,7 +401,7 @@
             const ids = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-share-id'), 10));
             if (ids.length === 0) return;
 
-            if (!(await showConfirmModal(`确定要取消选中的 ${ids.length} 个分享链接吗？`, { title: '批量取消分享', confirmText: '确认取消' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要取消选中的 ${ids.length} 个分享链接吗？`, { title: I18n.t('批量取消分享'), confirmText: I18n.t('确认取消') }))) {
                 return;
             }
 
@@ -413,13 +413,13 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('所选分享已取消', 'success');
+                    showToast(I18n.t('所选分享已取消'), 'success');
                     loadEmailShares();
                 } else {
-                    handleApiError(data, '批量取消失败');
+                    handleApiError(data, I18n.t('批量取消失败'));
                 }
             } catch (error) {
-                showToast('批量取消失败: ' + error.message, 'error');
+                showToast(I18n.t('批量取消失败: ') + error.message, 'error');
             }
         }
 
@@ -428,7 +428,7 @@
             const ids = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-share-id'), 10));
             if (ids.length === 0) return;
 
-            if (!(await showConfirmModal(`确定要删除选中的 ${ids.length} 个分享链接吗？删除后链接将永久失效且不可恢复。`, { title: '批量删除分享', confirmText: '确认删除', danger: true }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除选中的 ${ids.length} 个分享链接吗？删除后链接将永久失效且不可恢复。`, { title: I18n.t('批量删除分享'), confirmText: I18n.t('确认删除'), danger: true }))) {
                 return;
             }
 
@@ -440,12 +440,12 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('所选分享已删除', 'success');
+                    showToast(I18n.t('所选分享已删除'), 'success');
                     loadEmailShares();
                 } else {
-                    handleApiError(data, '批量删除失败');
+                    handleApiError(data, I18n.t('批量删除失败'));
                 }
             } catch (error) {
-                showToast('批量删除失败: ' + error.message, 'error');
+                showToast(I18n.t('批量删除失败: ') + error.message, 'error');
             }
         }

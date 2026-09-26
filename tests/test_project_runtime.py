@@ -2332,8 +2332,8 @@ class FrontendAccountSearchScopeTests(unittest.TestCase):
         ).read_text(encoding='utf-8')
         groups_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '02-groups.js').read_text(encoding='utf-8')
 
-        self.assertIn('<option value="all">所有分组</option>', layout_html)
-        self.assertIn('<option value="group" selected>当前分组</option>', layout_html)
+        self.assertIn('<option value="all">{{ tr("所有分组") }}</option>', layout_html)
+        self.assertIn('<option value="group" selected>{{ tr("当前分组") }}</option>', layout_html)
         self.assertIn("select.value = savedScope === 'all' ? 'all' : 'group';", groups_js)
         self.assertIn("localStorage.setItem('outlook_account_search_scope', normalizedScope);", groups_js)
 
@@ -2440,10 +2440,10 @@ class FrontendEmailListSecurityTests(unittest.TestCase):
         self.assertIn('class="email-checkbox-wrapper" data-email-id=', self.emails_js)
 
     def test_detail_load_error_message_is_rendered_as_text(self):
-        self.assertNotIn("${data.error && data.error.message ? data.error.message : '加载失败'}", self.emails_js)
+        self.assertNotIn("${data.error && data.error.message ? data.error.message : I18n.t('加载失败')}", self.emails_js)
         self.assertIn("const errorText = container.querySelector('.empty-state-text');", self.emails_js)
         self.assertIn('const detailErrorMessage = data.error?.message', self.emails_js)
-        self.assertIn("|| '加载失败';", self.emails_js)
+        self.assertIn("|| I18n.t('加载失败');", self.emails_js)
         self.assertIn('errorText.textContent = detailErrorMessage;', self.emails_js)
 
     def test_delete_emails_removes_matching_cached_rows_and_preserves_unrelated_detail(self):
@@ -2491,7 +2491,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertEqual(settings_js.count('setAppTimeZone(appTimeZone);'), 2)
         self.assertIn("settings.app_timezone = appTimeZone;", settings_js)
-        self.assertIn("showToast('时间展示已生效，定时任务重启后生效', 'success');", settings_js)
+        self.assertIn("showToast(I18n.t('时间展示已生效，定时任务重启后生效'), 'success');", settings_js)
 
     def test_frontend_bootstraps_saved_timezone_before_loading_groups(self):
         core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
@@ -2582,7 +2582,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
     def test_cloudflare_global_entry_does_not_duplicate_channel_name(self):
         temp_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '03-temp-emails.js').read_text(encoding='utf-8')
 
-        self.assertIn('const label = `Cloudflare所有邮件 · ${channelName}`;', temp_js)
+        self.assertIn('const label = I18n.tpl`Cloudflare所有邮件 · ${channelName}`;', temp_js)
         self.assertIn('<span class="account-status-pill provider" style="--pill-accent: #f48120">Cloudflare</span>', temp_js)
         self.assertNotIn('<span class="account-status-pill muted">${escapeHtml(channelName)}</span>', temp_js)
 
@@ -2665,19 +2665,15 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
 
         refresh_block = (
-            "try {\n"
-            "                await loadGroups();\n"
-            "                await refreshVisibleAccountList(false);\n"
-            "            } catch (error) {\n"
-            "                showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');"
+            "try {\n                await loadGroups();\n                await refreshVisibleAccountList(false);\n            } catch (error) {\n                showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');"
         )
 
         self.assertIn(refresh_block, settings_js)
-        self.assertIn("showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');", settings_js)
-        self.assertIn("showToast('保存设置失败', 'error');\n                return;", settings_js)
+        self.assertIn("showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');", settings_js)
+        self.assertIn("showToast(I18n.t('保存设置失败'), 'error');\n                return;", settings_js)
         self.assertLess(
             settings_js.index('if (!data.success)'),
-            settings_js.index("showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');")
+            settings_js.index("showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');")
         )
 
     def test_attachment_download_url_builders_include_id_mode(self):
@@ -2695,8 +2691,8 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertIn('function downloadEmailAttachmentFile(event, link)', emails_js)
         self.assertIn('onclick="downloadEmailAttachmentFile(event, this)"', emails_js)
-        self.assertIn("link.textContent = isDownloading ? '打包中...' : link.dataset.defaultLabel;", emails_js)
-        self.assertIn("action.textContent = isDownloading ? '下载中...' : '下载';", emails_js)
+        self.assertIn("link.textContent = isDownloading ? I18n.t('打包中...') : link.dataset.defaultLabel;", emails_js)
+        self.assertIn("action.textContent = isDownloading ? I18n.t('下载中...') : I18n.t('下载');", emails_js)
         self.assertIn("showToast(pendingMessage, 'info');", emails_js)
 
     def test_local_retention_load_more_keeps_source_local(self):
@@ -2752,7 +2748,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn("notice.setAttribute('role', 'button');", emails_js)
         self.assertIn("notice.setAttribute('tabindex', '0');", emails_js)
         self.assertIn('notice.replaceChildren();', emails_js)
-        self.assertIn("hint.textContent = '点击显示';", emails_js)
+        self.assertIn("hint.textContent = I18n.t('点击显示');", emails_js)
         self.assertIn('NEW_EMAIL_HIGHLIGHT_CLEAR_DELAY_MS', emails_js)
         self.assertNotIn('已自动显示', emails_js)
         self.assertNotIn('cacheRemoteEmailSyncResult', emails_js)
@@ -2840,12 +2836,12 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         cloudflare_section = settings_html.split('id="settingsCloudflareSection"', 1)[1].split('</section>', 1)[0]
 
         self.assertIn('id="saveCloudflareChannelBtn"', cloudflare_section)
-        self.assertIn('onclick="saveCloudflareChannel()">创建渠道</button>', cloudflare_section)
+        self.assertIn('onclick="saveCloudflareChannel()">{{ tr("创建渠道") }}</button>', cloudflare_section)
         self.assertIn('id="resetCloudflareChannelBtn"', cloudflare_section)
-        self.assertIn('onclick="resetCloudflareChannelForm()">清空表单</button>', cloudflare_section)
-        self.assertIn("if (saveBtn) saveBtn.textContent = isEditing ? '保存渠道' : '创建渠道';", settings_js)
-        self.assertIn("if (resetBtn) resetBtn.textContent = isEditing ? '新建渠道' : '清空表单';", settings_js)
-        self.assertIn("showToast('请填写渠道名称和 Worker 域名', 'error');", settings_js)
+        self.assertIn('onclick="resetCloudflareChannelForm()">{{ tr("清空表单") }}</button>', cloudflare_section)
+        self.assertIn("if (saveBtn) saveBtn.textContent = isEditing ? I18n.t('保存渠道') : I18n.t('创建渠道');", settings_js)
+        self.assertIn("if (resetBtn) resetBtn.textContent = isEditing ? I18n.t('新建渠道') : I18n.t('清空表单');", settings_js)
+        self.assertIn("showToast(I18n.t('请填写渠道名称和 Worker 域名'), 'error');", settings_js)
         self.assertNotIn('请填写渠道名称、Worker 域名和邮箱域名', settings_js)
         self.assertIn('setCloudflareChannelFormMode(false);', settings_js)
         self.assertIn('setCloudflareChannelFormMode(true);', settings_js)
@@ -2863,7 +2859,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertIn('仅 Docker 版本支持在线更新', layout_html)
         self.assertIn('README 中的「启用界面 Docker 在线更新」', layout_html)
-        self.assertIn('https://github.com/assast/outlookEmail#readme', layout_html)
+        self.assertIn('https://github.com/kol2000/outlookEmail#readme', layout_html)
 
     def test_version_chip_shows_upgrade_badge_markup_and_logic(self):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')

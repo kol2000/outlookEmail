@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "OutlookEmail 控制台",
+  "name": "__MSG_extensionName__",
   "version": "0.1.0",
-  "description": "使用 Web 登录密码打开 OutlookEmail 控制台，并复用完整 Web 端功能。",
+  "description": "__MSG_extensionDescription__",
   "action": {
     "default_title": "OutlookEmail"
   },
@@ -29,7 +29,8 @@
         "default": "Ctrl+Shift+E",
         "mac": "Command+Shift+E"
       },
-      "description": "打开 OutlookEmail 控制台面板"
+      "description": "__MSG_openConsole__"
     }
-  }
+  },
+  "default_locale": "en"
 }

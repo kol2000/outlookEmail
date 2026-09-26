@@ -17,7 +17,7 @@
             const selectedSet = selectedIds instanceof Set ? selectedIds : new Set(selectedIds);
             const items = tags || [];
             if (!items.length) {
-                return '<div class="tag-filter-empty" style="display: block;">暂无标签</div>';
+                return I18n.t('<div class="tag-filter-empty" style="display: block;">暂无标签</div>');
             }
             return items.map(tag => `
                 <label class="tag-filter-option ${selectedSet.has(tag.id) ? 'is-checked' : ''}" data-tag-name="${escapeHtml(tag.name)}">
@@ -48,9 +48,9 @@
                 const hasOptions = optionsContainer.querySelectorAll('.tag-filter-option').length > 0;
                 emptyState.style.display = (visibleCount === 0 && (kw || !hasOptions)) ? 'block' : 'none';
                 if (kw && visibleCount === 0) {
-                    emptyState.textContent = '没有匹配的标签';
+                    emptyState.textContent = I18n.t('没有匹配的标签');
                 } else if (!hasOptions) {
-                    emptyState.textContent = '暂无标签';
+                    emptyState.textContent = I18n.t('暂无标签');
                 }
             }
         }
@@ -76,14 +76,14 @@
             if (!triggerTextEl || !countEl) return;
             const count = selectedItems.length;
             if (!count) {
-                triggerTextEl.textContent = defaultText || '未选择标签';
+                triggerTextEl.textContent = defaultText || I18n.t('未选择标签');
                 countEl.style.display = 'none';
                 countEl.textContent = '';
                 return;
             }
             triggerTextEl.textContent = count <= 2
                 ? selectedItems.map(t => t.name).join('、')
-                : `已选 ${count} 个标签`;
+                : I18n.tpl`已选 ${count} 个标签`;
             countEl.style.display = 'inline-flex';
             countEl.textContent = String(count);
         }
@@ -172,19 +172,19 @@
                     }
                 }
             } catch (error) {
-                showToast('加载标签失败', 'error');
+                showToast(I18n.t('加载标签失败'), 'error');
             }
         }
 
         function getTagFilterSummaryText() {
             const parts = [];
             if (selectedTagFilters.size) {
-                parts.push(`有 ${selectedTagFilters.size}`);
+                parts.push(I18n.tpl`有 ${selectedTagFilters.size}`);
             }
             if (excludedTagFilters.size) {
-                parts.push(`无 ${excludedTagFilters.size}`);
+                parts.push(I18n.tpl`无 ${excludedTagFilters.size}`);
             }
-            return parts.length ? parts.join(' / ') : '全部标签';
+            return parts.length ? parts.join(' / ') : I18n.t('全部标签');
         }
 
         function updateTagFilterSummary() {
@@ -227,7 +227,7 @@
                 }
                 const included = selectedTagFilters.has(tagId);
                 const excluded = excludedTagFilters.has(tagId);
-                return `
+                return I18n.tpl`
                     <div class="tag-filter-option account-tag-filter-option ${included || excluded ? 'is-checked' : ''}"
                          data-tag-id="${tagId}" data-tag-name="${escapeHtml(tag.name)}">
                         <span class="tag-filter-dot" style="background-color: ${tag.color};"></span>
@@ -273,7 +273,7 @@
 
             const optionsHtml = buildAccountTagFilterOptionsHtml();
 
-            container.innerHTML = `
+            container.innerHTML = I18n.tpl`
                 <span class="toolbar-label">标签</span>
                 <div class="tag-filter-dropdown" id="tagFilterDropdown">
                     <button class="tag-filter-trigger" type="button" onclick="toggleTagFilterDropdown(event)">
@@ -309,13 +309,13 @@
         function renderTagList() {
             const listEl = document.getElementById('tagList');
             if (!allTags.length) {
-                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">暂无标签</div>';
+                listEl.innerHTML = I18n.t('<div style="text-align: center; color: #999; padding: 20px;">暂无标签</div>');
                 return;
             }
 
             let html = '';
             allTags.forEach(tag => {
-                html += `
+                html += I18n.tpl`
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid #f0f0f0;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span class="tag-badge" style="background-color: ${tag.color};">${escapeHtml(tag.name)}</span>
@@ -335,7 +335,7 @@
             const color = colorInput.value;
 
             if (!name) {
-                showToast('请输入标签名称', 'error');
+                showToast(I18n.t('请输入标签名称'), 'error');
                 return;
             }
 
@@ -349,34 +349,34 @@
 
                 if (data.success) {
                     nameInput.value = '';
-                    showToast('标签创建成功', 'success');
+                    showToast(I18n.t('标签创建成功'), 'success');
                     await loadTags();
                     // 刷新账号列表以重新加载标签（如果是在查看列表时添加标签，可能不需要立即刷新列表，但为了保持一致性可以刷新）
                     // 但通常添加标签不影响当前列表显示，除非是给账号打标
                 } else {
-                    showToast(data.error || '创建失败', 'error');
+                    showToast(data.error || I18n.t('创建失败'), 'error');
                 }
             } catch (error) {
-                showToast('创建标签失败', 'error');
+                showToast(I18n.t('创建标签失败'), 'error');
             }
         }
 
         // 删除标签
         async function deleteTag(id) {
-            if (!(await showConfirmModal('确定要删除这个标签吗？', { title: '删除标签', confirmText: '确认删除' }))) return;
+            if (!(await showConfirmModal(I18n.t('确定要删除这个标签吗？'), { title: I18n.t('删除标签'), confirmText: I18n.t('确认删除') }))) return;
 
             try {
                 const response = await fetch(`/api/tags/${id}`, { method: 'DELETE' });
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('标签已删除', 'success');
+                    showToast(I18n.t('标签已删除'), 'success');
                     await loadTags();
                     await refreshVisibleAccountList(true);
                 } else {
-                    showToast(data.error || '删除失败', 'error');
+                    showToast(data.error || I18n.t('删除失败'), 'error');
                 }
             } catch (error) {
-                showToast('删除标签失败', 'error');
+                showToast(I18n.t('删除标签失败'), 'error');
             }
         }

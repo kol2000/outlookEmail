@@ -1,0 +1,11 @@
+{
+  "extensionName": {
+    "message": "OutlookEmail Console"
+  },
+  "extensionDescription": {
+    "message": "Manage OutlookEmail accounts and mail from the browser sidebar."
+  },
+  "openConsole": {
+    "message": "Open the OutlookEmail console"
+  }
+}

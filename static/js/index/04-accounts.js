@@ -61,7 +61,7 @@
             if (cache) {
                 applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
-                document.getElementById('emailList').innerHTML = `
+                document.getElementById('emailList').innerHTML = I18n.tpl`
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
                         <div class="empty-state-text">正在自动刷新全部邮件...</div>
@@ -72,7 +72,7 @@
                 currentEmails = [];
             }
 
-            document.getElementById('emailDetail').innerHTML = `
+            document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
                     <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -106,7 +106,7 @@
             const email = document.getElementById('editEmail').value;
             const groupId = parseInt(document.getElementById('editGroupSelect').value);
 
-            if (!(await showConfirmModal(`确定要删除账号 ${email} 吗？`, { title: '删除账号', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除账号 ${email} 吗？`, { title: I18n.t('删除账号'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -115,7 +115,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('删除成功', 'success');
+                    showToast(I18n.t('删除成功'), 'success');
                     hideEditAccountModal();
 
                     // 清除缓存
@@ -128,13 +128,13 @@
                             updateGraphSendMailAvailability();
                         }
                         document.getElementById('currentAccount').classList.remove('show');
-                        document.getElementById('emailList').innerHTML = `
+                        document.getElementById('emailList').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📬</div>
                                 <div class="empty-state-text">请从左侧选择一个邮箱账号</div>
                             </div>
                         `;
-                        document.getElementById('emailDetail').innerHTML = `
+                        document.getElementById('emailDetail').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📄</div>
                                 <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -153,14 +153,14 @@
                     }
                 }
             } catch (error) {
-                showToast('删除失败', 'error');
+                showToast(I18n.t('删除失败'), 'error');
             }
         }
 
         // 切换账号状态（启用/停用）
         async function toggleAccountStatus(accountId, currentStatus) {
             const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-            const action = newStatus === 'inactive' ? '停用' : '启用';
+            const action = newStatus === 'inactive' ? I18n.t('停用') : I18n.t('启用');
 
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, {
@@ -172,7 +172,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(`${action}成功`, 'success');
+                    showToast(I18n.tpl`${action}成功`, 'success');
                     if (Number(currentAccountSummary?.id) === Number(accountId)) {
                         currentAccountSummary = {
                             ...currentAccountSummary,
@@ -189,16 +189,16 @@
                         loadAccountsByGroup(currentGroupId, true);
                     }
                 } else {
-                    handleApiError(data, `${action}账号失败`);
+                    handleApiError(data, I18n.tpl`${action}账号失败`);
                 }
             } catch (error) {
-                showToast(`${action}失败`, 'error');
+                showToast(I18n.tpl`${action}失败`, 'error');
             }
         }
 
         // 删除账号（快捷方式）
         async function deleteAccount(accountId, email) {
-            if (!(await showConfirmModal(`确定要删除账号 ${email} 吗？`, { title: '删除账号', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除账号 ${email} 吗？`, { title: I18n.t('删除账号'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -207,16 +207,16 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('删除成功', 'success');
+                    showToast(I18n.t('删除成功'), 'success');
                     invalidateAccountCaches();
                     resetSelectedAccountViewIfDeleted([email]);
                     loadGroups();
                     await refreshVisibleAccountList(true);
                 } else {
-                    handleApiError(data, '删除账号失败');
+                    handleApiError(data, I18n.t('删除账号失败'));
                 }
             } catch (error) {
-                showToast('删除失败', 'error');
+                showToast(I18n.t('删除失败'), 'error');
             }
         }
 
@@ -239,7 +239,7 @@
             try {
                 // 使用已加载的分组数据
                 if (groups.length === 0) {
-                    container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无分组</div>';
+                    container.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #999;">暂无分组</div>');
                 } else {
                     const sortedGroups = typeof flattenGroupTree === 'function' && typeof buildGroupTree === 'function'
                         ? flattenGroupTree(buildGroupTree(groups))
@@ -273,7 +273,7 @@
                     syncExportGroupCheckboxStates();
                 }
             } catch (error) {
-                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">加载失败</div>';
+                container.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #dc3545;">加载失败</div>');
             }
 
             // 重置全选复选框
@@ -377,7 +377,7 @@
             });
 
             if (groupIds.length === 0) {
-                showToast('请选择要导出的分组', 'error');
+                showToast(I18n.t('请选择要导出的分组'), 'error');
                 return;
             }
 
@@ -395,7 +395,7 @@
                 .filter(Number.isFinite)));
 
             if (!normalizedIds.length) {
-                showToast('请先选择要导出的邮箱', 'error');
+                showToast(I18n.t('请先选择要导出的邮箱'), 'error');
                 return;
             }
 
@@ -411,7 +411,7 @@
                 .filter(Number.isFinite)));
 
             if (!normalizedIds.length) {
-                showToast('请先选择要导出的账号', 'error');
+                showToast(I18n.t('请先选择要导出的账号'), 'error');
                 return;
             }
 
@@ -445,7 +445,7 @@
             const password = document.getElementById('exportVerifyPassword').value;
 
             if (!password) {
-                showToast('请输入密码', 'error');
+                showToast(I18n.t('请输入密码'), 'error');
                 return;
             }
 
@@ -460,7 +460,7 @@
                 const verifyData = await verifyResponse.json();
 
                 if (!verifyData.success) {
-                    showToast(verifyData.error || '密码错误', 'error');
+                    showToast(verifyData.error || I18n.t('密码错误'), 'error');
                     return;
                 }
 
@@ -509,13 +509,13 @@
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
 
-                    showToast('导出成功', 'success');
+                    showToast(I18n.t('导出成功'), 'success');
                     hideExportVerifyModal();
                 } else {
                     const data = await response.json();
-                    handleApiError(data, '导出失败');
+                    handleApiError(data, I18n.t('导出失败'));
                 }
             } catch (error) {
-                showToast('导出失败', 'error');
+                showToast(I18n.t('导出失败'), 'error');
             }
         }

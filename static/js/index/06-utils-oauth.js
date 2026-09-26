@@ -26,18 +26,18 @@
                 const isToday = dateKeyFormatter.format(date) === dateKeyFormatter.format(now);
 
                 if (isToday) {
-                    return '今天 ' + date.toLocaleTimeString('zh-CN', {
+                    return I18n.t('今天 ') + date.toLocaleTimeString(I18n.language, {
                         timeZone,
                         hour: '2-digit',
                         minute: '2-digit'
                     });
                 } else {
-                    return date.toLocaleDateString('zh-CN', {
+                    return date.toLocaleDateString(I18n.language, {
                         timeZone,
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
-                    }) + ' ' + date.toLocaleTimeString('zh-CN', {
+                    }) + ' ' + date.toLocaleTimeString(I18n.language, {
                         timeZone,
                         hour: '2-digit',
                         minute: '2-digit'
@@ -75,21 +75,21 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             const saveBtn = document.getElementById('saveTokenAccountBtn');
 
-            if (titleEl) titleEl.textContent = reauthMode ? '🔑 重新授权 Outlook 账号' : '🔑 授权并保存 Outlook 账号';
-            if (sectionTitleEl) sectionTitleEl.textContent = reauthMode ? '当前账号' : '待入库账号';
+            if (titleEl) titleEl.textContent = reauthMode ? I18n.t('🔑 重新授权 Outlook 账号') : I18n.t('🔑 授权并保存 Outlook 账号');
+            if (sectionTitleEl) sectionTitleEl.textContent = reauthMode ? I18n.t('当前账号') : I18n.t('待入库账号');
             if (sectionHintEl) {
                 sectionHintEl.textContent = reauthMode
-                    ? '请确认当前账号邮箱，并粘贴授权后的回调 URL。系统会保存新授权并自动执行一次 Token 刷新验证。'
-                    : '换取并预览只需要粘贴授权后的回调 URL。邮箱、密码和目标分组仅在保存账号时使用，可稍后补充。';
+                    ? I18n.t('请确认当前账号邮箱，并粘贴授权后的回调 URL。系统会保存新授权并自动执行一次 Token 刷新验证。')
+                    : I18n.t('换取并预览只需要粘贴授权后的回调 URL。邮箱、密码和目标分组仅在保存账号时使用，可稍后补充。');
             }
-            if (emailLabelEl) emailLabelEl.textContent = reauthMode ? '当前邮箱账号' : '邮箱账号（保存时可选）';
+            if (emailLabelEl) emailLabelEl.textContent = reauthMode ? I18n.t('当前邮箱账号') : I18n.t('邮箱账号（保存时可选）');
             if (emailInput) {
                 emailInput.readOnly = reauthMode;
                 emailInput.value = reauthMode ? (oauthReauthorizeAccount.email || '') : '';
                 if (reauthMode) {
                     emailInput.style.cursor = 'pointer';
-                    emailInput.title = '点击复制';
-                    emailInput.onclick = function () { copyOauthField('oauthEmailInput', '邮箱已复制'); };
+                    emailInput.title = I18n.t('点击复制');
+                    emailInput.onclick = function () { copyOauthField('oauthEmailInput', I18n.t('邮箱已复制')); };
                 } else {
                     emailInput.style.cursor = '';
                     emailInput.title = '';
@@ -98,12 +98,12 @@
             }
 
             // 密码字段：重新授权模式下用掩码+小眼睛控制，支持点击复制
-            if (passwordLabelEl) passwordLabelEl.textContent = reauthMode ? '密码' : '密码（保存时可选）';
+            if (passwordLabelEl) passwordLabelEl.textContent = reauthMode ? I18n.t('密码') : I18n.t('密码（保存时可选）');
             const revealOauthPasswordBtn = document.getElementById('revealOauthPasswordBtn');
             if (passwordInput) {
                 passwordInput.type = 'text';
                 passwordInput.readOnly = reauthMode;
-                passwordInput.placeholder = reauthMode ? '' : '输入邮箱密码';
+                passwordInput.placeholder = reauthMode ? '' : I18n.t('输入邮箱密码');
                 if (reauthMode) {
                     const pw = oauthReauthorizeAccount.password || '';
                     const mask = '*'.repeat(Math.max(6, pw.length));
@@ -111,8 +111,8 @@
                     passwordInput.dataset.secretValue = pw;
                     passwordInput.dataset.secretRevealed = 'false';
                     passwordInput.style.cursor = 'pointer';
-                    passwordInput.title = '点击复制';
-                    passwordInput.onclick = function () { copyOauthField('oauthPasswordInput', '密码已复制'); };
+                    passwordInput.title = I18n.t('点击复制');
+                    passwordInput.onclick = function () { copyOauthField('oauthPasswordInput', I18n.t('密码已复制')); };
                 } else {
                     passwordInput.value = '';
                     passwordInput.type = 'password';
@@ -126,8 +126,8 @@
             if (revealOauthPasswordBtn) {
                 revealOauthPasswordBtn.style.display = reauthMode ? '' : 'none';
                 revealOauthPasswordBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-                revealOauthPasswordBtn.title = '显示密码';
-                revealOauthPasswordBtn.setAttribute('aria-label', '显示密码');
+                revealOauthPasswordBtn.title = I18n.t('显示密码');
+                revealOauthPasswordBtn.setAttribute('aria-label', I18n.t('显示密码'));
             }
             setOAuthElementDisplay('copyOauthEmailBtn', reauthMode);
 
@@ -138,12 +138,12 @@
 
             if (exchangeBtn) {
                 exchangeBtn.disabled = false;
-                exchangeBtn.textContent = '换取并预览';
+                exchangeBtn.textContent = I18n.t('换取并预览');
                 exchangeBtn.style.display = reauthMode ? 'none' : '';
             }
             if (saveBtn) {
                 saveBtn.disabled = false;
-                saveBtn.textContent = reauthMode ? '更新授权并刷新' : '直接保存（自动换取）';
+                saveBtn.textContent = reauthMode ? I18n.t('更新授权并刷新') : I18n.t('直接保存（自动换取）');
             }
         }
 
@@ -152,7 +152,7 @@
             if (!input) return;
             const text = input.dataset.secretValue || input.value || '';
             if (!text) {
-                showToast('内容为空，无法复制', 'error');
+                showToast(I18n.t('内容为空，无法复制'), 'error');
                 return;
             }
             if (typeof copyTextToClipboard === 'function') {
@@ -176,14 +176,14 @@
             if (isRevealed) {
                 input.value = mask;
                 input.dataset.secretRevealed = 'false';
-                button.title = '显示密码';
-                button.setAttribute('aria-label', '显示密码');
+                button.title = I18n.t('显示密码');
+                button.setAttribute('aria-label', I18n.t('显示密码'));
                 button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
             } else {
                 input.value = secretValue;
                 input.dataset.secretRevealed = 'true';
-                button.title = '隐藏密码';
-                button.setAttribute('aria-label', '隐藏密码');
+                button.title = I18n.t('隐藏密码');
+                button.setAttribute('aria-label', I18n.t('隐藏密码'));
                 button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.5 5.5A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a17.6 17.6 0 0 1-2.1 3"></path><path d="M6.5 6.5C3.8 8.3 2.5 12 2.5 12s3.5 7 9.5 7a10 10 0 0 0 4.5-1.1"></path></svg>';
             }
         }
@@ -269,10 +269,10 @@
                 if (data.success) {
                     document.getElementById('authUrlInput').value = data.auth_url;
                 } else {
-                    showToast('获取授权链接失败', 'error');
+                    showToast(I18n.t('获取授权链接失败'), 'error');
                 }
             } catch (error) {
-                showToast('获取授权链接失败', 'error');
+                showToast(I18n.t('获取授权链接失败'), 'error');
             }
         }
 
@@ -289,7 +289,7 @@
                 : { id: account, email: arguments.length > 1 ? arguments[1] : '' };
             const accountId = Number(normalizedAccount.id || 0);
             if (!Number.isFinite(accountId) || accountId <= 0) {
-                showToast('账号信息无效，无法重新授权', 'error');
+                showToast(I18n.t('账号信息无效，无法重新授权'), 'error');
                 return;
             }
 
@@ -331,7 +331,7 @@
             const input = document.getElementById('authUrlInput');
             input.select();
             document.execCommand('copy');
-            showToast('授权链接已复制到剪贴板', 'success');
+            showToast(I18n.t('授权链接已复制到剪贴板'), 'success');
         }
 
         // 打开授权 URL
@@ -339,7 +339,7 @@
             const url = document.getElementById('authUrlInput').value;
             if (url) {
                 window.open(url, '_blank');
-                showToast('已在新窗口打开授权页面', 'info');
+                showToast(I18n.t('已在新窗口打开授权页面'), 'info');
             }
         }
 
@@ -357,7 +357,7 @@
             const forwardEnabled = !!document.getElementById('oauthForwardEnabled')?.checked;
 
             if (!redirectUrl) {
-                showToast('请先粘贴授权后的完整 URL', 'error');
+                showToast(I18n.t('请先粘贴授权后的完整 URL'), 'error');
                 return;
             }
 
@@ -367,7 +367,7 @@
             if (!keepSavingState && saveBtn) {
                 saveBtn.disabled = true;
             }
-            btn.textContent = '⏳ 预览中...';
+            btn.textContent = I18n.t('⏳ 预览中...');
 
             try {
                 const response = await fetch('/api/oauth/exchange-token', {
@@ -394,7 +394,7 @@
                     renderRefreshTokenPreview();
 
                     if (!silentSuccess) {
-                        showToast('✅ Refresh Token 获取成功！', 'success');
+                        showToast(I18n.t('✅ Refresh Token 获取成功！'), 'success');
                     }
 
                     // 重置按钮状态（不隐藏，允许重复使用）
@@ -402,24 +402,24 @@
                     if (!keepSavingState && saveBtn) {
                         saveBtn.disabled = false;
                     }
-                    btn.textContent = '换取并预览';
+                    btn.textContent = I18n.t('换取并预览');
                     return true;
                 } else {
-                    handleApiError(data, '换取 Token 失败');
+                    handleApiError(data, I18n.t('换取 Token 失败'));
                     btn.disabled = false;
                     if (!keepSavingState && saveBtn) {
                         saveBtn.disabled = false;
                     }
-                    btn.textContent = '换取并预览';
+                    btn.textContent = I18n.t('换取并预览');
                     return false;
                 }
             } catch (error) {
-                showToast('换取 Token 失败: ' + error.message, 'error');
+                showToast(I18n.t('换取 Token 失败: ') + error.message, 'error');
                 btn.disabled = false;
                 if (!keepSavingState && saveBtn) {
                     saveBtn.disabled = false;
                 }
-                btn.textContent = '换取并预览';
+                btn.textContent = I18n.t('换取并预览');
                 return false;
             }
         }
@@ -447,11 +447,11 @@
             const accountId = Number(oauthReauthorizeAccount?.id || 0);
             const redirectUrl = document.getElementById('redirectUrlInput').value.trim();
             if (!Number.isFinite(accountId) || accountId <= 0) {
-                showToast('账号信息无效，无法重新授权', 'error');
+                showToast(I18n.t('账号信息无效，无法重新授权'), 'error');
                 return false;
             }
             if (!redirectUrl) {
-                showToast('请先粘贴授权后的完整 URL', 'error');
+                showToast(I18n.t('请先粘贴授权后的完整 URL'), 'error');
                 return false;
             }
 
@@ -459,7 +459,7 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             if (saveBtn) {
                 saveBtn.disabled = true;
-                saveBtn.textContent = '更新并刷新中...';
+                saveBtn.textContent = I18n.t('更新并刷新中...');
             }
             if (exchangeBtn) {
                 exchangeBtn.disabled = true;
@@ -473,7 +473,7 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '重新授权失败');
+                    handleApiError(data, I18n.t('重新授权失败'));
                     return false;
                 }
 
@@ -482,18 +482,18 @@
 
                 const validation = data.validation || {};
                 if (validation.success) {
-                    showToast(data.message || '重新授权成功，Token 刷新验证通过', 'success');
+                    showToast(data.message || I18n.t('重新授权成功，Token 刷新验证通过'), 'success');
                 } else {
-                    showToast(data.message || '重新授权已保存，但自动刷新验证失败', 'error', validation.error);
+                    showToast(data.message || I18n.t('重新授权已保存，但自动刷新验证失败'), 'error', validation.error);
                 }
                 return true;
             } catch (error) {
-                showToast('重新授权失败: ' + error.message, 'error');
+                showToast(I18n.t('重新授权失败: ') + error.message, 'error');
                 return false;
             } finally {
                 if (saveBtn) {
                     saveBtn.disabled = false;
-                    saveBtn.textContent = isOAuthReauthorizeMode() ? '更新授权并刷新' : '直接保存（自动换取）';
+                    saveBtn.textContent = isOAuthReauthorizeMode() ? I18n.t('更新授权并刷新') : I18n.t('直接保存（自动换取）');
                 }
                 if (exchangeBtn) {
                     exchangeBtn.disabled = false;
@@ -514,12 +514,12 @@
             }
 
             if (!oauthPreviewAccount.email || !oauthPreviewAccount.password) {
-                showToast('保存账号前请先填写邮箱账号和密码', 'error');
+                showToast(I18n.t('保存账号前请先填写邮箱账号和密码'), 'error');
                 return;
             }
 
             if (!oauthPreviewAccount.group_id) {
-                showToast('保存账号前请选择目标分组', 'error');
+                showToast(I18n.t('保存账号前请选择目标分组'), 'error');
                 return;
             }
 
@@ -527,7 +527,7 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             saveBtn.disabled = true;
             exchangeBtn.disabled = true;
-            saveBtn.textContent = '保存中...';
+            saveBtn.textContent = I18n.t('保存中...');
 
             try {
                 const accountString = [
@@ -550,18 +550,18 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || '账号已保存', 'success');
+                    showToast(data.message || I18n.t('账号已保存'), 'success');
                     currentGroupId = oauthPreviewAccount.group_id;
                     await reloadAuthorizationAffectedViews();
                     hideGetRefreshTokenModal();
                 } else {
-                    handleApiError(data, '保存账号失败');
+                    handleApiError(data, I18n.t('保存账号失败'));
                 }
             } catch (error) {
-                showToast('保存账号失败', 'error');
+                showToast(I18n.t('保存账号失败'), 'error');
             } finally {
                 exchangeBtn.disabled = false;
                 saveBtn.disabled = false;
-                saveBtn.textContent = '直接保存（自动换取）';
+                saveBtn.textContent = I18n.t('直接保存（自动换取）');
             }
         }

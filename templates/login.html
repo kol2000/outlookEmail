@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ current_language() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - Outlook 邮件管理</title>
+    <title>{{ tr("登录 - Outlook 邮件管理") }}</title>
     <style>
         * {
             margin: 0;
@@ -125,8 +125,12 @@
             display: block;
         }
     </style>
+    <script src="{{ url_for('localized_catalog') }}"></script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/i18n.css') }}">
 </head>
 <body>
+    <div class="language-toolbar" data-language-switcher></div>
     <div class="login-container">
         <div class="login-header">
             <div class="login-logo">
@@ -135,28 +139,28 @@
                     <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
             </div>
-            <h1 class="login-title">Outlook 邮件管理</h1>
-            <p class="login-subtitle">请输入密码登录系统</p>
+            <h1 class="login-title">{{ tr("Outlook 邮件管理") }}</h1>
+            <p class="login-subtitle">{{ tr("请输入密码登录系统") }}</p>
         </div>
         
         <div class="error-message" id="errorMessage"></div>
         
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
-                <label class="form-label" for="password">登录密码</label>
-                <input type="password" class="form-input" id="password" placeholder="请输入密码" autofocus required>
+                <label class="form-label" for="password">{{ tr("登录密码") }}</label>
+                <input type="password" class="form-input" id="password" placeholder="{{ tr("请输入密码") }}" autofocus required>
             </div>
             <div class="form-group">
-                <label class="form-label" for="sessionDuration">登录有效期</label>
+                <label class="form-label" for="sessionDuration">{{ tr("登录有效期") }}</label>
                 <select class="form-input" id="sessionDuration">
-                    <option value="7">7 天</option>
-                    <option value="30" selected>30 天</option>
-                    <option value="90">90 天</option>
-                    <option value="180">180 天</option>
-                    <option value="permanent">永久有效</option>
+                    <option value="7">{{ tr("7 天") }}</option>
+                    <option value="30" selected>{{ tr("30 天") }}</option>
+                    <option value="90">{{ tr("90 天") }}</option>
+                    <option value="180">{{ tr("180 天") }}</option>
+                    <option value="permanent">{{ tr("永久有效") }}</option>
                 </select>
             </div>
-            <button type="submit" class="login-btn" id="loginBtn">登 录</button>
+            <button type="submit" class="login-btn" id="loginBtn">{{ tr("登 录") }}</button>
         </form>
     </div>
     
@@ -200,13 +204,13 @@
             const errorMessage = document.getElementById('errorMessage');
             
             if (!password) {
-                errorMessage.textContent = '请输入密码';
+                errorMessage.textContent = I18n.t('请输入密码');
                 errorMessage.classList.add('show');
                 return;
             }
             
             loginBtn.disabled = true;
-            loginBtn.textContent = '登录中...';
+            loginBtn.textContent = I18n.t('登录中...');
             errorMessage.classList.remove('show');
             
             try {
@@ -224,16 +228,16 @@
                 if (data.success) {
                     window.location.href = '/';
                 } else {
-                    errorMessage.textContent = data.error || '登录失败';
+                    errorMessage.textContent = data.error || I18n.t('登录失败');
                     errorMessage.classList.add('show');
                     loginBtn.disabled = false;
-                    loginBtn.textContent = '登 录';
+                    loginBtn.textContent = I18n.t('登 录');
                 }
             } catch (error) {
-                errorMessage.textContent = '网络错误，请重试';
+                errorMessage.textContent = I18n.t('网络错误，请重试');
                 errorMessage.classList.add('show');
                 loginBtn.disabled = false;
-                loginBtn.textContent = '登 录';
+                loginBtn.textContent = I18n.t('登 录');
             }
         }
         

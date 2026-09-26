@@ -46,15 +46,15 @@
                         renderGroupList(groups);
                     }
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || '加载失败', {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: 'loadTempEmails(true)',
-                        actionTitle: '刷新临时邮箱列表'
+                        actionTitle: I18n.t('刷新临时邮箱列表')
                     });
                 }
             } catch (error) {
-                container.innerHTML = renderEmptyStateMarkup('⚠️', '加载失败', {
+                container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('加载失败'), {
                     onAction: 'loadTempEmails(true)',
-                    actionTitle: '刷新临时邮箱列表'
+                    actionTitle: I18n.t('刷新临时邮箱列表')
                 });
             }
         }
@@ -113,7 +113,7 @@
 
             const cloudflareGlobalEntries = (filter === 'all' || filter === 'cloudflare')
                 ? cloudflareChannels.filter(channel => {
-                    const label = `Cloudflare所有邮件 · ${channel.name || channel.id}`;
+                    const label = I18n.tpl`Cloudflare所有邮件 · ${channel.name || channel.id}`;
                     return !searchQuery || label.toLowerCase().includes(normalizedSearchQuery);
                 })
                 : [];
@@ -122,12 +122,12 @@
                 const providerName = filter === 'duckmail' ? 'DuckMail' : (filter === 'cloudflare' ? 'Cloudflare' : 'GPTMail');
                 const hasAdvancedFilters = !!searchQuery || hasActiveTagFilters();
                 const hint = hasAdvancedFilters
-                    ? '未找到匹配的临时邮箱'
-                    : (filter === 'all' ? '暂无临时邮箱<br>点击下方按钮生成' : `暂无 ${providerName} 邮箱`);
+                    ? I18n.t('未找到匹配的临时邮箱')
+                    : (filter === 'all' ? I18n.t('暂无临时邮箱<br>点击下方按钮生成') : I18n.tpl`暂无 ${providerName} 邮箱`);
                 container.innerHTML = renderEmptyStateMarkup('⚡', hint, {
                     allowHtml: !hasAdvancedFilters,
                     onAction: 'loadTempEmails(true)',
-                    actionTitle: '刷新临时邮箱列表'
+                    actionTitle: I18n.t('刷新临时邮箱列表')
                 });
                 updateBatchActionBar();
                 return;
@@ -136,7 +136,7 @@
             const cloudflareGlobalEntry = cloudflareGlobalEntries.map(channel => {
                 const channelId = Number(channel.id);
                 const channelName = channel.name || `#${channelId}`;
-                const label = `Cloudflare所有邮件 · ${channelName}`;
+                const label = I18n.tpl`Cloudflare所有邮件 · ${channelName}`;
                 const active = currentMethod === 'cloudflare-admin' && Number(currentCloudflareGlobalChannelId) === channelId;
                 return `
                 <div class="account-item cloudflare-global-account-item ${active ? 'active' : ''}"
@@ -155,7 +155,7 @@
             `;
             }).join('');
 
-            container.innerHTML = cloudflareGlobalEntry + filtered.map(email => `
+            container.innerHTML = cloudflareGlobalEntry + filtered.map(email => I18n.tpl`
                 <div class="account-item ${currentAccount === email.email ? 'active' : ''}"
                      data-account-id="${email.id}"
                      onclick="handleAccountItemClick(event, '${escapeJs(email.email)}', true)">
@@ -255,7 +255,7 @@
                 modal.id = 'tempEmailProviderModal';
                 modal.className = 'modal';
                 modal.onmousedown = function (e) { if (e.target === modal) hideTempEmailProviderModal(); };
-                modal.innerHTML = `
+                modal.innerHTML = I18n.tpl`
                     <div class="modal-content temp-email-provider-modal-content">
                         <div class="modal-header">
                             <h3>生成临时邮箱</h3>
@@ -438,7 +438,7 @@
         // 加载 DuckMail 域名列表
         async function loadDuckmailDomains() {
             const select = document.getElementById('duckmailDomain');
-            select.innerHTML = '<option value="">加载中...</option>';
+            select.innerHTML = I18n.t('<option value="">加载中...</option>');
             try {
                 const response = await fetch('/api/duckmail/domains');
                 const data = await response.json();
@@ -447,12 +447,12 @@
                         `<option value="${escapeHtml(d.domain)}">${escapeHtml(d.domain)}</option>`
                     ).join('');
                 } else if (data.error) {
-                    select.innerHTML = `<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
+                    select.innerHTML = I18n.tpl`<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
                 } else {
-                    select.innerHTML = '<option value="">无可用域名</option>';
+                    select.innerHTML = I18n.t('<option value="">无可用域名</option>');
                 }
             } catch (error) {
-                select.innerHTML = `<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
+                select.innerHTML = I18n.tpl`<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
             }
         }
 
@@ -461,10 +461,10 @@
             const select = document.getElementById('cloudflareDomain');
             const channelId = channelSelect?.value || '';
             if (!channelId) {
-                select.innerHTML = '<option value="">请先选择渠道</option>';
+                select.innerHTML = I18n.t('<option value="">请先选择渠道</option>');
                 return;
             }
-            select.innerHTML = '<option value="">加载中...</option>';
+            select.innerHTML = I18n.t('<option value="">加载中...</option>');
             try {
                 const response = await fetch(`/api/cloudflare/domains?channel_id=${encodeURIComponent(channelId)}`);
                 const data = await response.json();
@@ -473,12 +473,12 @@
                         `<option value="${escapeHtml(d.domain)}">${escapeHtml(d.domain)}</option>`
                     ).join('');
                 } else if (data.error) {
-                    select.innerHTML = `<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
+                    select.innerHTML = I18n.tpl`<option value="">加载失败: ${escapeHtml(data.error)}</option>`;
                 } else {
-                    select.innerHTML = '<option value="">无可用域名</option>';
+                    select.innerHTML = I18n.t('<option value="">无可用域名</option>');
                 }
             } catch (error) {
-                select.innerHTML = `<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
+                select.innerHTML = I18n.tpl`<option value="">加载失败: ${escapeHtml(error.message)}</option>`;
             }
         }
 
@@ -487,12 +487,12 @@
             const domainSelect = document.getElementById('cloudflareDomain');
             if (!channelSelect || !domainSelect) return;
 
-            channelSelect.innerHTML = '<option value="">加载中...</option>';
-            domainSelect.innerHTML = '<option value="">请先选择渠道</option>';
+            channelSelect.innerHTML = I18n.t('<option value="">加载中...</option>');
+            domainSelect.innerHTML = I18n.t('<option value="">请先选择渠道</option>');
             const channels = await loadCloudflareChannelsForTempEmails(true);
             const enabledChannels = channels.filter(channel => channel.enabled);
             if (enabledChannels.length === 0) {
-                channelSelect.innerHTML = '<option value="">无可用渠道</option>';
+                channelSelect.innerHTML = I18n.t('<option value="">无可用渠道</option>');
                 return;
             }
 
@@ -518,7 +518,7 @@
 
             const tags = typeof allTags === 'undefined' || !Array.isArray(allTags) ? [] : allTags;
             if (!tags.length) {
-                container.innerHTML = '<div class="tag-cloud-empty">暂无标签</div>';
+                container.innerHTML = I18n.t('<div class="tag-cloud-empty">暂无标签</div>');
                 return;
             }
 
@@ -561,14 +561,14 @@
             const textarea = document.getElementById('cloudflareUsername');
             const count = parseInt(document.getElementById('cloudflareGenerateCount')?.value || '1', 10);
             if (Number.isNaN(count) || count < 1 || count > 50) {
-                showToast('数量必须在 1-50 之间', 'error');
+                showToast(I18n.t('数量必须在 1-50 之间'), 'error');
                 return;
             }
             if (!btn || !textarea) return;
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '生成中...';
+            btn.textContent = I18n.t('生成中...');
             try {
                 const response = await fetch('/api/cloudflare/ai-usernames/generate', {
                     method: 'POST',
@@ -578,12 +578,12 @@
                 const data = await response.json();
                 if (data.success && Array.isArray(data.usernames)) {
                     textarea.value = data.usernames.join('\n');
-                    showToast(`已生成 ${data.usernames.length} 个用户名`, 'success');
+                    showToast(I18n.tpl`已生成 ${data.usernames.length} 个用户名`, 'success');
                 } else {
-                    handleApiError(data, 'AI 生成用户名失败');
+                    handleApiError(data, I18n.t('AI 生成用户名失败'));
                 }
             } catch (error) {
-                showToast('AI 生成用户名失败', 'error');
+                showToast(I18n.t('AI 生成用户名失败'), 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -594,8 +594,8 @@
             const items = Array.isArray(failures) ? failures.slice(0, 3) : [];
             return items.map(failure => {
                 const index = Number(failure.index);
-                const target = Number.isFinite(index) ? `第 ${index} 个` : (failure.email || failure.username || '邮箱');
-                return `${target}: ${failure.error || '创建失败'}`;
+                const target = Number.isFinite(index) ? I18n.tpl`第 ${index} 个` : (failure.email || failure.username || I18n.t('邮箱'));
+                return `${target}: ${failure.error || I18n.t('创建失败')}`;
             }).join('；');
         }
 
@@ -605,7 +605,7 @@
             const btn = document.getElementById('createTempEmailBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '⏳ 创建中...';
+            btn.textContent = I18n.t('⏳ 创建中...');
 
             try {
                 let body = { provider };
@@ -616,15 +616,15 @@
                     body.password = document.getElementById('duckmailPassword').value;
 
                     if (!body.domain) {
-                        showToast('请选择域名', 'error');
+                        showToast(I18n.t('请选择域名'), 'error');
                         return;
                     }
                     if (!body.username || body.username.length < 3) {
-                        showToast('用户名至少 3 个字符', 'error');
+                        showToast(I18n.t('用户名至少 3 个字符'), 'error');
                         return;
                     }
                     if (!body.password || body.password.length < 6) {
-                        showToast('密码至少 6 个字符', 'error');
+                        showToast(I18n.t('密码至少 6 个字符'), 'error');
                         return;
                     }
                 } else if (provider === 'cloudflare') {
@@ -638,19 +638,19 @@
                     }
 
                     if (!body.channel_id) {
-                        showToast('请选择渠道', 'error');
+                        showToast(I18n.t('请选择渠道'), 'error');
                         return;
                     }
                     if (!body.domain) {
-                        showToast('请选择域名', 'error');
+                        showToast(I18n.t('请选择域名'), 'error');
                         return;
                     }
                     if (Number.isNaN(body.count) || body.count < 1 || body.count > 50) {
-                        showToast('数量必须在 1-50 之间', 'error');
+                        showToast(I18n.t('数量必须在 1-50 之间'), 'error');
                         return;
                     }
                     if (usernameLines.length > 0 && usernameLines.length !== body.count) {
-                        showToast('用户名数量必须与创建数量一致', 'error');
+                        showToast(I18n.t('用户名数量必须与创建数量一致'), 'error');
                         return;
                     }
                 }
@@ -666,25 +666,25 @@
 
                 if (data.success) {
                     if (useCloudflareBatch) {
-                        const failedText = data.failed_count ? `，失败 ${data.failed_count} 个` : '';
+                        const failedText = data.failed_count ? I18n.tpl`，失败 ${data.failed_count} 个` : '';
                         const failureSummary = formatCloudflareBatchFailureSummary(data.failures);
                         const failureSummaryText = failureSummary ? `：${failureSummary}` : '';
                         showToast(
-                            `已生成 ${data.created_count || 0} 个临时邮箱${failedText}${failureSummaryText}`,
+                            I18n.tpl`已生成 ${data.created_count || 0} 个临时邮箱${failedText}${failureSummaryText}`,
                             data.failed_count ? 'warning' : 'success'
                         );
                     } else {
-                        showToast(`临时邮箱已生成: ${data.email}`, 'success');
+                        showToast(I18n.tpl`临时邮箱已生成: ${data.email}`, 'success');
                     }
                     hideModal('tempEmailProviderModal');
                     delete accountsCache['temp'];
                     loadTempEmails(true);
                     loadGroups();
                 } else {
-                    handleApiError(data, '生成临时邮箱失败');
+                    handleApiError(data, I18n.t('生成临时邮箱失败'));
                 }
             } catch (error) {
-                showToast('生成临时邮箱失败', 'error');
+                showToast(I18n.t('生成临时邮箱失败'), 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -708,7 +708,7 @@
             hasMoreEmails = false;
 
             document.getElementById('currentAccount').classList.add('show');
-            document.getElementById('currentAccountEmail').textContent = email + ' (临时)';
+            document.getElementById('currentAccountEmail').textContent = email + I18n.t(' (临时)');
             showEmailList();
             closeMobilePanels();
             updateMobileContext();
@@ -727,14 +727,14 @@
                 folderTabs.style.display = 'none';
             }
 
-            document.getElementById('emailList').innerHTML = `
+            document.getElementById('emailList').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📬</div>
                     <div class="empty-state-text">点击"获取邮件"按钮获取邮件</div>
                 </div>
             `;
 
-            document.getElementById('emailDetail').innerHTML = `
+            document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
                     <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -755,7 +755,7 @@
 
         function renderCloudflareGlobalFilterBar() {
             const value = getCloudflareGlobalAddressFilter();
-            return `
+            return I18n.tpl`
                 <div class="cloudflare-global-filter">
                     <input type="text" class="cloudflare-global-filter-input" id="cloudflareGlobalAddressFilter"
                            placeholder="按收件地址过滤，例如 user@gmail.com"
@@ -785,7 +785,7 @@
             hasMoreEmails = true;
 
             document.getElementById('currentAccount').classList.add('show');
-            document.getElementById('currentAccountEmail').textContent = `Cloudflare所有邮件 · ${currentCloudflareGlobalChannelName || currentCloudflareGlobalChannelId}`;
+            document.getElementById('currentAccountEmail').textContent = I18n.tpl`Cloudflare所有邮件 · ${currentCloudflareGlobalChannelName || currentCloudflareGlobalChannelId}`;
             showEmailList();
             closeMobilePanels();
             updateMobileContext();
@@ -799,14 +799,14 @@
                 folderTabs.style.display = 'none';
             }
 
-            document.getElementById('emailList').innerHTML = `
+            document.getElementById('emailList').innerHTML = I18n.tpl`
                 ${renderCloudflareGlobalFilterBar()}
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
                         <div class="empty-state-text">点击"获取邮件"按钮获取当前渠道邮件</div>
                     </div>
             `;
-            document.getElementById('emailDetail').innerHTML = `
+            document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
                     <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -815,7 +815,7 @@
             document.getElementById('emailDetailToolbar').style.display = 'none';
             document.getElementById('emailCount').textContent = '';
             const methodTag = document.getElementById('methodTag');
-            methodTag.textContent = `Cloudflare 全部 · ${currentCloudflareGlobalChannelName || currentCloudflareGlobalChannelId}`;
+            methodTag.textContent = I18n.tpl`Cloudflare 全部 · ${currentCloudflareGlobalChannelName || currentCloudflareGlobalChannelId}`;
             methodTag.style.display = 'inline';
             methodTag.style.backgroundColor = '#f48120';
             methodTag.style.color = 'white';
@@ -849,8 +849,8 @@
             const methodTag = document.getElementById('methodTag');
             const channelLabel = data?.channel_name || currentCloudflareGlobalChannelName || currentCloudflareGlobalChannelId || '';
             const fallbackLabel = data?.fallback_used && data?.queried_email
-                ? `Cloudflare 全部 · ${channelLabel} · ${data.queried_email}`
-                : `Cloudflare 全部 · ${channelLabel}`;
+                ? I18n.tpl`Cloudflare 全部 · ${channelLabel} · ${data.queried_email}`
+                : I18n.tpl`Cloudflare 全部 · ${channelLabel}`;
             methodTag.textContent = fallbackLabel;
             methodTag.style.display = 'inline';
             methodTag.style.backgroundColor = '#f48120';
@@ -859,7 +859,7 @@
 
         async function fetchCloudflareGlobalMessagesPage(offset = 0) {
             if (!currentCloudflareGlobalChannelId) {
-                return { success: false, error: '请先选择 Cloudflare 渠道' };
+                return { success: false, error: I18n.t('请先选择 Cloudflare 渠道') };
             }
             const params = buildCloudflareGlobalMessagesParams(offset);
             const response = await fetch(`/api/cloudflare/messages?${params.toString()}`);
@@ -901,17 +901,17 @@
                     scheduleEmailListLoadCheck(80);
                 } else {
                     hasMoreEmails = false;
-                    handleApiError(data, '加载 Cloudflare所有邮件失败');
-                    container.innerHTML = `${renderCloudflareGlobalFilterBar()}${renderEmptyStateMarkup('⚠️', data.error || '加载失败', {
+                    handleApiError(data, I18n.t('加载 Cloudflare所有邮件失败'));
+                    container.innerHTML = `${renderCloudflareGlobalFilterBar()}${renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: 'loadCloudflareGlobalMessages()',
-                        actionTitle: '刷新邮件列表'
+                        actionTitle: I18n.t('刷新邮件列表')
                     })}`;
                 }
             } catch (error) {
                 hasMoreEmails = false;
-                container.innerHTML = `${renderCloudflareGlobalFilterBar()}${renderEmptyStateMarkup('⚠️', '网络错误，请重试', {
+                container.innerHTML = `${renderCloudflareGlobalFilterBar()}${renderEmptyStateMarkup('⚠️', I18n.t('网络错误，请重试'), {
                     onAction: 'loadCloudflareGlobalMessages()',
-                    actionTitle: '刷新邮件列表'
+                    actionTitle: I18n.t('刷新邮件列表')
                 })}`;
             } finally {
                 setTempEmailListLoadingState(false);
@@ -944,7 +944,7 @@
                     hasMoreEmails = false;
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) loadingEl.remove();
-                    handleApiError(data, '加载 Cloudflare所有邮件失败');
+                    handleApiError(data, I18n.t('加载 Cloudflare所有邮件失败'));
                     return;
                 }
 
@@ -965,13 +965,13 @@
                     currentSkip = getCloudflareGlobalNextOffset(data, nextOffset);
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) {
-                        loadingEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>';
+                        loadingEl.innerHTML = I18n.t('<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>');
                     }
                 }
             } catch (error) {
                 const loadingEl = document.getElementById('loadingMore');
                 if (loadingEl) loadingEl.remove();
-                showToast('加载 Cloudflare所有邮件失败', 'error');
+                showToast(I18n.t('加载 Cloudflare所有邮件失败'), 'error');
             } finally {
                 isLoadingMore = false;
                 if (refreshBtn) {
@@ -993,7 +993,7 @@
 
             const email = currentEmails[index];
             if (!email) {
-                document.getElementById('emailDetail').innerHTML = renderEmptyStateMarkup('⚠️', '邮件不存在');
+                document.getElementById('emailDetail').innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('邮件不存在'));
                 return;
             }
             currentEmailDetail = email;
@@ -1002,7 +1002,7 @@
 
         // 清空临时邮箱的所有邮件
         async function clearTempEmailMessages(email) {
-            if (!(await showConfirmModal(`确定要清空临时邮箱 ${email} 的所有邮件吗？`, { title: '清空邮件', confirmText: '确认清空' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要清空临时邮箱 ${email} 的所有邮件吗？`, { title: I18n.t('清空邮件'), confirmText: I18n.t('确认清空') }))) {
                 return;
             }
 
@@ -1014,19 +1014,19 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('邮件已清空', 'success');
+                    showToast(I18n.t('邮件已清空'), 'success');
 
                     // 如果当前选中的就是这个邮箱，清空邮件列表
                     if (currentAccount === email) {
                         currentEmails = [];
                         document.getElementById('emailCount').textContent = '(0)';
-                        document.getElementById('emailList').innerHTML = `
+                        document.getElementById('emailList').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📭</div>
                                 <div class="empty-state-text">收件箱为空</div>
                             </div>
                         `;
-                        document.getElementById('emailDetail').innerHTML = `
+                        document.getElementById('emailDetail').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📄</div>
                                 <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -1035,16 +1035,16 @@
                         document.getElementById('emailDetailToolbar').style.display = 'none';
                     }
                 } else {
-                    handleApiError(data, '清空临时邮箱失败');
+                    handleApiError(data, I18n.t('清空临时邮箱失败'));
                 }
             } catch (error) {
-                showToast('清空失败', 'error');
+                showToast(I18n.t('清空失败'), 'error');
             }
         }
 
         // 删除临时邮箱
         async function deleteTempEmail(email) {
-            if (!(await showConfirmModal(`确定要删除临时邮箱 ${email} 吗？\n该邮箱的所有邮件也将被删除。`, { title: '删除临时邮箱', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除临时邮箱 ${email} 吗？\n该邮箱的所有邮件也将被删除。`, { title: I18n.t('删除临时邮箱'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -1056,7 +1056,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast('临时邮箱已删除', 'success');
+                    showToast(I18n.t('临时邮箱已删除'), 'success');
                     delete accountsCache['temp'];
 
                     if (currentAccount === email) {
@@ -1066,13 +1066,13 @@
                             updateGraphSendMailAvailability();
                         }
                         document.getElementById('currentAccount').classList.remove('show');
-                        document.getElementById('emailList').innerHTML = `
+                        document.getElementById('emailList').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📬</div>
                                 <div class="empty-state-text">请从左侧选择一个邮箱账号</div>
                             </div>
                         `;
-                        document.getElementById('emailDetail').innerHTML = `
+                        document.getElementById('emailDetail').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📄</div>
                                 <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -1085,10 +1085,10 @@
                     loadTempEmails(true);
                     loadGroups();
                 } else {
-                    handleApiError(data, '删除临时邮箱失败');
+                    handleApiError(data, I18n.t('删除临时邮箱失败'));
                 }
             } catch (error) {
-                showToast('删除失败', 'error');
+                showToast(I18n.t('删除失败'), 'error');
             }
         }
 
@@ -1128,16 +1128,16 @@
 
                     renderEmailList(data.emails);
                 } else {
-                    handleApiError(data, '加载临时邮件失败');
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error && data.error.message ? data.error.message : '加载失败', {
+                    handleApiError(data, I18n.t('加载临时邮件失败'));
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error && data.error.message ? data.error.message : I18n.t('加载失败'), {
                         onAction: 'refreshEmails()',
-                        actionTitle: '刷新邮件列表'
+                        actionTitle: I18n.t('刷新邮件列表')
                     });
                 }
             } catch (error) {
-                container.innerHTML = renderEmptyStateMarkup('⚠️', '网络错误，请重试', {
+                container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('网络错误，请重试'), {
                     onAction: 'refreshEmails()',
-                    actionTitle: '刷新邮件列表'
+                    actionTitle: I18n.t('刷新邮件列表')
                 });
             } finally {
                 setTempEmailListLoadingState(false);
@@ -1171,16 +1171,16 @@
                 if (data.success) {
                     renderEmailDetail(data.email);
                 } else {
-                    handleApiError(data, '加载邮件详情失败');
+                    handleApiError(data, I18n.t('加载邮件详情失败'));
                     container.innerHTML = `
                         <div class="empty-state">
                             <div class="empty-state-icon">⚠️</div>
-                            <div class="empty-state-text">${data.error && data.error.message ? data.error.message : '加载失败'}</div>
+                            <div class="empty-state-text">${data.error && data.error.message ? data.error.message : I18n.t('加载失败')}</div>
                         </div>
                     `;
                 }
             } catch (error) {
-                container.innerHTML = `
+                container.innerHTML = I18n.tpl`
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
                         <div class="empty-state-text">网络错误，请重试</div>

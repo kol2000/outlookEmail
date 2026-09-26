@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Compatibility entrypoint for the segmented Outlook web app."""
 
+from outlook_web.i18n import translate as _tr
+
 import os
 import sys
 import threading
@@ -58,7 +60,7 @@ class DesktopServer:
         if self.failed.is_set():
             raise self.error
         if not self.ready.is_set():
-            raise RuntimeError("桌面服务启动超时")
+            raise RuntimeError(_tr('桌面服务启动超时'))
 
     def _serve(self) -> None:
         try:
@@ -110,10 +112,10 @@ def main():
     access_url = f"http://{access_host}:{port}"
 
     print("=" * 60)
-    print("Outlook 邮件 Web 应用")
+    print(_tr('Outlook 邮件 Web 应用'))
     print("=" * 60)
-    print(f"访问地址: {access_url}")
-    print(f"运行模式: {'开发' if debug else '生产'}")
+    print(_tr('访问地址: {__0__}', f'{access_url}'))
+    print(_tr('运行模式: {__0__}', f"{('开发' if debug else '生产')}"))
     print("=" * 60)
 
     try:

@@ -2,29 +2,29 @@
     <div class="modal" id="addGroupModal" onmousedown="if(event.target === this) hideAddGroupModal()">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="groupModalTitle">添加分组</h3>
+                <h3 id="groupModalTitle">{{ tr("添加分组") }}</h3>
                 <button class="modal-close" onclick="hideAddGroupModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">分组名称</label>
-                    <input type="text" class="form-input" id="groupName" placeholder="输入分组名称">
+                    <label class="form-label">{{ tr("分组名称") }}</label>
+                    <input type="text" class="form-input" id="groupName" placeholder="{{ tr("输入分组名称") }}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">分组描述</label>
-                    <input type="text" class="form-input" id="groupDescription" placeholder="可选">
+                    <label class="form-label">{{ tr("分组描述") }}</label>
+                    <input type="text" class="form-input" id="groupDescription" placeholder="{{ tr("可选") }}">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">排序位置</label>
+                    <label class="form-label">{{ tr("排序位置") }}</label>
                     <select class="form-select" id="groupSortPosition"></select>
-                    <div class="form-hint">临时邮箱固定在最前，其他分组从第 1 位开始排序。</div>
+                    <div class="form-hint">{{ tr("临时邮箱固定在最前，其他分组从第 1 位开始排序。") }}</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">父分组</label>
+                    <label class="form-label">{{ tr("父分组") }}</label>
                     <select class="form-select" id="groupParentSelect" onchange="handleGroupParentChange()"></select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">分组颜色</label>
+                    <label class="form-label">{{ tr("分组颜色") }}</label>
                     <div class="color-picker-group" id="colorPicker">
                         <div class="color-option selected" style="background-color: #1a1a1a" data-color="#1a1a1a"></div>
                         <div class="color-option" style="background-color: #666666" data-color="#666666"></div>
@@ -46,36 +46,36 @@
                     <div class="custom-color-row">
                         <input type="color" class="custom-color-input" id="customColorInput" value="#1a1a1a"
                             onchange="selectCustomColor(this.value)">
-                        <span class="custom-color-label">自定义颜色</span>
+                        <span class="custom-color-label">{{ tr("自定义颜色") }}</span>
                         <input type="text" class="custom-color-hex" id="customColorHex" placeholder="#000000"
                             maxlength="7" onchange="selectCustomColorHex(this.value)">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">代理设置</label>
+                    <label class="form-label">{{ tr("代理设置") }}</label>
                     <input type="text" class="form-input" id="groupProxyUrl"
-                        placeholder="socks5://user:pass@host:port 或 http://host:port">
-                    <div class="form-hint">主代理，可选。该分组下 Outlook 的 Graph/Token 请求优先走这里。支持 <code>{mail}</code> 占位符（邮箱前缀仅保留字母数字并小写，可对接 Resin 粘性代理）。建议优先使用 <code>socks5h://</code>：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。</div>
+                        placeholder="{{ tr("socks5://user:pass@host:port 或 http://host:port") }}">
+                    <div class="form-hint">{{ tr("主代理，可选。该分组下 Outlook 的 Graph/Token 请求优先走这里。支持") }} <code>{mail}</code> {{ tr("占位符（邮箱前缀仅保留字母数字并小写，可对接 Resin 粘性代理）。建议优先使用") }} <code>socks5h://</code>{{ tr("：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。") }}</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">回退代理 1</label>
+                    <label class="form-label">{{ tr("回退代理 1") }}</label>
                     <input type="text" class="form-input" id="groupFallbackProxyUrl1"
-                        placeholder="http://host:port、socks5://host:port 或 direct">
-                    <div class="form-hint">仅当主代理连接失败时尝试。填写 <code>direct</code> 或 <code>直连</code> 表示显式直连。</div>
+                        placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
+                    <div class="form-hint">{{ tr("仅当主代理连接失败时尝试。填写") }} <code>direct</code> {{ tr("或") }} <code>{{ tr("直连") }}</code> {{ tr("表示显式直连。") }}</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">回退代理 2</label>
+                    <label class="form-label">{{ tr("回退代理 2") }}</label>
                     <input type="text" class="form-input" id="groupFallbackProxyUrl2"
-                        placeholder="http://host:port、socks5://host:port 或 direct">
-                    <div class="form-hint">在主代理、回退代理 1 之后继续尝试。填写 <code>direct</code> 或 <code>直连</code> 表示显式直连；留空表示不启用第二级回退。</div>
+                        placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
+                    <div class="form-hint">{{ tr("在主代理、回退代理 1 之后继续尝试。填写") }} <code>direct</code> {{ tr("或") }} <code>{{ tr("直连") }}</code> {{ tr("表示显式直连；留空表示不启用第二级回退。") }}</div>
                 </div>
                 <div class="form-group">
-                    <div class="form-hint">账号级转发请在“编辑邮箱账号”里开启，这里不再提供无效的分组级开关。</div>
+                    <div class="form-hint">{{ tr("账号级转发请在“编辑邮箱账号”里开启，这里不再提供无效的分组级开关。") }}</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideAddGroupModal()">取消</button>
-                <button class="btn btn-primary" onclick="saveGroup()">保存</button>
+                <button class="btn btn-secondary" onclick="hideAddGroupModal()">{{ tr("取消") }}</button>
+                <button class="btn btn-primary" onclick="saveGroup()">{{ tr("保存") }}</button>
             </div>
         </div>
     </div>
@@ -84,7 +84,7 @@
     <div class="modal" id="addAccountModal" onmousedown="if(event.target === this) hideAddAccountModal()">
         <div class="modal-content import-account-modal-content">
             <div class="modal-header">
-                <h3>导入邮箱账号</h3>
+                <h3>{{ tr("导入邮箱账号") }}</h3>
                 <button class="modal-close" onclick="hideAddAccountModal()">&times;</button>
             </div>
             <div class="modal-body import-account-modal-body">
@@ -92,13 +92,13 @@
                     <section class="import-account-options">
                         <div class="import-options-grid">
                             <div class="form-group">
-                                <label class="form-label">选择分组</label>
+                                <label class="form-label">{{ tr("选择分组") }}</label>
                                 <select class="form-select" id="importGroupSelect">
                                     <!-- 分组选项将通过 JS 动态加载 -->
                                 </select>
                             </div>
                             <div class="form-group" id="importChannelGroup" style="display: none;">
-                                <label class="form-label">临时邮箱类型</label>
+                                <label class="form-label">{{ tr("临时邮箱类型") }}</label>
                                 <select class="form-select" id="importChannelSelect" onchange="updateImportHint()">
                                     <option value="gptmail">GPTMail</option>
                                     <option value="duckmail">DuckMail</option>
@@ -106,18 +106,18 @@
                                 </select>
                             </div>
                             <div class="form-group" id="importCloudflareChannelGroup" style="display: none;">
-                                <label class="form-label">Cloudflare 渠道</label>
+                                <label class="form-label">{{ tr("Cloudflare 渠道") }}</label>
                                 <select class="form-select" id="importCloudflareChannelSelect"></select>
                             </div>
                             <div class="form-group" id="importCloudflareModeGroup" style="display: none;">
-                                <label class="form-label">导入方式</label>
+                                <label class="form-label">{{ tr("导入方式") }}</label>
                                 <select class="form-select" id="importCloudflareImportMode" onchange="updateImportHint()">
-                                    <option value="auto">自动拉取邮箱导入</option>
-                                    <option value="manual">手动导入</option>
+                                    <option value="auto">{{ tr("自动拉取邮箱导入") }}</option>
+                                    <option value="manual">{{ tr("手动导入") }}</option>
                                 </select>
                             </div>
                             <div class="form-group" id="importProviderGroup">
-                                <label class="form-label">邮箱类型</label>
+                                <label class="form-label">{{ tr("邮箱类型") }}</label>
                                 <select class="form-select" id="importProviderSelect" onchange="updateImportHint()">
                                     <option value="outlook">Outlook OAuth</option>
                                     <option value="gmail">Gmail</option>
@@ -126,65 +126,65 @@
                                     <option value="126">126</option>
                                     <option value="yahoo">Yahoo</option>
                                     <option value="aliyun">Aliyun</option>
-                                    <option value="2925">2925邮箱</option>
-                                    <option value="custom">自定义 IMAP</option>
+                                    <option value="2925">{{ tr("2925邮箱") }}</option>
+                                    <option value="custom">{{ tr("自定义 IMAP") }}</option>
                                 </select>
                             </div>
                             <div id="customImapSettings" class="import-custom-imap" style="display: none;">
                                 <div class="form-group">
-                                    <label class="form-label">IMAP 服务器</label>
+                                    <label class="form-label">{{ tr("IMAP 服务器") }}</label>
                                     <input type="text" class="form-input" id="importImapHost" placeholder="imap.example.com">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">IMAP 端口</label>
+                                    <label class="form-label">{{ tr("IMAP 端口") }}</label>
                                     <input type="number" class="form-input" id="importImapPort" value="993" min="1" max="65535">
                                 </div>
                             </div>
                             <div class="form-group import-account-default-field">
-                                <label class="form-label">备注</label>
+                                <label class="form-label">{{ tr("备注") }}</label>
                                 <textarea class="form-textarea import-remark-textarea" id="importRemark"
-                                    placeholder="可选，将写入本次新增账号"></textarea>
+                                    placeholder="{{ tr("可选，将写入本次新增账号") }}"></textarea>
                             </div>
                             <div class="form-group import-account-default-field">
-                                <label class="form-label">标签</label>
+                                <label class="form-label">{{ tr("标签") }}</label>
                                 <div class="tag-filter-dropdown" id="importTagFilterDropdown">
                                     <button class="tag-filter-trigger" type="button" onclick="toggleImportTagDropdown(event)">
-                                        <span class="tag-filter-trigger-text" id="importTagFilterTriggerText">未选择标签</span>
+                                        <span class="tag-filter-trigger-text" id="importTagFilterTriggerText">{{ tr("未选择标签") }}</span>
                                         <span class="tag-filter-trigger-count" id="importTagFilterTriggerCount" style="display: none;"></span>
                                         <span class="tag-filter-trigger-caret">▾</span>
                                     </button>
                                     <div class="tag-filter-panel">
                                         <div class="tag-filter-panel-header">
                                             <input type="text" id="importTagFilterSearchInput" class="tag-filter-search-input"
-                                                placeholder="搜索标签..." oninput="filterImportTagOptions(this.value)">
-                                            <button class="tag-filter-clear-btn" type="button" onclick="clearImportTagSelection(event)">清空</button>
+                                                placeholder="{{ tr("搜索标签...") }}" oninput="filterImportTagOptions(this.value)">
+                                            <button class="tag-filter-clear-btn" type="button" onclick="clearImportTagSelection(event)">{{ tr("清空") }}</button>
                                         </div>
                                         <div class="tag-filter-options" id="importTagFilterOptions"></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="form-group import-account-default-field">
-                                <label class="form-label">状态</label>
+                                <label class="form-label">{{ tr("状态") }}</label>
                                 <select class="form-select" id="importStatus">
-                                    <option value="active">正常</option>
-                                    <option value="inactive">停用</option>
+                                    <option value="active">{{ tr("正常") }}</option>
+                                    <option value="inactive">{{ tr("停用") }}</option>
                                 </select>
                             </div>
                             <div class="form-group import-account-default-field" id="importForwardGroup">
                                 <label class="settings-toggle settings-toggle--inline">
                                     <input type="checkbox" id="importForwardEnabled">
-                                    <span class="form-label">导入后启用邮件转发</span>
+                                    <span class="form-label">{{ tr("导入后启用邮件转发") }}</span>
                                 </label>
-                                <div class="form-hint">开启后，新导入账号会立即参与转发轮询。</div>
+                                <div class="form-hint">{{ tr("开启后，新导入账号会立即参与转发轮询。") }}</div>
                             </div>
                         </div>
                     </section>
                     <section class="import-account-source">
                         <div class="form-group import-account-input-group">
-                            <label class="form-label">账号信息</label>
+                            <label class="form-label">{{ tr("账号信息") }}</label>
                             <textarea class="form-textarea import-account-textarea" id="accountInput"
-                                placeholder="邮箱----密码----client_id----refresh_token"></textarea>
-                            <div class="form-hint" id="importFormatHint">Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id
+                                placeholder="{{ tr("邮箱----密码----client_id----refresh_token") }}"></textarea>
+                            <div class="form-hint" id="importFormatHint">{{ tr("Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id") }}
                             </div>
                             <div id="importFormatExample" class="import-format-example">
                             </div>
@@ -193,8 +193,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideAddAccountModal()">取消</button>
-                <button class="btn btn-primary" onclick="addAccount()">导入</button>
+                <button class="btn btn-secondary" onclick="hideAddAccountModal()">{{ tr("取消") }}</button>
+                <button class="btn btn-primary" onclick="addAccount()">{{ tr("导入") }}</button>
             </div>
         </div>
     </div>
@@ -203,7 +203,7 @@
     <div class="modal" id="editAccountModal" onmousedown="if(event.target === this) hideEditAccountModal()">
         <div class="modal-content edit-account-modal-content">
             <div class="modal-header">
-                <h3>编辑邮箱账号</h3>
+                <h3>{{ tr("编辑邮箱账号") }}</h3>
                 <button class="modal-close" onclick="hideEditAccountModal()">&times;</button>
             </div>
             <div class="modal-body edit-account-modal-body">
@@ -212,16 +212,16 @@
                     <section class="edit-account-card edit-account-card--primary">
                         <div class="edit-account-card-head">
                             <div>
-                                <span class="edit-account-kicker">基础信息</span>
+                                <span class="edit-account-kicker">{{ tr("基础信息") }}</span>
                             </div>
                         </div>
                         <div class="edit-account-grid">
                             <div class="form-group edit-account-span-2">
-                                <label class="form-label">邮箱地址</label>
+                                <label class="form-label">{{ tr("邮箱地址") }}</label>
                                 <input type="text" class="form-input" id="editEmail" placeholder="example@outlook.com">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">邮箱类型</label>
+                                <label class="form-label">{{ tr("邮箱类型") }}</label>
                                 <select class="form-select" id="editProviderSelect" onchange="updateEditAccountFields()">
                                     <option value="outlook">Outlook OAuth</option>
                                     <option value="gmail">Gmail</option>
@@ -230,48 +230,48 @@
                                     <option value="126">126</option>
                                     <option value="yahoo">Yahoo</option>
                                     <option value="aliyun">Aliyun</option>
-                                    <option value="2925">2925邮箱</option>
-                                    <option value="custom">自定义 IMAP</option>
+                                    <option value="2925">{{ tr("2925邮箱") }}</option>
+                                    <option value="custom">{{ tr("自定义 IMAP") }}</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">所属分组</label>
+                                <label class="form-label">{{ tr("所属分组") }}</label>
                                 <select class="form-select" id="editGroupSelect">
                                     <!-- 分组选项将通过 JS 动态加载 -->
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">状态</label>
+                                <label class="form-label">{{ tr("状态") }}</label>
                                 <select class="form-select" id="editStatus">
-                                    <option value="active">正常</option>
-                                    <option value="inactive">停用</option>
+                                    <option value="active">{{ tr("正常") }}</option>
+                                    <option value="inactive">{{ tr("停用") }}</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">排序值</label>
+                                <label class="form-label">{{ tr("排序值") }}</label>
                                 <input type="number" class="form-input" id="editSortOrder" min="0" step="1" value="0">
-                                <div class="form-hint">值越小越靠前，填 0 表示不参与自定义排序。</div>
+                                <div class="form-hint">{{ tr("值越小越靠前，填 0 表示不参与自定义排序。") }}</div>
                             </div>
                             <div class="form-group edit-account-span-2">
                                 <label class="settings-toggle settings-toggle--inline">
                                     <input type="checkbox" id="editForwardEnabled">
-                                    <span class="form-label">启用邮件转发</span>
+                                    <span class="form-label">{{ tr("启用邮件转发") }}</span>
                                 </label>
-                                <div class="form-hint">开启后会按系统设置转发到邮箱或 Telegram。</div>
+                                <div class="form-hint">{{ tr("开启后会按系统设置转发到邮箱或 Telegram。") }}</div>
                             </div>
                             <div class="form-group edit-account-span-2">
-                                <label class="form-label">标签</label>
+                                <label class="form-label">{{ tr("标签") }}</label>
                                 <div class="tag-filter-dropdown" id="editTagFilterDropdown">
                                     <button class="tag-filter-trigger" type="button" onclick="toggleEditTagDropdown(event)">
-                                        <span class="tag-filter-trigger-text" id="editTagFilterTriggerText">未选择标签</span>
+                                        <span class="tag-filter-trigger-text" id="editTagFilterTriggerText">{{ tr("未选择标签") }}</span>
                                         <span class="tag-filter-trigger-count" id="editTagFilterTriggerCount" style="display: none;"></span>
                                         <span class="tag-filter-trigger-caret">▾</span>
                                     </button>
                                     <div class="tag-filter-panel">
                                         <div class="tag-filter-panel-header">
                                             <input type="text" id="editTagFilterSearchInput" class="tag-filter-search-input"
-                                                placeholder="搜索标签..." oninput="filterEditTagOptions(this.value)">
-                                            <button class="tag-filter-clear-btn" type="button" onclick="clearEditTagSelection(event)">清空</button>
+                                                placeholder="{{ tr("搜索标签...") }}" oninput="filterEditTagOptions(this.value)">
+                                            <button class="tag-filter-clear-btn" type="button" onclick="clearEditTagSelection(event)">{{ tr("清空") }}</button>
                                         </div>
                                         <div class="tag-filter-options" id="editTagFilterOptions"></div>
                                     </div>
@@ -282,15 +282,15 @@
 
                     <details class="edit-account-section" open>
                         <summary>
-                            <span>认证信息</span>
-                            <small>Outlook Token 或 IMAP 授权</small>
+                            <span>{{ tr("认证信息") }}</span>
+                            <small>{{ tr("Outlook Token 或 IMAP 授权") }}</small>
                         </summary>
                         <div class="edit-account-grid edit-account-grid--compact">
                             <div class="form-group">
-                                <label class="form-label">密码</label>
+                                <label class="form-label">{{ tr("密码") }}</label>
                                 <div class="secret-input-row">
-                                    <input type="text" class="form-input" id="editPassword" placeholder="可选">
-                                    <button type="button" class="secret-reveal-btn" id="revealEditPasswordBtn" onclick="toggleEditSecretVisibility('editPassword', 'revealEditPasswordBtn')" title="显示密码" aria-label="显示密码" style="display: none;">
+                                    <input type="text" class="form-input" id="editPassword" placeholder="{{ tr("可选") }}">
+                                    <button type="button" class="secret-reveal-btn" id="revealEditPasswordBtn" onclick="toggleEditSecretVisibility('editPassword', 'revealEditPasswordBtn')" title="{{ tr("显示密码") }}" aria-label="{{ tr("显示密码") }}" style="display: none;">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
                                             <circle cx="12" cy="12" r="3"></circle>
@@ -303,28 +303,28 @@
                                 <input type="text" class="form-input" id="editClientId">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">授权类型</label>
+                                <label class="form-label">{{ tr("授权类型") }}</label>
                                 <select class="form-select" id="editAuthorizationType">
-                                    <option value="">未设置（Graph 优先）</option>
+                                    <option value="">{{ tr("未设置（Graph 优先）") }}</option>
                                     <option value="graph">Graph</option>
                                     <option value="imap">IMAP</option>
                                 </select>
-                                <div class="form-hint">首选通道失败时会自动回退到另一通道，并记录实际成功通道。</div>
+                                <div class="form-hint">{{ tr("首选通道失败时会自动回退到另一通道，并记录实际成功通道。") }}</div>
                             </div>
                             <div class="form-group edit-account-span-2">
                                 <label class="form-label">Refresh Token</label>
                                 <textarea class="form-textarea edit-account-token" id="editRefreshToken"></textarea>
                             </div>
                             <div class="form-group edit-account-span-2" id="editReauthorizeGroup" style="display: none;">
-                                <button type="button" class="btn btn-secondary" onclick="showReauthorizeAccountModalFromEdit()">重新授权并刷新</button>
-                                <div class="form-hint">为当前 Outlook 账号重新获取授权，保存后会自动执行一次 Token 刷新验证。</div>
+                                <button type="button" class="btn btn-secondary" onclick="showReauthorizeAccountModalFromEdit()">{{ tr("重新授权并刷新") }}</button>
+                                <div class="form-hint">{{ tr("为当前 Outlook 账号重新获取授权，保存后会自动执行一次 Token 刷新验证。") }}</div>
                             </div>
                             <div id="editImapFields" class="edit-account-grid edit-account-span-2" style="display: none;">
                                 <div class="form-group">
-                                    <label class="form-label">IMAP 密码 / 授权码</label>
+                                    <label class="form-label">{{ tr("IMAP 密码 / 授权码") }}</label>
                                     <div class="secret-input-row">
                                         <input type="text" class="form-input" id="editImapPassword">
-                                        <button type="button" class="secret-reveal-btn" id="revealEditImapPasswordBtn" onclick="toggleEditSecretVisibility('editImapPassword', 'revealEditImapPasswordBtn')" title="显示 IMAP 密码" aria-label="显示 IMAP 密码" style="display: none;">
+                                        <button type="button" class="secret-reveal-btn" id="revealEditImapPasswordBtn" onclick="toggleEditSecretVisibility('editImapPassword', 'revealEditImapPasswordBtn')" title="{{ tr("显示 IMAP 密码") }}" aria-label="{{ tr("显示 IMAP 密码") }}" style="display: none;">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
                                                 <circle cx="12" cy="12" r="3"></circle>
@@ -334,11 +334,11 @@
                                 </div>
                                 <div id="editCustomImapFields" class="edit-account-grid edit-account-span-2" style="display: none;">
                                     <div class="form-group">
-                                        <label class="form-label">IMAP 服务器</label>
+                                        <label class="form-label">{{ tr("IMAP 服务器") }}</label>
                                         <input type="text" class="form-input" id="editImapHost" placeholder="imap.example.com">
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">IMAP 端口</label>
+                                        <label class="form-label">{{ tr("IMAP 端口") }}</label>
                                         <input type="number" class="form-input" id="editImapPort" value="993" min="1" max="65535">
                                     </div>
                                 </div>
@@ -348,54 +348,54 @@
 
                     <details class="edit-account-section">
                         <summary>
-                            <span>代理设置</span>
-                            <small>为空时继承分组代理</small>
+                            <span>{{ tr("代理设置") }}</span>
+                            <small>{{ tr("为空时继承分组代理") }}</small>
                         </summary>
                         <div class="edit-account-grid edit-account-grid--compact">
                             <div class="form-group edit-account-span-2">
-                                <label class="form-label">账号代理</label>
+                                <label class="form-label">{{ tr("账号代理") }}</label>
                                 <input type="text" class="form-input" id="editProxyUrl"
-                                    placeholder="socks5://host:port、http://host:port 或 direct">
-                                <div class="form-hint">留空继承分组代理；填写 <code>direct</code> 或 <code>直连</code> 表示该账号直连。支持 <code>{mail}</code> 占位符。建议优先使用 <code>socks5h://</code>：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。</div>
+                                    placeholder="{{ tr("socks5://host:port、http://host:port 或 direct") }}">
+                                <div class="form-hint">{{ tr("留空继承分组代理；填写") }} <code>direct</code> {{ tr("或") }} <code>{{ tr("直连") }}</code> {{ tr("表示该账号直连。支持") }} <code>{mail}</code> {{ tr("占位符。建议优先使用") }} <code>socks5h://</code>{{ tr("：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用。") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">账号回退代理 1</label>
+                                <label class="form-label">{{ tr("账号回退代理 1") }}</label>
                                 <input type="text" class="form-input" id="editFallbackProxyUrl1"
-                                    placeholder="http://host:port、socks5://host:port 或 direct">
-                                <div class="form-hint">账号代理启用后，主代理连接失败时按顺序尝试。</div>
+                                    placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
+                                <div class="form-hint">{{ tr("账号代理启用后，主代理连接失败时按顺序尝试。") }}</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">账号回退代理 2</label>
+                                <label class="form-label">{{ tr("账号回退代理 2") }}</label>
                                 <input type="text" class="form-input" id="editFallbackProxyUrl2"
-                                    placeholder="http://host:port、socks5://host:port 或 direct">
-                                <div class="form-hint">三项都留空时不保存账号级代理，继续使用所属分组代理。</div>
+                                    placeholder="{{ tr("http://host:port、socks5://host:port 或 direct") }}">
+                                <div class="form-hint">{{ tr("三项都留空时不保存账号级代理，继续使用所属分组代理。") }}</div>
                             </div>
                         </div>
                     </details>
 
                     <details class="edit-account-section">
                         <summary>
-                            <span>备注与别名</span>
-                            <small>API 可用别名查询</small>
+                            <span>{{ tr("备注与别名") }}</span>
+                            <small>{{ tr("API 可用别名查询") }}</small>
                         </summary>
                         <div class="edit-account-grid edit-account-grid--compact">
                             <div class="form-group">
-                                <label class="form-label">备注</label>
-                                <textarea class="form-textarea edit-account-note" id="editRemark" placeholder="可选" rows="3"></textarea>
+                                <label class="form-label">{{ tr("备注") }}</label>
+                                <textarea class="form-textarea edit-account-note" id="editRemark" placeholder="{{ tr("可选") }}" rows="3"></textarea>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">别名邮箱</label>
-                                <textarea class="form-textarea edit-account-note" id="editAliases" placeholder="每行一个别名邮箱，例如&#10;alias1@example.com&#10;alias2@example.com" rows="4"></textarea>
-                                <div class="form-hint">支持多个别名。保存后，可直接用别名邮箱调用 API 获取该账号收到的邮件或验证码。</div>
+                                <label class="form-label">{{ tr("别名邮箱") }}</label>
+                                <textarea class="form-textarea edit-account-note" id="editAliases" placeholder="{{ tr("每行一个别名邮箱，例如\nalias1@example.com\nalias2@example.com") }}" rows="4"></textarea>
+                                <div class="form-hint">{{ tr("支持多个别名。保存后，可直接用别名邮箱调用 API 获取该账号收到的邮件或验证码。") }}</div>
                             </div>
                         </div>
                     </details>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-danger" onclick="deleteCurrentAccount()" style="margin-right: auto;">删除</button>
-                <button class="btn btn-secondary" onclick="hideEditAccountModal()">取消</button>
-                <button class="btn btn-primary" onclick="updateAccount()">保存</button>
+                <button class="btn btn-danger" onclick="deleteCurrentAccount()" style="margin-right: auto;">{{ tr("删除") }}</button>
+                <button class="btn btn-secondary" onclick="hideEditAccountModal()">{{ tr("取消") }}</button>
+                <button class="btn btn-primary" onclick="updateAccount()">{{ tr("保存") }}</button>
             </div>
         </div>
     </div>
@@ -404,12 +404,12 @@
     <div class="modal" id="exportModal" onmousedown="if(event.target === this) hideExportModal()">
         <div class="modal-content" style="width: 500px;">
             <div class="modal-header">
-                <h3>导出邮箱</h3>
+                <h3>{{ tr("导出邮箱") }}</h3>
                 <button class="modal-close" onclick="hideExportModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">选择要导出的分组</label>
+                    <label class="form-label">{{ tr("选择要导出的分组") }}</label>
                     <div id="exportGroupList"
                         style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px;">
                         <!-- 分组列表将通过 JS 动态加载 -->
@@ -417,14 +417,14 @@
                     <div class="form-hint" style="margin-top: 8px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="checkbox" id="selectAllGroups" onchange="toggleSelectAllGroups()">
-                            <span>全选</span>
+                            <span>{{ tr("全选") }}</span>
                         </label>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideExportModal()">取消</button>
-                <button class="btn btn-primary" onclick="exportSelectedGroups()">导出</button>
+                <button class="btn btn-secondary" onclick="hideExportModal()">{{ tr("取消") }}</button>
+                <button class="btn btn-primary" onclick="exportSelectedGroups()">{{ tr("导出") }}</button>
             </div>
         </div>
     </div>
@@ -433,19 +433,19 @@
     <div class="modal" id="exportVerifyModal" onmousedown="if(event.target === this) hideExportVerifyModal()">
         <div class="modal-content" style="width: 400px;">
             <div class="modal-header">
-                <h3>🔐 安全验证</h3>
+                <h3>{{ tr("🔐 安全验证") }}</h3>
                 <button class="modal-close" onclick="hideExportVerifyModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">请输入登录密码以确认导出操作</label>
-                    <input type="password" class="form-input" id="exportVerifyPassword" placeholder="输入登录密码">
-                    <div class="form-hint" style="color: #dc3545;">导出文件包含敏感信息（Refresh Token），请妥善保管</div>
+                    <label class="form-label">{{ tr("请输入登录密码以确认导出操作") }}</label>
+                    <input type="password" class="form-input" id="exportVerifyPassword" placeholder="{{ tr("输入登录密码") }}">
+                    <div class="form-hint" style="color: #dc3545;">{{ tr("导出文件包含敏感信息（Refresh Token），请妥善保管") }}</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideExportVerifyModal()">取消</button>
-                <button class="btn btn-primary" onclick="confirmExportVerify()">确认导出</button>
+                <button class="btn btn-secondary" onclick="hideExportVerifyModal()">{{ tr("取消") }}</button>
+                <button class="btn btn-primary" onclick="confirmExportVerify()">{{ tr("确认导出") }}</button>
             </div>
         </div>
     </div>
@@ -455,38 +455,38 @@
         onmousedown="if(event.target === this) hideGraphSendMailModal()">
         <div class="modal-content graph-send-mail-modal-content">
             <div class="modal-header">
-                <h3>写邮件</h3>
-                <button class="modal-close" type="button" aria-label="关闭写邮件" onclick="hideGraphSendMailModal()">&times;</button>
+                <h3>{{ tr("写邮件") }}</h3>
+                <button class="modal-close" type="button" aria-label="{{ tr("关闭写邮件") }}" onclick="hideGraphSendMailModal()">&times;</button>
             </div>
             <form id="graphSendMailForm" onsubmit="event.preventDefault(); sendGraphMail();">
                 <div class="modal-body">
                     <input type="hidden" id="graphSendMailAccountId">
                     <div class="form-group">
-                        <label class="form-label" for="graphSendMailAccountEmail">发件账号</label>
+                        <label class="form-label" for="graphSendMailAccountEmail">{{ tr("发件账号") }}</label>
                         <input type="text" class="form-input" id="graphSendMailAccountEmail" readonly>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="graphSendMailRecipients">收件人</label>
+                        <label class="form-label" for="graphSendMailRecipients">{{ tr("收件人") }}</label>
                         <input type="text" class="form-input" id="graphSendMailRecipients" autocomplete="email"
-                            placeholder="多个地址用逗号、分号或换行分隔" oninput="validateGraphSendMailRecipients()">
-                        <div class="form-hint">仅支持基础纯文本邮件。</div>
+                            placeholder="{{ tr("多个地址用逗号、分号或换行分隔") }}" oninput="validateGraphSendMailRecipients()">
+                        <div class="form-hint">{{ tr("仅支持基础纯文本邮件。") }}</div>
                         <div class="graph-send-mail-validation" id="graphSendMailRecipientsError" role="alert" hidden></div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="graphSendMailSubject">主题</label>
+                        <label class="form-label" for="graphSendMailSubject">{{ tr("主题") }}</label>
                         <input type="text" class="form-input" id="graphSendMailSubject" autocomplete="off" maxlength="998">
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="graphSendMailBody">正文</label>
+                        <label class="form-label" for="graphSendMailBody">{{ tr("正文") }}</label>
                         <textarea class="form-textarea graph-send-mail-body" id="graphSendMailBody" spellcheck="true"></textarea>
                     </div>
                     <div class="graph-send-mail-status" id="graphSendMailStatus" role="status" hidden></div>
                     <button class="btn btn-secondary graph-send-mail-reauthorize" id="graphSendMailReauthorizeBtn"
-                        type="button" hidden onclick="reauthorizeGraphSendMailAccount()">重新 Graph 授权</button>
+                        type="button" hidden onclick="reauthorizeGraphSendMailAccount()">{{ tr("重新 Graph 授权") }}</button>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" onclick="hideGraphSendMailModal()">取消</button>
-                    <button class="btn btn-primary" id="graphSendMailSubmitBtn" type="submit">提交发送</button>
+                    <button class="btn btn-secondary" type="button" onclick="hideGraphSendMailModal()">{{ tr("取消") }}</button>
+                    <button class="btn btn-primary" id="graphSendMailSubmitBtn" type="submit">{{ tr("提交发送") }}</button>
                 </div>
             </form>
         </div>
@@ -496,40 +496,40 @@
     <div class="modal" id="createEmailShareModal" onmousedown="if(event.target === this) hideCreateEmailShareModal()">
         <div class="modal-content" style="width: 520px;">
             <div class="modal-header">
-                <h3>分享邮箱</h3>
+                <h3>{{ tr("分享邮箱") }}</h3>
                 <button class="modal-close" onclick="hideCreateEmailShareModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="emailShareAccountId">
                 <div class="form-group">
-                    <label class="form-label">邮箱</label>
+                    <label class="form-label">{{ tr("邮箱") }}</label>
                     <input type="text" class="form-input" id="emailShareAccountEmail" readonly>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">有效期</label>
+                    <label class="form-label">{{ tr("有效期") }}</label>
                     <select class="form-select" id="emailShareDurationPreset" onchange="syncEmailShareDurationPreset()">
-                        <option value="60">1 小时</option>
-                        <option value="1440" selected>24 小时</option>
-                        <option value="10080">7 天</option>
-                        <option value="43200">30 天</option>
-                        <option value="custom">自定义分钟数</option>
+                        <option value="60">{{ tr("1 小时") }}</option>
+                        <option value="1440" selected>{{ tr("24 小时") }}</option>
+                        <option value="10080">{{ tr("7 天") }}</option>
+                        <option value="43200">{{ tr("30 天") }}</option>
+                        <option value="custom">{{ tr("自定义分钟数") }}</option>
                     </select>
                 </div>
                 <div class="form-group" id="emailShareCustomDurationGroup" style="display: none;">
-                    <label class="form-label">自定义分钟数</label>
+                    <label class="form-label">{{ tr("自定义分钟数") }}</label>
                     <input type="number" class="form-input" id="emailShareCustomDuration" min="1" step="1" value="1440">
                 </div>
                 <div class="form-group">
                     <label class="settings-toggle settings-toggle--inline">
                         <input type="checkbox" id="emailShareNeverExpires" onchange="toggleEmailShareNeverExpires()">
-                        <span class="form-label">永不过期</span>
+                        <span class="form-label">{{ tr("永不过期") }}</span>
                     </label>
                 </div>
                 <div class="share-result" id="emailShareCreateResult" hidden></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideCreateEmailShareModal()">关闭</button>
-                <button class="btn btn-primary" id="createEmailShareBtn" onclick="createEmailShare()">创建分享</button>
+                <button class="btn btn-secondary" onclick="hideCreateEmailShareModal()">{{ tr("关闭") }}</button>
+                <button class="btn btn-primary" id="createEmailShareBtn" onclick="createEmailShare()">{{ tr("创建分享") }}</button>
             </div>
         </div>
     </div>
@@ -538,7 +538,7 @@
     <div class="modal" id="emailShareManagementModal" onmousedown="if(event.target === this) hideEmailShareManagementModal()">
         <div class="modal-content" style="width: min(1000px, 95vw);">
             <div class="modal-header">
-                <h3>分享管理</h3>
+                <h3>{{ tr("分享管理") }}</h3>
                 <button class="modal-close" onclick="hideEmailShareManagementModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -680,23 +680,23 @@
 
                 <div class="share-toolbar-container">
                     <div class="share-toolbar-filters">
-                        <input type="text" id="shareFilterEmail" placeholder="搜索邮箱账号..." class="form-input" style="width: 200px; height: 36px; padding: 6px 12px; font-size: 13px; margin: 0;" oninput="applyShareFilters()">
+                        <input type="text" id="shareFilterEmail" placeholder="{{ tr("搜索邮箱账号...") }}" class="form-input" style="width: 200px; height: 36px; padding: 6px 12px; font-size: 13px; margin: 0;" oninput="applyShareFilters()">
                         <select id="shareFilterStatus" class="form-select" style="width: 120px; height: 36px; padding: 6px 12px; font-size: 13px; margin: 0;" onchange="applyShareFilters()">
-                            <option value="all">所有状态</option>
-                            <option value="active">有效</option>
-                            <option value="expired">已过期</option>
-                            <option value="revoked">已取消</option>
+                            <option value="all">{{ tr("所有状态") }}</option>
+                            <option value="active">{{ tr("有效") }}</option>
+                            <option value="expired">{{ tr("已过期") }}</option>
+                            <option value="revoked">{{ tr("已取消") }}</option>
                         </select>
                     </div>
                     <div class="share-toolbar-actions">
                         <button class="btn btn-warning" id="batchCancelShareBtn" onclick="batchCancelShares()" disabled style="height: 36px; padding: 0 12px; font-size: 13px; display: inline-flex; align-items: center; margin: 0;">
-                            批量取消
+                            {{ tr("批量取消") }}
                         </button>
                         <button class="btn btn-danger" id="batchDeleteShareBtn" onclick="batchDeleteShares()" disabled style="height: 36px; padding: 0 12px; font-size: 13px; display: inline-flex; align-items: center; margin: 0;">
-                            批量删除
+                            {{ tr("批量删除") }}
                         </button>
                         <button class="btn btn-secondary" type="button" onclick="loadEmailShares()" style="height: 36px; padding: 0 12px; font-size: 13px; display: inline-flex; align-items: center; margin: 0;">
-                            刷新
+                            {{ tr("刷新") }}
                         </button>
                     </div>
                 </div>
@@ -709,31 +709,31 @@
                                     <input type="checkbox" id="shareSelectAllCheckbox" class="share-checkbox" onchange="toggleSelectAllShares(this)">
                                 </th>
                                 <th class="sortable-header" data-sort-col="email" onclick="handleHeaderSort('email')">
-                                    邮箱账号<span class="sort-indicator"> ↕</span>
+                                    {{ tr("邮箱账号") }}<span class="sort-indicator"> ↕</span>
                                 </th>
                                 <th width="100" class="sortable-header" data-sort-col="status" onclick="handleHeaderSort('status')">
-                                    状态<span class="sort-indicator"> ↕</span>
+                                    {{ tr("状态") }}<span class="sort-indicator"> ↕</span>
                                 </th>
                                 <th width="160" class="sortable-header" data-sort-col="expires_at" onclick="handleHeaderSort('expires_at')">
-                                    有效期至<span class="sort-indicator"> ↕</span>
+                                    {{ tr("有效期至") }}<span class="sort-indicator"> ↕</span>
                                 </th>
                                 <th width="160" class="sortable-header" data-sort-col="created_at" onclick="handleHeaderSort('created_at')">
-                                    创建时间<span class="sort-indicator"> ↕</span>
+                                    {{ tr("创建时间") }}<span class="sort-indicator"> ↕</span>
                                 </th>
-                                <th>分享链接</th>
-                                <th width="150" style="text-align: right;">操作</th>
+                                <th>{{ tr("分享链接") }}</th>
+                                <th width="150" style="text-align: right;">{{ tr("操作") }}</th>
                             </tr>
                         </thead>
                         <tbody id="emailShareTableBody">
                             <tr>
-                                <td colspan="7" class="share-empty">正在加载分享记录...</td>
+                                <td colspan="7" class="share-empty">{{ tr("正在加载分享记录...") }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideEmailShareManagementModal()">关闭</button>
+                <button class="btn btn-secondary" onclick="hideEmailShareManagementModal()">{{ tr("关闭") }}</button>
             </div>
         </div>
     </div>

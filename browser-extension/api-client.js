@@ -42,6 +42,7 @@
     const requestOptions = {
       ...options,
       credentials: 'include',
+      headers: { ...options.headers, 'X-Outlook-Language': I18n.language },
       signal: controller.signal,
     };
     delete requestOptions.timeoutMs;
@@ -98,12 +99,12 @@
 
   function friendlyError(error) {
     if (error && error.name === 'AbortError') {
-      return '请求超时，请检查服务地址或网络';
+      return I18n.t('请求超时，请检查服务地址或网络');
     }
     if (error instanceof TypeError && /fetch/i.test(error.message)) {
-      return '无法连接服务端，请检查地址和浏览器权限';
+      return I18n.t('无法连接服务端，请检查地址和浏览器权限');
     }
-    return (error && error.message) || '未知错误';
+    return (error && error.message) || I18n.t('未知错误');
   }
 
   function isMissingExtensionLogin(error) {
@@ -115,7 +116,7 @@
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         chrome.tabs.onUpdated.removeListener(onUpdated);
-        reject(new Error('登录页加载超时'));
+        reject(new Error(I18n.t('登录页加载超时')));
       }, timeoutMs);
 
       function onUpdated(updatedTabId, changeInfo) {
@@ -135,15 +136,15 @@
     const serverUrl = trimUrl(config.serverUrl);
     const password = String(config.password || '');
     if (!serverUrl) {
-      throw new Error('请先填写服务地址');
+      throw new Error(I18n.t('请先填写服务地址'));
     }
     if (!password) {
-      throw new Error('请先填写登录密码');
+      throw new Error(I18n.t('请先填写登录密码'));
     }
 
     const granted = await ensureHostPermission(serverUrl);
     if (!granted) {
-      throw new Error('需要允许访问服务地址后才能继续');
+      throw new Error(I18n.t('需要允许访问服务地址后才能继续'));
     }
 
     const payload = await fetchJson(`${serverUrl}/api/extension/login`, {
@@ -156,7 +157,7 @@
     });
 
     if (!payload || payload.success === false || !payload.launch_url) {
-      throw new Error((payload && (payload.error || payload.message)) || '登录失败');
+      throw new Error((payload && (payload.error || payload.message)) || I18n.t('登录失败'));
     }
 
     return {
@@ -169,12 +170,12 @@
     const serverUrl = trimUrl(config.serverUrl);
     const password = String(config.password || '');
     if (!serverUrl || !password) {
-      throw new Error('请先填写服务地址和登录密码');
+      throw new Error(I18n.t('请先填写服务地址和登录密码'));
     }
 
     const granted = await ensureHostPermission(serverUrl);
     if (!granted) {
-      throw new Error('需要允许访问服务地址后才能继续');
+      throw new Error(I18n.t('需要允许访问服务地址后才能继续'));
     }
 
     const payload = await fetchJson(`${serverUrl}/login`, {
@@ -184,7 +185,7 @@
     });
 
     if (!payload || payload.success !== true) {
-      throw new Error((payload && (payload.error || payload.message)) || '登录失败');
+      throw new Error((payload && (payload.error || payload.message)) || I18n.t('登录失败'));
     }
     return true;
   }
@@ -220,24 +221,24 @@
     const serverUrl = trimUrl(config.serverUrl);
     const password = String(config.password || '');
     if (!serverUrl || !password) {
-      throw new Error('请先填写服务地址和登录密码');
+      throw new Error(I18n.t('请先填写服务地址和登录密码'));
     }
 
     const granted = await ensureHostPermission(serverUrl);
     if (!granted) {
-      throw new Error('需要允许访问服务地址后才能继续');
+      throw new Error(I18n.t('需要允许访问服务地址后才能继续'));
     }
 
     const tab = await chrome.tabs.create({ url: `${serverUrl}/login`, active: true });
     if (!tab || !tab.id) {
-      throw new Error('无法打开登录页');
+      throw new Error(I18n.t('无法打开登录页'));
     }
 
     await waitForTabComplete(tab.id);
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      args: [password, nextPath || '/'],
-      func: async (loginPassword, targetPath) => {
+      args: [password, nextPath || '/', I18n.t('登录失败'), I18n.language],
+      func: async (loginPassword, targetPath, loginFailure, language) => {
         function showLoginError(message) {
           const errorMessage = document.getElementById('errorMessage');
           if (errorMessage) {
@@ -249,19 +250,19 @@
         try {
           const response = await fetch('/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Outlook-Language': language },
             body: JSON.stringify({ password: loginPassword }),
           });
           const data = await response.json();
           if (!data || data.success !== true) {
-            const message = (data && (data.error || data.message)) || '登录失败';
+            const message = (data && (data.error || data.message)) || loginFailure;
             showLoginError(message);
             return { success: false, error: message };
           }
           window.location.href = targetPath || '/';
           return { success: true };
         } catch (err) {
-          const message = (err && err.message) || '登录失败';
+          const message = (err && err.message) || loginFailure;
           showLoginError(message);
           return { success: false, error: message };
         }
@@ -270,7 +271,7 @@
 
     const result = results && results[0] ? results[0].result : null;
     if (!result || result.success !== true) {
-      throw new Error((result && result.error) || '登录失败');
+      throw new Error((result && result.error) || I18n.t('登录失败'));
     }
     return { fallback: 'login-page' };
   }
@@ -287,12 +288,12 @@
   async function ensureSession(config) {
     const serverUrl = trimUrl(config.serverUrl);
     if (!serverUrl) {
-      throw new Error('请先填写服务地址');
+      throw new Error(I18n.t('请先填写服务地址'));
     }
 
     const granted = await ensureHostPermission(serverUrl);
     if (!granted) {
-      throw new Error('需要允许访问服务地址后才能继续');
+      throw new Error(I18n.t('需要允许访问服务地址后才能继续'));
     }
 
     try {
