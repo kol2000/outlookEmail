@@ -9,1019 +9,1019 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [3.0.9] - 2026-09-22
 
 ### Added
-- Web 端支持已完成 GraphAPI 授权的 Outlook/Hotmail 主账号手动发送基础纯文本邮件：填写一个或多个收件人、主题和正文后，以当前账号自身身份调用 Microsoft Graph 提交发送。
-- Graph OAuth 授权范围新增 `Mail.Send`；写邮件入口仅面向已启用且非 OAuth IMAP 通道的 Outlook/Hotmail 账号显示。
-- 发信界面提供收件人校验、提交中防重复点击、权限不足时重新 Graph 授权入口，以及 Graph 限流和网络结果不确定提示。
+- The web side supports the Outlook/Hotmail master account that has completed GraphAPI authorization to manually send basic plain text emails: after filling in one or more recipients, subject and body, call Microsoft Graph as the current account itself to submit for sending.
+- Added `Mail.Send` to the Graph OAuth authorization scope; the email writing entry is only displayed for Outlook/Hotmail accounts that are enabled and have non-OAuth IMAP channels.
+- The sending interface provides recipient verification, prevention of repeated clicks during submission, re-authorization of the Graph when permissions are insufficient, and prompts for Graph current limiting and uncertain network results.
 
 ### Changed
-- Graph Refresh Token 刷新新增不含 `Mail.Send` 的读写/只读 scope 回退，尽量保持历史账号原有的读信和邮件管理能力。
+- Graph Refresh Token refreshes and adds read-write/read-only scope fallback without `Mail.Send`, trying to maintain the original email reading and email management capabilities of historical accounts.
 
 ### Important
-- **需要重新授权：** 已有 Graph Refresh Token 不会静默获得 `Mail.Send`。需要使用 Web 端写邮件的历史 Outlook/Hotmail 账号，请重新完成一次 `GraphAPI` 授权。
-- Graph 返回 `202 Accepted` 时，界面显示“邮件已提交发送”，这不代表邮件已确认送达。网络超时或连接中断时，系统不会自动重发，以避免重复投递。
-- 首版不支持 IMAP/SMTP 手动发信、临时邮箱、别名或共享邮箱代发、附件、HTML/富文本、草稿、回复/转发、已发送列表、浏览器扩展入口、对外 API、批量、定时或自动化发信。
+- **Reauthorization required:** Existing Graph Refresh Token will not obtain `Mail.Send` silently. If you need to use the historical Outlook/Hotmail account to write emails on the web, please complete the `GraphAPI` authorization again.
+- When Graph returns `202 Accepted`, the interface displays "Mail submitted for sending", which does not mean that the mail has been confirmed to be delivered. When the network times out or the connection is interrupted, the system will not automatically resend to avoid repeated delivery.
+- The first version does not support IMAP/SMTP manual sending, temporary mailbox, alias or shared mailbox sending, attachments, HTML/rich text, draft, reply/forward, sent list, browser extension portal, external API, batch, scheduled or automated sending of mails.
 
 ## [3.0.8] - 2026-09-18
 
 ### Added
-- 账号列表标签筛选支持“有 / 无”双状态：多个“有”标签按任一匹配，多个“无”标签要求全部不包含，两类条件可以组合使用。
-- `GET /api/accounts` 与 `GET /api/accounts/search` 新增 `exclude_tag_ids`，支持逗号分隔、重复参数和两种形式混合传递。
+- Account list label filtering supports "yes/no" dual status: multiple "yes" labels are matched according to any one, multiple "no" labels must not be included at all, and the two types of conditions can be used in combination.
+- `GET /api/accounts` and `GET /api/accounts/search` add `exclude_tag_ids`, which supports comma separation, repeated parameters and mixed transmission of the two forms.
 
 ### Important
-- **行为变化：** 升级后会清除浏览器本地旧版标签筛选偏好中的 `__untagged__` 值；原来的“无标签”筛选不会自动迁移为新的筛选条件。
+- **Behavior changes:** After the upgrade, the `__untagged__` value in the browser's local old tag filter preference will be cleared; the original "no tag" filter will not be automatically migrated to the new filter condition.
 
 ## [3.0.7] - 2026-09-15
 
 ### Added
-- 分组面板新增“显示分组描述”开关：默认保持紧凑列表，开启后展示非空分组描述，并按浏览器记忆展示偏好；长描述最多显示两行，悬浮可查看全文（#82）。
+- A new "Show group description" switch is added to the grouping panel: keep the compact list by default, display non-empty group descriptions when turned on, and display preferences according to browser memory; long descriptions can display up to two lines, and hover to view the full text (#82).
 
 ## [3.0.6] - 2026-08-20
 
 ### Added
-- 普通 Outlook/IMAP 邮箱读取邮件列表的整体超时改为系统可配置：设置页「常规设置 -> 邮件获取超时」，范围 30-300 秒，默认 120 秒（PR #79）。
-- 兼容环境变量 `MAIL_FETCH_OVERALL_TIMEOUT` 作为首次启动前的初始/兜底值；保存系统设置后以数据库配置为准。
-- 前端邮件列表请求超时按后端配置自动增加 10 秒缓冲。
+- The overall timeout for reading mail lists in ordinary Outlook/IMAP mailboxes has been changed to system configurable: "General Settings -> Mail Retrieval Timeout" on the settings page, with a range of 30-300 seconds and a default of 120 seconds (PR #79).
+- Compatible environment variable `MAIL_FETCH_OVERALL_TIMEOUT` as the initial/bottom value before first startup; after saving the system settings, the database configuration shall prevail.
+- The front-end mailing list request timeout automatically increases the buffer by 10 seconds according to the back-end configuration.
 
 ### Changed
-- `folder=all` 并行拉取收件箱与垃圾箱时，整体等待超时改为读取当前系统配置，超时详情会展示实际使用的秒数。
-- 未配置系统设置时的默认整体超时由约 50 秒（`max(HTTP_REQUEST_TIMEOUT, IMAP_TIMEOUT) + 5`）调整为 120 秒。
+- `folder=all` When pulling the inbox and trash bin in parallel, the overall wait timeout is changed to read the current system configuration, and the timeout details will show the actual number of seconds used.
+- Default overall timeout adjusted from ~50 seconds (`max(HTTP_REQUEST_TIMEOUT, IMAP_TIMEOUT) + 5`) to 120 seconds when no system settings are configured.
 
 ## [3.0.5] - 2026-08-18
 
 ### Added
-- Outlook OAuth 账号新增 `authorization_type`（`graph` / `imap`，空值表示未设置）：记录首选或最近成功的邮件授权通道。
-- 编辑账号弹窗可查看和修改授权类型；未设置时取信与 Token 刷新默认 Graph 优先。
-- 拉信、邮件详情和 Token 刷新按记录通道优先尝试，失败后自动回退到另一通道，并写回实际成功通道。
+- Outlook OAuth account adds `authorization_type` (`graph` / `imap`, empty value means not set): records the preferred or recently successful email authorization channel.
+- The edit account pop-up window allows you to view and modify the authorization type; if it is not set, the default Graph will be given priority to get the trust and Token refresh.
+- Send messages, email details, and token refreshes are tried first according to the record channel. After failure, it will automatically fall back to another channel and write back to the actual successful channel.
 
 ### Changed
-- 将账号改为普通 IMAP 时会清空 `authorization_type`。
-- 启动时自动为 `accounts` 表补列 `authorization_type`（默认空字符串）；已有账号不会根据旧凭证回填。
+- `authorization_type` will be cleared when changing the account to normal IMAP.
+- Automatically add `authorization_type` (default empty string) to the `accounts` table at startup; existing accounts will not be backfilled based on old credentials.
 
 ## [3.0.4] - 2026-08-16
 
 ### Added
-- 登录页新增“永久有效”选项；该会话不按登录时间自动过期，但仍受主动退出、登录密码修改、SECRET_KEY 变化和浏览器清理 Cookie 影响。
+- A new "Permanent Valid" option is added to the login page; this session does not automatically expire according to the login time, but is still affected by active logout, login password modification, SECRET_KEY changes, and browser clearing cookies.
 
 ## [3.0.3] - 2026-08-08
 
 ### Added
-- 登录页支持选择固定的登录有效期：7 天、30 天、90 天或 180 天，默认 30 天；有效期从登录成功起计算，后续访问不会续期。
-- 登录页会在当前浏览器本地记忆上次选择的登录有效期，浏览器扩展登录默认使用 30 天。
+- The login page supports selecting a fixed login validity period: 7 days, 30 days, 90 days or 180 days, the default is 30 days; the validity period is calculated from the successful login, and subsequent visits will not be renewed.
+- The login page will remember the last selected login validity period locally in the current browser. The browser extension login uses 30 days by default.
 
 ## [3.0.2] - 2026-08-01
 
 ### Fixed
-- 导出上传账号时解密 `refresh_token`（PR #73）：导出 TXT 文件时不再泄露加密的 `refresh_token`（会触发 Microsoft `AADSTS9002313 / invalid_grant`）。导出逻辑与 `password` 一致，先解密、失败留空。
-- 补充对应单元测试。
+- Decrypt `refresh_token` when exporting upload accounts (PR #73): No longer leaks encrypted `refresh_token` when exporting a TXT file (which triggers Microsoft `AADSTS9002313 / invalid_grant`). The export logic is consistent with `password`, decrypt first and leave blank if failed.
+- Supplement corresponding unit tests.
 
 ## [3.0.1] - 2026-07-28
 
 ### Added
-- Outlook 授权弹窗批量操作栏新增「批量导出」：选中上传账号后经二次验证导出 TXT。
-- 新增 `POST /api/outlook-upload-accounts/export-selected`：查询 `outlook_upload_accounts`，解密密码，并 `LEFT JOIN accounts` 附带已授权账号的 `client_id` / `refresh_token`；导出格式与主页一致：`email----password----client_id----refresh_token`（未授权账号后两字段为空）。
-- 新增官方运维脚本 `scripts/reset_login_password.py`：忘记 Web 登录密码时可在主机或容器内交互式重置（不需要旧密码）；写入 bcrypt 哈希、轮换 `login_session_version` 使既有会话失效，并记录审计日志。
-- 补充 `tests/test_reset_login_password.py` 与上传账号导出相关单元测试。
+- A new "Batch Export" is added to the batch operation bar of the Outlook authorization pop-up window: select the upload account and then export TXT after secondary verification.
+- Added `POST /api/outlook-upload-accounts/export-selected`: query `outlook_upload_accounts`, decrypt the password, and `LEFT JOIN accounts` with `client_id` / `refresh_token` of the authorized account; the export format is consistent with the homepage: `email----password----client_id----refresh_token` (the last two fields of the unauthorized account are empty).
+- Added official operation and maintenance script `scripts/reset_login_password.py`: When you forget your web login password, you can interactively reset it in the host or container (no old password is required); write bcrypt hash, rotate `login_session_version` to invalidate the existing session, and record audit logs.
+- Added unit tests related to `tests/test_reset_login_password.py` uploading account export.
 
 ### Fixed
-- 修复 Outlook 授权弹窗批量导出误走主账号导出接口、提示「选中的账号不存在或没有可导出的邮箱账号」的问题；前端按上传账号 ID 路由到新接口。
+- Fixed the issue where Outlook authorization pop-up batch export mistakenly enters the main account export interface and prompts "The selected account does not exist or there is no email account that can be exported"; the front end is routed to the new interface by uploading the account ID.
 
 ### Changed
-- 未设置环境变量时，内置默认 `OAUTH_CLIENT_ID` 更新为 `9e5f94bc-e8a4-4e73-b8be-63364c29d753`（仍可通过 `OAUTH_CLIENT_ID` 覆盖）。
-- 文档明确 `LOGIN_PASSWORD` **仅在首次初始化**（库中尚无 `settings.login_password`）时写入默认值；实例已写库后改环境变量不会覆盖当前登录密码。
-- README / `docs/security.md` / `docs/troubleshooting.md` 补充忘记密码重置步骤与 Docker `docker exec -it` 示例，并说明脚本仅支持交互式 TTY（无 `--password` / 管道传密）。
+- Built-in default `OAUTH_CLIENT_ID` updated to `9e5f94bc-e8a4-4e73-b8be-63364c29d753` when no environment variable is set (still overridable via `OAUTH_CLIENT_ID`).
+- The documentation makes it clear that `LOGIN_PASSWORD` **will only write the default value during first initialization** (there is no `settings.login_password` in the library yet); changing the environment variable after the instance has written the library will not overwrite the current login password.
+- README/`docs/security.md`/`docs/troubleshooting.md` Adds forgotten password reset steps and Docker `docker exec -it` example, and explains that the script only supports interactive TTY (no `--password`/pipeline transmission).
 
 ### Important
-- 依赖默认 Client ID 做新 OAuth 授权的部署，升级后默认应用 ID 已变更；已导入账号的 `client_id` / refresh token 不受影响。自定义 `OAUTH_CLIENT_ID` 的部署无感。
+- Deployment of new OAuth authorization relies on the default Client ID. The default application ID has been changed after the upgrade; the `client_id` / refresh token of the imported account is not affected. Deployment of custom `OAUTH_CLIENT_ID` is hassle-free.
 
 ## [3.0.0] - 2026-07-27
 
 ### Added
-- 分组 / 账号代理 URL 支持 `{mail}` 占位符：出站时按邮箱 local-part（仅保留字母数字并小写）展开，配置原样存库、API/编辑回显不展开；可对接 [Resin](https://github.com/Resinat/Resin) 等粘性代理池。
-- 上传账号自动授权：优先使用上传记录自身 `proxy_url`，否则继承分组代理模板，OAuth 全程固定主代理（不做中途 failover）。
-- 环境变量 `LOG_LEVEL`（`DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL`，默认 `INFO`）控制全局日志级别；默认 INFO 输出出站 `[代理]` 详情（密码打码，含 Resin Platform/Account）。
-- 出站代理使用日志覆盖拉信、Token 刷新、IMAP socket、Outlook 自动授权等路径。
+- Group/account proxy URL supports `{mail}` placeholder: Expand according to the local-part of the email address (only alphanumeric and lowercase letters are retained) when outbound, configure the original inventory, API/edit echo and do not expand; can be connected to sticky proxy pools such as [Resin](https://github.com/Resinat/Resin).
+- Upload account automatic authorization: Prioritize using the upload record itself `proxy_url`, otherwise inherit the group proxy template, and the main proxy is fixed throughout the OAuth process (no midway failover).
+- The environment variable `LOG_LEVEL` (`DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL`, default `INFO`) controls the global log level; the default INFO outputs outbound `[Agent]` details (password coding, including Resin Platform/Account).
+- Outbound proxy usage logs cover paths such as pull messages, token refresh, IMAP socket, and Outlook automatic authorization.
 
 ### Fixed
-- 修复 Token 刷新未尊重账号级代理 override、仅读取分组代理的问题；现与邮件拉取一致：账号 override → 分组继承 → `{mail}` 展开；定时刷新无 Flask context 时正确传入 `db`。
-- 修复 SOCKS 代理「有用户名、密码为空」时 PySocks 退化为 NO AUTH、Resin 收不到 Platform.Account 的问题：传输层补占位密码强制 UserPass。
-- 修复编辑默认分组（前端提交 `parent_id=null` 且父级未变）被误判为「不可移动」的问题。
-- Token / 批量刷新相关查询补选账号 `proxy_url` / fallback 列，避免 resolved 配置丢失账号 override。
+- Fixed the issue where Token refresh did not respect the account-level agent override and only read the group agent; now it is consistent with the mail pull: account override → group inheritance → `{mail}` expansion; `db` is correctly passed in when there is no Flask context for scheduled refresh.
+- Fixed the problem of PySocks degenerating to NO AUTH and Resin not receiving Platform.Account when the SOCKS proxy "has a username and an empty password": the transport layer fills in the placeholder password to force UserPass.
+- Fixed the issue where editing the default group (front-end submission `parent_id=null` and parent unchanged) was misjudged as "immovable".
+- Token/batch refresh related query by-select account `proxy_url`/fallback column to avoid account override due to resolved configuration loss.
 
 ### Changed
-- `get_account_proxy_url` / `get_account_proxy_failover_urls` 改为返回运行时展开后的出站代理；存储与展示仍走不展开的 config 路径。
-- Graph 自动授权：配置了应用代理时 `trust_env=False`，避免与环境代理叠加。
-- 界面与文档提示优先 `socks5h://`，并说明 `{mail}`、Resin 示例与 `LOG_LEVEL=WARNING` 降噪。
+- `get_account_proxy_url` / `get_account_proxy_failover_urls` instead return the outbound proxy expanded at runtime; storage and display still use the unexpanded config path.
+- Graph automatic authorization: `trust_env=False` when the application proxy is configured to avoid overlapping with the environment proxy.
+- The interface and documentation prompt give priority to `socks5h://`, and explain `{mail}`, Resin examples and `LOG_LEVEL=WARNING` noise reduction.
 
 ### Important
-- **行为变化：** 配置了账号级代理的邮箱，Token 刷新现在也会走该代理（此前可能仍走分组/直连）。
-- **行为变化：** SOCKS URL 形如 `user:@host` / `user@host` 会发送 UserPass（空密码用占位符）；非 Resin、且依赖「有用户名但 NO AUTH」的代理可能不兼容。
-- 批量拉信 / 刷新在默认 `LOG_LEVEL=INFO` 下日志较多；生产可设 `LOG_LEVEL=WARNING` 关闭 `[代理]` 等 INFO 输出。
-- `{mail}` 净化后不同前缀可能碰撞（如 `a.b` 与 `ab`）；纯非字母数字 local-part 可能展开为空账号段。
+- **Behavior changes:** For the mailbox configured with an account-level agent, token refresh will now also use the agent (previously, it may still use grouping/direct connection).
+- **Behavior changes:** SOCKS URLs in the form `user:@host` / `user@host` will send UserPass (use placeholder for empty password); non-Resin proxies that rely on "username but NO AUTH" may not be compatible.
+- Batch pulling/refreshing has more logs under the default `LOG_LEVEL=INFO`; production can set `LOG_LEVEL=WARNING` to turn off `[Agent]` and other INFO output.
+- `{mail}` different prefixes may collide after purification (such as `a.b` and `ab`); purely non-alphanumeric local-part may expand into an empty account segment.
 
 ## [2.9.1] - 2026-07-27
 
 ### Added
-- 邮件删除支持标准 IMAP 账号与 Outlook OAuth IMAP 回退：按文件夹标记 `\\Deleted` 后 `EXPUNGE` 永久删除。
-- `POST /api/emails/delete` 推荐使用与标已读一致的 `items` / `method` / `folder` 请求体；浏览器扩展与 Web 前端同步传 `id_mode`。
+- Mail deletion supports standard IMAP accounts and Outlook OAuth IMAP fallback: `EXPUNGE` is permanently deleted after folder mark `\\Deleted`.
+- `POST /api/emails/delete` It is recommended to use the `items` / `method` / `folder` request body that is consistent with the target read; the browser extension and the web front end transmit `id_mode` synchronously.
 
 ### Fixed
-- 修复 CSRF 校验失败被全局 400 处理器吞成「请求格式错误」的问题（Docker 下导入账号 / 手动 OAuth 换 token 常见）。现返回 `csrf_error: true` 与明确文案，前端可自动刷新 CSRF 并重试一次。
-- 修复 Graph 删除结果未返回 `deleted_ids`，以及 IMAP 删除此前直接提示「暂不支持」的问题；部分成功时前端按实际删除 ID 更新列表。
+- Fixed the problem of CSRF verification failure being swallowed by the global 400 processor as "request format error" (common when importing accounts under Docker/manual OAuth token replacement). Now return `csrf_error: true` and clear copy, the front end can automatically refresh the CSRF and try again.
+- Fixed the problem that the Graph deletion result did not return `deleted_ids`, and the IMAP deletion directly prompted "not supported yet" before deletion; when partially successful, the front end updated the list according to the actual deletion ID.
 
 ### Changed
-- README / API 文档同步说明：邮件删除在 Graph 与 IMAP 路径均可用；兼容仅传 `ids` 的旧客户端。
+- README / API document synchronization instructions: Email deletion is available in both Graph and IMAP paths; compatible with old clients that only transmit `ids`.
 
 ## [2.9.0] - 2026-07-27
 
 ### Changed
-- 手动 OAuth 助手默认改为 **GraphAPI** 单资源权限：`offline_access` + `Mail.Read` + `Mail.ReadWrite` + `User.Read`（不再默认申请 IMAP）。
-- Outlook 邮箱自动授权默认模式改为 **GraphAPI**；授权面板与日志文案由 `Graph-only（不含 IMAP 权限）` 调整为 `GraphAPI`，IMAP 选项统一为 `IMAP授权`。
-- 自动授权 GraphAPI 模式 scope 与 `OAUTH_GRAPH_SCOPES` 对齐，在原有 `Mail.Read` 基础上增加 `Mail.ReadWrite`、`User.Read`。
-- README 同步说明：手动授权默认 GraphAPI；需要 IMAP 时请在「Outlook邮箱授权」面板显式选择 `IMAP授权`。
+- The manual OAuth assistant defaults to **GraphAPI** single resource permissions: `offline_access` + `Mail.Read` + `Mail.ReadWrite` + `User.Read` (no longer applies for IMAP by default).
+- The default mode of Outlook mailbox automatic authorization is changed to **GraphAPI**; the authorization panel and log copy are adjusted from `Graph-only (excluding IMAP permissions)` to `GraphAPI`, and the IMAP options are unified to `IMAP authorization`.
+- The automatic authorization GraphAPI mode scope is aligned with `OAUTH_GRAPH_SCOPES`, and `Mail.ReadWrite` and `User.Read` are added to the original `Mail.Read`.
+- README synchronization instructions: Manually authorize the default GraphAPI; when IMAP is required, please explicitly select `IMAP authorization` in the "Outlook Mailbox Authorization" panel.
 
 ### Fixed
-- 修复 GraphAPI 授权账号可读信但标记已读失败的问题（Graph 返回 `403 ErrorAccessDenied` / `EMAIL_MARK_READ_FAILED`），根因是授权时未申请 `Mail.ReadWrite`。
+- Fixed the problem that the GraphAPI authorized account can read the letter but fails to mark it as read (Graph returns `403 ErrorAccessDenied` / `EMAIL_MARK_READ_FAILED`). The root cause is that `Mail.ReadWrite` was not applied for during authorization.
 
 ### Important
-- **已用旧 Graph-only（仅 `Mail.Read`）授权的账号需重新授权**，才能获得写权限（标已读等）。
-- 手动 OAuth / 默认 GraphAPI 拿到的 token **不能用于 IMAP**；IMAP 请走自动授权的 `IMAP授权` 模式。
+- **Accounts that have been authorized by the old Graph-only (`Mail.Read` only) need to be re-authorized** to obtain write permissions (marked as read, etc.).
+- The token obtained by manual OAuth/default GraphAPI **cannot be used for IMAP**; for IMAP, please use the `IMAP authorization` mode of automatic authorization.
 
 ## [2.8.10] - 2026-07-26
 
 ### Changed
-- Outlook 上传账号管理端分页档位调整为 `10` / `20` / `50` / `100`，默认 `20`（与 API 默认对齐）；本地记忆的非法旧档位会回落到默认值。
-- 「添加新账号」表单改为单行布局，授权弹窗加宽并微调表格列宽；使用说明默认折叠。
-- 标签筛选弹窗宽度从 `320px` 调整为 `250px`。
+- The paging gear of the Outlook upload account management side is adjusted to `10` / `20` / `50` / `100`, and the default is `20` (aligned with the API default); the illegal old gear of local memory will fall back to the default value.
+- The "Add New Account" form is changed to a single-line layout, the authorization pop-up window is widened and the table column width is fine-tuned; the instructions for use are collapsed by default.
+- The width of the tag filter pop-up window is adjusted from `320px` to `250px`.
 
 ### Fixed
-- 修复添加账号面板中标签下拉弹窗被父级 `overflow: hidden` 裁切的问题。
+- Fixed the issue where the label drop-down pop-up window in the add account panel was cropped by the parent `overflow: hidden`.
 
 ## [2.8.9] - 2026-07-25
 
 ### Fixed
-- 修复 Outlook 邮件详情失败时错误细节丢失：Graph / OAuth IMAP 详情改为返回结构化错误（code / type / status / details / trace_id），Graph 失败回退 IMAP 时透传各协议尝试结果，避免接口 HTTP 200 但页面只显示「加载失败」。
-- 邮件详情前端兼容 `error` 为字符串或对象，并在存在协议级 `details` 时提供「点击查看详情」入口，复用列表侧失败弹窗。
+- Fixed the loss of error details when Outlook email details fail: Graph / OAuth IMAP details are changed to return structured errors (code / type / status / details / trace_id), and Graph fails to fall back to IMAP and transparently transmits the results of each protocol attempt to avoid the interface HTTP 200 but the page only displays "Loading failed".
+- The email details front-end is compatible with `error` as a string or object, and provides a "click to view details" entry when protocol-level `details` exists, and reuses the failure pop-up window on the list side.
 
 ### Changed
-- Outlook OAuth IMAP 详情对代理 / 超时 / 连接等传输类错误自动有限重试 1 次（认证失败、文件夹不存在、token 失效等不重试），降低间歇性读信失败概率。
+- Outlook OAuth IMAP details automatic limited retries for proxy/timeout/connection and other transmission errors (authentication failure, folder non-existence, token invalidation, etc. will not be retried) to reduce the probability of intermittent letter reading failures.
 
 ## [2.8.8] - 2026-07-23
 
 ### Fixed
-- 修复「全部邮件」拉取失败时错误细节丢失：`merge_folder_results` 现在会透传 Graph / IMAP 各协议的结构化错误（code / type / status / trace_id / details），避免弹窗只显示「无法获取邮件，所有方式均失败」且字段全为 `-`。
-- 邮件获取失败详情弹窗支持按文件夹展开协议级错误（如「收件箱 / Graph API」「收件箱 / IMAP（新服务器）」），便于排查 token 刷新成功但读信失败等问题。
+- Fixed the loss of error details when "all mails" failed to be pulled: `merge_folder_results` will now transparently transmit the structural errors (code / type / status / trace_id / details) of each Graph / IMAP protocol to avoid the pop-up window only showing "Unable to get mail, all methods failed" and the fields are all `-`.
+- The email retrieval failure details pop-up window supports expanding protocol-level errors by folder (such as "Inbox/Graph API" "Inbox/IMAP (new server)"), which is convenient for troubleshooting issues such as token refresh success but email reading failure.
 
 ## [2.8.7] - 2026-07-19
 
 ### Changed
-- 分组代理、账号代理、批量代理与上传账号代理界面补充 SOCKS5 建议提示：IMAP 令牌请求仅支持 HTTPS CONNECT / SOCKS5 代理，普通 HTTP 代理不可用；placeholder 优先展示 `socks5://` 示例。
+- Group proxy, account proxy, batch proxy and upload account proxy interface supplement SOCKS5 suggestion: IMAP token request only supports HTTPS CONNECT / SOCKS5 proxy, ordinary HTTP proxy is not available; placeholder gives priority to display `socks5://` example.
 
 ## [2.8.6] - 2026-07-19
 
 ### Added
-- Telegram 转发支持可选 Topic ID（`telegram_topic_id` / `message_thread_id`），可将消息发到话题群组指定话题；不填写时行为与原来一致。
-- Outlook 上传账号列表支持按授权状态筛选（全部 / 未授权 / 已授权），并与关键词搜索组合过滤。
-- 上传账号管理表格新增「账号代理」列，展示脱敏后的代理地址（去除凭据、路径与查询参数）。
-- 上传账号分页提供 `100` / `200` / `500` / `1000` 档位，管理端默认 `200` 并本地记忆偏好。
+- Telegram forwarding supports optional Topic ID (`telegram_topic_id` / `message_thread_id`), which can send messages to the specified topic of the topic group; when not filled in, the behavior is the same as before.
+- Outlook upload account list supports filtering by authorization status (all/unauthorized/authorized), and filtering in combination with keyword search.
+- Added the "Account Agent" column to the uploaded account management form to display the desensitized agent address (removing credentials, paths and query parameters).
+- The upload account pagination provides `100` / `200` / `500` / `1000` gears. The management terminal defaults to `200` and locally stores the preference.
 
 ### Changed
-- `GET /api/outlook-upload-accounts` 支持 `auth_status`；`page_size` 最大提升至 `1000`；列表序列化返回脱敏后的 `proxy_url`。
-- 邮件获取错误响应补充 `reason_code`、`category`、`proxy_configured`、`retryable` 等字段，前端可更清晰展示网络 / 代理 / TLS 等原因。
+- `GET /api/outlook-upload-accounts` supports `auth_status`; `page_size` is upgraded to `1000`; list serialization returns desensitized `proxy_url`.
+- Added `reason_code`, `category`, `proxy_configured`, `retryable` and other fields to the email retrieval error response, so that the front end can more clearly display network/proxy/TLS and other reasons.
 
 ### Fixed
-- 完善 IMAP / 邮件获取错误分类与用户提示，避免笼统失败信息。
-- 上传账号列表并发请求仅应用最新响应，避免旧分页结果覆盖当前筛选结果。
+- Improve IMAP/mail retrieval error classification and user prompts to avoid general failure messages.
+- Only the latest response is applied to concurrent requests for uploading account lists to prevent old paginated results from overwriting the current filtered results.
 
 ## [2.8.5] - 2026-07-14
 
 
 ### Added
-- Outlook 上传账号支持设置目标分组、标签与账号代理；Graph 授权成功并**新建**正式账号时自动写入。
-- 上传账号管理支持多选批量删除，以及按当前授权模式串行批量授权。
-- 正式账号列表支持批量「加入自动授权」；入队时同步复制分组、标签与代理到上传暂存表。
-- 新增接口：`POST /api/outlook-upload-accounts/batch-delete`、`POST /api/accounts/batch-outlook-auto-auth`。
+- Outlook upload account supports setting target groups, labels and account agents; Graph is automatically written when authorization is successful and a new official account is created.
+- Upload account management supports multi-select batch deletion and serial batch authorization based on the current authorization mode.
+- The official account list supports batch "join automatic authorization"; when joining the team, groups, labels and agents are copied to the upload temporary table simultaneously.
+- New interfaces: `POST /api/outlook-upload-accounts/batch-delete`, `POST /api/accounts/batch-outlook-auto-auth`.
 
 ### Changed
-- Graph 授权更新已有正式账号时，仅覆盖密码与 token 等授权字段，保留原有分组、标签、代理与备注。
-- `POST /api/outlook-upload-accounts` 可接收 `group_id` / `tag_ids` / `proxy_url`；列表序列化同步返回这些字段。
+- When Graph authorization updates an existing official account, only the authorization fields such as password and token will be covered, and the original groups, labels, agents and remarks will be retained.
+- `POST /api/outlook-upload-accounts` can receive `group_id` / `tag_ids` / `proxy_url`; list serialization returns these fields synchronously.
 
 ## [2.8.4] - 2026-07-14
 
 ### Security
-- 修改登录密码时必须验证当前密码（`current_login_password`），防止已登录会话被冒用改密。
-- 改密成功后轮换登录会话版本：当前改密会话保持有效，其他已登录 Web Session 需重新登录。
+- When changing the login password, the current password (`current_login_password`) must be verified to prevent the logged-in session from being used to change the password.
+- Rotate the login session version after the password change is successful: the current password change session remains valid, and other logged-in Web Sessions need to log in again.
 
 ### Changed
-- 系统设置弹窗登录密码改为「当前密码 + 新密码」双输入；未填新密码时仍可不修改。
-- `PUT /api/settings` 修改 `login_password` 时同步要求提供正确的 `current_login_password`；扩展登录一次性 token 也会绑定会话版本。
+- The login password in the system settings pop-up window is changed to "current password + new password" double input; if the new password is not filled in, it still does not need to be modified.
+- When `PUT /api/settings` modifies `login_password`, the synchronization requires the correct `current_login_password`; the extended login one-time token will also be bound to the session version.
 
 ### Fixed
-- 升级前未写入会话版本的旧 Session：仅在尚未发生密码轮换时继续有效，避免误伤；一旦改密则全部失效。
+- Old Sessions for which the session version has not been written before the upgrade: it will only continue to be valid when the password rotation has not occurred to avoid accidental damage; once the password is changed, it will become invalid.
 
 ## [2.8.3] - 2026-07-14
 
 ### Added
-- Outlook 邮箱授权弹窗新增四种添加 / 授权方式说明：批量导入、🔑 授权并保存、重新授权并刷新，以及当前页自动化授权的入口位置与区别。
-- 说明区提供快捷按钮，可直接跳转到批量导入邮箱或 🔑 授权并保存弹窗。
+- The Outlook mailbox authorization pop-up window adds four new addition/authorization method descriptions: batch import, 🔑 authorize and save, re-authorize and refresh, as well as the entry location and difference of automatic authorization on the current page.
+- The description area provides shortcut buttons that can jump directly to the batch import mailbox or 🔑 authorization and save pop-up window.
 
 ## [2.8.2] - 2026-07-10
 
 ### Changed
-- 账号详情接口 `GET /api/accounts/<id>` 现在直接返回明文 `password` 和 `imap_password` 字段，移除了二次验证流程，前端小眼睛按钮直接在掩码与明文间切换。
-- 移除了 `/api/accounts/<id>/secrets` 二次验证端点及其前端验证弹窗，简化密码查看流程。
-- 账号详情查看时新增 `view_account_detail` 审计日志记录，确保密码字段访问可追溯。
-- OAuth 重新授权弹窗密码字段改为掩码显示+小眼睛切换+点击复制，与编辑账号弹窗密码展示方式一致。
-- 浏览器扩展编辑账号弹窗直接回显已保存的明文密码，移除了"需在 Web 端验证后查看"占位提示。
-- `.secret-reveal-btn` 按钮样式统一为 24×24px 居中对齐，与 Outlook 上传账号密码切换按钮保持一致。
+- The account details interface `GET /api/accounts/<id>` now directly returns the plaintext `password` and `imap_password` fields, removing the secondary verification process. The front-end small eye button directly switches between mask and plaintext.
+- Removed the `/api/accounts/<id>/secrets` two-step verification endpoint and its front-end verification pop-up window to simplify the password viewing process.
+- Added `view_account_detail` audit log record when viewing account details to ensure that access to the password field is traceable.
+- The password field in the OAuth re-authorization pop-up window is changed to mask display + small eye switch + click to copy, which is consistent with the password display method in the account edit pop-up window.
+- The browser extension edit account pop-up window directly echoes the saved plain text password, and removes the "need to be viewed after verification on the Web" placeholder prompt.
+- The `.secret-reveal-btn` button style is unified to 24×24px and centered, consistent with the Outlook upload account and password switch button.
 
 ### Fixed
-- 修复重新授权时密码未传入会额外请求账号详情获取密码的回退逻辑。
+- Fixed the fallback logic of additionally requesting account details to obtain the password when re-authorizing if the password is not passed in.
 
 ## [2.8.1] - 2026-07-07
 
 ### Added
-- Outlook 自动化授权上传账号表格新增正式账号标签展示，并支持在管理端表格中切换显示/隐藏已保存密码。
-- 新增 Windows `start.bat` / `start.ps1` 本地启动脚本和项目协作说明。
+- Outlook automatically authorizes the upload account form to add the official account label display, and supports switching to display/hide saved passwords in the management side form.
+- Added Windows `start.bat` / `start.ps1` local startup script and project collaboration instructions.
 
 ### Changed
-- 手动 OAuth 助手调整为只请求 Outlook IMAP 单资源权限，Graph token fallback 改用独立 Graph scope，避免 Microsoft OAuth v2 跨资源混用报错。
-- 优化 Outlook 自动化授权账号表格的列宽、按钮文案、编辑态和授权操作布局稳定性。
-- 上传账号列表接口会向已登录管理端返回解密后的 `password` 字段，用于前端表格显示切换；新增/修改响应仍不返回明文密码。
-- `SECRET_KEY` 环境变量读取时会忽略首尾空白，并同步 README 配置说明。
-- 清理过时 OAuth 与项目设计文档，保留当前 API 与安全说明。
+- The manual OAuth assistant is adjusted to only request Outlook IMAP single resource permissions, and the Graph token fallback is switched to an independent Graph scope to avoid errors when Microsoft OAuth v2 is mixed across resources.
+- Optimize the column width, button copy, editing state and authorization operation layout stability of Outlook's automated authorization account table.
+- The upload account list interface will return the decrypted `password` field to the logged-in management terminal, which is used to switch the front-end table display; the new/modified response will still not return the clear text password.
+- When reading the `SECRET_KEY` environment variable, leading and trailing spaces will be ignored and the README configuration instructions will be synchronized.
+- Clean up outdated OAuth and project design documents, retaining current API and security instructions.
 
 ### Fixed
-- 修复手动 OAuth 授权链接和授权码换 token 请求可能混入 Graph scope 的问题。
-- 修复 Outlook 自动化授权账号表格在标签、密码和操作列下的显示抖动问题。
+- Fixed the problem that manual OAuth authorization link and authorization code exchange token request may be mixed into Graph scope.
+- Fixed the jittering issue in the display of the Outlook automated authorization account form under the label, password and action columns.
 
 ## [2.8.0] - 2026-07-06
 
 ### Added
-- Outlook 自动化授权弹窗支持 `Outlook IMAP` 与 `Graph-only` 双模式授权，并将授权日志内嵌到上传账号管理面板右侧。
-- 上传账号管理支持顶部内联添加、表格行内编辑和已授权账号重新授权入口。
-- 分组面板新增折叠、搜索标题和排序交互优化。
-- README 与 Docker 配置补充本地源码构建运行说明。
+- Outlook automated authorization pop-up window supports `Outlook IMAP` and `Graph-only` dual-mode authorization, and embeds the authorization log on the right side of the upload account management panel.
+- Upload account management supports top inline addition, table inline editing and authorized account re-authorization entry.
+- Added folding, search title and sorting interactive optimization to the grouping panel.
+- README and Docker configuration supplement local source code build and run instructions.
 
 ### Changed
-- OAuth 授权 Scope 新增 `https://outlook.office.com/IMAP.AccessAsUser.All` 权限，用于让 IMAP 授权模式获取 IMAP 访问能力。
-- Outlook 上传账号列表接口不再返回明文密码，前端列表只显示密码是否已保存。
-- 修改 Outlook 上传账号的邮箱或密码时会将 `is_authorized` 重置为 `0`；仅修改备注不会改变授权状态。
-- Graph 授权模式文案调整为 `Graph-only`，并明确提示不含 IMAP 权限。
-- 优化上传账号表格列宽、按钮显示、授权日志高度与滚动样式。
+- Added `https://outlook.office.com/IMAP.AccessAsUser.All` permission to OAuth authorization scope, which is used to allow IMAP authorization mode to obtain IMAP access capabilities.
+- The Outlook upload account list interface no longer returns plain text passwords, and the front-end list only shows whether the password has been saved.
+- Modifying the email address or password of the Outlook upload account will reset `is_authorized` to `0`; only modifying the remarks will not change the authorization status.
+- The Graph authorization mode copy is adjusted to `Graph-only`, and it is clearly stated that IMAP permissions are not included.
+- Optimize upload account table column width, button display, authorization log height and scrolling style.
 
 ### Fixed
-- 修复 OAuth 授权后导出的 RefreshToken 无法用于 IMAP 获取邮件的问题（授权时未申请 IMAP 权限）。
-- 修复 Graph OAuth 登录失败检测不稳定的问题。
-- 修复上传账号列表曾可能向前端返回并展示明文密码的问题。
+- Fixed the problem that the RefreshToken exported after OAuth authorization cannot be used to obtain emails through IMAP (IMAP permission was not applied for during authorization).
+- Fixed the unstable issue of Graph OAuth login failure detection.
+- Fixed an issue where the uploaded account list might return to the front end and display the clear text password.
 
 ### Security
-- Outlook 上传账号暂存密码继续加密保留在后端，列表 API、前端表格和授权日志均不返回、不展示明文密码。
+- The temporary password of the account uploaded by Outlook continues to be encrypted and kept in the backend. The list API, front-end form and authorization log will not return or display the clear text password.
 
-**重要提示**: 已授权的账号需要重新授权才能获得 IMAP 访问权限；`Graph-only` 模式不含 IMAP 权限，如需 IMAP 访问请选择 `Outlook IMAP` 授权模式。
+**Important Note**: Authorized accounts need to be re-authorized to obtain IMAP access permissions; `Graph-only` mode does not include IMAP permissions. If you need IMAP access, please select the `Outlook IMAP` authorization mode.
 
 ## [2.7.0] - 2026-07-04
 
 ### Added
-- 正式邮箱账号操作菜单新增"加入自动授权"入口，可将已有 Outlook 账号直接加入自动化授权队列；同邮箱重新入队会覆盖暂存密码并重置为未授权状态。
-- 新增 `POST /api/accounts/<account_id>/outlook-auto-auth` 接口和 `upsert_upload_account_for_auto_auth` 数据层 helper，从服务端读取正式账号邮箱和密码写入暂存表，不返回明文密码。
-- Outlook 自动化授权支持重复授权：授权成功后覆盖正式账号的密码、`client_id`、`refresh_token` 和授权更新时间，同时保留分组、备注、别名、标签、代理、转发、排序和启停等业务字段；授权失败时不覆盖已有正式账号数据。
+- A new "Add to Automatic Authorization" entry has been added to the official email account operation menu, which allows existing Outlook accounts to be directly added to the automated authorization queue; rejoining the queue with the same email address will overwrite the temporary password and reset it to an unauthorized state.
+- Added the `POST /api/accounts/<account_id>/outlook-auto-auth` interface and `upsert_upload_account_for_auto_auth` data layer helper to read the official account email and password from the server and write them into the temporary table without returning the plain text password.
+- Outlook automated authorization supports repeated authorization: after successful authorization, the password, `client_id`, `refresh_token`, and authorization update time of the official account will be overwritten, while business fields such as grouping, notes, aliases, labels, agents, forwarding, sorting, and start and stop will be retained; when authorization fails, the existing official account data will not be overwritten.
 
 ### Changed
-- Graph OAuth 自动提取不再单独定义 `GRAPH_EXTRACT_CLIENT_ID` / `GRAPH_EXTRACT_REDIRECT_URI` 环境变量，改为复用 `01_bootstrap.py` 中的 `OAUTH_CLIENT_ID` / `OAUTH_REDIRECT_URI`；`scope` 和 `authority` 仍为 Graph 自动提取专用，保持独立。
+- Graph OAuth automatic extraction no longer defines the `GRAPH_EXTRACT_CLIENT_ID` / `GRAPH_EXTRACT_REDIRECT_URI` environment variables separately, but instead reuses `OAUTH_CLIENT_ID` / `OAUTH_REDIRECT_URI` in `01_bootstrap.py`; `scope` and `authority` are still dedicated to Graph automatic extraction and remain independent.
 
 ### Security
-- 加入自动授权接口不从响应返回明文密码，密码仅从服务端加密数据读取并加密写入暂存表。
+- Added automatic authorization interface does not return plain text password from the response. The password is only read from the server-side encrypted data and encrypted and written to the temporary table.
 
 ## [2.6.0] - 2026-07-02
 
 ### Added
-- 编辑邮箱账号时支持回显和保存账号标签。
+- Support echoing and saving account labels when editing email accounts.
 
 ### Changed
-- 导入账号的标签选择器改为复用统一的可搜索标签下拉组件。
+- The tag selector of the imported account is changed to reuse the unified searchable tag drop-down component.
 
 ## [2.5.0] - 2026-06-29
 
 ### Added
-- 分享管理改为表格视图，支持按邮箱搜索、按状态筛选、按邮箱/状态/有效期/创建时间排序。
-- 分享管理新增单个删除、批量取消和批量删除能力，对应新增分享删除与批量操作 API。
-- 账号列表标签 pill 新增悬停移除入口，可直接从邮箱账号上移除标签。
+- Sharing management is changed to table view, which supports searching by email, filtering by status, and sorting by email/status/validity/creation time.
+- Sharing management adds single deletion, batch cancellation and batch deletion capabilities, corresponding to the new sharing deletion and batch operation API.
+- The account list label pill has a new hover removal entry, which can directly remove the label from the email account.
 
 ### Fixed
-- 临时邮箱列表复用标签摘要时不再显示账号标签移除入口，避免误调用账号标签接口。
+- The account label removal entry is no longer displayed when the temporary mailbox list reuses the label summary to avoid accidentally calling the account label interface.
 
 ## [2.4.0] - 2026-06-29
 
 ### Added
-- 账号列表搜索关键字、搜索范围、排序方式和标签筛选现在会保存在浏览器本地，下次打开或切换分组后自动恢复。
+- Account list search keywords, search scope, sorting method and tag filter will now be saved locally in the browser and will be automatically restored next time you open or switch groups.
 
 ### Changed
-- 账号搜索范围默认改为“当前分组”，避免默认跨全部分组搜索造成误判。
-- Outlook 自动化授权列表不再向前端回显上传密码，只展示密码是否存在和掩码长度。
-- Outlook 上传账号模块纳入前端资源哈希，发布后浏览器会自动刷新该模块缓存。
-- 清理旧版 Graph OAuth 对比、实现和 Token 提取迁移文档，保留当前测试指南与 API 文档。
+- The account search scope is changed to "current group" by default to avoid misjudgment caused by default search across all groups.
+- The Outlook automated authorization list no longer echoes the uploaded password to the front end, but only displays whether the password exists and the mask length.
+- The Outlook upload account module incorporates the front-end resource hash, and the browser will automatically refresh the module cache after publishing.
+- Clean up the old version of Graph OAuth comparison, implementation and Token extraction migration documents, and retain the current testing guide and API documentation.
 
 ### Fixed
-- 修复 Graph OAuth 登录过程中跟随 localhost 回调重定向导致无法稳定提取授权码的问题。
-- 修复 Docker 构建示例中的在线更新容器名与默认 compose 服务名不一致的问题。
+- Fixed the problem that following the localhost callback redirection during the Graph OAuth login process resulted in the inability to reliably extract the authorization code.
+- Fixed the issue where the online update container name in the Docker build example is inconsistent with the default compose service name.
 
 ### Security
-- 外部 API 上传的 Outlook 暂存密码改为 Fernet 加密存储，授权成功后清空暂存密码。
+- The Outlook temporary password uploaded by external API is changed to Fernet encrypted storage, and the temporary password is cleared after successful authorization.
 
 ## [2.3.2] - 2026-06-28
 
 ### Changed
-- 首页和邮箱分享页在没有用户保存主题时默认使用浅色主题，不再跟随系统深色偏好。
+- The homepage and mailbox sharing page use the light theme by default when no user saves the theme, and no longer follow the system's dark preference.
 
 ## [2.3.1] - 2026-06-28
 
 ### Changed
-- 首页 CSS 和 JavaScript 资源 URL 增加内容哈希版本参数，发布后浏览器会自动刷新前端资源缓存。
-- 首页 HTML 响应改为禁止缓存，避免升级后继续加载旧入口页面。
+- Add content hash version parameters to the homepage CSS and JavaScript resource URLs, and the browser will automatically refresh the front-end resource cache after publishing.
+- The home page HTML response is changed to disable caching to avoid continuing to load the old entry page after the upgrade.
 
 ### Fixed
-- 修复内置 Editorial 皮肤使用固定缓存标识导致 CSS 更新后不生效的问题。
+- Fixed the issue where the built-in Editorial skin uses a fixed cache flag, causing CSS to not take effect after update.
 
 ## [2.3.0] - 2026-06-28
 
 ### Added
-- 新增系统皮肤管理功能，支持通过 API 上传、切换、删除自定义皮肤（CSS 主题），皮肤配置存储在 `data/skins/` 目录下。
-- 新增皮肤管理相关 API 端点：上传皮肤、获取当前皮肤、切换皮肤、删除皮肤、重置为默认皮肤。
-- 新增皮肤示例文件（`docs/skin-example/skin.json`、`docs/skin-example/theme.css`）和皮肤开发文档（`docs/skins.md`）。
-- 新增暗色/亮色主题切换功能，支持系统偏好自动检测和手动切换，状态持久化到 localStorage。
-- 新增账号列表刷新按钮，支持从当前分组标题栏一键刷新账号列表，带旋转动画反馈。
-- 导航栏新增独立的设置按钮、退出按钮和 GitHub 链接图标按钮（桌面端），替换原有的下拉菜单整合布局。
-- 新增 `editorial.css` 皮肤文件，提供 Editorial 风格的排版和配色方案。
-- 浏览器扩展 popup 和 sidepanel 重新设计为暗色主题，引入 Plus Jakarta Sans 字体和渐变按钮风格。
-- 注：如果发现配色很奇怪，请清理下浏览器缓存
+- Added system skin management function, which supports uploading, switching, and deleting custom skins (CSS themes) through API. The skin configuration is stored in the `data/skins/` directory.
+- Added API endpoints related to skin management: upload skin, get current skin, switch skin, delete skin, reset to default skin.
+- Added skin sample files (`docs/skin-example/skin.json`, `docs/skin-example/theme.css`) and skin development documents (`docs/skins.md`).
+- Added dark/light theme switching function, supports automatic detection and manual switching of system preferences, and persists the state to localStorage.
+- Added a new account list refresh button, which supports one-click refresh of the account list from the current group title bar, with rotation animation feedback.
+- The navigation bar adds independent settings button, exit button and GitHub link icon button (desktop), replacing the original drop-down menu integrated layout.
+- Added `editorial.css` skin file, providing Editorial style layout and color scheme.
+- The browser extension popup and sidepanel are redesigned to a dark theme, introducing Plus Jakarta Sans font and gradient button style.
+- Note: If you find that the color scheme is strange, please clear your browser cache.
 ### Changed
-- 导航栏布局重构：GitHub Star 按钮迁移为导航栏图标按钮，操作菜单拆分为桌面端独立图标按钮 + "更多功能"下拉菜单，移动端保留原菜单布局。
-- 邮件列表刷新按钮改为 SVG 图标 + 旋转动画，替换原文字切换显示方式。
-- 分组面板"添加分组"按钮和授权按钮替换为 SVG 图标，统一视觉风格。
-- 账号面板工具栏、邮件列表、模态框、Toast 等组件适配皮肤变量，支持自定义主题覆盖。
-- 设置页新增皮肤管理界面，支持上传、预览、切换和删除皮肤。
+- Navigation bar layout reconstruction: the GitHub Star button is migrated to the navigation bar icon button, the operation menu is split into an independent icon button + "More Functions" drop-down menu on the desktop, and the original menu layout is retained on the mobile terminal.
+- The mail list refresh button is changed to an SVG icon + rotation animation, replacing the original text and switching the display mode.
+- The "Add Group" button and authorization button in the grouping panel are replaced with SVG icons to unify the visual style.
+- Account panel toolbar, mailing list, modal box, Toast and other components are adapted to skin variables and support custom theme overrides.
+- A new skin management interface is added to the settings page, which supports uploading, previewing, switching and deleting skins.
 
 ### Fixed
-- 修复账号列表刷新按钮在没有选中分组时错误显示的问题，改为仅在选中分组时显示。
+- Fixed the issue where the account list refresh button is incorrectly displayed when no group is selected, and is changed to be displayed only when a group is selected.
 
 ## [2.2.0] - 2026-06-27
 
 ### Added
-- 邮件转发新增并行执行模式，支持同时扫描多个邮箱账号，可配置并行 worker 数量（1-10）。
-- 转发轮询间隔改为秒级精度（20-3600 秒），替换原分钟级间隔，保留向后兼容。
-- 邮箱分享页面用户 pill 支持点击复制邮箱地址，新增 Toast 提示。
-- 并行模式下自动忽略账号间隔，串行模式下保留原有间隔行为。
-- 转发调度新增 `forwarding_run_lock` 防止并发执行。
+- A new parallel execution mode is added to email forwarding, which supports scanning multiple email accounts at the same time. The number of parallel workers can be configured (1-10).
+- The forwarding polling interval is changed to second-level precision (20-3600 seconds), replacing the original minute-level interval, retaining backward compatibility.
+- User pill on the email sharing page supports clicking to copy the email address, and adds a new Toast prompt.
+- Automatically ignore the account interval in parallel mode, and retain the original interval behavior in serial mode.
+- Added `forwarding_run_lock` to forwarding scheduling to prevent concurrent execution.
 
 ### Changed
-- 重构 `process_forwarding_job` 为模块化架构，提取数据库连接、账号解密、任务配置构建、渠道发送等独立函数。
-- 浏览器扩展侧边栏设置页同步适配转发秒级间隔、执行模式、并行 worker 配置。
-- 设置页转发配置 UI 改为秒级间隔输入、执行模式选择、并行 worker 输入，模式切换时自动联动禁用/启用相关控件。
+- Reconstruct `process_forwarding_job` into a modular architecture, extracting independent functions such as database connection, account decryption, task configuration construction, and channel sending.
+- The browser extension sidebar settings page synchronizes the forwarding second-level interval, execution mode, and parallel worker configuration.
+- The settings page forwarding configuration UI is changed to second-level interval input, execution mode selection, parallel worker input, and automatic linkage to disable/enable related controls when switching modes.
 
 ## [2.1.0] - 2026-06-27
 
 ### Added
-- 新增邮箱分享功能，支持为单个邮箱账号创建限时或永不过期的只读分享链接。
-- 新增分享管理入口，可查看、复制和取消已创建的邮箱分享链接。
-- 被分享方通过浏览器打开链接后，只能只读查看该邮箱的收件箱和垃圾邮件，支持邮件列表、邮件详情，暂不支持附件信息展示。
+- Added new email sharing function to support the creation of time-limited or never-expired read-only sharing links for a single email account.
+- Added a new sharing management portal to view, copy and cancel created email sharing links.
+- After the shared party opens the link through a browser, he can only read-only view the inbox and spam of the mailbox. Mailing lists and email details are supported, but the display of attachment information is not currently supported.
 
 ### Changed
-- 邮件详情读取逻辑复用为账号级 helper，供登录态页面和匿名分享页面使用。
+- The email details reading logic is reused as an account-level helper for login pages and anonymous sharing pages.
 
 ## [2.0.75] - 2026-06-25
 
 ### Fixed
-- 修复 Cloudflare 自动导入邮箱的流式进度请求在生产环境中丢失 Flask 应用上下文后返回 500 的问题。
+- Fixed an issue where Cloudflare's streaming progress request to auto-import mailboxes returned 500 after losing the Flask app context in production.
 
 ## [2.0.74] - 2026-06-25
 
 ### Added
-- 邮箱账号面板新增极简展示模式，可隐藏备注、标签、刷新状态等辅助信息以提升列表密度。
-- 桌面端分组栏新增折叠/展开控制，并记住用户上次选择的折叠状态。
+- A new minimalist display mode is added to the email account panel, which can hide auxiliary information such as notes, labels, refresh status, etc. to increase list density.
+- Added folding/expanding controls to the desktop grouping bar, and remembers the user's last selected folding state.
 
 ### Changed
-- 优化账号面板工具按钮图标展示，替换部分 emoji 按钮为一致的 SVG 图标。
+- Optimize the icon display of tool buttons in the account panel and replace some emoji buttons with consistent SVG icons.
 
 ### Fixed
-- 修复未匹配路由等 HTTP 异常被全局异常处理器错误转换为 500 的问题，保留原始 HTTP 状态码。
+- Fixed the issue where HTTP exceptions such as unmatched routes were incorrectly converted to 500 by the global exception handler, retaining the original HTTP status code.
 
 ## [2.0.73] - 2026-06-25
 
 ### Added
-- Cloudflare 临时邮箱导入支持自动识别并兼容旧格式 `邮箱----JWT`，自动提取邮箱部分，无需手动修改旧导出文件。
-- Cloudflare 渠道设置新增"测试连接"功能，支持一键测试域名列表、地址列表和邮件列表三项管理员 API，并展示详细测试结果。
-- 新增Cloudflare 自动导入邮箱功能，支持实时进度显示，使用 Server-Sent Events 流式推送导入进度、百分比和统计信息。
+- Cloudflare temporary mailbox import supports automatic recognition and compatibility with the old format `Mailbox----JWT`, and automatically extracts the mailbox part without manually modifying the old export file.
+- A new "Test Connection" function has been added to Cloudflare channel settings, which supports one-click testing of three administrator APIs: domain name list, address list, and mailing list, and displays detailed test results.
+- Added Cloudflare automatic mailbox import function, supports real-time progress display, and uses Server-Sent Events to stream import progress, percentage and statistics.
 
 ### Changed
-- 自动导入大数据量时在界面实时显示：已导入数量/总数量 (百分比) - 新增、更新、跳过统计。
-- 优化 Cloudflare 导入用户体验，提供平滑的旧格式迁移路径和可见的导入进度。
+- When automatically importing a large amount of data, it will be displayed in real time on the interface: imported quantity/total quantity (percentage) - Add, update, and skip statistics.
+- Optimize the Cloudflare import user experience, providing a smooth migration path to old formats and visible import progress.
 
 ## [2.0.72] - 2026-06-19
 
 ### Changed
-- 临时邮箱生成弹窗改为 Cloudflare、GPTMail、DuckMail 分段切换布局，并优化 Cloudflare 渠道、域名、数量、用户名生成方式和标签绑定控件。
-- 设置页临时邮箱配置顺序调整为 Cloudflare、GPTMail、DuckMail，并同步侧边导航与前端测试契约。
+- The temporary mailbox generation pop-up window is changed to Cloudflare, GPTMail, and DuckMail segment switching layout, and Cloudflare channels, domain names, quantities, username generation methods, and label binding controls are optimized.
+- The temporary mailbox configuration order on the settings page is adjusted to Cloudflare, GPTMail, and DuckMail, and the side navigation and front-end test contract are synchronized.
 
 ### Added
-- DuckMail 临时邮箱创建表单新增密码显示/隐藏按钮。
+- Added password show/hide button in DuckMail temporary mailbox creation form.
 
 ## [2.0.71] - 2026-06-19
 
 ### Added
-- Cloudflare 临时邮箱新增批量生成入口，支持按数量创建、部分失败明细和为成功创建的邮箱自动绑定标签。
-- Cloudflare 临时邮箱新增 AI 用户名生成配置，支持 OpenAI-compatible API、保存前测试生成，以及在生成弹窗中显式生成并编辑用户名列表。
+- Cloudflare has a new batch generation entry for temporary mailboxes, which supports creation by quantity, partial failure details, and automatic label binding for successfully created mailboxes.
+- Cloudflare temporary mailbox adds AI username generation configuration, supports OpenAI-compatible API, test generation before saving, and explicitly generates and edits username list in the generation pop-up window.
 
 ### Changed
-- Cloudflare 临时邮箱生成弹窗改为多行用户名输入，一行一个；提交创建时只使用显式用户名列表或随机用户名，不再在创建阶段隐式调用 AI。
-- Cloudflare 临时邮箱导入保留标签选择，并在界面示例中展示 `[cloudflare:<channel_name>]` 分段和 `邮箱----JWT----渠道名` 写法。
+- The Cloudflare temporary mailbox generation pop-up window is changed to a multi-line username input, one per line; only an explicit username list or a random username is used when submitting the creation, and AI is no longer implicitly called during the creation phase.
+- Cloudflare temporary mailbox import retains the label selection, and shows the `[cloudflare:<channel_name>]` segment and `mailbox----JWT----channel name` writing method in the interface example.
 
 ### Fixed
-- 修复设置页同一分区包含多个面板时桌面布局错位的问题。
+- Fixed the problem of desktop layout misalignment when the same section of the settings page contains multiple panels.
 
 ## [2.0.70] - 2026-06-18
 
 ### Added
-- 分组管理新增最多三级的树形层级，支持创建、编辑、折叠展开、同级排序和跨层级拖拽移动分组。
-- 添加/编辑分组弹窗新增父分组选择，分组下拉、批量移动、导出选择和浏览器扩展导出均适配树形展示。
+- Group management adds up to three levels of tree hierarchy, supporting creation, editing, folding and expansion, sibling sorting, and dragging and moving groups across levels.
+- The add/edit group pop-up window adds a new parent group selection, and group drop-down, batch move, export selection and browser extension export are all adapted to tree display.
 
 ### Changed
-- 选中分组时，账号列表、账号搜索、分组导出、全部分组导出和项目分组范围会包含该分组及其所有子分组账号。
-- 子分组未配置代理时会向上继承父级分组代理；账号级代理仍优先于分组代理。
-- 删除含子分组的分组时会级联删除子分组，并将所有相关账号移回默认分组。
+- When a group is selected, the account list, account search, group export, all group export and project grouping range will include the group and all sub-group accounts.
+- When a child group is not configured with a proxy, it will inherit the parent group proxy upwards; the account-level proxy still takes precedence over the group proxy.
+- When deleting a group containing subgroups, the subgroups will be deleted cascading and all related accounts will be moved back to the default group.
 
 ### Fixed
-- 外部 API 的 `group_id` 账号筛选保持直接分组语义，避免树形分组升级后改变既有对外 API 范围。
-- 分组导出在同时选择父子分组时会去重账号，避免重复导出子分组账号。
+- The `group_id` account filtering of external API maintains direct grouping semantics to avoid changing the scope of the existing external API after tree grouping upgrade.
+- Group export will remove duplicate accounts when selecting parent and child groups at the same time to avoid repeatedly exporting child group accounts.
 
 ## [2.0.69] - 2026-06-15
 
 ### Fixed
-- 修复 Microsoft Graph 附件元数据查询因选择不支持的 `contentId` 字段导致附件列表获取失败的问题。
-- 修复 Graph 邮件详情在附件元数据为空时丢失 `has_attachments` 标记的问题，确保本地保留缓存能识别附件元数据不完整并回源补齐。
-- 修复普通邮箱详情请求未稳定携带 `id_mode` 的问题，避免 Graph、UID 和 sequence 消息 ID 语义混用导致详情或附件读取失败。
+- Fixed an issue where Microsoft Graph attachment metadata query failed to obtain the attachment list due to selecting the unsupported `contentId` field.
+- Fixed the issue where the Graph email details lost the `has_attachments` mark when the attachment metadata is empty, ensuring that the local retention cache can recognize that the attachment metadata is incomplete and complete it back to the source.
+- Fixed the issue where `id_mode` is not stably carried in ordinary mailbox detail requests, to avoid the mixed use of Graph, UID and sequence message ID semantics resulting in failure to read details or attachments.
 
 ## [2.0.68] - 2026-06-14
 
 ### Fixed
-- 修复普通邮箱本地保留详情在缓存标记有附件但附件元数据为空时直接返回本地缓存，导致邮件详情不展示附件的问题；现在会回退远程详情补齐附件元数据并回填本地缓存。
+- Fixed an issue where the local retained details of an ordinary mailbox are directly returned to the local cache when the cache is marked with an attachment but the attachment metadata is empty, resulting in the email details not displaying the attachment; now the remote details are returned to fill in the attachment metadata and the local cache is backfilled.
 
 ## [2.0.67] - 2026-06-08
 
 ### Added
-- Token 刷新管理邮箱列表新增分页控件，支持切换每页 100 到 10000 项、上一页/下一页和页码跳转，并记住用户选择的每页数量。
+- Token refresh management mailbox list adds a new paging control, supports switching between 100 and 10,000 items per page, previous page/next page and page number jump, and remembers the number of each page selected by the user.
 
 ### Changed
-- `/api/accounts/refresh-status-list` 的 `page_size` 上限从 500 提升到 10000，前端列表摘要改为显示当前页项目范围。
+- The upper limit of `page_size` for `/api/accounts/refresh-status-list` is increased from 500 to 10000, and the front-end list summary is changed to display the project range of the current page.
 
 ## [2.0.66] - 2026-06-08
 
 ### Added
-- Token 刷新管理邮箱列表完整移植普通邮箱列表批量操作，支持选择模式、行点击、`Shift` 连选、拖拽选择，以及刷新 Token、复制邮箱+别名、导出、转发开关、代理、标签、移动分组和删除。
+- Token refresh management mailbox list completely transplants the batch operation of ordinary mailbox list, supporting selection mode, row click, `Shift` continuous selection, drag and drop selection, as well as refreshing Token, copying mailbox + alias, export, forwarding switch, proxy, label, move grouping and deletion.
 
 ### Changed
-- Token 刷新管理中的批量账号变更会同步刷新 Token 列表、主邮箱账号列表、分组计数和相关前端缓存，避免两个列表状态不一致。
+- Batch account changes in Token refresh management will synchronously refresh the Token list, primary email account list, group count and related front-end cache to avoid inconsistency in the status of the two lists.
 
 ## [2.0.65] - 2026-06-07
 
 ### Added
-- Outlook OAuth 账号新增重新授权入口，支持从编辑账号弹窗和刷新失败提示中更新已有账号授权并自动触发单账号刷新验证。
-- 新增 `POST /api/accounts/<account_id>/reauthorize` 接口，只更新已有账号授权字段并保留邮箱、密码、分组、代理、标签等业务信息。
+- Outlook OAuth account has a new re-authorization entry, which supports updating existing account authorization from the edit account pop-up window and refresh failure prompt and automatically triggers single account refresh verification.
+- Added `POST /api/accounts/<account_id>/reauthorize` interface, which only updates existing account authorization fields and retains email, password, group, agent, label and other business information.
 
 ### Fixed
-- 重新授权保存新授权信息后先提交数据库事务，再执行自动刷新验证，避免外部刷新请求期间持有 SQLite 写锁。
+- Reauthorize and save the new authorization information before submitting the database transaction and then performing automatic refresh verification to avoid holding SQLite write locks during external refresh requests.
 
 ## [2.0.64] - 2026-06-07
 
 ### Added
-- Cloudflare Temp Email 新增多渠道管理，支持为多套 Worker、管理员密码和独立邮件池分别配置渠道。
-- 设置页新增 Cloudflare 渠道列表与创建、编辑、启用/停用、删除能力，并展示渠道引用数量。
-- Cloudflare 临时邮箱创建、读信、删除和全部邮件视图支持按渠道执行；全部邮件入口按渠道独立展示。
-- Cloudflare 临时邮箱导入导出支持 `[cloudflare:<channel_name>]` 分段格式，旧格式继续落到默认渠道。
+- Cloudflare Temp Email adds multi-channel management, supporting the configuration of channels for multiple sets of workers, administrator passwords and independent mail pools.
+- The settings page adds a Cloudflare channel list and the ability to create, edit, activate/deactivate, delete, and display the number of channel references.
+- Cloudflare temporary mailbox creation, reading, deletion and all email views support execution by channel; all email entries are displayed independently by channel.
+- Cloudflare temporary mailbox import and export supports the `[cloudflare:<channel_name>]` segmented format, and the old format continues to fall into the default channel.
 
 ### Changed
-- 旧单渠道 Cloudflare 配置会在启动时迁移为默认渠道，已有 Cloudflare 临时邮箱会自动绑定默认渠道。
-- Cloudflare 渠道邮箱域名改为可选；未配置域名时渠道仍可保存，域名查询返回空列表。
-- `/api/cloudflare/messages` 未传 `channel_id` 时改为使用默认 Cloudflare 渠道。
-- Cloudflare 渠道名按大小写不敏感规则保持唯一，旧大小写冲突数据会在迁移时自动重命名后出现的重复项。
+- The old single-channel Cloudflare configuration will be migrated to the default channel at startup, and the existing Cloudflare temporary mailbox will be automatically bound to the default channel.
+- Cloudflare channel email domain name is changed to optional; the channel can still be saved when no domain name is configured, and domain name query returns an empty list.
+- `/api/cloudflare/messages` uses the default Cloudflare channel instead when `channel_id` is not transmitted.
+- Cloudflare channel names remain unique according to case-insensitive rules, and duplicates after old case-conflicting data are automatically renamed during migration.
 
 ### Fixed
-- 修复 Cloudflare 渠道表单“新建渠道”按钮实际只清空表单导致误操作的问题。
-- 修复 Cloudflare 全部邮件入口重复展示渠道名的问题。
+- Fixed an issue where the "New Channel" button in the Cloudflare channel form actually only clears the form, causing misoperation.
+- Fixed the issue of repeated display of channel names in all Cloudflare email portals.
 
 ## [2.0.63] - 2026-06-04
 
 ### Added
-- 新版本提示弹框改为在检测到远端新版本时展示，并显示最近 3 次更新记录。
-- 新版本弹框新增“前往下载”和 Docker 在线更新入口；未启用 Docker 在线更新时保留配置说明。
+- The new version prompt pop-up box is changed to be displayed when a new remote version is detected, and the latest 3 update records are displayed.
+- The new version pop-up box adds "Go to Download" and Docker online update entrance; the configuration instructions are retained when Docker online update is not enabled.
 
 ### Changed
-- 版本状态接口新增远端更新说明解析，优先从远端 `CHANGELOG.md` 提取最近 3 个版本小节，并保留原有 `release_notes.items` 兼容字段。
-- 新版本提示按远端最新版本去重，不再在用户已经更新后按当前运行版本弹出。
+- The version status interface adds remote update description parsing, giving priority to extracting the latest 3 version sections from the remote `CHANGELOG.md`, and retaining the original `release_notes.items` compatibility field.
+- The new version prompts to deduplicate the latest remote version, and no longer pops up according to the current running version after the user has updated.
 
 ## [2.0.62] - 2026-06-04
 
 ### Changed
-- 重构编辑邮箱账号弹窗布局，将基础信息、认证信息、代理设置、备注与别名分区展示，减少长表单滚动。
-- 编辑账号弹窗在桌面端改为更宽的紧凑两列布局，并在移动端自动回退为单列。
-- 别名提示文案改为“API 可用别名查询”，避免误解为仅对外 API 支持别名。
+- Reconstruct the layout of the edit email account pop-up window to display basic information, authentication information, proxy settings, notes and aliases in partitions to reduce scrolling of long forms.
+- The edit account pop-up window is changed to a wider, compact two-column layout on the desktop, and automatically falls back to a single column on the mobile.
+- The alias prompt copy is changed to "API available alias query" to avoid misunderstanding that only external API supports aliases.
 
 ## [2.0.61] - 2026-06-04
 
 ### Added
-- 账号编辑页新增账号密码和 IMAP 密码展示二次验证，已保存密码默认隐藏，仅在输入当前登录密码后显示。
+- Added two-step verification for account password and IMAP password on the account editing page. Saved passwords are hidden by default and will only be displayed after entering the current login password.
 
 ### Changed
-- `GET /api/accounts/<id>` 不再返回账号密码和 IMAP 密码明文，只返回 `has_password` / `has_imap_password` 标记；查看密码必须调用 `/api/accounts/<id>/secrets` 并完成登录密码二次验证。
-- Web 端账号密码展示入口改为输入框内的小眼睛按钮，验证弹窗会覆盖在编辑弹窗上方，验证后可直接在原编辑弹窗查看密码。
-- 浏览器扩展账号编辑页适配密码隐藏逻辑，未填写密码时保留已保存密码。
+- `GET /api/accounts/<id>` no longer returns the clear text of the account password and IMAP password, but only returns the `has_password` / `has_imap_password` mark; to view the password, you must call `/api/accounts/<id>/secrets` and complete the second verification of the login password.
+- The entrance to display the account and password on the web side is changed to the small eye button in the input box. The verification pop-up window will cover the top of the editing pop-up window. After verification, the password can be viewed directly in the original editing pop-up window.
+- The browser extension account editing page adapts the password hiding logic and retains the saved password when the password is not filled in.
 
 ### Fixed
-- 修复账号编辑时省略 `password` 或 `imap_password` 字段会清空已保存密码的问题。
+- Fixed the issue where omitting the `password` or `imap_password` field when editing the account will clear the saved password.
 
 ## [2.0.60] - 2026-06-01
 
 ### Fixed
-- 修复 macOS DMG 安装的桌面应用打开后缺少可用退出入口的问题；macOS 打包运行时现在复用可控桌面服务，并可通过状态栏菜单退出时停止后台服务。
+- Fixed the problem of lack of available exit entrance after the desktop application installed by macOS DMG is opened; the macOS package runtime now reuses the controllable desktop service, and can stop the background service when exiting through the status bar menu.
 
 ## [2.0.59] - 2026-06-01
 
 ### Added
-- 新增 macOS DMG 安装包构建脚本，支持生成可拖拽安装的 `OutlookEmail.app` 安装包。
-- GitHub Release 工作流新增 macOS x64 和 arm64 安装包产物，并在上传前校验二进制架构。
+- Added macOS DMG installation package building script to support generating `OutlookEmail.app` installation package that can be dragged and dropped.
+- GitHub Release workflow adds macOS x64 and arm64 installation package products, and verifies the binary architecture before uploading.
 
 ### Changed
-- 搜索框保留多行输入能力，但默认展示高度收敛为一行，并缩小、压缩占位提示文案。
-- PyInstaller 打包配置在 macOS 下改为 `.app` bundle，Windows `exe` 构建保持原有 onefile 行为。
+- The search box retains the ability to input multiple lines, but the default display height is condensed to one line, and the placeholder prompt copy is reduced and compressed.
+- The PyInstaller packaging configuration is changed to `.app` bundle under macOS, and the Windows `exe` build maintains the original onefile behavior.
 
 ## [2.0.58] - 2026-06-01
 
 ### Added
-- 账号搜索支持空格或换行分隔多个关键词，任一关键词命中主邮箱、别名邮箱、备注或标签即返回结果。
-- 搜索框改为多行输入，便于批量粘贴邮箱或关键词，并限制最多 `200` 个唯一关键词。
+- Account search supports multiple keywords separated by spaces or newlines. If any keyword hits the main mailbox, alias mailbox, notes or tags, the results will be returned.
+- The search box is changed to multi-line input to facilitate batch pasting of emails or keywords, and is limited to a maximum of `200` unique keywords.
 
 ### Changed
-- `/api/accounts/search` 的 `q` 参数改为多关键词 OR 搜索语义，并在超过关键词上限时返回明确错误。
-- 临时邮箱列表搜索复用多关键词匹配逻辑，并保持 Cloudflare 全局入口大小写不敏感。
-- API 文档同步说明多关键词搜索规则和数量上限。
+- The `q` parameter of `/api/accounts/search` is changed to multi-keyword OR search semantics, and an explicit error is returned when the keyword limit is exceeded.
+- Temporary mailbox list search reuses multi-keyword matching logic and keeps Cloudflare global entries case-insensitive.
+- API document synchronization explains multi-keyword search rules and quantity limit.
 
 ## [2.0.57] - 2026-05-29
 
 ### Added
-- 新增账号级代理配置，普通邮箱账号可单独设置主代理、回退代理 1 和回退代理 2。
-- 邮箱账号批量操作栏新增“代理”，支持为已勾选账号批量设置或清空账号级代理。
-- `/api/accounts/batch-update-proxy` 支持批量设置账号级代理，导入和更新账号接口也支持账号级代理字段。
+- Added account-level proxy configuration. Ordinary email accounts can set the main proxy, fallback proxy 1 and fallback proxy 2 separately.
+- Added "Agent" to the email account batch operation column, which supports batch setting or clearing of account-level proxies for selected accounts.
+- `/api/accounts/batch-update-proxy` supports batch setting of account-level agents, and the import and update account interface also supports account-level agent fields.
 
 ### Changed
-- 邮箱读取、Token 刷新、附件、删除和转发抓信等普通邮箱链路现在优先使用账号级代理；账号代理为空时继续继承分组代理。
-- 编辑账号弹窗新增账号代理输入项，代理错误提示改为同时指向账号代理和分组代理。
-- API 文档补充账号级代理字段、批量代理接口和代理继承优先级。
+- Ordinary mailbox links such as mailbox reading, token refreshing, attachment, deletion and forwarding capture now preferentially use account-level agents; when the account agent is empty, the group agent will continue to be inherited.
+- A new account agent input item has been added to the account editing pop-up window, and the agent error prompt has been changed to point to both account agents and group agents.
+- API documentation supplements account-level agent fields, batch agent interface and agent inheritance priority.
 
 ### Fixed
-- 修复批量代理设置弹窗内触发二次确认时，确认弹窗被代理设置弹窗遮挡的问题。
+- Fixed the problem that when the secondary confirmation is triggered in the batch proxy setting pop-up window, the confirmation pop-up window is blocked by the proxy setting pop-up window.
 
 ## [2.0.56] - 2026-05-29
 
 ### Added
-- 邮箱账号批量操作栏新增“导出”，可在按标签、搜索或当前列表筛选后直接导出已勾选的普通邮箱账号。
-- `/api/accounts/export-selected` 支持通过 `account_ids` 导出指定账号，同时保留原有 `group_ids` 导出选中分组能力。
+- Added "Export" to the batch operation column of email accounts, which can directly export the checked ordinary email accounts after filtering by label, search or current list.
+- `/api/accounts/export-selected` supports exporting specified accounts through `account_ids`, while retaining the original `group_ids` ability to export selected groups.
 
 ### Changed
-- 导出二次验证流程复用现有安全确认弹窗，并根据来源自动提交选中账号或选中分组。
-- API 文档、README 和排障文档补充选中账号导出说明。
+- The exported secondary verification process reuses the existing security confirmation pop-up window and automatically submits the selected account or selected group according to the source.
+- API documentation, README and troubleshooting documentation supplement selected account export instructions.
 
 ## [2.0.55] - 2026-05-29
 
 ### Added
-- 新增普通邮箱本地保留功能，可将 Outlook/Hotmail、OAuth IMAP 回退链路和标准 IMAP 的普通邮箱列表元数据与已读取正文缓存到本机 SQLite。
-- 普通邮箱列表支持本地优先渲染，随后后台同步远程 Graph/IMAP 数据；同步发现新邮件时显示非打断式提示，并可在用户确认后合并到当前列表。
-- 邮件详情支持优先读取本地保留正文，远程详情读取成功后自动回填正文缓存，远程失败时可回退展示已缓存正文。
-- 新增普通邮箱本地保留设置项、存储统计、清理状态和清理缓存操作。
-- 新增 `/api/emails/retain-bodies`、`/api/settings/normal-mail-retention/status` 和 `/api/settings/normal-mail-retention/clear` 接口。
-- 新增 `docs/local-mail-retention.md`，说明普通邮箱本地保留范围、同步行为、详情正文保留、清理策略和阶段限制。
+- Added the local retention function of ordinary mailboxes, which can cache the ordinary mailbox list metadata and read body of Outlook/Hotmail, OAuth IMAP fallback link and standard IMAP to native SQLite.
+- Ordinary mailbox lists support local priority rendering, and then synchronize remote Graph/IMAP data in the background; display non-interruptive prompts when new emails are discovered simultaneously, and can be merged into the current list after user confirmation.
+- Email details support priority reading of the local reserved body. After the remote details are read successfully, the body cache is automatically backfilled. When the remote failure fails, the cached body can be displayed back.
+- Added local retention settings, storage statistics, cleanup status and cache cleanup operations for ordinary mailboxes.
+- Added `/api/emails/retain-bodies`, `/api/settings/normal-mail-retention/status` and `/api/settings/normal-mail-retention/clear` interfaces.
+- Added `docs/local-mail-retention.md` to explain the local retention range, synchronization behavior, detail text retention, cleanup strategy and stage restrictions of ordinary mailboxes.
 
 ### Changed
-- 普通邮箱列表、详情、标记已读和删除操作会同步维护本地保留状态，保留数据默认受 `normal_mail_local_retention_enabled=false` 开关控制。
-- Outlook/Hotmail OAuth 的 IMAP 回退详情和附件下载支持 `id_mode=uid|sequence`，默认按 UID 读取，避免 UID 与序列号混用。
-- 普通邮箱关键词过滤会优先检查已缓存正文，只有需要远程详情时才补走远程读取。
-- 普通邮箱分页参数改为安全解析，非数字使用默认值、负数按 `0` 处理，远程列表 `top` 最大为 `50`。
-- 设置页展示普通邮箱本地保留的已保存邮件数、已缓存正文数、估算保留大小和 SQLite 数据库大小，并在关闭保留开关时提示确认清理。
-- README、本地保留说明和 API 文档补充普通邮箱本地保留、正文补齐、清理状态、`id_mode` 和附件下载行为。
+- Ordinary mailbox list, details, mark read and delete operations will maintain the local retention status synchronously, and the retention data is controlled by the `normal_mail_local_retention_enabled=false` switch by default.
+- Outlook/Hotmail OAuth's IMAP fallback details and attachment download support `id_mode=uid|sequence`, which is read by UID by default to avoid mixing UID and serial numbers.
+- Ordinary mailbox keyword filtering will give priority to checking the cached text, and only make up for remote reading when remote details are needed.
+- Ordinary mailbox paging parameters are changed to safe parsing, non-numbers use default values, negative numbers are processed as `0`, and the maximum remote list `top` is `50`.
+- The settings page displays the number of saved messages, cached text, estimated retention size and SQLite database size retained locally in ordinary mailboxes, and prompts to confirm cleanup when the retention switch is turned off.
+- README, local retention instructions and API documentation supplement general mailbox local retention, text completion, cleanup status, `id_mode` and attachment download behavior.
 
 ### Fixed
-- 修复刷新日志、转发日志等接口分页参数未做边界保护时可能因非法输入报错或请求过大分页的问题。
-- 修复外部 API Key 比较未做稳定字符串规范化和常量时间比较的问题。
-- 修复普通邮箱本地保留重复消息在不同 `id_mode` 下可能影响列表去重、详情回填和刷新查询的问题。
-- 修复清理普通邮箱本地保留缓存遇到短暂 SQLite 锁时缺少有限重试，重复清理请求可能启动多个清理任务的问题。
-- 修复普通邮箱本地保留列表在分页后才应用主题、发件人和关键词过滤，导致匹配邮件位于后续页时首屏漏显、`count` 和 `has_more` 不准确的问题。
-- 修复本地保留列表显示期间后台同步插入新邮件后继续加载更多可能因 offset 漂移而重复或跳过邮件的问题。
-- 修复清理或关闭普通邮箱本地保留后，前端内存缓存仍可能继续显示已清理本地邮件列表的问题。
+- Fixed the problem that when interface paging parameters such as refresh logs and forwarding logs are not boundary protected, errors may be reported due to illegal input or excessive paging requests.
+- Fixed the problem that external API Key comparison does not perform stable string normalization and constant time comparison.
+- Fixed the problem that local retention of duplicate messages in ordinary mailboxes under different `id_mode` may affect list deduplication, detail backfill and refresh query.
+- Fixed the issue where limited retries are missing when cleaning the local retention cache of a general mailbox when encountering a short-lived SQLite lock, and repeated cleaning requests may start multiple cleaning tasks.
+- Fixed the problem that subject, sender and keyword filtering is applied only after paging the local reserved list of ordinary mailboxes, resulting in the first screen missing and `count` and `has_more` being inaccurate when matching emails are located on subsequent pages.
+- Fixed an issue where more emails may be duplicated or skipped due to offset drift during background synchronization inserting new emails during local retention list display and continuing to load more emails.
+- Fixed an issue where the front-end memory cache may continue to display the cleaned local mailing list after cleaning or turning off local retention of ordinary mailboxes.
 
 ## [2.0.54] - 2026-05-23
 
 ### Added
-- 新增 Chrome / Edge 浏览器扩展，支持在侧边栏使用邮箱、导入、刷新、Token、导出、标签和设置等常用功能。
-- 新增浏览器扩展密码登录桥接接口 `/api/extension/login` 和一次性登录跳转 `/extension-login/<token>`，扩展可使用 Web 登录密码建立正常 Web Session。
-- 首页新增版本更新提示弹框，用户更新后首次打开界面会看到本版本新增功能说明，且每个版本只提示一次。
+- Added Chrome/Edge browser extension to support common functions such as mailbox, import, refresh, token, export, tags and settings in the sidebar.
+- Added browser extension password login bridge interface `/api/extension/login` and one-time login jump `/extension-login/<token>`. The extension can use the web login password to establish a normal Web Session.
+- A new version update prompt pop-up box has been added to the homepage. When users open the interface for the first time after updating, they will see a description of the new features of this version, and each version is only prompted once.
 
 ### Changed
-- README 增加浏览器扩展入口说明，并将完整发版流程收敛到 `RELEASE.md`。
-- API 文档补充浏览器扩展密码登录流程。
+- README adds browser extension entry description and converges the complete release process to `RELEASE.md`.
+- API documentation complements the browser extension password login process.
 
 ## [2.0.53] - 2026-05-21
 
 ### Added
-- 邮箱账号列表新增批量选择模式，支持点击「☑」后通过账号行选择、多选框选择、`Shift` 连续范围选择和拖拽选择批量勾选账号。
+- A new batch selection mode is added to the email account list, which supports batch selection of accounts through account row selection, multi-select box selection, `Shift` continuous range selection and drag and drop selection after clicking "☑".
 
 ### Changed
-- PC 端邮箱账号批量操作菜单改为悬浮在第一个选中账号右侧，并随账号列表滚动重新定位，减少底部空间占用。
-- README 补充批量选择、拖拽选择、批量菜单和邮件批量操作的详细使用说明。
+- The PC mailbox account batch operation menu is changed to float on the right side of the first selected account, and is repositioned as the account list scrolls, reducing the space occupied at the bottom.
+- README adds detailed instructions for batch selection, drag-and-drop selection, batch menu and email batch operations.
 
 ### Fixed
-- 批量选择手势初始化增加函数存在性保护，避免旧页面状态或脚本加载顺序异常时阻断首页初始化。
-- 修复批量选择模式下从账号选择框按住拖拽无法连续选择的问题，并补充 Mac 触控板拖拽选择排查说明。
+- Batch selection gesture initialization adds function existence protection to avoid blocking the home page initialization when the old page status or script loading order is abnormal.
+- Fixed the issue where continuous selection cannot be made when pressing and dragging from the account selection box in batch selection mode, and added troubleshooting instructions for Mac trackpad drag selection.
 
 ## [2.0.52] - 2026-05-20
 
 ### Added
-- 导入邮箱账号支持在不改变账号文本格式的前提下，统一设置新增账号的备注、标签和状态。
+- Importing email accounts supports the unified setting of notes, labels and status of new accounts without changing the account text format.
 
 ### Changed
-- 重构导入邮箱账号弹窗的 PC 端布局，将账号信息与导入设置分为两栏展示。
-- 导入标签下拉支持点击下拉外部区域自动关闭。
+- Reconstruct the PC layout of the pop-up window for importing email accounts, dividing the account information and import settings into two columns for display.
+- The import tag drop-down supports automatic closing when clicking outside the drop-down area.
 
 ## [2.0.51] - 2026-05-19
 
 ### Fixed
-- 修复自定义 IMAP 邮件列表首屏误判没有下一页的问题，确保下拉触底能继续触发分页加载，并补充分页边界回归测试。
+- Fixed the problem of misjudgment that there is no next page on the first screen of the custom IMAP mailing list, ensuring that bottoming out the drop-down can continue to trigger paging loading, and adding paging boundary regression testing.
 
 ## [2.0.50] - 2026-05-19
 
 ### Changed
-- 设置弹层左侧“设置导航”在桌面宽度下支持独立滚动，避免设置项增多时导航超出一屏。
+- The "Settings Navigation" on the left side of the settings pop-up layer supports independent scrolling under the desktop width, preventing the navigation from exceeding one screen when the number of setting items increases.
 
 ## [2.0.49] - 2026-05-19
 
 ### Changed
-- WebDAV 备份设置页将“测试 WebDAV”按钮移动到 URL、用户名、密码配置区域旁，减少测试连接时跨屏操作。
-- WebDAV 目录 URL 提示补充“需先创建目录”的说明，并给出坚果云 `mailBackup` 示例路径。
+- The WebDAV backup settings page moves the "Test WebDAV" button next to the URL, username, and password configuration areas to reduce cross-screen operations when testing connections.
+- The WebDAV directory URL prompt adds a description of "the directory needs to be created first" and gives an example path to Nut Cloud `mailBackup`.
 
 ### Fixed
-- 修复 Outlook Refresh Token 遇到 `AADSTS70000` scope 未授权/过期响应时未继续回退到旧 `.default` 或无 scope 刷新方式的问题。
-- Outlook Refresh Token 在 Graph 刷新失败后会继续尝试 IMAP OAuth 刷新，并保存 IMAP 返回的轮换 `refresh_token`。
-- WebDAV 测试和手动上传遇到 HTTP 404/409 时会返回可操作的目录创建和路径检查提示，避免只显示状态码。
+- Fixed the issue where Outlook Refresh Token did not continue to fall back to the old `.default` or scope-less refresh mode when it encountered the `AADSTS70000` scope unauthorized/expired response.
+- Outlook Refresh Token will continue to try IMAP OAuth refresh after a Graph refresh fails, and save the rotation `refresh_token` returned by IMAP.
+- WebDAV tests and manual uploads return actionable directory creation and path checking prompts when encountering HTTP 404/409, to avoid showing just a status code.
 
 ## [2.0.48] - 2026-05-18
 
 ### Fixed
-- 修复部分 Outlook Refresh Token 在 `.default` Graph scope 下刷新失败并返回 `AADSTS90023` 的问题；Graph token 获取现在优先使用授权时的显式委托 scope，并在刷新检测中保留无 scope 兼容回退。
+- Fixed the issue where some Outlook Refresh Token failed to refresh under `.default` Graph scope and returned `AADSTS90023`; Graph token obtains the explicit delegation scope when authorization is now preferred, and retains scope-less compatible fallback in refresh detection.
 
 ## [2.0.47] - 2026-05-18
 
 ### Added
-- Cloudflare Temp Email 新增“Cloudflare所有邮件”视图，可通过管理员接口查看 Worker 全部邮件，并支持按收件地址过滤和触底分页加载。
-- 邮件查询支持 `gmail.com` 与 `googlemail.com` 后缀互相回退；当原地址未命中时，会自动尝试另一个后缀。
+- Cloudflare Temp Email adds a new "Cloudflare All Mail" view, which allows you to view all Worker mails through the administrator interface, and supports filtering by recipient address and bottom paging loading.
+- Email query supports mutual fallback of `gmail.com` and `googlemail.com` suffixes; when the original address does not match, another suffix will be automatically tried.
 
 ### Changed
-- Cloudflare 所有邮件列表复用现有邮件列表详情渲染，并在列表中展示收件地址和来源标识。
-- 邮件查询响应新增稳定的 `resolved_query_email`、`fallback_used`、`fallback_email` 字段，用于说明实际命中的查询地址。
+- All Cloudflare mailing lists reuse existing mailing list details for rendering, and display recipient addresses and source identifiers in the list.
+- Added stable `resolved_query_email`, `fallback_used`, and `fallback_email` fields to email query responses to indicate the actual hit query address.
 
 ## [2.0.46] - 2026-05-14
 
 ### Added
-- 邮箱列表搜索框新增范围选择，可在“所有分组”和“当前分组”之间切换筛选范围。
-- 账号搜索接口 `/api/accounts/search` 新增可选 `group_id` 参数，支持仅搜索指定分组下的账号。
+- A new range selection is added to the mailbox list search box, which can switch the filtering range between "all groups" and "current group".
+- The account search interface `/api/accounts/search` adds the optional `group_id` parameter to support searching only accounts in the specified group.
 
 ### Changed
-- 当前分组搜索结果标题会标明分组范围，全局搜索结果继续展示账号所属分组信息。
+- The title of the current group search results will indicate the group scope, and the global search results will continue to display the group information to which the account belongs.
 
 ## [2.0.45] - 2026-05-12
 
 ### Added
-- 邮件详情新增“显示邮件源”入口，可按需查看原始 MIME 邮件源码。
-- 原始邮件查看器支持复制源码和下载 `.eml` 文件，并提示完整邮件头包含敏感路由信息。
-- 后端新增 `/api/email/<email>/<message_id>/raw` 接口，支持 Graph `$value`、Outlook IMAP `RFC822` 和自定义 IMAP 账号获取邮件源。
+- A new "Show Email Source" entry has been added to email details, allowing you to view the original MIME email source code on demand.
+- The original email viewer supports copying source code and downloading `.eml` files, and prompts that the complete email header contains sensitive routing information.
+- Added `/api/email/<email>/<message_id>/raw` interface to the backend, supporting Graph `$value`, Outlook IMAP `RFC822` and custom IMAP accounts to obtain email sources.
 
 ### Changed
-- 邮件详情工具栏将信任模式文案恢复为“信任此邮件”，并将原始邮件入口命名为“显示邮件源”。
+- The email details toolbar returns the trust mode text to "Trust this email" and names the original email entry as "Show Mail Source".
 
 ## [2.0.44] - 2026-05-08
 
 ### Added
-- 邮箱列表新增服务端分页参数和滚动加载，单页条数最高支持 `10000`。
-- 邮箱列表支持在服务端按标签筛选，并返回 `total`、`offset`、`limit` 和 `has_more` 分页状态。
+- Added server-side paging parameters and rolling loading to the mailbox list. The maximum number of items on a single page is `10000`.
+- The mailbox list supports filtering by tags on the server side, and returns `total`, `offset`, `limit` and `has_more` paging status.
 
 ### Changed
-- 普通邮箱批量导入改为单事务批量写入，提升万级账号导入性能，并返回新增、跳过重复和无效行数量。
-- 邮箱列表加载改为批量预载标签和别名，并新增常用账号查询索引，降低大列表查询开销。
-- 标签筛选和单页条数控制压缩为同一行展示，批量选择文案改为面向“已加载”账号。
+- The batch import of ordinary mailboxes is changed to batch writing of single transactions, which improves the import performance of 10,000-level accounts and returns the number of new, skipped duplicates and invalid rows.
+- Mailbox list loading is changed to batch preloading of labels and aliases, and a frequently used account query index is added to reduce the cost of querying large lists.
+- Tag filtering and single-page article number control are compressed and displayed in the same row, and batch selection of copywriting is changed to "loaded" accounts.
 
 ## [2.0.43] - 2026-05-08
 
 ### Added
-- Token 刷新管理新增当前列表选择、清空选择、刷新已选和删除已选批量操作。
-- 新增选中账号流式刷新任务接口：先通过 `POST /api/accounts/refresh-selected-stream` 初始化任务，再通过返回的 `stream_url` 订阅 SSE 进度。
+- Token refresh management adds current list selection, clear selection, refresh selected and delete selected batch operations.
+- Added a new interface for streaming refresh tasks of selected accounts: first initialize the task through `POST /api/accounts/refresh-selected-stream`, and then subscribe to the SSE progress through the returned `stream_url`.
 
 ### Changed
-- Token 刷新管理里的“刷新已选”不再把 `account_ids` 放入 SSE GET query，改为 POST 初始化任务后再订阅任务流。
-- 部署文档明确服务需保持单 worker 运行；官方 Docker 镜像继续使用 Gunicorn 单 worker + 多线程模式。
+- "Refresh Selected" in Token refresh management no longer puts `account_ids` into SSE GET query, but instead POST initializes the task and then subscribes to the task flow.
+- The deployment document makes it clear that the service needs to keep a single worker running; the official Docker image continues to use Gunicorn single worker + multi-thread mode.
 
 ### Fixed
-- 批量删除账号后会同步刷新 Token 刷新管理列表、主账号列表和相关本地缓存，避免界面仍显示已删除账号。
+- After deleting accounts in batches, the Token will be refreshed synchronously, and the management list, main account list, and related local cache will be refreshed to prevent the deleted accounts from still being displayed on the interface.
 
 ## [2.0.42] - 2026-05-07
 
 ### Added
-- 系统设置新增“展示组ID”开关，可统一控制分组列表、账号摘要等位置的分组 ID 徽标显示。
-- 首页版本按钮在检测到仓库存在更高版本时，会显示与版本按钮共用点击入口的升级箭头提示图标。
+- A new "Show Group ID" switch has been added to the system settings, which can uniformly control the display of group ID logos in group lists, account summaries, etc.
+- When the version button on the home page detects that a higher version exists in the warehouse, it will display an upgrade arrow prompt icon that shares the click entry with the version button.
 
 ### Changed
-- 设置页将登录密码和对外 API Key 归入“常规设置”，并把 GPTMail、DuckMail、Cloudflare 三个临时邮箱设置统一移动到设置页底部。
-- 首页升级提示由文字改为向上箭头图标，并沿用 GitHub Star 徽标的金色配色风格。
-- 版本弹层补充说明：仅 Docker 版本支持在线更新，并引导查看 README 中的对应配置文档。
+- The settings page puts the login password and external API Key into "General Settings", and moves the three temporary mailbox settings of GPTMail, DuckMail, and Cloudflare to the bottom of the settings page.
+- The homepage upgrade prompt is changed from text to an upward arrow icon, and follows the golden color scheme of the GitHub Star logo.
+- Supplementary instructions for the version elastic layer: Only the Docker version supports online updates, and guides you to view the corresponding configuration documents in the README.
 
 ### Fixed
-- 修复首页版本升级提示在版本一致时仍然显示的问题，补充 `hidden` 状态下的样式兜底，仅在当前版本低于仓库版本时显示升级图标。
+- Fixed the problem that the version upgrade prompt on the homepage is still displayed when the versions are the same, added the style cover in the `hidden` state, and only displays the upgrade icon when the current version is lower than the warehouse version.
 
 ## [2.0.41] - 2026-05-06
 
 ### Fixed
-- 修复 Docker 在线更新在较新的 Docker daemon 上因 API 版本过旧而无法获取容器状态的问题；当 daemon 明确返回最低支持版本时，应用会自动按该版本重试。
-- 修复 Docker 在线更新拉起的 Watchtower 容器未继承 Docker API 版本导致检查/更新直接失败的问题。
-- 修复 Watchtower 带 ANSI 颜色码的日志摘要无法被正确解析的问题，避免把 `Failed=0 / Updated=0` 的“无需更新”结果误报成更新失败。
+- Fixed the problem of Docker online update being unable to obtain container status on newer Docker daemons because the API version is too old; when the daemon explicitly returns the minimum supported version, the application will automatically retry according to that version.
+- Fixed the issue where the Watchtower container pulled up by Docker online update did not inherit the Docker API version, causing the check/update to directly fail.
+- Fixed the issue where Watchtower's log summary with ANSI color code could not be parsed correctly, to avoid mistakenly reporting the "no update required" result of `Failed=0 / Updated=0` as an update failure.
 
 ## [2.0.40] - 2026-05-06
 
 ### Changed
-- Docker 在线更新状态新增文件持久化，仅保留最新一次结果；容器自更新重启后，新的进程会恢复最近一次任务状态。
-- Docker 在线更新新增独立的 `DOCKER_UPDATE_STATUS_TIMEOUT`，用于状态查询和容器 inspect，避免复用实际更新任务超时。
-- 文档补充 Docker 在线更新仅适用于 `latest`、`main`、`dev` 这类可变镜像标签的限制说明。
+- Docker online update status adds file persistence, retaining only the latest result; after the container is restarted from the update, the new process will restore the latest task status.
+- Docker online update adds an independent `DOCKER_UPDATE_STATUS_TIMEOUT` for status query and container inspect to avoid reusing the actual update task timeout.
+- Documentation supplement Docker online update only applies to restrictions on variable image tags such as `latest`, `main`, and `dev`.
 
 ### Fixed
-- 修复 Docker 在线更新在当前容器重启后丢失任务状态的问题，服务重启后会把中断中的任务恢复为“结果未知”的最终状态。
-- 修复 Docker 在线更新前端轮询在 `success == null` 时静默结束的问题，改为明确提示“服务可能已重启，请刷新并核对当前版本/镜像”。
+- Fixed the problem of Docker online update losing task status after the current container is restarted. After the service is restarted, the interrupted task will be restored to the final state of "unknown result".
+- Fixed the problem of Docker online update front-end polling ending silently at `success == null`, instead explicitly prompting "The service may have been restarted, please refresh and check the current version/image".
 
 ## [2.0.39] - 2026-05-06
 
 ### Added
-- 邮件详情附件区新增“全部下载”，可将同一封邮件的多个附件打包为 ZIP 下载。
-- 版本弹层新增 Docker 在线更新入口，可在启用 `DOCKER_UPDATE_ENABLED` 后从界面触发容器更新。
-- 新增 `/api/docker-update/status` 与 `/api/docker-update`，用于查询 Docker 更新能力并启动受登录和 CSRF 保护的更新任务。
+- Added "Download All" in the email details attachment area, which can package multiple attachments of the same email into ZIP downloads.
+- A new Docker online update portal has been added to the version elastic layer, which can trigger container updates from the interface after enabling `DOCKER_UPDATE_ENABLED`.
+- Added `/api/docker-update/status` and `/api/docker-update`, which are used to query Docker update capabilities and start update tasks protected by login and CSRF.
 
 ### Changed
-- Docker 在线更新改为通过一次性 Watchtower 容器执行，并为自定义 `DOCKER_UPDATE_SOCKET` 注入对应 `DOCKER_HOST`。
-- README 将 Docker 在线更新配置移入可选小节，并提供完整 `docker-compose.yml` 示例，避免默认示例直接挂载 Docker socket。
+- Docker online updates are performed via a one-time Watchtower container instead, and the corresponding `DOCKER_HOST` is injected for the custom `DOCKER_UPDATE_SOCKET`.
+- README moves the Docker online update configuration into an optional section and provides a complete `docker-compose.yml` example to avoid the default example from directly mounting the Docker socket.
 
 ### Fixed
-- 完整读取 Docker pull 响应流并检测 `error` / `errorDetail.message`，避免 Watchtower 镜像拉取失败时误判为更新任务已启动。
+- Completely read the Docker pull response stream and detect `error` / `errorDetail.message` to avoid misjudgment that the update task has been started when the Watchtower image pull fails.
 
 ## [2.0.38] - 2026-05-03
 
 ### Added
-- 系统设置新增 WebDAV 备份配置，支持按 5 段 Cron 使用常规设置里的时区计算下次执行时间。
-- WebDAV 备份支持测试连接和手动上传；测试仅上传临时测试文件，手动上传会立即上传“导出全部分组”的真实备份文件。
+- Added WebDAV backup configuration to system settings, supporting 5-segment Cron using the time zone in general settings to calculate the next execution time.
+- WebDAV backup supports test connection and manual upload; testing only uploads temporary test files, manual upload will immediately upload the real backup file of "Export All Groups".
 
 ### Changed
-- 修改 WebDAV 备份相关设置和手动上传真实备份时需要验证登录密码，降低敏感导出数据被误操作上传的风险。
-- “导出选中分组”的生成逻辑抽出复用，WebDAV 备份使用与导出功能一致的全部分组文件格式。
+- The login password needs to be verified when modifying WebDAV backup related settings and manually uploading real backups to reduce the risk of sensitive export data being uploaded by mistake.
+- The generation logic of "Export selected group" is extracted and reused, and WebDAV backup uses the same group file format as the export function.
 
 ### Fixed
-- 修复临时邮箱列表空结果渲染时引用不存在的 `selectedTagIds` 导致保存设置后前端报错的问题。
-- 修复设置保存成功后刷新列表失败会误提示“保存设置失败”的问题，改为明确提示设置已保存但列表刷新失败。
+- Fixed the issue where the non-existent `selectedTagIds` was referenced when rendering the empty result of the temporary mailbox list, causing the front-end to report an error after saving the settings.
+- Fixed the issue where "Failed to save settings" would be incorrectly displayed if the list failed to be refreshed after successfully saving the settings. Instead, it was clearly prompted that the settings had been saved but the list refresh failed.
 
 ## [2.0.37] - 2026-04-29
 
 ### Added
-- 系统设置新增“展示排序值”开关，可控制普通邮箱列表底部是否显示自定义排序值。
+- A new "Show sorting value" switch has been added to the system settings to control whether custom sorting values ​​are displayed at the bottom of the ordinary mailbox list.
 
 ### Changed
-- “展示排序值”默认改为关闭；新装或缺省配置下，普通邮箱列表不再默认展示排序值。
+- "Show sorting value" is changed to off by default; under new installation or default configuration, ordinary mailbox lists no longer display sorting values ​​by default.
 
 ### Fixed
-- 补齐排序值展示开关的设置持久化、启动恢复、列表即时刷新、API 文档与回归测试。
+- Complete the setting persistence, startup recovery, list instant refresh, API documentation and regression testing of the sort value display switch.
 
 ## [2.0.36] - 2026-04-29
 
 ### Fixed
-- 转发设置新增“账号间隔”秒级配置，转发轮询在处理多个已开启转发账号时会按配置在账号之间等待，避免短时间连续拉取多个账号。
-- 补齐转发账号间隔的设置持久化与回归测试，覆盖设置接口回显以及多个账号之间的等待行为。
+- Added "account interval" second-level configuration to forwarding settings. When forwarding polling processes multiple enabled forwarding accounts, it will wait between accounts as configured to avoid pulling multiple accounts continuously in a short period of time.
+- Complete the setting persistence and regression testing of the forwarding account interval, covering the setting interface echo and the waiting behavior between multiple accounts.
 
 ## [2.0.35] - 2026-04-29
 
 ### Fixed
-- 修复切换已缓存邮箱时仍可能触发自动补拉请求的问题，普通邮箱账号切换改为仅展示当前缓存，不再因为列表展示动作隐式刷新下一页。
-- 修复 `全部邮件` 缓存派生 `收件箱 / 垃圾邮件` 视图时分页基线错位的问题，新增按 folder 维度的 `fetched_count / has_more / success` 元数据并补充对应回归测试。
+- Fixed an issue where automatic replenishment pull requests may still be triggered when switching cached mailboxes. Switching to ordinary mailbox accounts will only display the current cache, and the next page will no longer be implicitly refreshed due to the list display action.
+- Fixed the problem of paging baseline misalignment when caching `All Mail` to derive `Inbox/Spam` view, added `fetched_count / has_more / success` metadata by folder dimension and added corresponding regression tests.
 
 ## [2.0.34] - 2026-04-28
 
 ### Added
-- Token 刷新管理新增全量刷新任务日志面板和停止任务按钮，支持在执行期间查看账号级进度与结果。
+- Token refresh management adds a full refresh task log panel and a stop task button to support viewing account-level progress and results during execution.
 
 ### Changed
-- Token 刷新管理移除“最近一次全量刷新”卡片展示，顶部统计区收敛为总邮箱数、成功邮箱和失败邮箱三项。
-- Token 刷新确认框改为叠加展示，触发全量刷新时不再关闭 Token 刷新管理弹窗。
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the "Latest Full Refresh" card display, and the top statistics area converges to three items: total number of mailboxes, successful mailboxes, and failed mailboxes.
+- The Token refresh confirmation box is changed to an overlay display, and the Token refresh management pop-up window is no longer closed when a full refresh is triggered.
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 
 ### Fixed
-- 修复 Windows 控制台输出 Unicode 符号时触发的编码异常，统一改为编码安全的调度器、转发与错误日志输出。
-- 修复调度器退出阶段重复调用 shutdown() 导致的 SchedulerNotRunningError，atexit 回调统一复用幂等的 shutdown_scheduler()，并补充回归测试。
-- 修复全量刷新过程中无法保留弹窗上下文的问题，并补充停止任务接口、停止事件回传和相关回归测试。
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the encoding exception triggered when the Windows console outputs Unicode symbols, and unified the scheduler, forwarding and error log output with encoding safety.
+- Fixed the SchedulerNotRunningError caused by repeatedly calling shutdown() during the exit phase of the scheduler. The atexit callback uniformly reuses the idempotent shutdown_scheduler(), and added regression testing.
+- Fixed the problem that the pop-up window context could not be retained during the full refresh process, and added the stop task interface, stop event callback and related regression tests.
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 ## [2.0.33] - 2026-04-28
 
 ### Added
-- 账号新增可持久化的自定义排序值 `sort_order`，列表支持按排序值、创建时间或邮箱名查看。
-- 系统设置新增“展示创建时间”开关，默认开启；邮箱列表左下角可按应用时区展示账号创建时间。
-- Token 刷新管理新增工作台式邮箱列表，支持按邮箱/备注/分组搜索，并按 `全部 / 成功 / 失败 / 从未刷新` 状态筛选。
+- A new persistent custom sorting value `sort_order` is added to the account. The list supports viewing by sorting value, creation time or email name.
+- A new "Show creation time" switch has been added to the system settings, which is turned on by default; the account creation time can be displayed in the lower left corner of the email list according to the application time zone.
+- Token refresh management adds a new workbench mailbox list, supports search by mailbox/notes/group, and filters by `all/success/failure/never refreshed` status.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 邮箱列表移除“最近刷新”时间展示和对应排序入口，未设置 `sort_order` 时默认回退为按创建时间排序。
-- 重构桌面端设置页侧边导航，移除 `Control Center` / 保存提醒卡片，新增置顶“常规设置”分区，并将时区与创建时间展示开关迁入该分区。
-- 普通邮箱与临时邮箱列表统一移除序号展示，列表卡片仅保留邮箱主体信息与状态内容。
-- Token 刷新状态主读路径收敛为 `accounts + token_refresh_state`，刷新管理弹窗改为“快照 + 筛选 + 邮箱列表”单工作台，并移除独立“失败邮箱 / 刷新历史”区块。
-- Token 刷新管理中的邮箱列表进一步收敛为表格视图，统一展示邮箱、分组、最近刷新、状态和操作列。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- The "Last Refresh" time display and corresponding sorting entry are removed from the mailbox list. When `sort_order` is not set, the default falls back to sorting by creation time.
+- Reconstruct the side navigation of the desktop settings page, remove the `Control Center` / Save reminder card, add a top "General Settings" partition, and move the time zone and creation time display switches into this partition.
+- The display of serial numbers has been removed from ordinary mailboxes and temporary mailbox lists. The list card only retains the main mailbox information and status content.
+- The main read path of Token refresh status converges to `accounts + token_refresh_state`, the refresh management pop-up window is changed to a single workbench of "Snapshot + Filter + Mailbox List", and the independent "Failed Mailbox/Refresh History" block is removed.
+- The mailbox list in Token refresh management is further condensed into a table view, which uniformly displays mailbox, group, recent refresh, status and operation columns.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复账号更新动态覆盖路由未同步透传 `sort_order` 的问题，避免编辑保存后自定义排序失效。
-- 统一账号列表、搜索结果和详情接口中的 `sort_order` 返回结构，并补齐对应回归测试。
-- 修复邮件转发轮询间隔设置为 `60` 分钟时生成非法 `*/60` Cron 表达式的问题，改为按整点触发并补充对应回归测试。
-- 修复全量 Token 刷新异常中止时快照状态误落为 `idle` 的问题，改为正确记录 `failed / partial_failed`，并补记当前账号失败状态。
-- 修复全量 Token 刷新可被重复触发的问题，新增后端互斥与前端冲突提示，避免并发任务覆盖同一轮最新快照。
-- 恢复 `account_refresh_logs` 半年历史清理，避免刷新日志长期无上限增长，并同步更新刷新相关 API 文档。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem of dynamic coverage route of account update not being synchronized and transparently transmitting `sort_order` to avoid custom sorting from invalidating after editing and saving.
+- Unify the `sort_order` return structure in the account list, search results and details interface, and complete the corresponding regression tests.
+- Fixed the problem of generating illegal `*/60` Cron expression when the email forwarding polling interval is set to `60` minutes. It is triggered on the hour instead and the corresponding regression test is added.
+- Fixed the issue where the snapshot status mistakenly dropped to `idle` when the full token refresh was abnormally terminated. Instead, `failed / partial_failed` was recorded correctly, and the failure status of the current account was recorded.
+- Fixed the problem that full token refresh can be triggered repeatedly, and added backend mutual exclusion and frontend conflict prompts to avoid concurrent tasks from overwriting the latest snapshot of the same round.
+- Restore `account_refresh_logs` half-year history cleanup to avoid long-term unlimited growth of refresh logs, and update refresh-related API documents synchronously.
 
 ## [2.0.32] - 2026-04-24
 
 ### Added
-- 标签筛选新增“无标签”虚拟项，支持单独筛选未打标签的账号和临时邮箱，并保持与现有标签的 OR 过滤语义。
+- A new "unlabeled" virtual item is added to label filtering, which supports separate filtering of unlabeled accounts and temporary mailboxes, and maintains the OR filtering semantics with existing labels.
 
 
 ## [2.0.31] - 2026-04-24
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复内部取邮件接口会误更新账号 `last_refresh_at` 的问题，避免“最近刷新时间”被普通收信动作污染，并补充对应回归测试。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem that the internal mail-retrieval interface would mistakenly update the account `last_refresh_at` to prevent the "last refresh time" from being contaminated by ordinary mail-receiving actions, and added corresponding regression tests.
 
 
 ## [2.0.30] - 2026-04-24
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复 Outlook 账号在手动刷新、批量刷新和定时刷新成功后未持久化微软返回的新 `refresh_token` 的问题，避免后续继续使用旧 token 导致 `AADSTS70000 grant is expired` 一类失效报错，并补充对应回归测试。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem that the Outlook account did not persist the new `refresh_token` returned by Microsoft after successful manual refresh, batch refresh and scheduled refresh, to avoid the subsequent use of the old token resulting in `AADSTS70000 grant is expired` type failure errors, and added corresponding regression tests.
 
 
 ## [2.0.29] - 2026-04-23
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复多个模态框和全屏邮件详情在背景层点击关闭时的事件时序问题，统一改为在 `mousedown` 阶段处理 backdrop 关闭，减少误触和异常关闭。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the event timing problem when multiple modal boxes and full-screen email details are clicked to close on the background layer. The background closing is processed uniformly in the `mousedown` stage to reduce accidental touches and abnormal closing.
 
 
 ## [2.0.28] - 2026-04-22
 
 ### Added
-- 系统设置新增应用时区选择，支持按保存的时区预览 Cron 下次运行时间，并统一日志与 OAuth 相关时间展示。
-- 页面初始化阶段会主动读取 `/api/settings` 恢复全局时区，不再依赖先打开设置弹窗。
+- Added application time zone selection in system settings, supports previewing Cron's next running time according to the saved time zone, and unifies log and OAuth related time display.
+- During the page initialization phase, `/api/settings` will be actively read to restore the global time zone, and there is no need to open the setting pop-up window first.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 定时刷新与邮件转发调度器改为基于 `app_timezone` 创建触发器；旧库升级时默认回退到 `Asia/Shanghai`。
-- 新增 `main` 推送后自动合并到 `dev` 的 GitHub Actions 工作流，减少发布后分支偏移。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- The scheduled refresh and mail forwarding scheduler is changed to create triggers based on `app_timezone`; when the old library is upgraded, it falls back to `Asia/Shanghai` by default.
+- Added a new GitHub Actions workflow that automatically merges `main` into `dev` after being pushed to reduce branch offset after release.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复添加账号流程里误插入的时区更新语句，避免保存账号成功后前端报错。
-- 修正设置保存成功提示，明确“时间展示立即生效，定时任务需重启后生效”。
-- 补齐前端启动时区加载、非默认时区保存后刷新展示，以及旧库无 `app_timezone` 升级默认行为的回归验证。
-- 同步更新 `docs/api.md` 中设置接口的 `app_timezone` 与 `time_zone` 字段说明。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the time zone update statement mistakenly inserted in the account adding process to avoid the front-end error after successfully saving the account.
+- Corrected the prompt for successful saving of settings, clarifying that "time display takes effect immediately, scheduled tasks need to be restarted to take effect."
+- Completed the regression verification of loading the front-end startup time zone, refreshing the display after saving the non-default time zone, and the default behavior of `app_timezone` upgrade in the old library.
+- Synchronously update the `app_timezone` and `time_zone` field descriptions of the interface set in `docs/api.md`.
 
 
 ## [2.0.27] - 2026-04-20
 
 ### Added
-- 邮件列表新增未读状态展示与批量“设为已读”操作，支持在前端选中多封邮件后统一更新已读状态。
+- Added unread status display and batch "set as read" operations to the mailing list, supporting unified update of read status after selecting multiple emails on the front end.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复 Docker 部署场景下保存设置或导入邮箱时偶发 `The CSRF session token is missing` 的问题，改为基于当前登录 session 获取不可缓存的 CSRF token，并在前端遇到 CSRF 失配时自动刷新重试一次。
-- 修复 Gmail 在 `IMAP (Generic)` 模式下因 `FETCH` 响应分段导致全部邮件长期显示为未读的问题，改为整包解析 IMAP `FLAGS` 与 `INTERNALDATE`。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the issue of occasional `The CSRF session token is missing` when saving settings or importing mailboxes in Docker deployment scenarios. Instead, obtain a non-cacheable CSRF token based on the current login session, and automatically refresh and retry when the front end encounters a CSRF mismatch.
+- Fixed the issue where Gmail in `IMAP (Generic)` mode caused all emails to be displayed as unread for a long time due to `FETCH` response fragmentation, and changed to parse IMAP `FLAGS` and `INTERNALDATE` as a whole package.
 
 ## [2.0.26] - 2026-04-19
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复桌面端邮件列表滚动到末尾后未继续加载下一页邮件的问题，补强分页偏移计算与列表重渲染后的自动续加载检查。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the issue where the next page of emails was not loaded after the desktop email list was scrolled to the end, and enhanced the paging offset calculation and automatic reloading check after list re-rendering.
 
 ## [2.0.25] - 2026-04-19
 
 ### Added
-- 临时邮箱列表新增标签能力，支持展示标签、按标签筛选，以及在临时邮箱分组内批量添加或移除标签。
-- 新增临时邮箱批量删除接口与前端选择操作，便于在同一套批量工具栏中统一清理临时邮箱。
+- Added tag capabilities to the temporary mailbox list, supporting displaying tags, filtering by tags, and adding or removing tags in batches within temporary mailbox groups.
+- Added temporary mailbox batch deletion interface and front-end selection operation to facilitate the unified cleaning of temporary mailboxes in the same batch toolbar.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复临时邮箱场景下标签系统只支持普通账号的问题，补齐临时邮箱的数据库关联、接口返回和前端搜索联动。
-- 为临时邮箱标签接口补充后端回归测试，覆盖标签回显以及批量加减标签流程。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem that the tag system only supports ordinary accounts in the temporary mailbox scenario, and completed the database association, interface return and front-end search linkage of the temporary mailbox.
+- Supplement back-end regression testing for the temporary mailbox label interface, covering label echo and batch adding and subtracting labels process.
 
 ## [2.0.24] - 2026-04-19
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复分组排序在应用重启后可能丢失的问题，确保拖拽后的分组顺序可以稳定持久化，并补充对应后端回归测试。
-- 修复账号导入弹窗中样例文本的换行展示，避免示例格式被挤成单行后影响批量导入判断。
-- 修复桌面端设置页中“按天数”/“Cron 表达式”等选项卡在向下滚动时覆盖“系统设置”标题栏的问题，改为内容区独立滚动并同步调整侧栏联动逻辑。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem that the grouping order may be lost after the application is restarted, ensured that the grouping order after dragging can be stable and persisted, and added corresponding back-end regression testing.
+- Fixed the line-breaking display of sample text in the account import pop-up window to prevent the sample format from being squeezed into a single line and affecting the batch import judgment.
+- Fixed the problem that the "By Days"/"Cron Expression" and other tabs in the desktop settings page covered the "System Settings" title bar when scrolling down. Instead, the content area scrolled independently and the sidebar linkage logic was adjusted simultaneously.
 
 ## [2.0.23] - 2026-04-19
 
 ### Added
-- 顶部导航新增版本信息展示，支持查看当前版本、复制版本号并跳转到更新日志。
+- A new version information display is added to the top navigation, which supports viewing the current version, copying the version number and jumping to the update log.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 调整导航品牌区布局，将版本信息与 GitHub 入口整理为更统一的产品元信息区域。
-- 重绘 GitHub Star 按钮样式，改为更贴合当前控制台风格的胶囊按钮，并补充 hover、active、focus 反馈。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- Adjust the layout of the navigation brand area and organize the version information and GitHub entrance into a more unified product meta information area.
+- Redraw the GitHub Star button style and change it to a capsule button that is more in line with the current console style, and add hover, active, and focus feedback.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复顶部版本信息在部分浏览器环境下点击无响应的问题，改为更稳定的全局触发方式。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem of unresponsiveness when clicking on the top version information in some browser environments, and changed it to a more stable global triggering method.
 
 ## [2.0.22] - 2026-04-17
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复动态覆盖后的 `PUT /api/accounts/<id>`、`GET /api/emails/<email>`、`GET /api/external/emails` 丢失鉴权装饰器的问题，避免未登录或未携带 API Key 时绕过访问控制。
-- 为动态路由覆盖增加启动期保护断言，若关键 endpoint 被未包装函数替换会在应用启动时直接报错，防止鉴权再次静默失效。
-- 补充外部邮件接口、内部邮件接口、账号更新接口和动态 endpoint 保护标记的回归测试，覆盖实际 401 行为与路由注册状态。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem of missing authentication decorator for `PUT /api/accounts/<id>`, `GET /api/emails/<email>`, and `GET /api/external/emails` after dynamic overwriting to avoid bypassing access control when not logged in or not carrying API Key.
+- Add a startup protection assertion for dynamic routing coverage. If a key endpoint is replaced by an unwrapped function, an error will be reported directly when the application starts, preventing the authentication from silently failing again.
+- Supplement regression testing of external email interface, internal email interface, account update interface and dynamic endpoint protection tag, covering actual 401 behavior and routing registration status.
 
 ## [2.0.21] - 2026-04-17
 
 ### Added
-- 为邮件详情增加附件列表展示与下载能力，支持 Graph 和 IMAP 邮箱直接查看并下载邮件附件。
+- Added attachment list display and download capabilities for email details, supporting Graph and IMAP mailboxes to directly view and download email attachments.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复 IMAP 纯文本邮件详情被错误拼接为带字面量 `<br>` 的正文内容问题，现按纯文本正确返回。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed the problem that IMAP plain text email details were incorrectly spliced ​​into the body content with the literal `<br>`. Now the plain text is returned correctly.
 
 ## [2.0.20] - 2026-04-16
 
 ### Added
-- 左侧账号列表新增“复制邮箱+别名”批量操作，可一次复制所选账号的主邮箱和全部别名邮箱，并自动去重后写入剪贴板。
+- Added the "Copy Email + Alias" batch operation to the account list on the left, which can copy the main email address and all alias email addresses of the selected account at once, and automatically remove duplicates and write them to the clipboard.
 
 ## [2.0.19] - 2026-04-15
 
 ### Added
-- 新增内置 `2925邮箱` 类型，默认使用 `imap.2925.com:993`，并补充域名到 provider 的自动识别和前端导入/编辑下拉项。
+- Added built-in `2925 mailbox` type, using `imap.2925.com:993` by default, and added automatic recognition of domain names to providers and front-end import/edit drop-down items.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
-- 修复部分自定义 IMAP / 2925 IMAP 服务端无法正确返回 `SEARCH` / `UID SEARCH` 结果时，收件箱明明有邮件却列表为空的问题。
-- 为 IMAP 列表与详情查询增加 `UID SEARCH -> SEARCH -> 按 EXISTS 数量直接 FETCH` 的多层回退，兼容实现不标准的服务器。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
+- Fixed an issue where some custom IMAP / 2925 IMAP servers could not correctly return `SEARCH` / `UID SEARCH` results, and the list was empty even though there were emails in the inbox.
+- Added `UID SEARCH -> SEARCH -> Direct FETCH by EXISTS number' multi-layer fallback for IMAP list and detail query, which is compatible with servers that implement non-standard implementations.
 
 ## [2.0.18] - 2026-04-15
 
 ### Added
-- 新增项目运行时后端模型，支持按 `project_key` 管理邮箱在项目内的独立状态，并提供启动项目、项目列表、项目账号列表、领取、成功、失败、释放、重置失败、移出项目、恢复项目等完整接口。
-- 为项目运行时补充后端回归测试，覆盖启动项目、分组范围补全、失败后需人工重置、删除后重导入同邮箱沿用旧项目状态等关键路径。
+- Added a new project runtime backend model that supports managing the independent status of mailboxes within the project by `project_key`, and provides complete interfaces for starting projects, project lists, project account lists, receiving, success, failure, release, reset failure, moving out of projects, and restoring projects.
+- Supplement back-end regression testing when the project is running, covering key paths such as starting the project, completing the group range, requiring manual reset after failure, deleting and re-importing to the same mailbox to inherit the old project status.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 将“创建项目 + 范围补全”设计收敛为单一“启动项目”语义，重复启动同一项目时只补全新增邮箱，不重置已有项目状态。
-- 项目内邮箱身份改为按邮箱地址而不是纯 `account_id` 维护，避免删除后重导入同邮箱绕过既有 `done` / `failed` 状态。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- The "create project + range completion" design is converged into a single "start project" semantics. When the same project is started repeatedly, only newly added mailboxes will be added, and the status of existing projects will not be reset.
+- The mailbox identity within the project is changed to be maintained by email address instead of pure `account_id` to avoid re-importing the same mailbox after deletion and bypassing the existing `done` / `failed` status.
 
 ### Documentation
-- 补充 `docs/api.md` 中的项目管理接口文档，覆盖状态说明、启动项目语义、查询参数、关键请求/响应示例，以及 `deleted` 与重导入复用规则。
+- Supplemented the project management interface documentation in `docs/api.md`, covering status descriptions, startup project semantics, query parameters, key request/response examples, and `deleted` and re-import reuse rules.
 
 ## [2.0.17] - 2026-04-15
 
 ### Added
-- 新增企业微信群机器人 Webhook 转发渠道，只需填写 Webhook 地址即可作为独立转发通道使用。
-- 为企业微信转发补充设置持久化、测试发送和基础回归测试，覆盖设置保存与实际发送调用。
+- Added enterprise WeChat group robot Webhook forwarding channel. Just fill in the Webhook address to use it as an independent forwarding channel.
+- Supplement setting persistence, test sending and basic regression testing for enterprise WeChat forwarding, covering setting saving and actual sending call.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 修改发布流程，支持推送 `vX.Y.Z` 版本标签后自动触发 GitHub Release 工作流，手动触发改为兜底方案。
-- 调整 Docker 构建参数，关闭 provenance / SBOM attestation，避免 GHCR 发布版本额外显示 `unknown/unknown` 平台条目。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- Modify the release process to support automatic triggering of the GitHub Release workflow after pushing the `vX.Y.Z` version tag, and change manual triggering to a cover-up solution.
+- Adjust Docker build parameters, turn off provenance / SBOM attestation, and avoid additional `unknown/unknown` platform entries in GHCR releases.
 
 
 ## [2.0.16] - 2026-04-15
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
-- 重构桌面端设置界面，改为更宽的双栏布局，并为主要设置模块增加左侧快速定位导航。
-- 为设置导航增加点击定位与滚动联动高亮，减少在长设置表单中来回查找的成本。
-- 将“邮件转发设置”压缩为更偏控制台式的紧凑布局，把轮询参数、动作按钮和渠道配置整理为高密度桌面端面板。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
+- Reconstruct the desktop settings interface to a wider two-column layout, and add left-hand quick positioning navigation to the main settings module.
+- Add click positioning and scroll linkage highlighting to the settings navigation to reduce the cost of searching back and forth in the long settings form.
+- Condensed "Email Forwarding Settings" into a more control-oriented compact layout, and organized polling parameters, action buttons and channel configurations into high-density desktop panels.
 
 ### Added
-- 为桌面端设置页左侧“当前包含”增加模块级快速跳转入口，支持直接跳到 Access、DuckMail、Cloudflare、刷新策略和邮件转发。
-- 为“最近转发历史”和“最近转发失败”增加默认折叠的抽屉式面板，按需展开日志列表，缩短默认页面高度。
+- Add module-level quick jump entry to "Current Contains" on the left side of the desktop settings page, supporting direct jump to Access, DuckMail, Cloudflare, refresh policy and email forwarding.
+- Add a default foldable drawer panel for "Recent forwarding history" and "Recent forwarding failure", expand the log list as needed, and shorten the default page height.
 
 
 ## [2.0.15] - 2026-04-15
 
-### 文档
-- 新增中文发版说明，补充版本号规则、标准发布流程、GitHub Actions 行为和发版后核对清单。
-- 新增升级指南，覆盖 Docker、Windows `exe`、Python 直跑场景的升级、回滚与注意事项。
-- 调整 `README.md` 与部署文档中的镜像标签说明和发布流程描述，使其与当前工作流保持一致。
+### Documentation
+- Added Chinese release instructions, supplemented version number rules, standard release process, GitHub Actions behavior and post-release checklist.
+- Added a new upgrade guide, covering the upgrade, rollback and precautions for Docker, Windows `exe`, and Python direct running scenarios.
+- Adjust the image tag description and release process description in `README.md` and deployment documents to make them consistent with the current workflow.
 
 ## [2.0.14] - 2026-04-14
 
@@ -1029,7 +1029,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added progressive `+suffix` fallback matching for mailbox and alias lookups so internal and external mail APIs can resolve addresses such as `user+work@gmail.com` back to the managed primary mailbox or alias.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed aggregated `folder=all` ordering for IMAP/Gmail mailboxes by normalizing RFC822 timestamps that include trailing timezone labels such as `(UTC)`.
 - Fixed IMAP all-mail merging to prefer the server-reported `INTERNALDATE` when available so merged results are sorted by received time instead of unreliable header `Date`.
 - Fixed the mobile mail list layout so very long sender addresses no longer push the card outside the viewport, and folder badges now wrap to a new line on narrow screens.
@@ -1037,98 +1037,98 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ## [2.0.11] - 2026-04-14
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed the manual GitHub release workflow packaging path so Windows release assets and Docker release publication no longer fail during the release run.
 
 ## [2.0.10] - 2026-04-13
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Changed `folder=all` mailbox aggregation to fetch `inbox` and `junkemail` in parallel before merging and sorting the result list.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed the aggregated mail path to pass group proxy failover settings consistently to both `inbox` and `junkemail` fetches.
 - Fixed the external `/api/external/emails` compatibility check coverage so `folder=all` remains accepted without changing the live API request or response contract.
 
 ## [2.0.9] - 2026-04-13
 
-### 新增
-- 邮件列表顶部新增“全部邮件”选项，并放在“收件箱”前面。
+### Added
+- Added "All Mail" option at the top of the mail list and placed it in front of "Inbox".
 
-### 变更
-- 选择邮箱账号后默认展示“全部邮件”列表。
-- 邮件列表的加载中和空状态文案会根据当前文件夹显示对应名称。
+### Change
+- After selecting an email account, the "All Emails" list will be displayed by default.
+- The loading and empty status text of the mailing list will display the corresponding name according to the current folder.
 
-### 修复
-- 修复“全部邮件”列表中无法区分邮件来自收件箱还是垃圾邮件的问题，现已显示来源标签。
-- 修复从“全部邮件”列表打开邮件详情时仍按 `all` 请求，导致详情可能取错文件夹的问题，现改为按邮件真实来源文件夹加载。
+### Fix
+- Fixed the issue in which emails in the "All Mail" list cannot be distinguished from the inbox or spam. The source label is now displayed.
+- Fixed an issue where the `all` request was still used when opening email details from the "All Mail" list, resulting in the details being retrieved from the wrong folder. Now, the email is loaded according to its true source folder.
 
 ## [2.0.8] - 2026-04-12
 
 ### Added
-- Added per-group proxy failover settings with `主代理 -> 回退代理 1 -> 回退代理 2` order for Outlook Graph/token requests.
+- Added per-group proxy failover settings with `primary proxy -> fallback proxy 1 -> fallback proxy 2` order for Outlook Graph/token requests.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Moved proxy failover configuration from system-wide settings into each mailbox group so different groups can use different fallback chains.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed Outlook token refresh and Graph requests failing immediately when the primary group proxy was unreachable by retrying through configured fallback proxies in order.
-- Fixed the group settings dialog copy to document that `回退代理 1` and `回退代理 2` both support `direct` / `直连` as explicit direct-connect fallbacks.
+- Fixed the group settings dialog copy to document that `fallback agent 1` and ` fallback agent 2` both support `direct` / `direct connection` as explicit direct-connect fallbacks.
 
 ## [2.0.7] - 2026-04-11
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Replaced the custom Windows tray implementation with a `pystray`-based tray menu and generated application icon.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed the packaged Windows desktop app tray menu labels and icon rendering issues.
 - Removed the brittle dependency on low-level Win32 `ctypes` tray bindings that caused repeated Windows-specific startup failures.
 
 ## [2.0.6] - 2026-04-11
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed additional Windows tray startup crashes by replacing more `ctypes.wintypes` handle annotations with compatibility-safe Win32 handle definitions.
 
 ## [2.0.5] - 2026-04-11
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed the Windows tray bootstrap using unavailable `ctypes.wintypes` symbols (`LRESULT`, `WNDPROC`) that caused the packaged app to crash during startup.
 
 ## [2.0.4] - 2026-04-11
 
 ### Added
-- Added a Windows system tray controller for the packaged desktop app with `打开界面` and `退出` actions.
+- Added a Windows system tray controller for the packaged desktop app with `Open interface ` and ` exit` actions.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Switched the packaged Windows desktop runtime to a controllable background server so the tray can exit the app cleanly.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed the Windows packaged app having no visible way to quit after launching the browser UI.
 
 ## [2.0.3] - 2026-04-11
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed Windows `exe` packaging to include Python modules imported from dynamically executed segmented files, preventing startup crashes such as `ModuleNotFoundError: No module named 'imaplib'`.
 - Made the PyInstaller hidden-import list derive automatically from the segmented source files so future segment imports are included in packaged builds.
 
 ## [2.0.2] - 2026-04-11
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Switched the packaged desktop build to GUI mode and auto-open the local web UI in the browser on startup.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed packaged startup diagnostics so desktop launch failures are written to `startup-error.log` and surfaced to Windows users with a dialog instead of silently exiting.
 - Fixed the packaged desktop default bind host to use `127.0.0.1`, avoiding local browser access issues on some Windows machines.
 
@@ -1139,17 +1139,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a PyInstaller spec and packaged-runtime resource handling for the desktop build.
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Documented the Windows desktop distribution flow in the README, deployment guide, and release guide.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed packaged execution so templates, static assets, database storage, and `SECRET_KEY` persistence work correctly after bundling.
 
 ## [2.0.0] - 2026-04-09
 
 ### Changed
-- Token 刷新管理移除运行中的进度卡片，统一改为在弹窗内持续展示任务日志。
+- Token refresh management removes the running progress card and changes it to continuously display the task log in the pop-up window.
 - Formalized the repository into a release-managed project with `main` / `dev` branch roles, semantic versioning, and documented release flow.
 - Added automated GitHub Release generation and clarified collaboration / branch-protection guidance for future contributors.
 - Tightened Docker image publishing policy so documentation-only changes no longer trigger image builds.
@@ -1159,7 +1159,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added release-tag driven image/version workflow for `latest`, `dev`, and semantic version tags.
 
 ### Fixed
-- 修复“重试失败”仍走同步请求的问题，改为流式日志输出并复用刷新间隔与停止任务控制。
+- Fixed the problem of "retry failure" still taking synchronous requests, changed to streaming log output and reused refresh interval and stop task control.
 - Fixed invalid Docker image tag generation caused by `docker/metadata-action` in tag-triggered builds.
 
 ## [1.0.0] - 2026-04-07

@@ -1,82 +1,82 @@
 ## Context
 
-OutlookEmail 当前已有两个相关能力：
+OutlookEmail currently has two related capabilities:
 
-- OAuth 助手：`/api/oauth/auth-url` 生成 Microsoft 授权链接，`/api/oauth/exchange-token` 使用回调 URL 换取 `refresh_token` 和系统配置的 `client_id`。
-- Token 刷新：单账号刷新会使用账号保存的 `client_id` / `refresh_token` 换取访问令牌，并把真实刷新结果写入 `last_refresh_status`、`last_refresh_at`、`last_refresh_error`；当 Microsoft 返回轮换后的 refresh token 时，会更新 `refresh_token_updated_at`。
+- OAuth Assistant: `/api/oauth/auth-url` generates a Microsoft authorization link, `/api/oauth/exchange-token` uses a callback URL in exchange for `refresh_token` and the system-configured `client_id`.
+- Token refresh: Single account refresh will use the `client_id` / `refresh_token` saved in the account to exchange for the access token, and write the real refresh results to `last_refresh_status`, `last_refresh_at`, `last_refresh_error`; when Microsoft returns the rotated refresh token, `refresh_token_updated_at` will be updated.
 
-现有账号编辑接口可以更新 `client_id` / `refresh_token`，但这是完整账号编辑流程，容易把授权更新和邮箱、分组、代理、别名等无关字段混在一起。重新授权需要成为目标明确的窄流程。
+The existing account editing interface can update `client_id` / `refresh_token`, but this is a complete account editing process, and it is easy to mix authorization updates with irrelevant fields such as email, group, agent, alias, etc. Reauthorization needs to be a narrow process with clear goals.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- 为已有 Outlook OAuth 账号提供重新授权入口。
-- 重新授权只更新目标账号的授权字段和必要刷新状态，不误改账号业务配置。
-- 重新授权成功后立即清理旧刷新失败状态，并自动触发单账号刷新验证新授权。
-- 自动刷新以真实结果落库：成功显示成功，失败显示新的失败错误。
-- 前端在编辑账号和刷新失败场景中能发起该流程，并展示处理结果。
+- Provides re-authorization entry for existing Outlook OAuth accounts.
+- Reauthorization only updates the authorization fields and necessary refresh status of the target account, without accidentally changing the account business configuration.
+- Immediately clear the old refresh failure status after successful re-authorization, and automatically trigger a single account refresh to verify the new authorization.
+- Automatically refresh to store the real results: success will be displayed, failure will be a new failure error.
+- The front end can initiate this process in account editing and refresh failure scenarios, and display the processing results.
 
 **Non-Goals:**
 
-- 不支持 IMAP 账号重新授权。
-- 不做批量重新授权。
-- 不新增 Microsoft OAuth 应用配置管理。
-- 不改变现有导入账号、普通编辑账号、全量刷新调度语义。
+- IMAP account reauthorization is not supported.
+- No bulk reauthorization.
+- No new Microsoft OAuth application configuration management is added.
+- Existing import accounts, normal editing accounts, and full refresh scheduling semantics will not be changed.
 
 ## Decisions
 
-### 使用账号级重新授权窄接口
+### Use account-level reauthorization narrow interface
 
-新增账号级接口，例如 `POST /api/accounts/<account_id>/reauthorize`。请求体只接收授权后的回调 URL，后端负责提取 code、换取 token、更新账号授权字段、清理旧失败状态并触发单账号刷新。
+Added account-level interface, such as `POST /api/accounts/<account_id>/reauthorize`. The request body only receives the authorized callback URL, and the backend is responsible for extracting code, exchanging tokens, updating account authorization fields, clearing old failure status, and triggering single account refresh.
 
-理由：复用完整 `PUT /api/accounts/<account_id>` 会要求前端提交大量无关字段，风险是重新授权时误改密码、分组、状态、代理、备注或别名。窄接口把授权更新限制在后端可控范围内。
+Reason: Reusing the complete `PUT /api/accounts/<account_id>` will require the front end to submit a large number of irrelevant fields. The risk is that the password, group, status, agent, remarks or alias are mistakenly changed during re-authorization. Narrow interfaces limit authorization updates to those controllable by the backend.
 
-替代方案：让前端先调用 `/api/oauth/exchange-token`，再把结果塞回编辑表单并调用保存。这个实现更少，但仍依赖完整编辑提交，不适合作为失败恢复流程。
+Alternative: Let the front end call `/api/oauth/exchange-token` first, then stuff the result back into the edit form and call save. This implementation is smaller, but still relies on full edit commits and is not suitable as a failure recovery process.
 
-### 后端复用 OAuth 换 token 逻辑
+### Backend reuses OAuth token replacement logic
 
-把现有 `/api/oauth/exchange-token` 中“从 redirected_url 提取 code 并请求 Microsoft token endpoint”的逻辑抽成共享 helper。OAuth 助手和账号重新授权接口都调用该 helper。
+Extract the logic of "extracting code from redirected_url and requesting Microsoft token endpoint" in the existing `/api/oauth/exchange-token` into a shared helper. Both the OAuth helper and the account reauthorization interface call this helper.
 
-理由：避免两套授权码解析和 token 请求逻辑漂移，也便于测试失败消息。
+Reason: To avoid two sets of authorization code parsing and token request logic drift, and to facilitate testing of failure messages.
 
-替代方案：重新授权接口内部复制一份换 token 逻辑。短期可行，但重复代码会增加后续 scopes、redirect URI 或错误处理调整成本。
+Alternative: Copy the token replacement logic inside the reauthorization interface. It works in the short term, but duplicating code will increase the cost of adjusting subsequent scopes, redirect URIs, or error handling.
 
-### 授权更新与自动刷新分阶段处理
+### Authorization update and automatic refresh are processed in stages
 
-重新授权成功换到 refresh token 后，先保存新 `client_id` / `refresh_token` / `refresh_token_updated_at`，同时清理旧的 `last_refresh_status` / `last_refresh_error`，再调用现有单账号刷新逻辑。最终响应返回授权更新结果和自动刷新结果。
+After the re-authorization is successfully changed to the refresh token, first save the new `client_id` / `refresh_token` / `refresh_token_updated_at`, clean up the old `last_refresh_status` / `last_refresh_error`, and then call the existing single account refresh logic. The final response returns the authorization update results and automatic refresh results.
 
-理由：用户明确完成了重新授权，旧失败状态已不再代表当前授权；随后自动刷新给出真实验证结论。如果自动刷新失败，失败状态会被新错误覆盖。
+Reason: The user has clearly completed re-authorization, and the old failure status no longer represents the current authorization; subsequent automatic refresh gives a true verification conclusion. If the auto-refresh fails, the failed status is overwritten with the new error.
 
-替代方案：只有自动刷新成功才写入新 token。这样能避免保存不可用 token，但会让用户已经完成的新授权丢失；而且自动刷新可能因代理或临时网络失败，不一定代表 token 无效。
+Alternative: Write a new token only if the automatic refresh is successful. This can avoid saving unavailable tokens, but will cause the new authorization that the user has completed to be lost; and the automatic refresh may fail due to proxy or temporary network, which does not necessarily mean that the token is invalid.
 
-### 不伪造刷新成功
+### No forgery refresh success
 
-重新授权接口可以清理旧失败状态，但不能直接把 `last_refresh_status` 写成 `success`。`success` 只能来自自动单账号刷新真实成功。
+Reauthorizing the interface can clear the old failure status, but you cannot directly write `last_refresh_status` into `success`. `success` can only come from automatic single account refresh real success.
 
-理由：刷新状态是“最近一次刷新验证”的结果，不是“最近一次授权操作”的结果。
+Reason: The refresh status is the result of "the latest refresh verification", not the result of "the latest authorization operation".
 
-### 前端复用授权弹窗结构但带账号上下文
+### The front-end reuses the authorization pop-up window structure but with account context
 
-前端可扩展现有 OAuth 弹窗，增加“更新已有账号”模式。该模式预填当前账号邮箱，隐藏或禁用保存新账号相关字段，并把主按钮行为切换为“更新授权并刷新”。
+The front end can extend the existing OAuth pop-up window and add the "Update existing account" mode. This mode prefills the current account email address, hides or disables fields related to saving new accounts, and switches the main button behavior to "Update Authorization and Refresh".
 
-理由：现有弹窗已经覆盖授权链接、打开授权页、粘贴回调 URL、换取 token 的心智模型；增加模式比新建完全独立弹窗更省维护。
+Reason: The existing pop-up window already covers the mental model of authorization link, opening the authorization page, pasting the callback URL, and exchanging the token; adding a mode is more maintenance-free than creating a new completely independent pop-up window.
 
-替代方案：在编辑账号弹窗内直接嵌入授权步骤。这样上下文更集中，但会让编辑弹窗更复杂，并和现有 OAuth 助手重复更多 UI。
+Alternative: embed the authorization steps directly in the edit account pop-up window. This makes the context more focused, but makes the edit popup more complex and duplicates more UI with the existing OAuth helper.
 
 ## Risks / Trade-offs
 
-- 重新授权后自动刷新可能因代理或 Microsoft 临时失败而失败 → 保存新授权后用真实刷新结果覆盖状态，并在响应中返回新的错误，不隐藏失败。
-- 授权成功但账号邮箱和 Microsoft 登录邮箱不一致 → 系统目前无法可靠从 token 中确认目标邮箱；保留现状，不强制校验邮箱一致性，必要时在 UI 文案提示用户为当前账号授权。
-- 清理旧失败状态和自动刷新之间存在短暂中间态 → 接口同步触发单账号刷新，前端只在完整响应后刷新列表，减少中间态暴露。
-- 换 token 与刷新都涉及网络请求，接口耗时可能较长 → 复用现有请求超时和错误处理；首版保持同步流程，后续再评估异步任务。
+- Auto-refresh after reauthorization may fail due to temporary proxy or Microsoft failure → Overwrite status with real refresh results after saving new authorization and return new error in response, do not hide failure.
+- Authorization is successful but the account email and Microsoft login email are inconsistent → The system is currently unable to reliably confirm the target email from the token; the status quo is retained and email consistency is not forced to be verified. If necessary, the UI copy prompts the user to authorize the current account.
+- There is a short-term intermediate state between clearing old failure status and automatic refresh → The interface synchronizes to trigger a single account refresh, and the front end only refreshes the list after a complete response, reducing the exposure of intermediate states.
+- Both token replacement and refresh involve network requests, and the interface may take a long time → Reuse existing request timeouts and error handling; maintain the synchronous process in the first version, and evaluate asynchronous tasks later.
 
 ## Migration Plan
 
-- 无数据库迁移；复用已有 `accounts.refresh_token_updated_at` 和刷新状态字段。
-- 发布后旧账号无需处理，只有用户触发重新授权时才更新授权字段。
-- 如需回滚，移除前端入口和新接口即可；已保存的新 refresh token 可继续被现有刷新逻辑使用。
+- No database migration; reuse existing `accounts.refresh_token_updated_at` and refresh status fields.
+- The old account does not need to be processed after publishing, and the authorization field is updated only when the user triggers re-authorization.
+- If you need to roll back, just remove the front-end entrance and the new interface; the new saved refresh token can continue to be used by the existing refresh logic.
 
 ## Open Questions
 
-- 是否需要在账号列表展示 `refresh_token_updated_at`，作为“最近授权更新”时间。本次首版不要求展示，避免扩大列表改动。
+- Whether it is necessary to display `refresh_token_updated_at` in the account list as the "latest authorization update" time. This first edition does not require display to avoid expanding the list and changing it.

@@ -1,7 +1,7 @@
 # account-reauthorization Specification
 
 ## Purpose
-定义已有 Outlook OAuth 账号重新授权能力，确保用户可以用 Microsoft OAuth 回调 URL 更新指定账号授权信息，并在不误改账号业务字段的前提下触发真实刷新验证。
+Define the ability to reauthorize existing Outlook OAuth accounts to ensure that users can use the Microsoft OAuth callback URL to update the authorization information of the specified account, and trigger real refresh verification without accidentally changing the account business fields.
 
 ## Requirements
 

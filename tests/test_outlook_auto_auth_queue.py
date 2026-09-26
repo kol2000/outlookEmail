@@ -33,7 +33,7 @@ class OutlookAutoAuthQueueTests(unittest.TestCase):
             db.execute('DELETE FROM tags')
             db.execute('DELETE FROM accounts')
             db.execute('DELETE FROM outlook_upload_accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.commit()
 
     def _add_outlook_account(self, email='auto@outlook.com', password='formal-pwd'):
@@ -235,9 +235,9 @@ class OutlookAutoAuthQueueTests(unittest.TestCase):
 
     def test_single_auto_auth_copies_group_tags_and_proxy(self):
         with self.app.app_context():
-            group_id = web_outlook_app.add_group('自动授权分组')
+            group_id = web_outlook_app.add_group('Automatic authorization grouping')
             self.assertIsNotNone(group_id)
-            tag_id = web_outlook_app.add_tag('自动授权标签', '#456')
+            tag_id = web_outlook_app.add_tag('Automatic authorization tag', '#456')
             self.assertIsNotNone(tag_id)
             self.assertTrue(web_outlook_app.add_account(
                 'copy-meta@outlook.com',

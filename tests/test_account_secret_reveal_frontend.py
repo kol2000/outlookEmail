@@ -20,10 +20,10 @@ class AccountSecretRevealFrontendTests(unittest.TestCase):
 
         self.assertIn("toggleEditSecretVisibility('editPassword'", html)
         self.assertIn("toggleEditSecretVisibility('editImapPassword'", html)
-        self.assertIn('aria-label="{{ tr("显示密码") }}"', html)
-        self.assertIn('aria-label="{{ tr("显示 IMAP 密码") }}"', html)
-        self.assertNotIn('aria-label="验证显示密码"', html)
-        self.assertNotIn('aria-label="验证显示 IMAP 密码"', html)
+        self.assertIn('aria-label="{{ tr("Show password") }}"', html)
+        self.assertIn('aria-label="{{ tr("Show IMAP password") }}"', html)
+        self.assertNotIn('aria-label="Verification display password"', html)
+        self.assertNotIn('aria-label="Verification shows IMAP password"', html)
 
     def test_reset_edit_secret_input_stores_secret_and_mask(self):
         source = SETTINGS_JS_PATH.read_text(encoding='utf-8')
@@ -46,7 +46,7 @@ class AccountSecretRevealFrontendTests(unittest.TestCase):
         source = SETTINGS_JS_PATH.read_text(encoding='utf-8')
 
         self.assertIn(
-            "resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', I18n.t('可选'))",
+            'resetEditSecretInput(\'editPassword\', \'revealEditPasswordBtn\', !!acc.has_password, acc.password || \'\', I18n.t("Optional"))',
             source,
         )
         self.assertIn(

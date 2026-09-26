@@ -8,7 +8,7 @@ __pycache__/
 dist/
 build/
 
-# 虚拟环境
+#Virtual environment
 venv/
 env/
 ENV/
@@ -23,15 +23,15 @@ ENV/
 .git/
 .gitignore
 
-# 数据库文件（使用 volume 挂载）
+# Database file (mounted using volume)
 *.db
 *.sqlite
 *.sqlite3
 
-# 日志
+# Log
 *.log
 
-# 临时文件
+# Temporary file
 .DS_Store
 Thumbs.db
 
@@ -40,6 +40,6 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
-# 文档
+# Documentation
 README.md
 *.md

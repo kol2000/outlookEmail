@@ -1,75 +1,75 @@
 ## MODIFIED Requirements
 
 ### Requirement: Cloudflare admin global mail listing
-系统 SHALL 提供一个需要登录 session 的 API，通过指定 Cloudflare 渠道或默认 Cloudflare 渠道的管理员邮件列表接口读取该渠道 Worker 邮件。
+System SHALL provides an API that requires a login session to read Worker emails of the channel through the administrator mailing list interface of the specified Cloudflare channel or the default Cloudflare channel.
 
-#### Scenario: 查看指定渠道全部 Cloudflare 邮件
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件列表且传入有效 `channel_id`，并且不传地址过滤条件
-- **THEN** 系统 SHALL 调用该渠道 Worker 的管理员邮件列表接口，且不传地址过滤条件，并返回解析后的邮件列表项。
+#### Scenario: View all Cloudflare emails from the specified channel
+- **WHEN** The logged in user requests the Cloudflare global mailing list and passes in a valid `channel_id`, and does not pass the address filter condition
+- **THEN** System SHALL calls the administrator mailing list interface of the channel Worker without passing the address filtering conditions, and returns the parsed mailing list items.
 
-#### Scenario: 缺少 Cloudflare 渠道参数时使用默认渠道
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件列表，但未传入 `channel_id`
-- **THEN** 系统 SHALL 使用默认 Cloudflare 渠道调用管理员邮件列表接口。
+#### Scenario: Use default channel when Cloudflare channel parameter is missing
+- **WHEN** A logged in user requested the Cloudflare global mailing list, but `channel_id` was not passed in
+- **THEN** System SHALL calls the admin mailing list interface using the default Cloudflare channel.
 
-#### Scenario: Cloudflare 渠道不存在
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件列表，但传入的 `channel_id` 不存在
-- **THEN** 系统 SHALL 返回失败响应，并说明 Cloudflare 渠道不存在。
+#### Scenario: Cloudflare channel does not exist
+- **WHEN** The logged in user requested the Cloudflare global mailing list, but the incoming `channel_id` did not exist
+- **THEN** System SHALL returns a failure response stating that the Cloudflare channel does not exist.
 
-#### Scenario: Cloudflare 渠道被禁用
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件列表，但传入的 `channel_id` 对应渠道已禁用
-- **THEN** 系统 SHALL 返回失败响应，并说明该 Cloudflare 渠道不可用。
+#### Scenario: Cloudflare channel disabled
+- **WHEN** A logged in user requested the Cloudflare global mailing list, but the incoming `channel_id` corresponding channel was disabled
+- **THEN** System SHALL returns a failure response stating that the Cloudflare channel is unavailable.
 
-#### Scenario: Cloudflare 渠道配置缺失
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件列表，但指定渠道缺少 Worker 域名或管理员密码
-- **THEN** 系统 SHALL 返回失败响应，并说明缺失的 Cloudflare 渠道配置。
+#### Scenario: Cloudflare channel configuration is missing
+- **WHEN** A logged in user requested the Cloudflare global mailing list, but the specified channel lacked the Worker domain name or admin password
+- **THEN** System SHALL returns a failure response and explains the missing Cloudflare channel configuration.
 
-#### Scenario: 上游 Cloudflare 返回错误
-- **WHEN** 指定渠道的 Cloudflare 管理员邮件列表接口返回错误
-- **THEN** 系统 SHALL 返回失败响应，并保留有用的上游错误细节。
+#### Scenario: Upstream Cloudflare returns error
+- **WHEN** The Cloudflare admin mailing list interface for the specified channel returns an error
+- **THEN** System SHALL returns a failure response, retaining useful upstream error details.
 
 ### Requirement: Cloudflare admin address filtering
-系统 SHALL 支持对指定 Cloudflare 渠道的全局邮件列表使用可选收件地址过滤。
+System SHALL supports optional recipient address filtering for global mailing lists for specified Cloudflare channels.
 
-#### Scenario: 按收件地址过滤指定渠道
-- **WHEN** 已登录用户请求 Cloudflare 邮件并传入有效 `channel_id` 和地址过滤条件
-- **THEN** 系统 SHALL 将归一化后的地址传给指定渠道的 Cloudflare 管理员邮件列表接口，并返回上游报告属于该地址的邮件。
+#### Scenario: Filter specified channels by recipient address
+- **WHEN** A logged in user requests a Cloudflare email and passes in a valid `channel_id` and address filter
+- **THEN** System SHALL passes the normalized address to the Cloudflare administrator mailing list interface of the specified channel and returns the emails reported by upstream as belonging to this address.
 
-#### Scenario: 地址过滤响应元数据
-- **WHEN** Cloudflare 全局邮件查询包含地址过滤条件和有效 `channel_id`
-- **THEN** 响应 SHALL 包含渠道 ID、请求地址、实际查询地址，以及是否使用了回退。
+#### Scenario: Address filtering response metadata
+- **WHEN** Cloudflare global email query contains address filter and valid `channel_id`
+- **THEN** response SHALL contains channel ID, request address, actual query address, and whether fallback was used.
 
-#### Scenario: 地址过滤不跨渠道回退
-- **WHEN** Cloudflare 全局邮件查询包含地址过滤条件和有效 `channel_id`
-- **THEN** 系统 SHALL 只在该渠道内应用地址候选回退，而 SHALL NOT 查询其他 Cloudflare 渠道。
+#### Scenario: Address filtering does not fall back across channels
+- **WHEN** Cloudflare global email query contains address filter and valid `channel_id`
+- **THEN** The system SHALL applies address candidate fallbacks only within this channel, and SHALL NOT query other Cloudflare channels.
 
 ### Requirement: Cloudflare global mail pagination
-系统 SHALL 使用明确的 limit 和 offset 参数限制指定 Cloudflare 渠道的全局邮件列表请求。
+System SHALL limits global mailing list requests to specified Cloudflare channels using explicit limit and offset parameters.
 
-#### Scenario: 分页请求
-- **WHEN** 已登录用户请求 Cloudflare 全局邮件并传入有效 `channel_id`、limit 和 offset 参数
-- **THEN** 系统 SHALL 将受限后的分页参数转发给指定渠道的 Cloudflare，并在响应中包含分页元数据。
+#### Scenario: Pagination request
+- **WHEN** A logged in user requests a Cloudflare global email and passes in valid `channel_id`, limit and offset parameters
+- **THEN** System SHALL forwards restricted pagination parameters to Cloudflare on the specified channel and includes pagination metadata in the response.
 
-#### Scenario: 超出限制的 limit
-- **WHEN** 已登录用户请求超过最大允许数量的 Cloudflare 全局邮件
-- **THEN** 系统 SHALL 在调用指定渠道的 Cloudflare 前将 limit 限制到配置允许的最大值。
+#### Scenario: limit beyond the limit
+- **WHEN** A logged in user requested more than the maximum allowed number of Cloudflare global messages
+- **THEN** System SHALL limits limit to the maximum value allowed by the configuration before calling Cloudflare for the specified channel.
 
 ## ADDED Requirements
 
 ### Requirement: Cloudflare channel global mail entries
-系统 SHALL 为每个启用的 Cloudflare 渠道提供独立的全部邮件视图入口。
+System SHALL provides independent access to all mail views for each enabled Cloudflare channel.
 
-#### Scenario: 显示每个启用渠道的入口
-- **WHEN** 临时邮箱列表显示 Cloudflare 提供商入口
-- **THEN** 系统 SHALL 为每个启用的 Cloudflare 渠道显示一个独立的 Cloudflare 全部邮件入口，并在入口中展示渠道名称。
+#### Scenario: Show the entry for each enabled channel
+- **WHEN** Temporary email list showing Cloudflare provider portal
+- **THEN** System SHALL displays a separate Cloudflare all-mail portal for each enabled Cloudflare channel, displaying the channel name in the portal.
 
-#### Scenario: 不显示禁用渠道入口
-- **WHEN** 某个 Cloudflare 渠道已禁用
-- **THEN** 系统 SHALL NOT 在 Cloudflare 全部邮件入口列表中展示该渠道。
+#### Scenario: Do not display disabled channel entrances
+- **WHEN** A Cloudflare channel is disabled
+- **THEN** The system SHALL NOT display this channel in the Cloudflare all mail portal list.
 
-#### Scenario: 点击渠道入口只加载该渠道
-- **WHEN** 已登录用户点击某个 Cloudflare 渠道的全部邮件入口
-- **THEN** 系统 SHALL 只请求该渠道的 Cloudflare 全局邮件列表。
+#### Scenario: Click the channel entrance to load only this channel
+- **WHEN** Logged-in user clicks all email portals of a Cloudflare channel
+- **THEN** The system SHALL only requests the Cloudflare global mailing list for this channel.
 
-#### Scenario: 不提供全部渠道聚合入口
-- **WHEN** 临时邮箱列表显示 Cloudflare 全部邮件入口
-- **THEN** 系统 SHALL NOT 显示或调用跨全部 Cloudflare 渠道聚合邮件的入口。
+#### Scenario: Does not provide all channel aggregation entrances
+- **WHEN** Temporary mailbox list displays all Cloudflare mail portals
+- **THEN** The system SHALL NOT display or call a portal that aggregates mail across all Cloudflare channels.

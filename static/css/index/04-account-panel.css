@@ -1,4 +1,4 @@
-        /* 邮箱账号面板 */
+        /* Email account panel */
         .account-panel {
             width: 340px;
             background-color: var(--skin-surface);
@@ -1174,7 +1174,7 @@
             }
         }
 
-        /* 极简模式样式 */
+        /* Minimalist mode style */
         .account-panel.minimal-mode .account-item {
             margin-bottom: 6px;
             padding: 8px 12px;
@@ -1229,7 +1229,7 @@
             color: #ffffff !important;
         }
 
-        /* 批量操作下拉菜单 */
+        /* Batch operation drop-down menu */
         .batch-dropdown {
             position: relative;
             display: inline-block;
@@ -1238,7 +1238,7 @@
         .batch-dropdown-menu {
             display: none;
             position: absolute;
-            bottom: calc(100% + 8px); /* 向上弹出 */
+            bottom: calc(100% + 8px); /* Pop up */
             left: 50%;
             transform: translateX(-50%);
             background: #ffffff;
@@ -1252,7 +1252,7 @@
             gap: 2px;
         }
 
-        /* 向上弹出的菜单增加一个小箭头 */
+        /* Add a small arrow to the pop-up menu */
         .batch-dropdown-menu::after {
             content: '';
             position: absolute;
@@ -1288,7 +1288,7 @@
             transform: rotate(180deg);
         }
 
-        /* 下拉项样式 */
+        /* Drop-down item style */
         .batch-dropdown-menu .dropdown-item {
             display: block;
             width: 100%;

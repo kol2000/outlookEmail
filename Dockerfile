@@ -1,36 +1,36 @@
-# 使用 Python 3.11 作为基础镜像
+# Use Python 3.11 as the base image
 FROM python:3.11-slim
 
-# 设置工作目录
+# Set working directory
 WORKDIR /app
 
-# 安装 curl（用于健康检查）
+# Install curl (for health check)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# 设置环境变量
+# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-# 复制依赖文件
+# Copy dependent files
 COPY requirements.txt .
 
-# 安装依赖（包括生产服务器）
+# Install dependencies (including production server)
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt && \
     pip install gunicorn
 
-# 复制应用代码
+# Copy application code
 COPY . .
 
-# 创建数据目录
+# Create data directory
 RUN mkdir -p /app/data
 
-# 暴露端口
+# Exposed port
 EXPOSE 5000
 
-# 启动应用（gunicorn 线程模型，单 worker 多线程）
-# 超时等参数通过环境变量注入，无需硬编码在镜像中
+# Start the application (gunicorn thread model, single worker multi-thread)
+# Timeout and other parameters are injected through environment variables, no need to hardcode in the image
 CMD ["sh", "-c", "gunicorn -k gthread -w 1 --threads ${GUNICORN_THREADS:-4} -b 0.0.0.0:5000 --timeout ${GUNICORN_TIMEOUT:-300} --graceful-timeout 30 --access-logfile - --error-logfile - --capture-output web_outlook_app:app"]

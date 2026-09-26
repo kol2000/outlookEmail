@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ tr("登录 - Outlook 邮件管理") }}</title>
+    <title>{{ tr("Sign in — Outlook Mail Manager") }}</title>
     <style>
         * {
             margin: 0;
@@ -139,28 +139,28 @@
                     <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
             </div>
-            <h1 class="login-title">{{ tr("Outlook 邮件管理") }}</h1>
-            <p class="login-subtitle">{{ tr("请输入密码登录系统") }}</p>
+            <h1 class="login-title">{{ tr("Outlook Mail Manager") }}</h1>
+            <p class="login-subtitle">{{ tr("Enter your password to sign in") }}</p>
         </div>
         
         <div class="error-message" id="errorMessage"></div>
         
         <form id="loginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
-                <label class="form-label" for="password">{{ tr("登录密码") }}</label>
-                <input type="password" class="form-input" id="password" placeholder="{{ tr("请输入密码") }}" autofocus required>
+                <label class="form-label" for="password">{{ tr("Password") }}</label>
+                <input type="password" class="form-input" id="password" placeholder="{{ tr("Please enter password") }}" autofocus required>
             </div>
             <div class="form-group">
-                <label class="form-label" for="sessionDuration">{{ tr("登录有效期") }}</label>
+                <label class="form-label" for="sessionDuration">{{ tr("Session duration") }}</label>
                 <select class="form-input" id="sessionDuration">
-                    <option value="7">{{ tr("7 天") }}</option>
-                    <option value="30" selected>{{ tr("30 天") }}</option>
-                    <option value="90">{{ tr("90 天") }}</option>
-                    <option value="180">{{ tr("180 天") }}</option>
-                    <option value="permanent">{{ tr("永久有效") }}</option>
+                    <option value="7">{{ tr("7 days") }}</option>
+                    <option value="30" selected>{{ tr("30 days") }}</option>
+                    <option value="90">{{ tr("90 days") }}</option>
+                    <option value="180">{{ tr("180 days") }}</option>
+                    <option value="permanent">{{ tr("Keep me signed in") }}</option>
                 </select>
             </div>
-            <button type="submit" class="login-btn" id="loginBtn">{{ tr("登 录") }}</button>
+            <button type="submit" class="login-btn" id="loginBtn">{{ tr("Sign in") }}</button>
         </form>
     </div>
     
@@ -186,7 +186,7 @@
             try {
                 window.localStorage.setItem(LOGIN_DURATION_STORAGE_KEY, value);
             } catch (error) {
-                // 本地存储不可用时不阻断登录。
+                // Do not block login when local storage is unavailable.
             }
         }
 
@@ -204,13 +204,13 @@
             const errorMessage = document.getElementById('errorMessage');
             
             if (!password) {
-                errorMessage.textContent = I18n.t('请输入密码');
+                errorMessage.textContent = I18n.t("Please enter password");
                 errorMessage.classList.add('show');
                 return;
             }
             
             loginBtn.disabled = true;
-            loginBtn.textContent = I18n.t('登录中...');
+            loginBtn.textContent = I18n.t("Signing in…");
             errorMessage.classList.remove('show');
             
             try {
@@ -228,20 +228,20 @@
                 if (data.success) {
                     window.location.href = '/';
                 } else {
-                    errorMessage.textContent = data.error || I18n.t('登录失败');
+                    errorMessage.textContent = data.error || I18n.t("Login failed");
                     errorMessage.classList.add('show');
                     loginBtn.disabled = false;
-                    loginBtn.textContent = I18n.t('登 录');
+                    loginBtn.textContent = I18n.t("Sign in");
                 }
             } catch (error) {
-                errorMessage.textContent = I18n.t('网络错误，请重试');
+                errorMessage.textContent = I18n.t("Network error, please try again");
                 errorMessage.classList.add('show');
                 loginBtn.disabled = false;
-                loginBtn.textContent = I18n.t('登 录');
+                loginBtn.textContent = I18n.t("Sign in");
             }
         }
         
-        // 回车键提交
+        // Enter key to submit
         document.getElementById('password').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('loginForm').dispatchEvent(new Event('submit'));

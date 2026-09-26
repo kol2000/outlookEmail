@@ -1,22 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""重置 Web 登录密码（忘记密码时的官方运维入口）。
-
-不需要旧密码；需要能访问数据库文件的主机权限。
-仅支持交互式终端输入新密码（不提供 --password / stdin 密码通道）。
-
-与 Web 应用行为对齐：
-- bcrypt 写入 settings.login_password
-- 轮换 settings.login_session_version，使既有 Web/扩展会话失效
-- 写入 audit_logs（不含密码）
-
-用法:
-  python scripts/reset_login_password.py
-  DATABASE_PATH=/path/to/outlook_accounts.db python scripts/reset_login_password.py
-
-Docker 示例:
-  docker exec -it <container> python scripts/reset_login_password.py
-"""
+'Reset the web login password (the official operation and maintenance portal when you forget your password).\n\nNo old password is required; requires host permissions to access the database files.\nOnly supports interactive terminal input of new passwords (no --password / stdin password channels are provided).\n\nAlignment with web application behavior:\n- bcrypt writes to settings.login_password\n- Rotate settings.login_session_version to invalidate existing web/extension sessions\n- Write to audit_logs (without password)\n\nUsage:\n  python scripts/reset_login_password.py\n  DATABASE_PATH=/path/to/outlook_accounts.db python scripts/reset_login_password.py\n\nDocker example:\n  docker exec -it <container> python scripts/reset_login_password.py\n'
 
 from __future__ import annotations
 
@@ -29,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
-# 与 outlook_web/segments/01_bootstrap.py / 设置页改密保持一致
+# Consistent with outlook_web/segments/01_bootstrap.py / setting page password change
 MIN_PASSWORD_LENGTH = 8
 LOGIN_PASSWORD_KEY = "login_password"
 LOGIN_SESSION_VERSION_KEY = "login_session_version"
@@ -37,7 +21,7 @@ DEFAULT_DATABASE_RELATIVE = Path("data") / "outlook_accounts.db"
 
 
 class ResetError(Exception):
-    """可向用户展示的重置失败。"""
+    'Reset failure that can be displayed to the user.'
 
 
 def project_root() -> Path:
@@ -45,7 +29,7 @@ def project_root() -> Path:
 
 
 def load_dotenv_file(path: Path) -> None:
-    """轻量加载 .env（仅处理 KEY=VALUE，不覆盖已有环境变量）。"""
+    'Lightly load .env (only handles KEY=VALUE, does not overwrite existing environment variables).'
     if not path.is_file():
         return
     try:
@@ -67,7 +51,7 @@ def load_dotenv_file(path: Path) -> None:
 
 
 def resolve_database_path() -> Path:
-    """与应用一致：优先 DATABASE_PATH，否则项目 data/outlook_accounts.db。"""
+    'Consistent with application: DATABASE_PATH takes precedence, otherwise data/outlook_accounts.db.'
     env_value = (os.getenv("DATABASE_PATH") or "").strip()
     if env_value:
         return Path(env_value).expanduser().resolve()
@@ -75,12 +59,12 @@ def resolve_database_path() -> Path:
 
 
 def hash_password(password: str) -> str:
-    """使用 bcrypt 哈希密码（与应用 hash_password 一致）。"""
+    'Hash passwords using bcrypt (consistent with applying hash_password).'
     try:
         import bcrypt
     except ImportError as exc:
         raise ResetError(
-            "缺少 bcrypt 依赖，请先安装: pip install bcrypt"
+            'The bcrypt dependency is missing, please install it first: pip install bcrypt'
         ) from exc
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
@@ -101,44 +85,39 @@ def verify_password(password: str, hashed: str) -> bool:
 def require_interactive_tty() -> None:
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ResetError(
-            "仅支持交互式终端重置密码。"
-            "请在 TTY 中运行本脚本（例如 docker exec -it ...），"
-            "不支持 --password、环境变量或管道传入新密码。"
+            'Only interactive terminal password reset is supported. Please run this script in a TTY (e.g. docker exec -it ...). Passing in a new password via --password, environment variables or pipes is not supported.'
         )
 
 
 def validate_password_format(password: str) -> Optional[str]:
-    """仅校验密码本身格式（空值、长度）；通过返回 None。"""
+    'Only verify the format of the password itself (null value, length); by returning None.'
     if not password:
-        return "新密码不能为空"
+        return 'New password cannot be empty'
     if len(password) < MIN_PASSWORD_LENGTH:
-        return f"密码长度至少为 {MIN_PASSWORD_LENGTH} 位"
+        return f'The password length must be at least {MIN_PASSWORD_LENGTH} bits'
     return None
 
 
 def validate_new_password(password: str, confirm: str) -> Optional[str]:
-    """返回错误信息；通过则返回 None。不写库。
-
-    先做格式校验，再比对两次输入，避免格式问题被“不一致”掩盖。
-    """
+    'Return error information; return None if passed. No libraries are written.\n\n    Perform format verification first, and then compare the two inputs to avoid formatting problems being covered up by "inconsistencies."\n    '
     format_error = validate_password_format(password)
     if format_error:
         return format_error
     if password != confirm:
-        return "两次输入的密码不一致"
+        return 'The passwords entered twice are inconsistent'
     return None
 
 
 def prompt_new_password() -> str:
-    """交互输入新密码：第一次输入后立即做格式校验，通过后再确认。"""
+    'Interactively enter a new password: perform format verification immediately after the first input, and then confirm after passing it.'
     require_interactive_tty()
-    password = getpass.getpass("新登录密码: ")
+    password = getpass.getpass('New login password:')
     format_error = validate_password_format(password)
     if format_error:
         raise ResetError(format_error)
-    confirm = getpass.getpass("确认新登录密码: ")
+    confirm = getpass.getpass('Confirm new login password:')
     if password != confirm:
-        raise ResetError("两次输入的密码不一致")
+        raise ResetError('The passwords entered twice are inconsistent')
     return password
 
 
@@ -171,7 +150,7 @@ def _get_setting(conn: sqlite3.Connection, key: str) -> Optional[str]:
 
 
 def write_audit_log(conn: sqlite3.Connection, details: str) -> None:
-    """写入审计日志；表不存在或失败时静默跳过（与应用 log_audit 一致）。"""
+    'Write audit log; silently skipped if table does not exist or fails (consistent with applying log_audit).'
     if not _table_exists(conn, "audit_logs"):
         return
     try:
@@ -193,19 +172,14 @@ def write_audit_log(conn: sqlite3.Connection, details: str) -> None:
 
 
 def reset_login_password(db_path: Path, new_password: str) -> Tuple[str, str]:
-    """将新密码写入数据库并轮换会话版本。
-
-    :return: (bcrypt_hash, new_session_version)
-    :raises ResetError: 路径/库结构/策略校验失败（不写库）
-    """
+    'Write new password to database and rotate session versions.\n\n    :return: (bcrypt_hash, new_session_version)\n    :raises ResetError: Path/library structure/strategy verification failed (the library is not written)\n    '
     error = validate_new_password(new_password, new_password)
     if error:
         raise ResetError(error)
 
     if not db_path.is_file():
         raise ResetError(
-            f"数据库文件不存在: {db_path}\n"
-            "请确认 DATABASE_PATH 或默认 data/outlook_accounts.db 是否正确。"
+            f'The database file does not exist: {db_path}\n Please confirm whether the DATABASE_PATH or the default data/outlook_accounts.db is correct.'
         )
 
     hashed = hash_password(new_password)
@@ -214,18 +188,18 @@ def reset_login_password(db_path: Path, new_password: str) -> Tuple[str, str]:
     try:
         conn = sqlite3.connect(str(db_path))
     except sqlite3.Error as exc:
-        raise ResetError(f"无法打开数据库: {db_path} ({exc})") from exc
+        raise ResetError(f'Unable to open database: {db_path} ({exc})') from exc
 
     try:
         if not _table_exists(conn, "settings"):
             raise ResetError(
-                f"数据库缺少 settings 表，不是有效的 OutlookEmail 库: {db_path}"
+                f'The database is missing the settings table and is not a valid OutlookEmail library: {db_path}'
             )
         _upsert_setting(conn, LOGIN_PASSWORD_KEY, hashed)
         _upsert_setting(conn, LOGIN_SESSION_VERSION_KEY, new_version)
         write_audit_log(
             conn,
-            "CLI 重置 Web 登录密码；已轮换 login_session_version",
+            'CLI reset web login password; rotated login_session_version',
         )
         conn.commit()
     except ResetError:
@@ -233,7 +207,7 @@ def reset_login_password(db_path: Path, new_password: str) -> Tuple[str, str]:
         raise
     except sqlite3.Error as exc:
         conn.rollback()
-        raise ResetError(f"写入数据库失败: {exc}") from exc
+        raise ResetError(f'Failed to write to database: {exc}') from exc
     finally:
         conn.close()
 
@@ -243,20 +217,19 @@ def reset_login_password(db_path: Path, new_password: str) -> Tuple[str, str]:
 def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "交互式重置 Web 登录密码（忘记密码时使用）。"
-            "不需要旧密码；不支持通过参数或管道传入新密码。"
+            'Interactively reset web login password (used when you forget your password). The old password is not required; passing in new passwords via parameters or pipes is not supported.'
         ),
     )
     parser.add_argument(
         "--dry-run-check-db",
         action="store_true",
-        help=argparse.SUPPRESS,  # 仅内部/测试可发现；不改变密码
+        help=argparse.SUPPRESS,  # Discoverable internal/testing only; password not changed
     )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[list] = None) -> int:
-    # 先加载项目 .env，便于本地 DATABASE_PATH 与应用一致
+    # Load the project .env first to make the local DATABASE_PATH consistent with the application
     load_dotenv_file(project_root() / ".env")
     load_dotenv_file(project_root() / ".env.local")
 
@@ -267,14 +240,14 @@ def main(argv: Optional[list] = None) -> int:
         return int(code) if isinstance(code, int) else 1
 
     db_path = resolve_database_path()
-    print(f"数据库: {db_path}")
-    print("说明: 重置不需要旧密码；成功后所有已登录会话将失效。")
-    print("建议: 若服务正在运行，可先停止再重置（非强制）。")
+    print(f'Database: {db_path}')
+    print('Note: Resetting does not require the old password; all logged-in sessions will be invalid after success.')
+    print('Suggestion: If the service is running, you can stop it and then reset it (not mandatory).')
     print("-" * 40)
 
     if not db_path.is_file():
         print(
-            f"错误: 数据库文件不存在: {db_path}",
+            f'Error: Database file does not exist: {db_path}',
             file=sys.stderr,
         )
         return 1
@@ -283,22 +256,21 @@ def main(argv: Optional[list] = None) -> int:
         new_password = prompt_new_password()
         _hashed, _version = reset_login_password(db_path, new_password)
     except ResetError as exc:
-        print(f"错误: {exc}", file=sys.stderr)
+        print(f'Error: {exc}', file=sys.stderr)
         return 1
     except (EOFError, KeyboardInterrupt):
-        print("\n已取消，未修改密码。", file=sys.stderr)
+        print('\nCanceled, password not changed.', file=sys.stderr)
         return 1
 
     print("-" * 40)
-    print("已重置 Web 登录密码。")
-    print("请使用刚才设置的新密码登录。")
-    print("密码真相源是数据库 settings.login_password，不是环境变量 LOGIN_PASSWORD。")
+    print('Web login password reset.')
+    print('Please use the new password you just set to log in.')
+    print('The source of password truth is the database settings.login_password, not the environment variable LOGIN_PASSWORD.')
     print(
-        "在线改密或本脚本重置后，仅修改 docker-compose / .env 中的 LOGIN_PASSWORD "
-        "不会覆盖已有库中的哈希。"
+        'After online password change or reset of this script, only modifying LOGIN_PASSWORD in docker-compose/.env will not overwrite the hash in the existing library.'
     )
-    print("若 compose 中仍写着旧的 LOGIN_PASSWORD，建议改成备注或与新密码一致以免运维混淆。")
-    print("既有 Web / 浏览器扩展登录会话已失效，需重新登录。")
+    print('If the old LOGIN_PASSWORD is still written in compose, it is recommended to change it to a comment or make it consistent with the new password to avoid confusion in operation and maintenance.')
+    print('The existing web/browser extension login session has expired and needs to be logged in again.')
     return 0
 
 

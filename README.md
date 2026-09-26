@@ -2,7 +2,11 @@
 
 This fork of [assast/outlookEmail](https://github.com/assast/outlookEmail) is based on **v3.0.9** and adds an English/Russian interface switcher, offline translation catalogs, localized status messages and browser-extension labels.
 
-[English manual](README.en.md) · [Руководство на русском](README.ru.md) · [Original upstream README](README.zh-CN.md)
+[English manual](README.en.md) · [Руководство на русском](README.ru.md) · [Original upstream README](https://github.com/assast/outlookEmail/blob/main/README.md)
+
+## Download for Windows
+
+Get the Windows ZIP from [Releases](https://github.com/kol2000/outlookEmail/releases). Extract the entire archive and keep `_internal` beside `OutlookEmail.exe`.
 
 ## Run this translated version
 
@@ -37,10 +41,14 @@ For Docker, build this checkout using `docker compose -f docker-compose.build.ym
 
 Load `browser-extension/` as an unpacked extension in Chrome or Edge. Its language selector is independent of the web application. [English extension manual](browser-extension/README.en.md) · [Русская инструкция](browser-extension/README.ru.md).
 
+## Repository history
+
+This fork's commit messages were translated to English. Commit IDs have changed; authors, dates, parent relationships and historical file trees are preserved. Existing clones should be backed up before moving to the rewritten branches.
+
 ## Localization details
 
-Catalogs are stored in `static/locales/en.json` and `ru.json`. No translation service is contacted while the application is running. Account names, mailbox contents, credentials, persisted identifiers, import/export formats and API field names are preserved. Server status messages are localized at the response boundary; the mail-processing logic remains upstream code. API clients may send `X-Outlook-Language: en`, `ru`, or `zh-CN` (original status text).
+Catalogs are stored in `static/locales/en.json` and `ru.json`. No translation service is contacted while the application is running. Account names, mailbox contents, credentials, persisted identifiers, import/export formats and API field names are preserved. Server status messages are localized at the response boundary; protocol values and persisted identifiers remain compatible with upstream. API clients may send `X-Outlook-Language: en`, `ru`, or `zh-CN` (legacy pass-through; newly authored statuses are English).
 
-The full manuals were machine translated; common UI terminology has been edited and placeholder/markup integrity is tested. Long help text may still benefit from editorial review. Upstream screenshots and historical release notes retain their original language. External provider error messages are preserved when they do not match an application message.
+The full manuals were machine translated; common UI terminology has been edited and placeholder/markup integrity is tested. Long help text may still benefit from editorial review. Source comments, current documentation, changelog entries and commit messages use English. Original screenshots are linked in the upstream project rather than embedded here. External provider error messages are preserved when they do not match an application message.
 
 See [localization maintenance and verification](docs/localization.md). Upstream declares MIT in its README, but the v3.0.9 snapshot does not include the referenced LICENSE file; no new license grant is added by this fork.

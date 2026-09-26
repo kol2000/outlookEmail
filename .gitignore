@@ -11,13 +11,13 @@ venv/
 env/
 ENV/
 
-# 数据库文件
+# Database file
 *.db
 *.sqlite
 *.sqlite3
 data/
 
-# 环境变量
+# Environment variables
 .env
 secret_key.txt
 
@@ -27,11 +27,11 @@ secret_key.txt
 *.swp
 *.swo
 
-# 日志
+# Log
 *.log
 debug_response_*.html
 
-# 系统文件
+# System files
 .DS_Store
 Thumbs.db
 /get_oauth_token.py
@@ -40,12 +40,12 @@ Thumbs.db
 /CLAUDE.md
 /.claude/
 /.superpowers/
-安全漏洞.md
+Security vulnerability.md
 /.codex/
 /.tmp/
 /.qoder/
 openspec
-待办
+To-do
 /.playwright-cli
 .test_tmp/
 /.trellis/

@@ -17,8 +17,8 @@
         return t(source, ...values);
     }
     function groupName(group) {
-        if (group && (group.is_system === 1 || group.name === '临时邮箱')) return t('临时邮箱');
-        if (group && Number(group.id) === 1 && group.name === '默认分组') return t('默认分组');
+        if (group && (group.is_system === 1 || group.name === "\u4e34\u65f6\u90ae\u7bb1")) return t("\u4e34\u65f6\u90ae\u7bb1");
+        if (group && Number(group.id) === 1 && group.name === "\u9ed8\u8ba4\u5206\u7ec4") return t("\u9ed8\u8ba4\u5206\u7ec4");
         return group?.name || '';
     }
     function setLanguage(value) {

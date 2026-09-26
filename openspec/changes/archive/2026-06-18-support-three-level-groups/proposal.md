@@ -1,36 +1,36 @@
 ## Why
 
-当前分组系统是扁平列表结构，无法表达分组之间的层级关系。随着用户管理的邮箱账号和分组数量增长，缺乏层级组织能力导致分组面板杂乱、难以快速定位目标分组。引入最多三级的树形分组结构，让用户可以按逻辑层级（如"客户 → 项目 → 类别"）组织邮箱账号，提升大规模账号管理的效率和可读性。
+The current grouping system has a flat list structure and cannot express the hierarchical relationship between groups. As the number of email accounts and groups managed by users increases, the lack of hierarchical organization capabilities results in a cluttered group panel and difficulty in quickly locating target groups. Introducing a tree grouping structure of up to three levels, allowing users to organize email accounts according to logical levels (such as "Customer → Project → Category"), improving the efficiency and readability of large-scale account management.
 
 ## What Changes
 
-- **分组数据模型升级**：`groups` 表新增 `parent_id` 和 `level` 字段，支持三层嵌套树形结构
-- **代理配置级联回退**：子分组未设置代理时，自动回退到父分组的代理配置
-- **递归账号展示**：选中分组时，显示该分组及所有子分组下的账号
-- **树形 UI 渲染**：分组面板从扁平列表改为带折叠/展开的树形结构，每级通过缩进区分层级
-- **跨层级拖拽**：拖拽排序支持同级排序和跨层级移动，移动时自动校验层级深度不超过 3 级
-- **级联删除**：删除有子分组的分组时，级联删除所有子分组，子分组内账号移回默认分组
-- **新增/编辑分组增加父分组选择**：模态框中增加父分组下拉，动态约束层级不超过 3 级
-- **分组名称保持全局唯一**
-- **临时邮箱分组固定为一级根分组**，不可添加子分组
-- **关联功能适配**：批量移动模态框、Project scope 选择、导入/编辑/Token 下拉等分组选择器适配树形展示
+- **Group data model upgrade**: `groups` table adds `parent_id` and `level` fields, supporting three-level nested tree structure
+- **Proxy configuration cascade fallback**: When the subgroup does not have a proxy set, it will automatically fall back to the proxy configuration of the parent group.
+- **Recursive account display**: When a group is selected, the accounts under this group and all sub-groups will be displayed.
+- **Tree UI rendering**: The grouping panel is changed from a flat list to a tree structure with folding/expanding, and each level is distinguished by indentation.
+- **Cross-level drag**: Drag-and-drop sorting supports same-level sorting and cross-level movement, and automatically verifies that the level depth does not exceed 3 levels when moving.
+- **Cascade Delete**: When deleting a group with subgroups, all subgroups are deleted in cascade, and the accounts in the subgroups are moved back to the default group.
+- **Add/edit group to add parent group selection**: Add a parent group drop-down in the modal box, and the dynamic constraint level does not exceed 3 levels
+- **Group names remain globally unique**
+- **The temporary mailbox group is fixed as the first-level root group**, and subgroups cannot be added.
+- **Associated function adaptation**: Batch moving modal boxes, Project scope selection, import/edit/Token drop-down, etc. group selector adaptation tree display
 
 ## Capabilities
 
 ### New Capabilities
-- `hierarchical-groups`: 分组层级管理——数据模型、递归查询、级联操作（删除/移动）
-- `group-tree-ui`: 分组面板树形渲染、折叠/展开交互、层级缩进样式、跨层级拖拽
+- `hierarchical-groups`: Group level management - data model, recursive query, cascade operation (delete/move)
+- `group-tree-ui`: Group panel tree rendering, folding/expanding interaction, hierarchical indentation style, cross-level drag and drop
 
 ### Modified Capabilities
-（无已有相关 spec 需要修改）
+(No relevant specs need to be modified)
 
 ## Impact
 
-- **数据库**：`groups` 表 schema 变更（新增 2 列），需迁移脚本兼容已有数据
-- **后端数据层**：`02_groups_accounts.py` 中分组相关函数需大幅改造（load/add/update/delete/reorder/proxy）
-- **后端 API**：`04_routes_groups_accounts.py` 分组路由参数变更，账号查询和导出接口按分组子树过滤
-- **前端 JS**：`02-groups.js` 渲染逻辑从扁平改为树形，拖拽逻辑需支持跨层级
-- **HTML 模板**：添加/编辑分组模态框需增加父分组选择器
-- **CSS**：`03-layout.css` 分组面板样式需增加层级缩进、折叠箭头等
-- **关联模块**：批量操作、Project scope、分组下拉选择器均需适配
-- **向后兼容**：现有扁平分组数据迁移后 `parent_id=NULL, level=1`，API 默认行为兼容
+- **Database**: `groups` table schema changes (2 new columns added), the migration script needs to be compatible with existing data
+- **Backend data layer**: The grouping related functions in `02_groups_accounts.py` need to be significantly modified (load/add/update/delete/reorder/proxy)
+- **Backend API**: `04_routes_groups_accounts.py` group routing parameters change, account query and export interface filtered by group subtree
+- **Front-end JS**: `02-groups.js` The rendering logic is changed from flat to tree-shaped, and the drag-and-drop logic needs to support cross-level
+- **HTML Template**: Adding/editing a group modal box requires adding a parent group selector
+- **CSS**: `03-layout.css` group panel style needs to add hierarchical indentation, folding arrows, etc.
+- **Associated module**: Batch operations, Project scope, and group drop-down selectors all need to be adapted
+- **Backward Compatibility**: After the existing flat group data is migrated to `parent_id=NULL, level=1`, the API default behavior is compatible

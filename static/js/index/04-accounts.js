@@ -1,6 +1,6 @@
         /* global accountsCache, applyEmailListCache, closeMobilePanels, currentAccount, currentAccountListSource, currentAccountSummary, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentGroupId, currentMethod, currentSkip, emailListCache, getEmailListCacheEntry, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, hideModal, isTempEmailGroup, loadAccountsByGroup, loadEmails, loadGroups, renderEmailList, scheduleEmailListLoadCheck, showEmailList, showToast, updateGraphSendMailAvailability, updateMobileContext */
 
-        // ==================== 账号相关 ====================
+        // ==================== Account related ====================
 
         function buildCurrentAccountSummary(email, accountId) {
             const targetId = Number(accountId) || 0;
@@ -19,7 +19,7 @@
             };
         }
 
-        // 选择账号
+        // Select account
         function selectAccount(email, accountId = 0) {
             currentAccount = email;
             currentAccountSummary = buildCurrentAccountSummary(email, accountId);
@@ -27,7 +27,7 @@
             if (typeof updateGraphSendMailAvailability === 'function') {
                 updateGraphSendMailAvailability();
             }
-            currentFolder = 'all'; // 重置为全部邮件
+            currentFolder = 'all'; // Reset to all mail
             currentEmailId = null;
             currentEmailDetail = null;
 
@@ -45,11 +45,11 @@
                 }
             });
 
-            // 显示文件夹切换按钮
+            // Show folder switching button
             const folderTabs = document.getElementById('folderTabs');
             if (folderTabs) {
                 folderTabs.style.display = 'flex';
-                // 重置为全部邮件
+                // Reset to all mail
                 document.querySelectorAll('.folder-tab').forEach(tab => {
                     tab.classList.toggle('active', tab.dataset.folder === 'all');
                 });
@@ -57,14 +57,14 @@
 
             const cache = getEmailListCacheEntry(email, 'all');
 
-            // 检查缓存
+            // Check cache
             if (cache) {
                 applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
                 document.getElementById('emailList').innerHTML = I18n.tpl`
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">正在自动刷新全部邮件...</div>
+                        <div class="empty-state-text">Automatically refreshing all emails...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';
@@ -75,23 +75,23 @@
             document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
-                    <div class="empty-state-text">选择一封邮件查看详情</div>
+                    <div class="empty-state-text">Select an email to view details</div>
                 </div>
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
 
-            // 首次进入未命中缓存时才自动加载
+            // Automatically loaded when entering miss cache for the first time
             if (!cache) {
                 loadEmails(email);
             }
         }
 
-        // 隐藏添加账号模态框
+        // Hide the add account modal box
         function hideAddAccountModal() {
             hideModal('addAccountModal');
         }
 
-        // 隐藏编辑账号模态框
+        // Hide the edit account modal box
         function hideEditAccountModal() {
             if (typeof clearEditAccountSecrets === 'function') {
                 clearEditAccountSecrets();
@@ -100,13 +100,13 @@
             hideModal('editAccountModal');
         }
 
-        // 删除当前编辑的账号
+        // Delete the currently edited account
         async function deleteCurrentAccount() {
             const accountId = document.getElementById('editAccountId').value;
             const email = document.getElementById('editEmail').value;
             const groupId = parseInt(document.getElementById('editGroupSelect').value);
 
-            if (!(await showConfirmModal(I18n.tpl`确定要删除账号 ${email} 吗？`, { title: I18n.t('删除账号'), confirmText: I18n.t('确认删除') }))) {
+            if (!(await showConfirmModal(I18n.tpl`Are you sure you want to delete account ${email}?`, { title: I18n.t("Delete account"), confirmText: I18n.t("Confirm deletion") }))) {
                 return;
             }
 
@@ -115,10 +115,10 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(I18n.t('删除成功'), 'success');
+                    showToast(I18n.t("Deletion successful"), 'success');
                     hideEditAccountModal();
 
-                    // 清除缓存
+                    // Clear cache
                     delete accountsCache[groupId];
 
                     if (currentAccount === email) {
@@ -131,36 +131,36 @@
                         document.getElementById('emailList').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📬</div>
-                                <div class="empty-state-text">请从左侧选择一个邮箱账号</div>
+                                <div class="empty-state-text">Please select an email account from the left</div>
                             </div>
                         `;
                         document.getElementById('emailDetail').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">📄</div>
-                                <div class="empty-state-text">选择一封邮件查看详情</div>
+                                <div class="empty-state-text">Select an email to view details</div>
                             </div>
                         `;
                         showEmailList();
                         updateMobileContext();
                     }
 
-                    // 刷新分组列表
+                    // Refresh group list
                     loadGroups();
 
-                    // 刷新当前分组的邮箱列表
+                    // Refresh the mailbox list of the current group
                     if (currentGroupId) {
                         loadAccountsByGroup(currentGroupId, true);
                     }
                 }
             } catch (error) {
-                showToast(I18n.t('删除失败'), 'error');
+                showToast(I18n.t("Delete failed"), 'error');
             }
         }
 
-        // 切换账号状态（启用/停用）
+        // Switch account status (enable/disable)
         async function toggleAccountStatus(accountId, currentStatus) {
             const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-            const action = newStatus === 'inactive' ? I18n.t('停用') : I18n.t('启用');
+            const action = newStatus === 'inactive' ? I18n.t("Deactivate") : I18n.t("enable");
 
             try {
                 const response = await fetch(`/api/accounts/${accountId}`, {
@@ -172,7 +172,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(I18n.tpl`${action}成功`, 'success');
+                    showToast(I18n.tpl`${action} succeeded`, 'success');
                     if (Number(currentAccountSummary?.id) === Number(accountId)) {
                         currentAccountSummary = {
                             ...currentAccountSummary,
@@ -183,22 +183,22 @@
                         }
                     }
 
-                    // 清除当前分组的缓存
+                    // Clear the cache of the current group
                     if (currentGroupId) {
                         delete accountsCache[currentGroupId];
                         loadAccountsByGroup(currentGroupId, true);
                     }
                 } else {
-                    handleApiError(data, I18n.tpl`${action}账号失败`);
+                    handleApiError(data, I18n.tpl`${action} account failed`);
                 }
             } catch (error) {
-                showToast(I18n.tpl`${action}失败`, 'error');
+                showToast(I18n.tpl`${action} failed`, 'error');
             }
         }
 
-        // 删除账号（快捷方式）
+        // Delete account (shortcut)
         async function deleteAccount(accountId, email) {
-            if (!(await showConfirmModal(I18n.tpl`确定要删除账号 ${email} 吗？`, { title: I18n.t('删除账号'), confirmText: I18n.t('确认删除') }))) {
+            if (!(await showConfirmModal(I18n.tpl`Are you sure you want to delete account ${email}?`, { title: I18n.t("Delete account"), confirmText: I18n.t("Confirm deletion") }))) {
                 return;
             }
 
@@ -207,39 +207,39 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(I18n.t('删除成功'), 'success');
+                    showToast(I18n.t("Deletion successful"), 'success');
                     invalidateAccountCaches();
                     resetSelectedAccountViewIfDeleted([email]);
                     loadGroups();
                     await refreshVisibleAccountList(true);
                 } else {
-                    handleApiError(data, I18n.t('删除账号失败'));
+                    handleApiError(data, I18n.t("Failed to delete account"));
                 }
             } catch (error) {
-                showToast(I18n.t('删除失败'), 'error');
+                showToast(I18n.t("Delete failed"), 'error');
             }
         }
 
-        // 显示导出邮箱模态框
+        // Display the export mailbox modal box
         async function showExportModal() {
             showModal('exportModal');
             await loadExportGroupList();
         }
 
-        // 隐藏导出邮箱模态框
+        // Hide export mailbox modal box
         function hideExportModal() {
             hideModal('exportModal');
         }
 
-        // 加载导出分组列表
+        // Load export group list
         async function loadExportGroupList() {
             const container = document.getElementById('exportGroupList');
             container.innerHTML = '<div class="loading loading-small"><div class="loading-spinner"></div></div>';
 
             try {
-                // 使用已加载的分组数据
+                // Using loaded grouped data
                 if (groups.length === 0) {
-                    container.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #999;">暂无分组</div>');
+                    container.innerHTML = I18n.t("<div style=\"padding: 20px; text-align: center; color: #999;\">No grouping yet</div>");
                 } else {
                     const sortedGroups = typeof flattenGroupTree === 'function' && typeof buildGroupTree === 'function'
                         ? flattenGroupTree(buildGroupTree(groups))
@@ -266,21 +266,21 @@
                         `;
                     }).join('');
 
-                    // 绑定复选框变化事件
+                    // Bind checkbox change event
                     document.querySelectorAll('.export-group-checkbox').forEach(cb => {
                         cb.addEventListener('change', handleExportCheckboxChange);
                     });
                     syncExportGroupCheckboxStates();
                 }
             } catch (error) {
-                container.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #dc3545;">加载失败</div>');
+                container.innerHTML = I18n.t("<div style=\"padding: 20px; text-align: center; color: #dc3545;\">Loading failed</div>");
             }
 
-            // 重置全选复选框
+            // Reset the Select All checkbox
             document.getElementById('selectAllGroups').checked = false;
         }
 
-        // 获取下级分组的 ID 列表
+        // Get the ID list of subordinate groups
         function getDescendantGroupIds(groupId) {
             const descendants = [];
             const queue = [Number(groupId)];
@@ -328,7 +328,7 @@
             });
         }
 
-        // 处理导出复选框变化
+        // Handle export checkbox changes
         function handleExportCheckboxChange(event) {
             const cb = event.target;
             if (!cb) return;
@@ -345,7 +345,7 @@
             syncExportGroupCheckboxStates();
         }
 
-        // 全选/取消全选分组
+        // Select/unselect all groups
         function toggleSelectAllGroups() {
             const selectAll = document.getElementById('selectAllGroups').checked;
             document.querySelectorAll('.export-group-checkbox').forEach(cb => {
@@ -354,17 +354,17 @@
             syncExportGroupCheckboxStates();
         }
 
-        // 存储待导出的分组或账号 ID
+        // Store the group or account ID to be exported
         let pendingExportGroupIds = [];
         let pendingExportAccountIds = [];
         let pendingExportUploadAccountIds = [];
 
-        // 导出选中的分组
+        // Export selected group
         async function exportSelectedGroups() {
             const checkboxes = Array.from(document.querySelectorAll('.export-group-checkbox:checked'));
             const selectedGroupIds = checkboxes.map(cb => parseInt(cb.value));
 
-            // 过滤掉其父分组也同时被选中的子分组，避免重复导出
+            // Filter out subgroups whose parent group is also selected to avoid repeated exports
             const groupIds = selectedGroupIds.filter(groupId => {
                 let current = groups.find(g => Number(g.id) === Number(groupId));
                 while (current && current.parent_id) {
@@ -377,14 +377,14 @@
             });
 
             if (groupIds.length === 0) {
-                showToast(I18n.t('请选择要导出的分组'), 'error');
+                showToast(I18n.t("Please select the group to export"), 'error');
                 return;
             }
 
             pendingExportGroupIds = groupIds;
             pendingExportAccountIds = [];
 
-            // 显示密码确认对话框
+            // Show password confirmation dialog
             hideExportModal();
             showExportVerifyModal();
         }
@@ -395,7 +395,7 @@
                 .filter(Number.isFinite)));
 
             if (!normalizedIds.length) {
-                showToast(I18n.t('请先选择要导出的邮箱'), 'error');
+                showToast(I18n.t("Please select the email address to be exported first."), 'error');
                 return;
             }
 
@@ -411,7 +411,7 @@
                 .filter(Number.isFinite)));
 
             if (!normalizedIds.length) {
-                showToast(I18n.t('请先选择要导出的账号'), 'error');
+                showToast(I18n.t("Please select the account to be exported first"), 'error');
                 return;
             }
 
@@ -421,7 +421,7 @@
             showExportVerifyModal();
         }
 
-        // 显示导出密码确认对话框
+        // Display export password confirmation dialog box
         function showExportVerifyModal() {
             showModal('exportVerifyModal');
             const passwordInput = document.getElementById('exportVerifyPassword');
@@ -431,7 +431,7 @@
             }
         }
 
-        // 隐藏导出密码确认对话框
+        // Hide export password confirmation dialog box
         function hideExportVerifyModal() {
             hideModal('exportVerifyModal');
             const passwordInput = document.getElementById('exportVerifyPassword');
@@ -440,17 +440,17 @@
             }
         }
 
-        // 确认导出验证
+        // Confirm export verification
         async function confirmExportVerify() {
             const password = document.getElementById('exportVerifyPassword').value;
 
             if (!password) {
-                showToast(I18n.t('请输入密码'), 'error');
+                showToast(I18n.t("Please enter password"), 'error');
                 return;
             }
 
             try {
-                // 获取验证token
+                // Get verification token
                 const verifyResponse = await fetch('/api/export/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -460,7 +460,7 @@
                 const verifyData = await verifyResponse.json();
 
                 if (!verifyData.success) {
-                    showToast(verifyData.error || I18n.t('密码错误'), 'error');
+                    showToast(verifyData.error || I18n.t("Wrong password"), 'error');
                     return;
                 }
 
@@ -479,7 +479,7 @@
                     exportPayload.group_ids = pendingExportGroupIds;
                 }
 
-                // 执行导出
+                // Execute export
                 const response = await fetch(exportUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -488,7 +488,7 @@
 
                 const contentType = response.headers.get('content-type') || '';
                 if (response.ok && !contentType.includes('application/json')) {
-                    // 获取文件名
+                    // Get file name
                     const contentDisposition = response.headers.get('Content-Disposition');
                     let filename = 'accounts.txt';
                     if (contentDisposition) {
@@ -498,7 +498,7 @@
                         }
                     }
 
-                    // 下载文件
+                    // Download file
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -509,13 +509,13 @@
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
 
-                    showToast(I18n.t('导出成功'), 'success');
+                    showToast(I18n.t("Export successful"), 'success');
                     hideExportVerifyModal();
                 } else {
                     const data = await response.json();
-                    handleApiError(data, I18n.t('导出失败'));
+                    handleApiError(data, I18n.t("Export failed"));
                 }
             } catch (error) {
-                showToast(I18n.t('导出失败'), 'error');
+                showToast(I18n.t("Export failed"), 'error');
             }
         }

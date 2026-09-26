@@ -1,29 +1,29 @@
-# 升级指南
+# Upgrade Guide
 
-本文档面向已经在使用本项目的用户，说明新版本发布后的升级步骤、备份建议和回滚思路。
+This document is intended for users who are already using this project and explains the upgrade steps, backup suggestions and rollback ideas after the new version is released.
 
-## 升级前建议
+## Recommendations before upgrading
 
-升级前建议先完成以下操作：
+It is recommended to complete the following operations before upgrading:
 
-1. 备份 `data/` 目录，至少保留数据库文件。
-2. 记录当前使用的镜像标签、部署方式和关键环境变量。
-3. 确认当前 `SECRET_KEY` 会继续保留，不要在升级时更换。
-4. 如使用反向代理或自动化脚本，确认升级后端口、域名、路径没有变化。
+1. Back up the `data/` directory, at least retain the database files.
+2. Record the currently used image tags, deployment methods and key environment variables.
+3. Confirm that the current `SECRET_KEY` will continue to be retained and not replaced during upgrade.
+4. If using a reverse proxy or automated script, confirm that the port, domain name, and path have not changed after the upgrade.
 
-## 必须保留的关键数据
+## Key data that must be retained
 
-升级时最重要的是保留以下内容：
+The most important thing to keep when upgrading is to retain the following:
 
-- SQLite 数据库：`data/outlook_accounts.db`
-- 固定 `SECRET_KEY`
-- 自定义环境变量
+- SQLite database: `data/outlook_accounts.db`
+- Fixed `SECRET_KEY`
+- Custom environment variables
 
-如果 `SECRET_KEY` 被改掉，已保存的 Refresh Token、API Key、邮箱密码等敏感数据将无法解密。
+If `SECRET_KEY` is changed, the saved sensitive data such as Refresh Token, API Key, and email password will not be able to be decrypted.
 
-## Docker 升级
+## Docker upgrade
 
-### 升级到最新稳定分支构建
+### Upgrade to the latest stable branch build
 
 ```bash
 docker pull ghcr.io/assast/outlookemail:latest
@@ -31,9 +31,9 @@ docker compose down
 docker compose up -d
 ```
 
-### 升级到指定正式版本
+### Upgrade to the specified official version
 
-建议正式环境优先使用明确版本号：
+It is recommended that the official environment give priority to using clear version numbers:
 
 ```bash
 docker pull ghcr.io/assast/outlookemail:v2.0.15
@@ -41,7 +41,7 @@ docker compose down
 docker compose up -d
 ```
 
-如果使用 `docker-compose.yml`，也可以直接把镜像改为指定版本：
+If you use `docker-compose.yml`, you can also directly change the image to the specified version:
 
 ```yaml
 services:
@@ -49,25 +49,25 @@ services:
     image: ghcr.io/assast/outlookemail:v2.0.15
 ```
 
-完成后执行：
+Execute after completion:
 
 ```bash
 docker compose up -d
 ```
 
-## Windows `exe` 升级
+## Windows `exe` upgrade
 
-1. 从 GitHub Releases 下载新版本 `OutlookEmail-windows-x64-*.zip`
-2. 解压到新的目录或覆盖旧目录中的程序文件
-3. 保留原有数据目录 `%APPDATA%\\OutlookEmail`
-4. 启动新的 `OutlookEmail.exe`
+1. Download the new version `OutlookEmail-windows-x64-*.zip` from GitHub Releases
+2. Unzip to a new directory or overwrite the program files in the old directory
+3. Keep the original data directory `%APPDATA%\\OutlookEmail`
+4. Start new `OutlookEmail.exe`
 
-说明：
+Description:
 
-- 数据默认不在程序目录里，而是在 `%APPDATA%\\OutlookEmail`
-- 不要随意删除该目录中的数据库或密钥文件
+- The data is not in the program directory by default, but in `%APPDATA%\\OutlookEmail`
+- Do not delete the database or key files in this directory at will
 
-## Python 直跑升级
+## Python direct upgrade
 
 ```bash
 git pull origin main
@@ -75,37 +75,37 @@ pip install -r requirements.txt
 python web_outlook_app.py
 ```
 
-如果你使用虚拟环境，请先激活对应环境再执行。
+If you use a virtual environment, please activate the corresponding environment before executing.
 
-## 升级后检查
+## Check after upgrade
 
-建议升级后至少确认以下内容：
+It is recommended to confirm at least the following after upgrading:
 
-1. 能正常打开登录页。
-2. 原有账号、分组、标签、设置仍然存在。
-3. 原有扁平分组仍显示为一级分组；新建子分组、选中父分组查看子分组账号均正常。
-4. 至少抽查一个 Outlook 账号和一个 IMAP 账号可正常取信。
-5. 如启用了对外 API，抽查一次 `/api/external/emails`。
-6. 如启用了自动转发或定时刷新，检查任务是否仍正常运行。
+1. The login page can be opened normally.
+2. The original accounts, groups, labels, and settings still exist.
+3. The original flat group is still displayed as a first-level group; creating a new sub-group and selecting the parent group to view the sub-group account are all normal.
+4. Randomly check at least one Outlook account and one IMAP account to ensure normal access.
+5. If the external API is enabled, check `/api/external/emails` once.
+6. If automatic forwarding or scheduled refresh is enabled, check whether the task is still running normally.
 
-## 推荐升级策略
+## Recommended upgrade strategy
 
-### 生产环境
+### Production environment
 
-- 优先使用 `vX.Y.Z` 明确版本标签
-- 先在测试环境验证，再升级正式环境
-- 升级前先备份数据库
+- Prioritize the use of `vX.Y.Z` clear version tags
+- Verify in the test environment first, and then upgrade to the official environment
+- Back up the database before upgrading
 
-### 测试或个人环境
+### Test or personal environment
 
-- 可以直接使用 `latest`
-- 如果追踪开发版本，可使用 `dev`
+- You can use `latest` directly
+- If you want to track the development version, you can use `dev`
 
-## 回滚思路
+## Rollback ideas
 
-如果升级后发现问题，可以按原部署方式回滚：
+If problems are found after the upgrade, you can roll back according to the original deployment method:
 
-### Docker 回滚
+### Docker rollback
 
 ```bash
 docker pull ghcr.io/assast/outlookemail:v2.0.13
@@ -113,32 +113,32 @@ docker compose down
 docker compose up -d
 ```
 
-### Windows 回滚
+### Windows rollback
 
-- 换回旧版本 `exe`
-- 保留原数据目录不变
+- Switch back to the old version `exe`
+- Keep the original data directory unchanged
 
-### Python 回滚
+### Python rollback
 
 ```bash
-git checkout <旧版本对应提交或标签>
+git checkout <Old version corresponding commit or tag>
 pip install -r requirements.txt
 python web_outlook_app.py
 ```
 
-如果升级过程中数据库结构发生变化，回滚前应先确认旧版本是否兼容当前数据库。
+If the database structure changes during the upgrade process, you should first confirm whether the old version is compatible with the current database before rolling back.
 
-## 常见问题
+## FAQ
 
-### 升级后登录失效或敏感数据异常
+### Login failure or sensitive data abnormality after upgrade
 
-优先检查是否改动了 `SECRET_KEY`。这是最常见原因。
+Prioritize checking whether `SECRET_KEY` has been changed. This is the most common reason.
 
-### 升级后 `latest` 和 Release 版本不一致
+### `latest` and Release version are inconsistent after upgrade
 
-这是正常的：
+This is normal:
 
-- `latest` 通常对应默认分支最近一次符合条件的构建
-- `vX.Y.Z` 对应正式发版时生成的版本镜像
+- `latest` usually corresponds to the latest qualifying build of the default branch
+- `vX.Y.Z` corresponds to the version image generated when the official version is released
 
-正式环境建议固定到明确版本号。
+For the official environment, it is recommended to fix it to a clear version number.

@@ -1,8 +1,8 @@
         /* global accountsCache, currentGroupId, escapeHtml, groups, handleApiError, hideModal, invalidateAccountCaches, invalidateRefreshTokenPreview, isTempEmailGroup, loadAccountsByGroup, loadGroups, loadRefreshStatusList, oauthPreviewAccount, refreshVisibleAccountList, renderRefreshTokenPreview, setModalVisible, showModal, showToast, updateGroupSelects */
 
-        // ==================== 工具函数 ====================
+        // ==================== Utility functions ====================
 
-        // 格式化日期
+        // Format date
         function formatDate(dateStr) {
             if (!dateStr) return '';
             try {
@@ -26,7 +26,7 @@
                 const isToday = dateKeyFormatter.format(date) === dateKeyFormatter.format(now);
 
                 if (isToday) {
-                    return I18n.t('今天 ') + date.toLocaleTimeString(I18n.language, {
+                    return I18n.t("Today ") + date.toLocaleTimeString(I18n.language, {
                         timeZone,
                         hour: '2-digit',
                         minute: '2-digit'
@@ -48,7 +48,7 @@
             }
         }
 
-        // ==================== OAuth Refresh Token 相关 ====================
+        // ==================== OAuth Refresh Token related ====================
 
         let oauthReauthorizeAccount = null;
 
@@ -75,21 +75,21 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             const saveBtn = document.getElementById('saveTokenAccountBtn');
 
-            if (titleEl) titleEl.textContent = reauthMode ? I18n.t('🔑 重新授权 Outlook 账号') : I18n.t('🔑 授权并保存 Outlook 账号');
-            if (sectionTitleEl) sectionTitleEl.textContent = reauthMode ? I18n.t('当前账号') : I18n.t('待入库账号');
+            if (titleEl) titleEl.textContent = reauthMode ? I18n.t("🔑 Reauthorize Outlook account") : I18n.t("🔑 Authorize and save Outlook account");
+            if (sectionTitleEl) sectionTitleEl.textContent = reauthMode ? I18n.t("Current account") : I18n.t("Account to be added to the database");
             if (sectionHintEl) {
                 sectionHintEl.textContent = reauthMode
-                    ? I18n.t('请确认当前账号邮箱，并粘贴授权后的回调 URL。系统会保存新授权并自动执行一次 Token 刷新验证。')
-                    : I18n.t('换取并预览只需要粘贴授权后的回调 URL。邮箱、密码和目标分组仅在保存账号时使用，可稍后补充。');
+                    ? I18n.t("Please confirm the current account email and paste the authorized callback URL. The system will save the new authorization and automatically perform a Token refresh verification.")
+                    : I18n.t("To exchange and preview, just paste the authorized callback URL. Email, password and target group are only used when saving the account and can be added later.");
             }
-            if (emailLabelEl) emailLabelEl.textContent = reauthMode ? I18n.t('当前邮箱账号') : I18n.t('邮箱账号（保存时可选）');
+            if (emailLabelEl) emailLabelEl.textContent = reauthMode ? I18n.t("Current email account") : I18n.t("Email account (optional when saving)");
             if (emailInput) {
                 emailInput.readOnly = reauthMode;
                 emailInput.value = reauthMode ? (oauthReauthorizeAccount.email || '') : '';
                 if (reauthMode) {
                     emailInput.style.cursor = 'pointer';
-                    emailInput.title = I18n.t('点击复制');
-                    emailInput.onclick = function () { copyOauthField('oauthEmailInput', I18n.t('邮箱已复制')); };
+                    emailInput.title = I18n.t("Click to copy");
+                    emailInput.onclick = function () { copyOauthField('oauthEmailInput', I18n.t("Email address copied")); };
                 } else {
                     emailInput.style.cursor = '';
                     emailInput.title = '';
@@ -97,13 +97,13 @@
                 }
             }
 
-            // 密码字段：重新授权模式下用掩码+小眼睛控制，支持点击复制
-            if (passwordLabelEl) passwordLabelEl.textContent = reauthMode ? I18n.t('密码') : I18n.t('密码（保存时可选）');
+            // Password field: Use mask + small eye control in re-authorization mode, support click to copy
+            if (passwordLabelEl) passwordLabelEl.textContent = reauthMode ? I18n.t("Password") : I18n.t("Password (optional when saving)");
             const revealOauthPasswordBtn = document.getElementById('revealOauthPasswordBtn');
             if (passwordInput) {
                 passwordInput.type = 'text';
                 passwordInput.readOnly = reauthMode;
-                passwordInput.placeholder = reauthMode ? '' : I18n.t('输入邮箱密码');
+                passwordInput.placeholder = reauthMode ? '' : I18n.t("Enter email password");
                 if (reauthMode) {
                     const pw = oauthReauthorizeAccount.password || '';
                     const mask = '*'.repeat(Math.max(6, pw.length));
@@ -111,8 +111,8 @@
                     passwordInput.dataset.secretValue = pw;
                     passwordInput.dataset.secretRevealed = 'false';
                     passwordInput.style.cursor = 'pointer';
-                    passwordInput.title = I18n.t('点击复制');
-                    passwordInput.onclick = function () { copyOauthField('oauthPasswordInput', I18n.t('密码已复制')); };
+                    passwordInput.title = I18n.t("Click to copy");
+                    passwordInput.onclick = function () { copyOauthField('oauthPasswordInput', I18n.t("Password copied")); };
                 } else {
                     passwordInput.value = '';
                     passwordInput.type = 'password';
@@ -126,8 +126,8 @@
             if (revealOauthPasswordBtn) {
                 revealOauthPasswordBtn.style.display = reauthMode ? '' : 'none';
                 revealOauthPasswordBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-                revealOauthPasswordBtn.title = I18n.t('显示密码');
-                revealOauthPasswordBtn.setAttribute('aria-label', I18n.t('显示密码'));
+                revealOauthPasswordBtn.title = I18n.t("Show password");
+                revealOauthPasswordBtn.setAttribute('aria-label', I18n.t("Show password"));
             }
             setOAuthElementDisplay('copyOauthEmailBtn', reauthMode);
 
@@ -138,12 +138,12 @@
 
             if (exchangeBtn) {
                 exchangeBtn.disabled = false;
-                exchangeBtn.textContent = I18n.t('换取并预览');
+                exchangeBtn.textContent = I18n.t("Exchange and preview");
                 exchangeBtn.style.display = reauthMode ? 'none' : '';
             }
             if (saveBtn) {
                 saveBtn.disabled = false;
-                saveBtn.textContent = reauthMode ? I18n.t('更新授权并刷新') : I18n.t('直接保存（自动换取）');
+                saveBtn.textContent = reauthMode ? I18n.t("Update authorization and refresh") : I18n.t("Save directly (automatic exchange)");
             }
         }
 
@@ -152,7 +152,7 @@
             if (!input) return;
             const text = input.dataset.secretValue || input.value || '';
             if (!text) {
-                showToast(I18n.t('内容为空，无法复制'), 'error');
+                showToast(I18n.t("The content is empty and cannot be copied."), 'error');
                 return;
             }
             if (typeof copyTextToClipboard === 'function') {
@@ -176,14 +176,14 @@
             if (isRevealed) {
                 input.value = mask;
                 input.dataset.secretRevealed = 'false';
-                button.title = I18n.t('显示密码');
-                button.setAttribute('aria-label', I18n.t('显示密码'));
+                button.title = I18n.t("Show password");
+                button.setAttribute('aria-label', I18n.t("Show password"));
                 button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
             } else {
                 input.value = secretValue;
                 input.dataset.secretRevealed = 'true';
-                button.title = I18n.t('隐藏密码');
-                button.setAttribute('aria-label', I18n.t('隐藏密码'));
+                button.title = I18n.t("Hide password");
+                button.setAttribute('aria-label', I18n.t("Hide password"));
                 button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.5 5.5A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a17.6 17.6 0 0 1-2.1 3"></path><path d="M6.5 6.5C3.8 8.3 2.5 12 2.5 12s3.5 7 9.5 7a10 10 0 0 0 4.5-1.1"></path></svg>';
             }
         }
@@ -224,7 +224,7 @@
             }
         }
 
-        // 显示获取 Refresh Token 模态框
+        // Display the modal box for obtaining Refresh Token
         async function showGetRefreshTokenModal(options = {}) {
             const reauthorizeAccount = options.reauthorizeAccount || null;
             oauthReauthorizeAccount = reauthorizeAccount && reauthorizeAccount.id
@@ -237,7 +237,7 @@
 
             showModal('getRefreshTokenModal');
 
-            // 重置表单
+            // Reset form
             document.getElementById('oauthEmailInput').value = oauthReauthorizeAccount?.email || '';
             document.getElementById('oauthPasswordInput').value = '';
             document.getElementById('redirectUrlInput').value = '';
@@ -245,14 +245,14 @@
             invalidateRefreshTokenPreview();
             applyOAuthModalModeUI();
 
-            // 重置按钮状态
+            // Reset button state
             const btn = document.getElementById('exchangeTokenBtn');
             btn.disabled = false;
             const saveBtn = document.getElementById('saveTokenAccountBtn');
 
             const groupSelect = document.getElementById('tokenSaveGroupSelect');
             if (groupSelect && !isOAuthReauthorizeMode()) {
-                const nonTempGroups = groups.filter(group => group.name !== '临时邮箱');
+                const nonTempGroups = groups.filter(group => group.name !== "\u4e34\u65f6\u90ae\u7bb1");
                 const fallbackGroupId = (!isTempEmailGroup && currentGroupId && nonTempGroups.find(group => group.id === currentGroupId))
                     ? currentGroupId
                     : (nonTempGroups[0]?.id || '');
@@ -261,7 +261,7 @@
                 }
             }
 
-            // 获取授权 URL
+            // Get authorization URL
             try {
                 const response = await fetch('/api/oauth/auth-url');
                 const data = await response.json();
@@ -269,14 +269,14 @@
                 if (data.success) {
                     document.getElementById('authUrlInput').value = data.auth_url;
                 } else {
-                    showToast(I18n.t('获取授权链接失败'), 'error');
+                    showToast(I18n.t("Failed to obtain authorization link"), 'error');
                 }
             } catch (error) {
-                showToast(I18n.t('获取授权链接失败'), 'error');
+                showToast(I18n.t("Failed to obtain authorization link"), 'error');
             }
         }
 
-        // 隐藏获取 Refresh Token 模态框
+        // Hide the Get Refresh Token modal box
         function hideGetRefreshTokenModal() {
             oauthReauthorizeAccount = null;
             hideModal('getRefreshTokenModal');
@@ -289,7 +289,7 @@
                 : { id: account, email: arguments.length > 1 ? arguments[1] : '' };
             const accountId = Number(normalizedAccount.id || 0);
             if (!Number.isFinite(accountId) || accountId <= 0) {
-                showToast(I18n.t('账号信息无效，无法重新授权'), 'error');
+                showToast(I18n.t("The account information is invalid and cannot be reauthorized."), 'error');
                 return;
             }
 
@@ -305,7 +305,7 @@
                         }
                     }
                 } catch (e) {
-                    // 获取密码失败时继续，密码字段将为空
+                    // Continue if getting password failed, password field will be empty
                 }
             }
 
@@ -326,24 +326,24 @@
             showReauthorizeAccountModal({ id: accountId, email: accountEmail, password: accountPassword });
         }
 
-        // 复制授权 URL
+        // Copy the authorization URL
         function copyAuthUrl() {
             const input = document.getElementById('authUrlInput');
             input.select();
             document.execCommand('copy');
-            showToast(I18n.t('授权链接已复制到剪贴板'), 'success');
+            showToast(I18n.t("Authorization link copied to clipboard"), 'success');
         }
 
-        // 打开授权 URL
+        // Open the authorization URL
         function openAuthUrl() {
             const url = document.getElementById('authUrlInput').value;
             if (url) {
                 window.open(url, '_blank');
-                showToast(I18n.t('已在新窗口打开授权页面'), 'info');
+                showToast(I18n.t("The authorization page has been opened in a new window"), 'info');
             }
         }
 
-        // 换取 Token
+        // Exchange for Token
         async function exchangeToken(options = {}) {
             if (isOAuthReauthorizeMode()) {
                 return reauthorizeExistingAccount();
@@ -357,7 +357,7 @@
             const forwardEnabled = !!document.getElementById('oauthForwardEnabled')?.checked;
 
             if (!redirectUrl) {
-                showToast(I18n.t('请先粘贴授权后的完整 URL'), 'error');
+                showToast(I18n.t("Please paste the complete authorized URL first"), 'error');
                 return;
             }
 
@@ -367,7 +367,7 @@
             if (!keepSavingState && saveBtn) {
                 saveBtn.disabled = true;
             }
-            btn.textContent = I18n.t('⏳ 预览中...');
+            btn.textContent = I18n.t("⏳ Previewing...");
 
             try {
                 const response = await fetch('/api/oauth/exchange-token', {
@@ -394,32 +394,32 @@
                     renderRefreshTokenPreview();
 
                     if (!silentSuccess) {
-                        showToast(I18n.t('✅ Refresh Token 获取成功！'), 'success');
+                        showToast(I18n.t("✅ Refresh Token obtained successfully!"), 'success');
                     }
 
-                    // 重置按钮状态（不隐藏，允许重复使用）
+                    // Reset button state (not hidden, allowed to be reused)
                     btn.disabled = false;
                     if (!keepSavingState && saveBtn) {
                         saveBtn.disabled = false;
                     }
-                    btn.textContent = I18n.t('换取并预览');
+                    btn.textContent = I18n.t("Exchange and preview");
                     return true;
                 } else {
-                    handleApiError(data, I18n.t('换取 Token 失败'));
+                    handleApiError(data, I18n.t("Failed to exchange for Token"));
                     btn.disabled = false;
                     if (!keepSavingState && saveBtn) {
                         saveBtn.disabled = false;
                     }
-                    btn.textContent = I18n.t('换取并预览');
+                    btn.textContent = I18n.t("Exchange and preview");
                     return false;
                 }
             } catch (error) {
-                showToast(I18n.t('换取 Token 失败: ') + error.message, 'error');
+                showToast(I18n.t("Failed to exchange for Token: ") + error.message, 'error');
                 btn.disabled = false;
                 if (!keepSavingState && saveBtn) {
                     saveBtn.disabled = false;
                 }
-                btn.textContent = I18n.t('换取并预览');
+                btn.textContent = I18n.t("Exchange and preview");
                 return false;
             }
         }
@@ -447,11 +447,11 @@
             const accountId = Number(oauthReauthorizeAccount?.id || 0);
             const redirectUrl = document.getElementById('redirectUrlInput').value.trim();
             if (!Number.isFinite(accountId) || accountId <= 0) {
-                showToast(I18n.t('账号信息无效，无法重新授权'), 'error');
+                showToast(I18n.t("The account information is invalid and cannot be reauthorized."), 'error');
                 return false;
             }
             if (!redirectUrl) {
-                showToast(I18n.t('请先粘贴授权后的完整 URL'), 'error');
+                showToast(I18n.t("Please paste the complete authorized URL first"), 'error');
                 return false;
             }
 
@@ -459,7 +459,7 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             if (saveBtn) {
                 saveBtn.disabled = true;
-                saveBtn.textContent = I18n.t('更新并刷新中...');
+                saveBtn.textContent = I18n.t("Updating and refreshing...");
             }
             if (exchangeBtn) {
                 exchangeBtn.disabled = true;
@@ -473,7 +473,7 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, I18n.t('重新授权失败'));
+                    handleApiError(data, I18n.t("Reauthorization failed"));
                     return false;
                 }
 
@@ -482,18 +482,18 @@
 
                 const validation = data.validation || {};
                 if (validation.success) {
-                    showToast(data.message || I18n.t('重新授权成功，Token 刷新验证通过'), 'success');
+                    showToast(data.message || I18n.t("Re-authorization is successful, Token refresh verification passed"), 'success');
                 } else {
-                    showToast(data.message || I18n.t('重新授权已保存，但自动刷新验证失败'), 'error', validation.error);
+                    showToast(data.message || I18n.t("Reauthorization saved, but auto-refresh verification failed"), 'error', validation.error);
                 }
                 return true;
             } catch (error) {
-                showToast(I18n.t('重新授权失败: ') + error.message, 'error');
+                showToast(I18n.t("Reauthorization failed: ") + error.message, 'error');
                 return false;
             } finally {
                 if (saveBtn) {
                     saveBtn.disabled = false;
-                    saveBtn.textContent = isOAuthReauthorizeMode() ? I18n.t('更新授权并刷新') : I18n.t('直接保存（自动换取）');
+                    saveBtn.textContent = isOAuthReauthorizeMode() ? I18n.t("Update authorization and refresh") : I18n.t("Save directly (automatic exchange)");
                 }
                 if (exchangeBtn) {
                     exchangeBtn.disabled = false;
@@ -514,12 +514,12 @@
             }
 
             if (!oauthPreviewAccount.email || !oauthPreviewAccount.password) {
-                showToast(I18n.t('保存账号前请先填写邮箱账号和密码'), 'error');
+                showToast(I18n.t("Please fill in your email account and password before saving your account"), 'error');
                 return;
             }
 
             if (!oauthPreviewAccount.group_id) {
-                showToast(I18n.t('保存账号前请选择目标分组'), 'error');
+                showToast(I18n.t("Please select the target group before saving the account"), 'error');
                 return;
             }
 
@@ -527,7 +527,7 @@
             const exchangeBtn = document.getElementById('exchangeTokenBtn');
             saveBtn.disabled = true;
             exchangeBtn.disabled = true;
-            saveBtn.textContent = I18n.t('保存中...');
+            saveBtn.textContent = I18n.t("Saving...");
 
             try {
                 const accountString = [
@@ -550,18 +550,18 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || I18n.t('账号已保存'), 'success');
+                    showToast(data.message || I18n.t("Account has been saved"), 'success');
                     currentGroupId = oauthPreviewAccount.group_id;
                     await reloadAuthorizationAffectedViews();
                     hideGetRefreshTokenModal();
                 } else {
-                    handleApiError(data, I18n.t('保存账号失败'));
+                    handleApiError(data, I18n.t("Failed to save account"));
                 }
             } catch (error) {
-                showToast(I18n.t('保存账号失败'), 'error');
+                showToast(I18n.t("Failed to save account"), 'error');
             } finally {
                 exchangeBtn.disabled = false;
                 saveBtn.disabled = false;
-                saveBtn.textContent = I18n.t('直接保存（自动换取）');
+                saveBtn.textContent = I18n.t("Save directly (automatic exchange)");
             }
         }

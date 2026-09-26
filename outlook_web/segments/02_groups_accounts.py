@@ -10,16 +10,16 @@ if TYPE_CHECKING:
 
 
 def get_cloudflare_admin_password() -> str:
-    """获取 Cloudflare Temp Email 管理密码"""
+    'Get Cloudflare Temp Email Admin Password'
     password = get_setting('cloudflare_admin_password')
     return password if password is not None else CLOUDFLARE_ADMIN_PASSWORD
 
 
-# ==================== 分组操作 ====================
+# ==================== Grouping operations ====================
 
 MAX_GROUP_LEVEL = 3
 DEFAULT_GROUP_ID = 1
-TEMP_GROUP_NAME = '临时邮箱'
+TEMP_GROUP_NAME = '\u4e34\u65f6\u90ae\u7bb1'
 _UNSET_PARENT = object()
 
 
@@ -29,7 +29,7 @@ def normalize_group_parent_id(parent_id: Any) -> Optional[int]:
     try:
         value = int(parent_id)
     except (TypeError, ValueError):
-        raise ValueError('父分组无效')
+        raise ValueError('Parent group is invalid')
     return value if value > 0 else None
 
 
@@ -52,17 +52,9 @@ def group_has_proxy_config(group_row: Optional[Dict[str, Any]]) -> bool:
 
 
 def load_groups() -> List[Dict]:
-    """加载所有分组（临时邮箱分组排在最前面）。"""
+    'Load all groups (temporary mailbox groups first).'
     db = get_db()
-    cursor = db.execute('''
-        SELECT * FROM groups
-        ORDER BY
-            CASE WHEN name = '临时邮箱' THEN 0 ELSE 1 END,
-            level,
-            CASE WHEN parent_id IS NULL THEN 0 ELSE parent_id END,
-            sort_order,
-            id
-    ''')
+    cursor = db.execute("\n        SELECT * FROM groups\n        ORDER BY\n            CASE WHEN name = '\u4e34\u65f6\u90ae\u7bb1' THEN 0 ELSE 1 END,\n            level,\n            CASE WHEN parent_id IS NULL THEN 0 ELSE parent_id END,\n            sort_order,\n            id\n    ")
     groups = [dict(row) for row in cursor.fetchall()]
     for group in groups:
         group['descendant_account_count'] = get_group_account_count(group['id'], recursive=True)
@@ -70,7 +62,7 @@ def load_groups() -> List[Dict]:
 
 
 def get_group_by_id(group_id: int, db=None) -> Optional[Dict]:
-    """根据 ID 获取分组"""
+    'Get grouping based on ID'
     database = db or get_db()
     cursor = database.execute('SELECT * FROM groups WHERE id = ?', (group_id,))
     row = cursor.fetchone()
@@ -78,17 +70,10 @@ def get_group_by_id(group_id: int, db=None) -> Optional[Dict]:
 
 
 def get_child_groups(parent_id: Optional[int], db=None) -> List[Dict]:
-    """获取指定父分组下的直接子分组。"""
+    'Get the direct child groups under the specified parent group.'
     database = db or get_db()
     if parent_id is None:
-        rows = database.execute('''
-            SELECT * FROM groups
-            WHERE parent_id IS NULL
-            ORDER BY
-                CASE WHEN name = '临时邮箱' THEN 0 ELSE 1 END,
-                sort_order,
-                id
-        ''').fetchall()
+        rows = database.execute("\n            SELECT * FROM groups\n            WHERE parent_id IS NULL\n            ORDER BY\n                CASE WHEN name = '\u4e34\u65f6\u90ae\u7bb1' THEN 0 ELSE 1 END,\n                sort_order,\n                id\n        ").fetchall()
     else:
         rows = database.execute('''
             SELECT * FROM groups
@@ -99,7 +84,7 @@ def get_child_groups(parent_id: Optional[int], db=None) -> List[Dict]:
 
 
 def get_descendant_group_ids(group_id: int, db=None) -> List[int]:
-    """返回分组自身及所有后代分组 ID，顺序为深度优先。"""
+    'Returns the group ID itself and all descendant group IDs, in depth-first order.'
     database = db or get_db()
     root = database.execute('SELECT id FROM groups WHERE id = ?', (group_id,)).fetchone()
     if not root:
@@ -122,7 +107,7 @@ def get_descendant_group_ids(group_id: int, db=None) -> List[int]:
 
 
 def get_max_subtree_depth(group_id: int, db=None) -> int:
-    """计算从当前分组开始的最大子树深度；叶子分组为 1。"""
+    'Calculates the maximum subtree depth starting from the current group; 1 for leaf groups.'
     database = db or get_db()
     if not database.execute('SELECT id FROM groups WHERE id = ?', (group_id,)).fetchone():
         return 0
@@ -134,49 +119,49 @@ def get_max_subtree_depth(group_id: int, db=None) -> int:
 
 
 def validate_group_parent_for_create(parent_id: Optional[int], db=None) -> tuple[bool, str, int]:
-    """校验新分组父级并返回将要写入的 level。"""
+    'Verify the new group parent and return the level to be written.'
     database = db or get_db()
     if parent_id is None:
         return True, '', 1
 
     parent = database.execute('SELECT * FROM groups WHERE id = ?', (parent_id,)).fetchone()
     if not parent:
-        return False, '父分组不存在', 1
+        return False, 'Parent group does not exist', 1
     parent_dict = dict(parent)
     if is_temp_group_row(parent_dict):
-        return False, '临时邮箱分组不可作为父分组', 1
+        return False, 'Temporary mailbox group cannot be used as parent group', 1
 
     parent_level = int(parent_dict.get('level') or 1)
     if parent_level >= MAX_GROUP_LEVEL:
-        return False, '已达到最大层级深度', parent_level + 1
+        return False, 'Maximum level depth reached', parent_level + 1
     return True, '', parent_level + 1
 
 
 def validate_group_move(group_id: int, target_parent_id: Optional[int], db=None) -> tuple[bool, str]:
-    """校验移动后层级深度不超过 3，并避免循环引用。"""
+    'Verify that the level depth after the move does not exceed 3 and avoid circular references.'
     database = db or get_db()
     group = database.execute('SELECT * FROM groups WHERE id = ?', (group_id,)).fetchone()
     if not group:
-        return False, '分组不存在'
+        return False, 'Group does not exist'
     group_dict = dict(group)
     try:
         current_parent_id = normalize_group_parent_id(group_dict.get('parent_id'))
     except ValueError:
         current_parent_id = None
-    # 父级未变视为未移动：允许编辑名称/代理等字段（编辑弹窗总会提交 parent_id）
+    # If the parent has not changed, it is considered to have not been moved: editing of fields such as name/agent is allowed (the editing pop-up window will always submit parent_id)
     if current_parent_id == target_parent_id:
         return True, ''
     if is_default_group_row(group_dict):
-        return False, '默认分组不可移动'
+        return False, 'The default group cannot be moved'
     if is_temp_group_row(group_dict):
-        return False, '临时邮箱分组不可移动'
+        return False, 'Temporary mailbox groups cannot be moved'
 
     if target_parent_id == group_id:
-        return False, '不能将分组移动到自身下'
+        return False, 'Cannot move groups under itself'
 
     descendant_ids = get_descendant_group_ids(group_id, database)
     if target_parent_id is not None and target_parent_id in descendant_ids:
-        return False, '不能将分组移动到自身或子分组下'
+        return False, 'Groups cannot be moved to themselves or subgroups'
 
     valid_parent, parent_error, target_level = validate_group_parent_for_create(target_parent_id, database)
     if not valid_parent:
@@ -184,12 +169,12 @@ def validate_group_move(group_id: int, target_parent_id: Optional[int], db=None)
 
     subtree_depth = get_max_subtree_depth(group_id, database)
     if target_level + subtree_depth - 1 > MAX_GROUP_LEVEL:
-        return False, '移动后层级深度将超过 3 级'
+        return False, 'After the move, the level depth will exceed 3 levels'
     return True, ''
 
 
 def rebuild_group_levels(group_id: int, db=None) -> None:
-    """从指定分组开始，按 parent_id 级联修正子树 level。"""
+    'Starting from the specified group, cascade the subtree level by parent_id.'
     database = db or get_db()
     row = database.execute('SELECT id, parent_id, level FROM groups WHERE id = ?', (group_id,)).fetchone()
     if not row:
@@ -211,7 +196,7 @@ def rebuild_group_levels(group_id: int, db=None) -> None:
 
 def get_movable_group_ids(db=None, exclude_group_id: Optional[int] = None,
                           parent_id: Optional[int] = None) -> List[int]:
-    """获取同一父级下可排序分组 ID 列表（不含临时邮箱）。"""
+    'Get the sortable group ID list under the same parent (excluding temporary mailboxes).'
     database = db or get_db()
     query = '''
         SELECT id FROM groups
@@ -234,7 +219,7 @@ def get_movable_group_ids(db=None, exclude_group_id: Optional[int] = None,
 
 
 def apply_group_order(group_ids: List[int], db=None, parent_id: Optional[int] = None) -> None:
-    """按给定顺序写入同一父级下的分组排序。"""
+    'Writes a grouped sort under the same parent in the given order.'
     database = db or get_db()
     for index, group_id in enumerate(group_ids, start=1):
         database.execute('UPDATE groups SET sort_order = ? WHERE id = ?', (index, group_id))
@@ -249,7 +234,7 @@ def apply_group_order(group_ids: List[int], db=None, parent_id: Optional[int] = 
 
 
 def normalize_group_order(db=None) -> None:
-    """归一化所有父级下的分组顺序。"""
+    'Normalize grouping order under all parents.'
     database = db or get_db()
     parent_rows = database.execute('SELECT DISTINCT parent_id FROM groups').fetchall()
     for row in parent_rows:
@@ -258,7 +243,7 @@ def normalize_group_order(db=None) -> None:
 
 
 def clamp_group_position(sort_position: Optional[int], max_position: int) -> int:
-    """限制分组位置范围，位置从 1 开始"""
+    'Limit the grouping position range, starting from 1'
     if max_position <= 0:
         return 1
     if sort_position is None:
@@ -267,7 +252,7 @@ def clamp_group_position(sort_position: Optional[int], max_position: int) -> int
 
 
 def get_group_sort_position(group_id: int, db=None) -> Optional[int]:
-    """获取分组在同父级可排序列表中的位置（从 1 开始）。"""
+    'Gets the position of the group in the sortable list of the same parent (starting from 1).'
     database = db or get_db()
     group = database.execute('SELECT parent_id FROM groups WHERE id = ?', (group_id,)).fetchone()
     if not group:
@@ -281,7 +266,7 @@ def get_group_sort_position(group_id: int, db=None) -> Optional[int]:
 
 def set_group_position(group_id: int, sort_position: Optional[int], db=None,
                        parent_id: Any = _UNSET_PARENT) -> bool:
-    """设置分组在同父级可排序列表中的位置。"""
+    'Set the position of the group in the sortable list of the same parent.'
     database = db or get_db()
     group = database.execute('SELECT id, name, is_system, parent_id FROM groups WHERE id = ?', (group_id,)).fetchone()
     if not group:
@@ -303,7 +288,7 @@ def add_group(name: str, description: str = '', color: str = '#1a1a1a',
               proxy_url: str = '', fallback_proxy_url_1: str = '',
               fallback_proxy_url_2: str = '', sort_position: Optional[int] = None,
               parent_id: Optional[int] = None) -> Optional[int]:
-    """添加分组"""
+    'Add group'
     db = get_db()
     try:
         normalized_parent_id = normalize_group_parent_id(parent_id)
@@ -337,7 +322,7 @@ def update_group(group_id: int, name: str, description: str, color: str,
                  proxy_url: str = '', fallback_proxy_url_1: str = '',
                  fallback_proxy_url_2: str = '', sort_position: Optional[int] = None,
                  parent_id: Any = _UNSET_PARENT) -> bool:
-    """更新分组"""
+    'Update group'
     db = get_db()
     try:
         current = db.execute('SELECT * FROM groups WHERE id = ?', (group_id,)).fetchone()
@@ -371,28 +356,28 @@ def update_group(group_id: int, name: str, description: str, color: str,
 
 
 def delete_group(group_id: int) -> bool:
-    """删除分组（将该分组下的邮箱移到默认分组）"""
+    'Delete the group (move the mailbox under this group to the default group)'
     return delete_group_tree(group_id).get('success', False)
 
 
 def delete_group_tree(group_id: int) -> Dict[str, Any]:
-    """级联删除分组及后代，并将相关账号移回默认分组。"""
+    'Cascade delete groups and descendants, and move related accounts back to the default group.'
     db = get_db()
     try:
         group = db.execute('SELECT * FROM groups WHERE id = ?', (group_id,)).fetchone()
         if not group:
-            return {'success': False, 'error': '分组不存在', 'deleted_child_count': 0}
+            return {'success': False, 'error': 'Group does not exist', 'deleted_child_count': 0}
         group_dict = dict(group)
         if group_id == DEFAULT_GROUP_ID:
-            return {'success': False, 'error': '默认分组不能删除', 'deleted_child_count': 0}
+            return {'success': False, 'error': 'The default group cannot be deleted', 'deleted_child_count': 0}
         if is_temp_group_row(group_dict):
-            return {'success': False, 'error': '临时邮箱分组不能删除', 'deleted_child_count': 0}
+            return {'success': False, 'error': 'Temporary mailbox groups cannot be deleted', 'deleted_child_count': 0}
 
         descendant_ids = get_descendant_group_ids(group_id, db)
         if not descendant_ids:
-            return {'success': False, 'error': '分组不存在', 'deleted_child_count': 0}
+            return {'success': False, 'error': 'Group does not exist', 'deleted_child_count': 0}
         if DEFAULT_GROUP_ID in descendant_ids:
-            return {'success': False, 'error': '默认分组不能删除', 'deleted_child_count': 0}
+            return {'success': False, 'error': 'The default group cannot be deleted', 'deleted_child_count': 0}
 
         placeholders = ','.join('?' * len(descendant_ids))
         db.execute(f'UPDATE accounts SET group_id = ? WHERE group_id IN ({placeholders})', [DEFAULT_GROUP_ID] + descendant_ids)
@@ -410,7 +395,7 @@ def delete_group_tree(group_id: int) -> Dict[str, Any]:
 
 
 def get_group_account_count(group_id: int, recursive: bool = False) -> int:
-    """获取分组下的邮箱数量；recursive=True 时包含所有后代分组。"""
+    'Get the number of mailboxes under the group; when recursive=True, all descendant groups are included.'
     db = get_db()
     group_ids = get_descendant_group_ids(group_id, db) if recursive else [group_id]
     if not group_ids:
@@ -422,7 +407,7 @@ def get_group_account_count(group_id: int, recursive: bool = False) -> int:
 
 
 def reorder_groups(group_ids: List[int], parent_id: Optional[int] = None) -> bool:
-    """重新排序同一父级下的分组，临时邮箱分组固定在根列表最前面。"""
+    'Reorder groups under the same parent, and the temporary mailbox group is fixed at the front of the root list.'
     db = get_db()
     try:
         normalized_parent_id = normalize_group_parent_id(parent_id)
@@ -438,7 +423,7 @@ def reorder_groups(group_ids: List[int], parent_id: Optional[int] = None) -> boo
         return False
 
 
-# ==================== 邮箱账号操作 ====================
+# ==================== Email account operation ====================
 
 def normalize_account_pagination(limit: Any = None, offset: Any = 0) -> tuple[Optional[int], int]:
     normalized_limit = None
@@ -688,7 +673,7 @@ def load_accounts(group_id: int = None, limit: Any = None, offset: Any = 0,
                   tag_ids: Any = None, include_untagged: bool = False,
                   include_descendants: bool = True,
                   exclude_tag_ids: Any = None) -> List[Dict]:
-    """从数据库加载邮箱账号"""
+    'Load email account from database'
     db = get_db()
     normalized_limit, normalized_offset = normalize_account_pagination(limit, offset)
     where_clause, params = build_account_where_clause(
@@ -816,10 +801,10 @@ def normalize_account_status(status: Any) -> str:
     return 'active'
 
 
-# ==================== 标签管理 ====================
+# ==================== Tag Management ====================
 
 def get_tags() -> List[Dict]:
-    """获取所有标签"""
+    'Get all tags'
     db = get_db()
     cursor = db.execute('SELECT * FROM tags ORDER BY created_at DESC')
     return [dict(row) for row in cursor.fetchall()]
@@ -842,7 +827,7 @@ def normalize_tag_ids_input(tag_ids: Any) -> List[int]:
 
 
 def add_tag(name: str, color: str) -> Optional[int]:
-    """添加标签"""
+    'Add tag'
     db = get_db()
     try:
         cursor = db.execute(
@@ -856,7 +841,7 @@ def add_tag(name: str, color: str) -> Optional[int]:
 
 
 def delete_tag(tag_id: int) -> bool:
-    """删除标签"""
+    'Delete tag'
     db = get_db()
     cursor = db.execute('DELETE FROM tags WHERE id = ?', (tag_id,))
     db.commit()
@@ -864,7 +849,7 @@ def delete_tag(tag_id: int) -> bool:
 
 
 def get_account_tags(account_id: int) -> List[Dict]:
-    """获取账号的标签"""
+    'Get the tag of the account'
     db = get_db()
     cursor = db.execute('''
         SELECT t.*
@@ -877,7 +862,7 @@ def get_account_tags(account_id: int) -> List[Dict]:
 
 
 def add_account_tag(account_id: int, tag_id: int) -> bool:
-    """给账号添加标签"""
+    'Add tags to accounts'
     db = get_db()
     try:
         db.execute(
@@ -891,7 +876,7 @@ def add_account_tag(account_id: int, tag_id: int) -> bool:
 
 
 def remove_account_tag(account_id: int, tag_id: int) -> bool:
-    """移除账号标签"""
+    'Remove account label'
     db = get_db()
     db.execute(
         'DELETE FROM account_tags WHERE account_id = ? AND tag_id = ?',
@@ -969,16 +954,16 @@ def validate_account_aliases(account_id: int, primary_email: str, aliases: List[
         seen.add(normalized)
 
         if normalized == primary_normalized:
-            errors.append(f'别名 {normalized} 不能与主邮箱相同')
+            errors.append(f'Alias {normalized} cannot be the same as the primary mailbox')
             continue
         if email_exists_as_primary(normalized, exclude_account_id=account_id):
-            errors.append(f'别名 {normalized} 已被其他主邮箱占用')
+            errors.append(f'Alias {normalized} is already occupied by another primary mailbox')
             continue
         if email_exists_as_alias(normalized, exclude_account_id=account_id):
-            errors.append(f'别名 {normalized} 已被其他账号使用')
+            errors.append(f'The alias {normalized} has been used by another account')
             continue
         if email_exists_as_temp(normalized):
-            errors.append(f'别名 {normalized} 与临时邮箱地址冲突')
+            errors.append(f'Alias {normalized} conflicts with temporary email address')
             continue
 
         cleaned.append(normalized)
@@ -1004,7 +989,7 @@ def replace_account_aliases(account_id: int, primary_email: str, aliases: List[s
             )
         return True, cleaned_aliases, []
     except sqlite3.IntegrityError:
-        return False, cleaned_aliases, ['别名保存失败，可能存在重复或冲突']
+        return False, cleaned_aliases, ['Alias saving failed, there may be duplication or conflict']
 
 
 def resolve_account_record(row: sqlite3.Row, matched_alias: str = '',
@@ -1037,7 +1022,7 @@ def resolve_account_record(row: sqlite3.Row, matched_alias: str = '',
 
 
 def get_account_authorization_type(account: Any) -> str:
-    """读取并归一化 Outlook OAuth 账号首选通道。"""
+    'Read and normalize Outlook OAuth account preferred channels.'
     if account is None:
         return ''
     if isinstance(account, dict):
@@ -1051,7 +1036,7 @@ def get_account_authorization_type(account: Any) -> str:
 
 
 def update_account_authorization_type(account_id: int, authorization_type: Any, db=None) -> bool:
-    """按账号 ID 更新授权通道；普通 IMAP 账号始终保持空值。"""
+    'Update the authorization channel by account ID; ordinary IMAP accounts always remain empty.'
     normalized = normalize_outlook_authorization_type(authorization_type, strict=True)
     database = db or get_db()
     row = database.execute(
@@ -1073,7 +1058,7 @@ def update_account_authorization_type(account_id: int, authorization_type: Any, 
 
 def record_account_authorization_type(account: Dict[str, Any], authorization_type: Any,
                                        db=None) -> bool:
-    """持久化并同步内存账号的实际成功通道。"""
+    'Persist and synchronize the actual success channel of the memory account.'
     account_id = int(account.get('id') or 0)
     if not account_id:
         return False
@@ -1119,7 +1104,7 @@ def build_plus_fallback_emails(email_addr: str) -> List[str]:
     if len(segments) <= 1:
         return []
 
-    # 从右往左逐级回退，优先保留更长的别名形式。
+    # Rewind step by step from right to left, giving priority to longer alias forms.
     fallbacks = []
     for size in range(len(segments) - 1, 0, -1):
         candidate = f"{'+'.join(segments[:size])}@{domain}"
@@ -1129,7 +1114,7 @@ def build_plus_fallback_emails(email_addr: str) -> List[str]:
 
 
 def build_email_query_candidates(email_addr: str, include_gmail_suffix: bool = True) -> List[str]:
-    """构建邮箱查询候选：完整地址、plus 回退、Gmail/Googlemail 后缀回退。"""
+    'Build email query candidates: complete address, plus fallback, Gmail/Googlemail suffix fallback.'
     normalized = normalize_email_address(email_addr)
     if not normalized or '@' not in normalized:
         return []
@@ -1171,7 +1156,7 @@ PROXY_MAIL_PLACEHOLDER = '{mail}'
 
 
 def build_proxy_mail_placeholder_value(email: Any) -> str:
-    """从邮箱生成 {mail} 替换值：local-part 仅保留字母数字并小写。"""
+    'Generate {mail} replacement value from mailbox: local-part only alphanumeric and lowercase.'
     raw = str(email or '').strip()
     if not raw:
         return ''
@@ -1180,7 +1165,7 @@ def build_proxy_mail_placeholder_value(email: Any) -> str:
 
 
 def expand_proxy_url_template(url: Any, email: Any = None) -> str:
-    """运行时展开代理 URL 中的 {mail}；无占位符或无邮箱时原样透传。"""
+    'Expand {mail} in the proxy URL at runtime; if there is no placeholder or no mailbox, it will be passed through as it is.'
     value = str(url or '').strip()
     if not value or PROXY_MAIL_PLACEHOLDER not in value:
         return value
@@ -1200,7 +1185,7 @@ def expand_proxy_config(proxy_config: Optional[Dict[str, str]], email: Any = Non
 
 
 def get_account_proxy_url(account: Optional[Dict[str, Any]], db=None) -> str:
-    """出站用主代理（含分组继承与 {mail} 展开）。"""
+    'Main proxy for outbound use (including group inheritance and {mail} expansion).'
     proxy_config = get_account_resolved_proxy_config(account, db=db)
     return proxy_config.get('proxy_url', '') or ''
 
@@ -1229,7 +1214,7 @@ def account_has_proxy_override(account: Optional[Dict[str, Any]]) -> bool:
 
 
 def get_account_proxy_config(account: Optional[Dict[str, Any]], db=None) -> Dict[str, str]:
-    """存储/编辑用代理配置（不展开 {mail}）。"""
+    'Store/edit proxy configuration (without expanding {mail}).'
     if account_has_proxy_override(account):
         return get_account_override_proxy_config(account)
     if not account or not account.get('group_id'):
@@ -1241,13 +1226,13 @@ def get_account_proxy_config(account: Optional[Dict[str, Any]], db=None) -> Dict
 
 
 def get_account_resolved_proxy_config(account: Optional[Dict[str, Any]], db=None) -> Dict[str, str]:
-    """出站网络用代理：继承解析后再展开 {mail}。"""
+    'Proxy for outbound network: Inherit the parsing and then expand {mail}.'
     email = account.get('email') if account else None
     return expand_proxy_config(get_account_proxy_config(account, db=db), email)
 
 
 def get_upload_account_resolved_proxy_config(upload_row: Any, db=None) -> Dict[str, str]:
-    """上传账号自动授权用代理：自身 proxy_url 优先，否则分组继承，再展开 {mail}。"""
+    'Upload account automatic authorization proxy: own proxy_url takes priority, otherwise group inheritance, then expand {mail}.'
     if not upload_row:
         return get_empty_proxy_config()
     row = dict(upload_row) if hasattr(upload_row, 'keys') else dict(upload_row or {})
@@ -1302,7 +1287,7 @@ def get_group_direct_proxy_config(group_row: Optional[Dict[str, Any]]) -> Dict[s
 
 
 def get_account_proxy_failover_urls(account: Optional[Dict[str, Any]], db=None) -> List[str]:
-    """出站用回退代理列表（含 {mail} 展开）。"""
+    'Outbound fallback proxy list (including {mail} expansion).'
     proxy_config = get_account_resolved_proxy_config(account, db=db)
     return [
         proxy_config.get('fallback_proxy_url_1', '') or '',
@@ -1327,12 +1312,12 @@ def get_group_proxy_url(group_row: Optional[Dict[str, Any]]) -> str:
 
 
 def get_account_by_email(email_addr: str) -> Optional[Dict]:
-    """根据邮箱地址获取账号"""
+    'Get account based on email address'
     return resolve_account_by_address(email_addr)
 
 
 def get_account_by_id(account_id: int) -> Optional[Dict]:
-    """根据 ID 获取账号"""
+    'Get account based on ID'
     db = get_db()
     cursor = db.execute('''
         SELECT a.*, g.name as group_name, g.color as group_color
@@ -1347,7 +1332,7 @@ def get_account_by_id(account_id: int) -> Optional[Dict]:
 
 
 def get_latest_account_refresh_log(account_id: int, db=None) -> Optional[Dict[str, Any]]:
-    """获取账号最近一次刷新结果"""
+    'Get the latest refresh result of the account'
     database = db or get_db()
     row = database.execute(
         '''
@@ -1395,7 +1380,7 @@ def resolve_account_refresh_state(account: Dict[str, Any],
 def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optional[Dict[str, Any]] = None,
                               include_client_meta: bool = True,
                               include_imap_meta: bool = True) -> Dict[str, Any]:
-    """序列化账号摘要，默认隐藏敏感字段"""
+    'Serialized account summary, sensitive fields are hidden by default'
     client_id = account.get('client_id') or ''
     refresh_state = resolve_account_refresh_state(account, last_refresh_log)
     payload = {
@@ -1404,7 +1389,7 @@ def serialize_account_summary(account: Dict[str, Any], last_refresh_log: Optiona
         'aliases': account.get('aliases', []),
         'alias_count': account.get('alias_count', 0),
         'group_id': account.get('group_id'),
-        'group_name': account.get('group_name', '默认分组'),
+        'group_name': account.get('group_name', '\u9ed8\u8ba4\u5206\u7ec4'),
         'group_color': account.get('group_color', '#666666'),
         'sort_order': normalize_account_sort_order(account.get('sort_order', 0)),
         'remark': account.get('remark', ''),
@@ -1488,7 +1473,7 @@ def add_account(email_addr: str, password: str, client_id: str = '', refresh_tok
                 sort_order: Optional[int] = None, status: str = 'active',
                 proxy_url: str = '', fallback_proxy_url_1: str = '',
                 fallback_proxy_url_2: str = '') -> bool:
-    """添加邮箱账号"""
+    'Add email account'
     db = get_db()
     try:
         before_changes = db.total_changes
@@ -1510,7 +1495,7 @@ def add_accounts_bulk(parsed_accounts: List[Dict[str, Any]], group_id: int = 1,
                       status: str = 'active', tag_ids: Optional[List[int]] = None,
                       proxy_url: str = '', fallback_proxy_url_1: str = '',
                       fallback_proxy_url_2: str = '') -> Dict[str, int]:
-    """批量添加邮箱账号，单事务写入，重复邮箱自动跳过。"""
+    'Add email accounts in batches, write single transactions, and automatically skip duplicate email accounts.'
     if not parsed_accounts:
         return {'added_count': 0, 'skipped_count': 0}
 
@@ -1611,17 +1596,17 @@ def get_account_tags_by_email_map(emails: List[str], db=None) -> Dict[str, List[
 
 
 def encode_upload_tag_ids(tag_ids: Any = None) -> str:
-    """将标签 ID 列表编码为 upload 表存储字符串。"""
+    'Encode the list of tag IDs into upload table storage strings.'
     return ','.join(str(tag_id) for tag_id in normalize_tag_ids_input(tag_ids))
 
 
 def decode_upload_tag_ids(raw: Any = None) -> List[int]:
-    """解析 upload 表中的标签 ID 字符串。"""
+    'Parse the tag ID string in the upload table.'
     return normalize_tag_ids_input(raw)
 
 
 def resolve_upload_group_id(group_id: Any = None) -> int:
-    """解析上传账号目标分组；无效时回退默认分组。"""
+    'Parse the target group of the uploaded account; fall back to the default group if it is invalid.'
     try:
         resolved = int(group_id)
     except (TypeError, ValueError):
@@ -1636,11 +1621,7 @@ def resolve_upload_group_id(group_id: Any = None) -> int:
 def add_upload_account(email: str, password: str, remark: str = '',
                        group_id: Any = None, proxy_url: str = '',
                        tag_ids: Any = None) -> Dict[str, Any]:
-    """插入一条外部上传的 Outlook 账号到 outlook_upload_accounts。
-
-    密码加密存储。不在本函数内 commit，由调用方统一提交。
-    返回 {'email', 'status': 'added'|'duplicate'|'invalid', 'id'?}
-    """
+    "Insert an externally uploaded Outlook account into outlook_upload_accounts.\n\n    Password encrypted storage. Do not commit within this function, it will be submitted uniformly by the caller.\n    Return {'email', 'status': 'added'|'duplicate'|'invalid', 'id'?}\n    "
     normalized_email = normalize_upload_email(email)
     raw_password = password if password is not None else ''
     if '@' not in normalized_email or not raw_password:
@@ -1683,14 +1664,7 @@ def upsert_upload_account_for_auto_auth(email: str, password: str,
                                         group_id: Any = None,
                                         proxy_url: str = '',
                                         tag_ids: Any = None) -> Dict[str, Any]:
-    """显式重新入队 helper：供内部"加入自动授权"路径调用。
-
-    - 邮箱不存在时新增记录（source = 'auto_auth'）。
-    - 邮箱已存在时覆盖加密密码、备注、来源、目标分组/代理/标签，并重置 is_authorized = 0、status = 'active'。
-    - 不改变 ``add_upload_account()`` 的默认 duplicate 行为。
-    - 不在本函数内 commit，由调用方统一提交。
-    - 返回 ``{'email', 'status': 'added'|'updated', 'id'}``。
-    """
+    'Explicit re-enqueue helper: Called by the internal "join automatic authorization" path.\n\n    - Add record when mailbox does not exist (source = \'auto_auth\').\n    - Overwrite the encryption password, notes, source, target group/agent/label when the mailbox already exists, and reset is_authorized = 0, status = \'active\'.\n    - Does not change the default duplicate behavior of ``add_upload_account()``.\n    - Do not commit within this function, it will be submitted by the caller.\n    - Return ``{\'email\', \'status\': \'added\'|\'updated\', \'id\'}``.\n    '
     normalized_email = normalize_upload_email(email)
     raw_password = password if password is not None else ''
     if '@' not in normalized_email or not raw_password:
@@ -1777,27 +1751,27 @@ def get_upload_account_plain_password(row: Any, *, tolerate_decrypt_error: bool 
 
 
 def get_upload_account_proxy_display(proxy_url: Any) -> str:
-    """返回不含认证信息、路径和查询参数的账号代理地址。"""
+    'Return the account proxy address without authentication information, path and query parameters.'
     normalized_proxy = str(proxy_url or '').strip()
     if not normalized_proxy:
         return ''
     parsed_proxy = urlparse(normalized_proxy)
     if not parsed_proxy.scheme or not parsed_proxy.hostname:
-        return '已配置代理'
+        return 'Proxy configured'
     host = parsed_proxy.hostname
     if ':' in host and not host.startswith('['):
         host = f'[{host}]'
     try:
         port = parsed_proxy.port
     except ValueError:
-        return '已配置代理'
+        return 'Proxy configured'
     if port is not None:
         host = f'{host}:{port}'
     return f'{parsed_proxy.scheme}://{host}'
 
 
 def serialize_upload_account_row(row: Any, tags: Optional[List[Dict]] = None) -> Dict[str, Any]:
-    """将 outlook_upload_accounts 行转为前端展示用字典。"""
+    'Convert the outlook_upload_accounts line into a dictionary for front-end display.'
     data = dict(row)
     plain_password = get_upload_account_plain_password(
         data.get('password') or '',
@@ -1824,11 +1798,7 @@ def serialize_upload_account_row(row: Any, tags: Optional[List[Dict]] = None) ->
 
 
 def delete_upload_account(account_id: int) -> bool:
-    """删除指定 ID 的外部上传账号。
-
-    返回 True 表示删除成功，False 表示账号不存在。
-    不在本函数内 commit，由调用方统一提交。
-    """
+    'Delete the external upload account with the specified ID.\n\n    Returning True means the deletion is successful, False means the account does not exist.\n    Do not commit within this function, it will be submitted by the caller.\n    '
     db = get_db()
     cursor = db.execute(
         'DELETE FROM outlook_upload_accounts WHERE id = ?',
@@ -1838,7 +1808,7 @@ def delete_upload_account(account_id: int) -> bool:
 
 
 def delete_upload_accounts_bulk(account_ids: List[int]) -> Dict[str, Any]:
-    """批量删除上传账号。返回 deleted/not_found 计数与结果列表。"""
+    'Delete upload accounts in batches. Return deleted/not_found count and result list.'
     normalized_ids = normalize_account_ids(account_ids)
     deleted = 0
     not_found = 0
@@ -1862,15 +1832,7 @@ def delete_upload_accounts_bulk(account_ids: List[int]) -> Dict[str, Any]:
 def update_upload_account(account_id: int, *, email: Optional[str] = None,
                           password: Optional[str] = None,
                           remark: Optional[str] = None) -> Dict[str, Any]:
-    """更新指定 ID 的外部上传账号。
-
-    - email: 传入非空字符串才会修改；会规范化并校验包含 '@'。
-    - password: 仅当为非空字符串时才会更新密码（加密存储）；None 或空字符串视为保持原密码。
-    - remark: 仅当不为 None 时才会更新备注（允许空字符串清空）。
-    修改 email/password 时同步刷新 updated_at。不在本函数内 commit。
-
-    返回 {'status': 'updated'|'not_found'|'duplicate'|'invalid', 'id', 'email'?}
-    """
+    "Update the external upload account with the specified ID.\n\n    - email: It will be modified only when a non-empty string is passed in; it will be normalized and verified to contain '@'.\n    - password: The password will be updated (encrypted storage) only if it is a non-empty string; None or an empty string is considered to keep the original password.\n    - remark: Remark will be updated only if not None (empty string allowed).\n    Synchronously refresh updated_at when email/password is modified. Do not commit within this function.\n\n    Return {'status': 'updated'|'not_found'|'duplicate'|'invalid', 'id', 'email'?}\n    "
     db = get_db()
     row = db.execute(
         'SELECT id, email FROM outlook_upload_accounts WHERE id = ?',
@@ -1930,12 +1892,7 @@ UPLOAD_ACCOUNTS_MAX_PAGE_SIZE = 1000
 def query_upload_accounts_page(page: int = 1,
                                page_size: int = UPLOAD_ACCOUNTS_API_DEFAULT_PAGE_SIZE,
                                keyword: str = '', auth_status: str = 'all') -> Dict[str, Any]:
-    """分页查询外部上传的 Outlook 账号。
-
-    返回 {'items', 'total', 'page', 'page_size', 'total_pages'}。
-    keyword 命中 email/remark（模糊匹配）；auth_status 支持
-    all/authorized/unauthorized。
-    """
+    "Query externally uploaded Outlook accounts in pages.\n\n    Return {'items', 'total', 'page', 'page_size', 'total_pages'}.\n    keyword hits email/remark (fuzzy matching); auth_status supports\n    all/authorized/unauthorized。\n    "
     try:
         safe_page = int(1 if page in (None, '') else page)
     except (TypeError, ValueError):
@@ -2011,7 +1968,7 @@ def query_upload_accounts_page(page: int = 1,
 
 
 def add_upload_accounts_bulk(items: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """单事务批量插入外部上传账号。items: [{'email','password','remark'?, ...}, ...]"""
+    "Single transaction batch insertion of external upload accounts. items: [{'email','password','remark'?, ...}, ...]"
     results: List[Dict[str, Any]] = []
     added = duplicate = invalid = 0
     db = get_db()
@@ -2042,7 +1999,7 @@ def add_upload_accounts_bulk(items: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def apply_account_tag_ids(account_id: int, tag_ids: Any = None, db=None) -> int:
-    """给正式账号附加标签（忽略不存在的标签 ID）。返回成功写入条数。"""
+    'Attach tags to official accounts (ignoring non-existent tag IDs). Returns the number of successfully written items.'
     database = db or get_db()
     normalized_tag_ids = normalize_tag_ids_input(tag_ids)
     if not normalized_tag_ids:
@@ -2070,10 +2027,10 @@ def update_account(account_id: int, email_addr: str, password: str, client_id: s
                    forward_enabled: bool = False, proxy_url: str = '',
                    fallback_proxy_url_1: str = '', fallback_proxy_url_2: str = '',
                    authorization_type: Optional[str] = None) -> bool:
-    """更新邮箱账号"""
+    'Update email account'
     db = get_db()
     try:
-        # 加密敏感字段
+        # Encrypt sensitive fields
         encrypted_password = encrypt_data(password) if password else password
         encrypted_refresh_token = encrypt_data(refresh_token) if refresh_token else refresh_token
         encrypted_imap_password = encrypt_data(imap_password) if imap_password else imap_password
@@ -2539,7 +2496,7 @@ def start_project(
     db = get_db()
     normalized_key = normalize_project_key(project_key)
     if not normalized_key:
-        raise ValueError('project_key 不能为空')
+        raise ValueError('project_key cannot be empty')
 
     clean_name = sanitize_input((name or '').strip(), max_length=100) if name is not None else ''
     clean_description = sanitize_input(description or '', max_length=500) if description is not None else ''
@@ -2675,11 +2632,11 @@ def recycle_expired_project_claims(db=None) -> int:
 def claim_project_account(project_key: str, caller_id: str, task_id: str, lease_seconds: int = 600) -> Optional[Dict[str, Any]]:
     normalized_key = normalize_project_key(project_key)
     if not normalized_key:
-        raise ValueError('project_key 不能为空')
+        raise ValueError('project_key cannot be empty')
     if not str(caller_id or '').strip():
-        raise ValueError('caller_id 不能为空')
+        raise ValueError('caller_id cannot be empty')
     if not str(task_id or '').strip():
-        raise ValueError('task_id 不能为空')
+        raise ValueError('task_id cannot be empty')
 
     try:
         lease_seconds = int(lease_seconds or 600)
@@ -3227,7 +3184,7 @@ def mark_project_accounts_deleted_for_account_ids(account_ids: List[int], db=Non
 
 
 def delete_account_by_id(account_id: int) -> bool:
-    """删除邮箱账号"""
+    'Delete email account'
     db = get_db()
     try:
         mark_project_accounts_deleted_for_account_ids([account_id], db=db)
@@ -3240,7 +3197,7 @@ def delete_account_by_id(account_id: int) -> bool:
 
 
 def delete_account_by_email(email_addr: str) -> bool:
-    """根据邮箱地址删除账号"""
+    'Delete account based on email address'
     db = get_db()
     try:
         row = db.execute('SELECT id FROM accounts WHERE email = ? LIMIT 1', (email_addr,)).fetchone()
@@ -3255,7 +3212,7 @@ def delete_account_by_email(email_addr: str) -> bool:
 
 
 def normalize_account_ids(account_ids: List[int]) -> List[int]:
-    """归一化账号 ID 列表，过滤非法值并去重。"""
+    'Normalize the account ID list, filter illegal values \u200b\u200band remove duplicates.'
     normalized_ids = []
     seen_ids = set()
     for account_id in account_ids or []:
@@ -3271,12 +3228,12 @@ def normalize_account_ids(account_ids: List[int]) -> List[int]:
 
 
 def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
-    """批量删除邮箱账号。"""
+    'Delete email accounts in batches.'
     db = get_db()
     normalized_ids = normalize_account_ids(account_ids)
 
     if not normalized_ids:
-        return {'success': False, 'error': '请选择要删除的账号'}
+        return {'success': False, 'error': 'Please select the account you want to delete'}
 
     placeholders = ','.join('?' * len(normalized_ids))
     rows = db.execute(f'''
@@ -3287,7 +3244,7 @@ def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
     ''', normalized_ids).fetchall()
 
     if not rows:
-        return {'success': False, 'error': '未找到可删除的账号'}
+        return {'success': False, 'error': 'No account found to be deleted'}
 
     existing_ids = [row['id'] for row in rows]
     deleted_accounts = [{'id': row['id'], 'email': row['email']} for row in rows]
@@ -3310,12 +3267,12 @@ def delete_accounts_by_ids(account_ids: List[int]) -> Dict[str, Any]:
 
 
 def update_accounts_forwarding_by_ids(account_ids: List[int], forward_enabled: bool) -> Dict[str, Any]:
-    """批量更新账号转发开关。"""
+    'Batch update account forwarding switch.'
     db = get_db()
     normalized_ids = normalize_account_ids(account_ids)
 
     if not normalized_ids:
-        return {'success': False, 'error': '请选择要修改的账号'}
+        return {'success': False, 'error': 'Please select the account to be modified'}
 
     placeholders = ','.join('?' * len(normalized_ids))
     rows = db.execute(
@@ -3329,7 +3286,7 @@ def update_accounts_forwarding_by_ids(account_ids: List[int], forward_enabled: b
     ).fetchall()
 
     if not rows:
-        return {'success': False, 'error': '未找到可修改的账号'}
+        return {'success': False, 'error': 'No modifiable account found'}
 
     target_value = 1 if forward_enabled else 0
     existing_ids = [row['id'] for row in rows]
@@ -3381,12 +3338,12 @@ def update_accounts_forwarding_by_ids(account_ids: List[int], forward_enabled: b
 def update_accounts_proxy_by_ids(account_ids: List[int], proxy_url: str = '',
                                  fallback_proxy_url_1: str = '',
                                  fallback_proxy_url_2: str = '') -> Dict[str, Any]:
-    """批量更新账号级代理配置，三项全空表示清空账号覆盖并继承分组。"""
+    'Update the account-level proxy configuration in batches. All three items are empty to clear the account coverage and inherit the group.'
     db = get_db()
     normalized_ids = normalize_account_ids(account_ids)
 
     if not normalized_ids:
-        return {'success': False, 'error': '请选择要修改的账号'}
+        return {'success': False, 'error': 'Please select the account to be modified'}
 
     placeholders = ','.join('?' * len(normalized_ids))
     rows = db.execute(
@@ -3400,7 +3357,7 @@ def update_accounts_proxy_by_ids(account_ids: List[int], proxy_url: str = '',
     ).fetchall()
 
     if not rows:
-        return {'success': False, 'error': '未找到可修改的账号'}
+        return {'success': False, 'error': 'No modifiable account found'}
 
     target_proxy_url = str(proxy_url or '').strip()
     target_fallback_proxy_url_1 = str(fallback_proxy_url_1 or '').strip()
@@ -3454,7 +3411,7 @@ def update_accounts_proxy_by_ids(account_ids: List[int], proxy_url: str = '',
 
 
 def set_account_forward_cursor(account_id: int, cursor_value: Optional[str]) -> bool:
-    """设置账号转发游标。"""
+    'Set the account forwarding cursor.'
     db = get_db()
     try:
         db.execute(
@@ -3472,38 +3429,27 @@ def set_account_forward_cursor(account_id: int, cursor_value: Optional[str]) -> 
         return False
 
 
-# ==================== 工具函数 ====================
+# ==================== Utility functions ====================
 
 def sanitize_input(text: str, max_length: int = 500) -> str:
-    """
-    净化用户输入，防止XSS攻击
-    - 转义HTML特殊字符
-    - 限制长度
-    - 移除控制字符
-    """
+    '\n    Purify user input to prevent XSS attacks\n    - Escape HTML special characters\n    - Limit length\n    - Remove control characters\n    '
     if not text:
         return ""
 
-    # 限制长度
+    # Limit length
     text = text[:max_length]
 
-    # 移除控制字符（保留换行和制表符）
+    # Remove control characters (leave newlines and tabs)
     text = ''.join(char for char in text if char.isprintable() or char in '\n\t')
 
-    # 转义HTML特殊字符
+    # Escape HTML special characters
     text = html.escape(text, quote=True)
 
     return text
 
 
 def log_audit(action: str, resource_type: str, resource_id: str = None, details: str = None):
-    """
-    记录审计日志
-    :param action: 操作类型（如 'export', 'delete', 'update'）
-    :param resource_type: 资源类型（如 'account', 'group'）
-    :param resource_id: 资源ID
-    :param details: 详细信息
-    """
+    "\n    Record audit log\n    :param action: Action type (such as 'export', 'delete', 'update')\n    :param resource_type: resource type (such as 'account', 'group')\n    :param resource_id: resource ID\n    :param details: detailed information\n    "
     try:
         db = get_db()
         user_ip = request.remote_addr if request else 'unknown'
@@ -3513,12 +3459,12 @@ def log_audit(action: str, resource_type: str, resource_id: str = None, details:
         ''', (action, resource_type, resource_id, user_ip, details))
         db.commit()
     except Exception:
-        # 审计日志失败不应影响主流程
+        # Audit log failure should not affect the main process
         pass
 
 
 def decode_header_value(header_value: str) -> str:
-    """解码邮件头字段"""
+    'Decoding email header fields'
     if not header_value:
         return ""
     try:
@@ -3538,7 +3484,7 @@ def decode_header_value(header_value: str) -> str:
 
 
 def get_email_body(msg) -> str:
-    """提取邮件正文"""
+    'Extract email body'
     body = ""
     if msg.is_multipart():
         for part in msg.walk():
@@ -3572,7 +3518,7 @@ def get_email_body(msg) -> str:
 
 
 def get_email_html_body(msg) -> str:
-    """提取邮件 HTML 正文"""
+    'Extract email HTML body'
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
@@ -3597,12 +3543,12 @@ def get_email_html_body(msg) -> str:
 
 
 def generate_random_temp_name() -> str:
-    """生成临时邮箱用户名"""
+    'Generate temporary email username'
     return f"{secrets.token_hex(3)}{secrets.randbelow(1000)}"
 
 
 def build_cloudflare_domain_candidates(domain: str) -> List[str]:
-    """为 Cloudflare 创建邮箱生成可回退的域名候选列表"""
+    'Create a fallback domain name candidate list for Cloudflare mailbox creation'
     normalized = domain.strip().lower().lstrip('@').rstrip('.')
     if not normalized:
         return []
@@ -3637,7 +3583,7 @@ def build_cloudflare_domain_candidates(domain: str) -> List[str]:
 
 def parse_raw_email_to_temp_message(email_addr: str, raw_email: str, fallback_id: str = None,
                                     fallback_timestamp: int = 0) -> Dict[str, Any]:
-    """将原始邮件解析为统一的临时邮箱消息格式"""
+    'Parse the original email into a unified temporary mailbox message format'
     if isinstance(raw_email, str):
         msg = email.message_from_string(raw_email)
     else:
@@ -3664,8 +3610,8 @@ def parse_raw_email_to_temp_message(email_addr: str, raw_email: str, fallback_id
 
     return {
         'id': final_message_id,
-        'from_address': decode_header_value(msg.get('From', '未知发件人')),
-        'subject': decode_header_value(msg.get('Subject', '无主题')),
+        'from_address': decode_header_value(msg.get('From', 'Unknown sender')),
+        'subject': decode_header_value(msg.get('Subject', 'No topic')),
         'content': text_content,
         'html_content': html_content,
         'has_html': bool(html_content),
@@ -3674,7 +3620,7 @@ def parse_raw_email_to_temp_message(email_addr: str, raw_email: str, fallback_id
     }
 
 
-# 重写导入解析函数，支持多种账号字段顺序
+# Rewrite the import parsing function to support multiple account field orders
 def is_probable_client_id(value: str) -> bool:
     candidate = str(value or '').strip()
     if not candidate:
@@ -3725,7 +3671,7 @@ def parse_account_string(account_str: str, account_format: str = 'client_id_refr
     }
 
 
-# ==================== Graph API 方式 ====================
+# ==================== Graph API method ====================
 
 
 def parse_outlook_account_string(account_str: str, account_format: str = 'client_id_refresh_token') -> Optional[Dict]:

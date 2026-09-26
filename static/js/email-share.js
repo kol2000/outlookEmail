@@ -44,10 +44,10 @@
         
         const invalid = document.getElementById('shareInvalidState');
         const title = document.getElementById('shareInvalidTitle');
-        if (title) title.textContent = message || I18n.t('分享链接不可用');
+        if (title) title.textContent = message || I18n.t("Sharing link is not available");
         if (invalid) invalid.hidden = false;
         
-        setStatus(I18n.t('链接失效'), 'invalid');
+        setStatus(I18n.t("Link invalid"), 'invalid');
         createLucideIcons();
     }
 
@@ -58,14 +58,14 @@
         const appBody = document.getElementById('appBody');
         if (appBody) appBody.style.display = 'flex';
         
-        setStatus(I18n.t('连接有效'), 'active');
+        setStatus(I18n.t("The connection is valid"), 'active');
     }
 
     async function requestJson(url) {
         const response = await fetch(url, { cache: 'no-store' });
         const data = await response.json();
         if (!response.ok || data.success === false) {
-            throw new Error(data.error || I18n.t('请求失败'));
+            throw new Error(data.error || I18n.t("Request failed"));
         }
         return data;
     }
@@ -134,14 +134,14 @@
             
             // Today
             if (date.toDateString() === now.toDateString()) {
-                return I18n.tpl`今天 ${hours}:${minutes}`;
+                return I18n.tpl`Today ${hours}:${minutes}`;
             }
             
             // Yesterday
             const yesterday = new Date(now);
             yesterday.setDate(now.getDate() - 1);
             if (date.toDateString() === yesterday.toDateString()) {
-                return I18n.tpl`昨天 ${hours}:${minutes}`;
+                return I18n.tpl`Yesterday ${hours}:${minutes}`;
             }
             
             // This year
@@ -223,7 +223,7 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="alert-triangle" style="color: var(--danger)"></i>
                     </div>
-                    <h3>加载邮件失败</h3>
+                    <h3>Failed to load email</h3>
                     <p>${escapeHtml(message)}</p>
                 </div>
             `;
@@ -243,8 +243,8 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="mail-open"></i>
                     </div>
-                    <h3>${isSearching ? I18n.t('未找到相关邮件') : I18n.t('暂无邮件')}</h3>
-                    <p>${isSearching ? I18n.t('请尝试修改您的搜索关键词') : I18n.t('当前文件夹中没有收到任何邮件')}</p>
+                    <h3>${isSearching ? I18n.t("No relevant email found") : I18n.t("No email yet")}</h3>
+                    <p>${isSearching ? I18n.t("Please try to modify your search keywords") : I18n.t("No emails received in the current folder")}</p>
                 </div>
             `;
         } else {
@@ -266,12 +266,12 @@
                                 <span class="email-item-sender">${escapeHtml(senderName)}</span>
                                 <span class="email-item-date">${escapeHtml(formatDate(email.date))}</span>
                             </div>
-                            <div class="email-item-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
+                            <div class="email-item-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</div>
                             <div class="email-item-body">${escapeHtml(email.body_preview || '')}</div>
                             ${email.has_attachments ? I18n.tpl`
                                 <div class="email-item-meta">
                                     <i data-lucide="paperclip"></i>
-                                    <span>包含附件</span>
+                                    <span>Includes attachments</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -305,8 +305,8 @@
                         <div class="empty-icon-wrapper">
                             <i data-lucide="mail-open" class="empty-icon"></i>
                         </div>
-                        <h3>选择一封邮件</h3>
-                        <p>点击左侧列表中的邮件以在此处查看其详细内容和附件。</p>
+                        <h3>Select an email</h3>
+                        <p>Click an email in the list on the left to see its details and attachments here.</p>
                     </div>
                 `;
             }
@@ -319,7 +319,7 @@
             loadMoreBtn.disabled = true;
             const btnText = loadMoreBtn.querySelector('span');
             if (btnText) {
-                btnText.textContent = I18n.t('加载中...');
+                btnText.textContent = I18n.t("Loading…");
             }
             // Show load more button while loading to show feedback
             loadMoreBtn.hidden = false;
@@ -341,17 +341,17 @@
             
             const methodTag = document.getElementById('shareMethodTag');
             if (methodTag) {
-                methodTag.textContent = data.method ? I18n.tpl`读取方式: ${data.method}` : '';
+                methodTag.textContent = data.method ? I18n.tpl`Reading method: ${data.method}` : '';
             }
             
             renderEmailList();
         } catch (error) {
             if (append) {
-                console.error(I18n.t("加载更多邮件失败:"), error);
+                console.error(I18n.t("Failed to load more emails:"), error);
                 if (loadMoreBtn) {
                     const btnText = loadMoreBtn.querySelector('span');
                     if (btnText) {
-                        btnText.textContent = I18n.t('加载失败，点击重试');
+                        btnText.textContent = I18n.t("Loading failed, click to try again");
                     }
                 }
             } else {
@@ -362,8 +362,8 @@
             if (loadMoreBtn) {
                 loadMoreBtn.disabled = false;
                 const btnText = loadMoreBtn.querySelector('span');
-                if (btnText && btnText.textContent === I18n.t('加载中...')) {
-                    btnText.textContent = I18n.t('加载更多');
+                if (btnText && btnText.textContent === I18n.t("Loading…")) {
+                    btnText.textContent = I18n.t("Load more");
                 }
                 const searchInput = document.getElementById('emailSearchInput');
                 const isSearching = searchInput && searchInput.value.trim() !== '';
@@ -391,11 +391,11 @@
             <div class="attachments-section">
                 <div class="attachments-title">
                     <i data-lucide="paperclip"></i>
-                    <span>附件 (${attachments.length})</span>
+                    <span>Attachment (${attachments.length})</span>
                 </div>
                 <div class="attachments-grid">
                     ${attachments.map(att => {
-                        const name = att.name || att.filename || I18n.t('未命名附件');
+                        const name = att.name || att.filename || I18n.t("Unnamed attachment");
                         const size = att.size ? formatBytes(att.size) : '';
                         const icon = getAttachmentIcon(name);
                         return `
@@ -422,7 +422,7 @@
             const safeHtml = window.DOMPurify ? window.DOMPurify.sanitize(body) : escapeHtml(body);
             return I18n.tpl`
                 <div class="iframe-container">
-                    <iframe title="邮件正文" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapeHtml(safeHtml)}"></iframe>
+                    <iframe title="Email text" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapeHtml(safeHtml)}"></iframe>
                 </div>
             `;
         }
@@ -441,7 +441,7 @@
             detailPanel.innerHTML = I18n.tpl`
                 <div class="detail-card">
                     <div class="detail-header">
-                        <h2 class="detail-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</h2>
+                        <h2 class="detail-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</h2>
                         <div class="detail-meta-row">
                             <div class="detail-meta-avatar" style="background-color: ${color}">
                                 ${escapeHtml(initials)}
@@ -452,8 +452,8 @@
                                     <span class="user-email" style="font-size: 12px; font-weight: normal; margin-left: 4px;">${escapeHtml(emailAddress)}</span>
                                 </div>
                                 <div class="detail-recipients">
-                                    <strong>收件人:</strong> ${escapeHtml(email.to || '')}
-                                    ${email.cc ? I18n.tpl`<br><strong>抄送:</strong> ${escapeHtml(email.cc)}` : ''}
+                                    <strong>Recipient:</strong> ${escapeHtml(email.to || '')}
+                                    ${email.cc ? I18n.tpl`<br><strong>CC:</strong> ${escapeHtml(email.cc)}` : ''}
                                 </div>
                             </div>
                             <div class="detail-date">
@@ -488,8 +488,8 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="loader" class="animate-spin" style="animation: spin 1s linear infinite;"></i>
                     </div>
-                    <h3>正在加载邮件详情...</h3>
-                    <p>正在拉取完整的邮件内容及附件列表，请稍候。</p>
+                    <h3>Loading email details...</h3>
+                    <p>Retrieving the complete email content and attachment list, please wait.</p>
                 </div>
             `;
             createLucideIcons();
@@ -504,7 +504,7 @@
         try {
             // Find email object to resolve parameters
             const email = currentEmails.find(e => e.id === emailId);
-            if (!email) throw new Error(I18n.t('未找到邮件对象'));
+            if (!email) throw new Error(I18n.t("Mail object not found"));
             
             const data = await requestJson(buildDetailUrl(email));
             renderEmailDetail(data.email || {});
@@ -515,7 +515,7 @@
                         <div class="empty-icon-wrapper">
                             <i data-lucide="alert-triangle" style="color: var(--danger)"></i>
                         </div>
-                        <h3>加载邮件详情失败</h3>
+                        <h3>Failed to load email details</h3>
                         <p>${escapeHtml(error.message)}</p>
                     </div>
                 `;
@@ -602,7 +602,7 @@
             githubLink.href = 'https://github.com/assast/outlookEmail';
             githubLink.target = '_blank';
             githubLink.rel = 'noopener noreferrer';
-            githubLink.setAttribute('aria-label', I18n.t('GitHub 仓库'));
+            githubLink.setAttribute('aria-label', I18n.t("GitHub repository"));
             githubLink.innerHTML = svgHtml;
             headerRight.appendChild(githubLink);
         } else {
@@ -649,7 +649,7 @@
         textArea.select();
         try {
             document.execCommand('copy');
-            showToast(I18n.t('已复制邮箱地址到剪贴板'));
+            showToast(I18n.t("Email address copied to clipboard"));
         } catch (err) {
             console.error('Fallback copy failed', err);
         }
@@ -668,7 +668,7 @@
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(emailText)
                             .then(() => {
-                                showToast(I18n.t('已复制邮箱地址到剪贴板'));
+                                showToast(I18n.t("Email address copied to clipboard"));
                             })
                             .catch(err => {
                                 console.error('Clipboard copy failed: ', err);
@@ -691,7 +691,7 @@
         setupCopyEmail();
 
         if (!token) {
-            showInvalid(I18n.t('分享链接不可用'));
+            showInvalid(I18n.t("Sharing link is not available"));
             return;
         }
 
@@ -699,7 +699,7 @@
             const status = await requestJson(`/api/share/email/${encodeURIComponent(token)}/status`);
             
             const titleElement = document.getElementById('shareEmailTitle');
-            if (titleElement) titleElement.textContent = status.email || I18n.t('邮箱分享');
+            if (titleElement) titleElement.textContent = status.email || I18n.t("Email sharing");
             
             const headerAvatar = document.getElementById('headerUserAvatar');
             if (headerAvatar) {

@@ -90,7 +90,7 @@ class SystemSkinManagementTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('皮肤不存在', payload['error'])
+        self.assertIn('Skin does not exist', payload['error'])
         with self.app.app_context():
             self.assertEqual(web_outlook_app.get_configured_active_skin_id(), 'classic')
 
@@ -162,7 +162,7 @@ class SystemSkinManagementTests(unittest.TestCase):
         )
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('路径', payload['error'])
+        self.assertIn('path', payload['error'])
 
     def test_git_install_failure_keeps_current_skin(self):
         with patch.object(web_outlook_app.shutil, 'which', return_value='/usr/bin/git'), \

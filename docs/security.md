@@ -1,128 +1,128 @@
-# 🔐 安全配置
+# 🔐 Security configuration
 
-## 1. 修改默认密码
+## 1. Change the default password
 
-**方式一：首次部署时通过环境变量（仅初始化）**
+** Method 1: Pass environment variables (only initialization) ** during first deployment
 
-在 `docker-compose.yml` 中：
+In `docker-compose.yml`:
 ```yaml
 environment:
   - LOGIN_PASSWORD=your_secure_password_here
   - SECRET_KEY=your-random-secret-key-here
 ```
 
-`LOGIN_PASSWORD` 只在数据库**尚无** `settings.login_password` 时用于写入初始哈希。实例已经启动并写过库之后，仅修改该环境变量**不会**改变当前登录密码。
+`LOGIN_PASSWORD` initializes the password hash only when the database does **not yet contain** `settings.login_password`. After initialization, changing this environment variable **does not** change the current sign-in password.
 
-**方式二：通过 Web 界面修改（须知道当前密码）**
+**Method 2: Modify through Web interface (need to know the current password) **
 
-登录后点击「⚙️ 设置」按钮，在线修改登录密码。修改时必须填写当前密码；成功后当前会话保持登录，其他已登录设备/会话需要重新登录。
+After logging in, click the "⚙️ Settings" button to change the login password online. The current password must be filled in when modifying; after success, the current session will remain logged in, and other logged-in devices/sessions need to log in again.
 
-**方式三：忘记密码时通过官方 CLI 重置（不需要旧密码）**
+**Method 3: Reset through the official CLI when you forget your password (no old password required) **
 
-具备主机或数据目录访问权限时，可运行：
+When you have access to the host or data directory, you can run:
 
 ```bash
 python scripts/reset_login_password.py
 # Docker: docker exec -it <container> python scripts/reset_login_password.py
 ```
 
-- 仅支持交互式终端输入新密码（无 `--password` / 管道传密）
-- 写入 bcrypt 哈希并轮换登录会话版本，使既有会话失效
-- 属于 **host 信任边界** 上的运维操作，与「已登录改密须验证当前密码」互补
-- 详细步骤见 [troubleshooting.md](./troubleshooting.md)「忘记 Web 登录密码」
+- Only supports interactive terminal input of new passwords (no `--password` / pipeline transmission)
+- Write bcrypt hashes and rotate login session versions, invalidating existing sessions
+- Belongs to the operation and maintenance operations on the **host trust boundary **, which is complementary to "Logged in to change the password and the current password must be verified"
+- For detailed steps, see [troubleshooting.md](troubleshooting.md) "Forgot Web Login Password"
 
-### 登录会话有效期
+### Login session validity period
 
-Web 登录页提供固定的登录有效期选项：7 天、30 天、90 天、180 天和永久有效，默认 30 天。有限期限从登录成功时开始固定计算，后续访问页面或调用 API 不会续期；永久有效不会因登录时间自动失效。所有会话仍会在主动退出、登录密码修改导致会话版本轮换、SECRET_KEY 改变或浏览器清理 Cookie 后失效。
+The web login page provides fixed login validity options: 7 days, 30 days, 90 days, 180 days and forever, with the default of 30 days. The limited period is fixed and calculated from the time of successful login, and will not be renewed for subsequent page visits or API calls; it is permanently valid and will not automatically expire due to the login time. All sessions will still expire after active logout, session version rotation due to login password change, SECRET_KEY change, or browser clearing cookies.
 
-登录页只在当前浏览器本地记忆上次选择的期限，不保存密码、Session Cookie 或绝对过期时间。服务端仍会校验期限选项，直接调用登录接口不能绕过固定选项；浏览器扩展登录没有期限选择，默认建立 30 天会话。
+The login page only remembers the last selected period locally in the current browser and does not save passwords, session cookies or absolute expiration times. The server will still verify the expiration option, and calling the login interface directly cannot bypass the fixed option; there is no expiration option for browser extension login, and a 30-day session is established by default.
 
-## 2. 启用 CSRF 防护（推荐）
+## 2. Enable CSRF protection (recommended)
 
-CSRF 防护默认启用，如果未安装 flask-wtf，系统会优雅降级：
+CSRF protection is enabled by default. If flask-wtf is not installed, the system will degrade gracefully:
 
 ```bash
 pip install flask-wtf>=1.2.0
 ```
 
-**CSRF 防护特性：**
-- 自动为所有状态变更操作添加 CSRF Token
-- 防止跨站请求伪造攻击
-- 对用户完全透明，无需手动操作
-- 未安装时自动降级，不影响功能使用
+**CSRF protection characteristics: **
+- Automatically add CSRF Token for all status change operations
+- Prevent cross-site request forgery attacks
+- Fully transparent to users, no manual operations required
+- Automatically downgrade when not installed, which does not affect the use of functions.
 
-## 3. 登录速率限制
+## 3. Login rate limit
 
-系统内置登录速率限制，防止暴力破解：
+The system has built-in login rate limit to prevent brute force cracking:
 
-- **失败次数限制**：5 次失败后锁定
-- **锁定时长**：15 分钟
-- **基于 IP**：每个 IP 独立计数
-- **自动解锁**：锁定时间到期后自动解锁
+- ** failure limit **: locked after 5 failures
+- ** lock duration **: 15 minutes
+- ** based on IP**: each IP counts independently
+- ** automatically unlocks **: automatically unlocks after the lock time expires
 
-## 4. 敏感数据加密
+## 4. Sensitive data encryption
 
-所有敏感数据都经过加密存储：
+All sensitive data is stored encrypted:
 
-**加密内容：**
-- Refresh Token（Fernet 对称加密）
-- 登录密码（bcrypt 哈希）
-- 邮箱密码（Fernet 对称加密）
-- 外部上传暂存表中的邮箱密码（Fernet 对称加密；列表接口和前端不返回、不展示明文）
-- 对外 API Key（Fernet 对称加密）
+** encrypted content: **
+- Refresh Token (Fernet symmetric encryption)
+- Login password (bcrypt hash)
+- Email password (Fernet symmetric encryption)
+- Email password in external upload temporary table (Fernet symmetric encryption; list interface and front end do not return or display plain text)
+- External API Key (Fernet symmetric encryption)
 
-**加密密钥：**
-- 基于 SECRET_KEY 派生加密密钥
-- 使用 PBKDF2HMAC 密钥派生函数
-- 100,000 次迭代，SHA256 算法
+** encryption key: **
+- Derive encryption keys based on SECRET_KEY
+- Using the PBKDF2HMAC key derivation function
+- 100,000 iterations, SHA256 algorithm
 
-**重要提示：**
-- SECRET_KEY 必须保持不变
-- Windows `exe` 首次启动会自动生成并持久化 SECRET_KEY
-- Docker、Python 直跑和生产环境应显式设置固定 SECRET_KEY
-- 更改 SECRET_KEY 会导致无法解密已存储的数据
-- 如需更改，请先导出账号，更改后重新导入
+** IMPORTANT NOTE: **
+- SECRET_KEY must remain unchanged
+- SECRET_KEY will be automatically generated and persisted when Windows `exe` is started for the first time.
+- Docker, Python runtime and production environments should explicitly set fixed SECRET_KEY
+- Changing SECRET_KEY results in failure to decrypt stored data
+- If you need to make changes, please export the account first and then re-import it after making changes.
 
-## 5. 导出功能二次验证
+## 5. Secondary verification of export function
 
-导出功能需要密码确认，防止未授权导出：
+The export function requires password confirmation to prevent unauthorized export:
 
-**保护机制：**
-- 导出前需要输入登录密码
-- 一次性验证 Token，使用后立即失效
-- 所有导出操作记录审计日志
-- 记录操作时间、IP 地址和导出详情
+** protection mechanism: **
+- You need to enter the login password before exporting
+- One-time verification token, it will expire immediately after use.
+- All export operations are recorded in audit logs
+- Record operation time, IP address and export details
 
-**审计日志：**
+** audit log: **
 ```sql
 SELECT * FROM audit_logs WHERE action = 'export' ORDER BY created_at DESC;
 ```
 
-## 5.1 账号密码展示二次验证
+## 5.1 Second verification of account and password display
 
-账号详情接口默认不返回账号密码和 IMAP 密码明文，只返回是否已保存密码的标记。Web 界面点击「验证显示」时，需要再次输入当前登录密码；验证通过后才会获取并显示账号密码。
+The account details interface does not return the clear text of the account password and IMAP password by default, but only returns a flag indicating whether the password has been saved. When you click "Verification Display" on the web interface, you need to enter the current login password again; the account password will be obtained and displayed only after the verification is passed.
 
-**保护机制：**
-- 查看账号密码前需要输入登录密码
-- 未验证时保存账号不会清空已保存密码
-- 成功查看账号密码会记录审计日志
-- 审计日志只记录账号和操作信息，不记录密码内容
+** protection mechanism: **
+- You need to enter the login password before viewing the account password.
+- Saving the account without verification will not clear the saved passwords
+- Successfully checking the account password will record the audit log
+- The audit log only records account and operation information, not password content.
 
-## 6. XSS 防护
+## 6. XSS protection
 
-多层 XSS 防护机制：
+Multi-layer XSS protection mechanism:
 
-**前端防护：**
-- 用户输入自动转义（escapeHtml）
-- 邮件内容使用 DOMPurify 净化
-- iframe 沙箱隔离（sandbox="allow-same-origin"）
+** front-end protection: **
+- Automatic escaping of user input (escapeHtml)
+- Email content is purified using DOMPurify
+- iframe sandbox isolation (sandbox="allow-same-origin")
 
-**后端防护：**
-- 输入净化函数（sanitize_input）
-- HTML 特殊字符转义
-- 长度限制和控制字符过滤
+** backend protection: **
+- Input sanitization function (sanitize_input)
+- HTML special character escaping
+- Length limit and control character filtering
 
-**DOMPurify 配置：**
+**DOMPurify configuration: **
 ```javascript
 DOMPurify.sanitize(content, {
     ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', ...],
@@ -131,18 +131,18 @@ DOMPurify.sanitize(content, {
 });
 ```
 
-## 6.1 自定义皮肤安全边界
+## 6.1 Custom skin safety boundary
 
-外观皮肤只加载 CSS，不执行皮肤包里的脚本或安装命令。上传 zip 皮肤包时，服务端会拒绝路径穿越、符号链接、脚本文件、HTML 文件和可执行文件；Git 来源安装也会按同一套皮肤格式校验。
+The appearance skin only loads CSS and does not execute scripts or installation commands in the skin package. When uploading a zip skin package, the server will reject path traversal, symbolic links, script files, HTML files and executable files; Git source installation will also be verified according to the same set of skin formats.
 
-仍需按可信管理员功能处理：
+Still need to be processed according to the trusted administrator function:
 
-- CSS 可以改变界面视觉、隐藏元素或加载远程资源。
-- Git 来源会让服务器主动访问用户填写的仓库地址。
-- 不建议把上传皮肤或 Git 安装能力开放给普通用户。
-- 多人共用部署建议通过防火墙、反向代理或可信网络限制设置页访问来源。
+- CSS can change the visual appearance of the interface, hide elements, or load remote resources.
+- Git source will allow the server to actively access the warehouse address filled in by the user.
+- It is not recommended to open the ability to upload skins or Git installation to ordinary users.
+- Multi-person deployments recommend restricting access to sources through a firewall, reverse proxy, or trusted network settings page.
 
-## 7. 配置防火墙
+## 7. Configure firewall
 
 ```bash
 sudo ufw allow 80/tcp
@@ -151,7 +151,7 @@ sudo ufw allow 5000/tcp
 sudo ufw enable
 ```
 
-## 8. 限制访问来源（Nginx）
+## 8. Restrict access sources (Nginx)
 
 ```nginx
 location / {
@@ -161,30 +161,30 @@ location / {
 }
 ```
 
-## 9. 使用强密码
+## 9. Use strong passwords
 
-- 登录密码至少 8 位，包含大小写字母、数字和特殊字符
-- **SECRET_KEY 应使用随机生成的长字符串（至少 32 字节）**
-- 生成方法：`python -c 'import secrets; print(secrets.token_hex(32))'`
-- 定期更换密码
+- Login password must be at least 8 characters, including uppercase and lowercase letters, numbers and special characters
+- **SECRET_KEY should use the randomly generated long string (at least 32 bytes) **
+- Generation method: `python -c 'import secrets; print(secrets.token_hex(32))'`
+- Change password regularly
 
-## 10. 数据备份
+## 10. Data backup
 
 ```bash
-# 备份数据库
+# Backup database
 cp data/outlook_accounts.db data/outlook_accounts.db.backup
 
-# 定期备份（crontab）
+# Regular backup (crontab)
 0 2 * * * cp /path/to/data/outlook_accounts.db /path/to/backup/outlook_accounts.db.$(date +\%Y\%m\%d)
 ```
 
-## 安全最佳实践
+## Security Best Practices
 
-1. **固定 SECRET_KEY**：服务器部署必须显式设置，桌面版需保留自动生成的密钥文件
-2. **启用 HTTPS**：生产环境使用 SSL/TLS 加密
-3. **定期更新**：及时更新到最新版本
-4. **监控日志**：定期查看审计日志和应用日志
-5. **限制访问**：使用防火墙和 Nginx 限制访问来源
-6. **备份数据**：定期备份数据库文件
-7. **强密码策略**：使用复杂密码并定期更换
-8. **安装 CSRF 防护**：`pip install flask-wtf`
+1. ** fixed SECRET_KEY**: Server deployment must be set explicitly, desktop version needs to retain the automatically generated key file
+2. ** enables HTTPS**: production environment uses SSL/TLS encryption
+3. ** regularly updates **: timely updated to the latest version
+4. ** monitoring log **: Check audit logs and application logs regularly
+5. ** restricts access to **: Use firewall and Nginx to restrict access sources
+6. ** backup data **: Back up database files regularly
+7. ** Strong Password Policy **: Use complex passwords and change them regularly
+8. ** installation CSRF protection **: `pip install flask-wtf`

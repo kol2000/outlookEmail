@@ -27,11 +27,9 @@ class ProxyMailTemplateTests(unittest.TestCase):
             web_outlook_app.init_db()
             db = web_outlook_app.get_db()
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.execute(
-                "UPDATE groups SET parent_id = NULL, level = 1, "
-                "proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' "
-                "WHERE name IN ('默认分组', '临时邮箱')"
+                "UPDATE groups SET parent_id = NULL, level = 1, proxy_url = '', fallback_proxy_url_1 = '', fallback_proxy_url_2 = '' WHERE name IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')"
             )
             db.commit()
 
@@ -42,7 +40,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
 
     def test_format_proxy_for_log_redacts_password_keeps_username(self):
         format_log = web_outlook_app.format_proxy_for_log
-        self.assertEqual(format_log(''), '直连(未配置应用代理)')
+        self.assertEqual(format_log(''), 'Direct connection (no application proxy configured)')
         self.assertEqual(format_log('direct'), 'direct')
         self.assertEqual(
             format_log('socks5h://outlook.alicebob:secret@127.0.0.1:2260'),
@@ -54,7 +52,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
         )
 
     def test_socks_empty_password_forces_userpass_for_pysocks(self):
-        """空密码时 PySocks 会跳过 UserPass；传输层必须补占位密码。"""
+        'PySocks will skip UserPass when the password is empty; the transport layer must fill in the placeholder password.'
         prepare = web_outlook_app.prepare_proxy_url_for_transport
         resolve = web_outlook_app.resolve_socks_proxy_auth
 
@@ -100,7 +98,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
         self.assertEqual(expand(template, None), template)
         self.assertEqual(expand(template, ''), template)
         self.assertEqual(
-            expand('socks5h://outlook.{mail}:@127.0.0.1:2260', '中文用户@x.com'),
+            expand('socks5h://outlook.{mail}:@127.0.0.1:2260', '\u4e2d\u6587\u7528\u6237@x.com'),
             'socks5h://outlook.:@127.0.0.1:2260',
         )
         self.assertEqual(
@@ -111,7 +109,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
     def test_get_account_resolved_expands_primary_and_fallbacks(self):
         with self.app.app_context():
             group_id = web_outlook_app.add_group(
-                'Resin组',
+                'Resin group',
                 proxy_url='socks5h://outlook.{mail}:tok@127.0.0.1:2260',
                 fallback_proxy_url_1='socks5h://backup.{mail}:tok@127.0.0.1:2260',
                 fallback_proxy_url_2='direct',
@@ -145,7 +143,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
     def test_account_override_beats_group_template(self):
         with self.app.app_context():
             group_id = web_outlook_app.add_group(
-                '组代理',
+                'Group Agent',
                 proxy_url='socks5h://group.{mail}:g@127.0.0.1:2260',
             )
             db = web_outlook_app.get_db()
@@ -168,7 +166,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
     def test_upload_account_proxy_own_then_group_inheritance(self):
         with self.app.app_context():
             group_id = web_outlook_app.add_group(
-                '上传继承组',
+                'Upload inheritance group',
                 proxy_url='socks5h://outlook.{mail}:g@127.0.0.1:2260',
                 fallback_proxy_url_1='socks5h://fb.{mail}:g@127.0.0.1:2260',
             )
@@ -198,7 +196,7 @@ class ProxyMailTemplateTests(unittest.TestCase):
     def test_refresh_outlook_account_token_uses_resolved_account_proxy(self):
         with self.app.app_context():
             group_id = web_outlook_app.add_group(
-                '刷新组',
+                'Refresh group',
                 proxy_url='socks5h://group.{mail}:g@127.0.0.1:2260',
             )
             db = web_outlook_app.get_db()

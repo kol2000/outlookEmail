@@ -17,27 +17,27 @@ if TYPE_CHECKING:
 # ==================== OAuth Token API ====================
 
 def extract_oauth_authorization_code(redirected_url: str) -> tuple[bool, str, str]:
-    """从 OAuth 回调 URL 提取授权码。"""
+    'Extract the authorization code from the OAuth callback URL.'
     import urllib.parse
 
     normalized_url = str(redirected_url or '').strip()
     if not normalized_url:
-        return False, '', '请提供授权后的完整 URL'
+        return False, '', 'Please provide the complete URL after authorization'
 
     try:
         parsed_url = urllib.parse.urlparse(normalized_url)
         query_params = urllib.parse.parse_qs(parsed_url.query)
         auth_code = str(query_params['code'][0] or '').strip()
     except (KeyError, IndexError):
-        return False, '', '无法从 URL 中提取授权码，请检查 URL 是否正确'
+        return False, '', 'Unable to extract authorization code from URL, please check if the URL is correct'
 
     if not auth_code:
-        return False, '', '无法从 URL 中提取授权码，请检查 URL 是否正确'
+        return False, '', 'Unable to extract authorization code from URL, please check if the URL is correct'
     return True, auth_code, ''
 
 
 def exchange_oauth_code_for_tokens(redirected_url: str) -> Dict[str, Any]:
-    """使用授权后的回调 URL 换取 Microsoft OAuth token。"""
+    'Use the authorized callback URL to exchange for a Microsoft OAuth token.'
     success, auth_code, error_message = extract_oauth_authorization_code(redirected_url)
     if not success:
         return {'success': False, 'error': error_message}
@@ -54,7 +54,7 @@ def exchange_oauth_code_for_tokens(redirected_url: str) -> Dict[str, Any]:
     try:
         response = requests.post(token_url, data=token_data, timeout=30)
     except Exception as e:
-        return {'success': False, 'error': f'请求失败: {sanitize_error_details(str(e))}'}
+        return {'success': False, 'error': f'Request failed: {sanitize_error_details(str(e))}'}
 
     if response.status_code != 200:
         try:
@@ -62,12 +62,12 @@ def exchange_oauth_code_for_tokens(redirected_url: str) -> Dict[str, Any]:
         except Exception:
             error_data = {}
         error_msg = error_data.get('error_description', response.text)
-        return {'success': False, 'error': f'获取令牌失败: {sanitize_error_details(error_msg)}'}
+        return {'success': False, 'error': f'Failed to obtain token: {sanitize_error_details(error_msg)}'}
 
     tokens = response.json()
     refresh_token = str(tokens.get('refresh_token') or '').strip()
     if not refresh_token:
-        return {'success': False, 'error': '未能获取 Refresh Token'}
+        return {'success': False, 'error': 'Failed to obtain Refresh Token'}
 
     return {
         'success': True,
@@ -80,7 +80,7 @@ def exchange_oauth_code_for_tokens(redirected_url: str) -> Dict[str, Any]:
 
 
 def update_account_authorization_for_reauth(account_id: int, client_id: str, refresh_token: str, db_conn=None) -> bool:
-    """只更新已有 Outlook 账号的授权字段，并清理旧刷新失败状态。"""
+    'Only update the authorization fields of existing Outlook accounts and clear the old refresh failure status.'
     token_value = str(refresh_token or '').strip()
     client_id_value = str(client_id or '').strip()
     if not token_value or not client_id_value:
@@ -111,14 +111,14 @@ def update_account_authorization_for_reauth(account_id: int, client_id: str, ref
                 db.rollback()
             except Exception:
                 pass
-        print(f"更新账号重新授权信息失败: {sanitize_error_details(str(e))}")
+        print(f'Failed to update account re-authorization information: {sanitize_error_details(str(e))}')
         return False
 
 
 @app.route('/api/oauth/auth-url', methods=['GET'])
 @login_required
 def api_get_oauth_auth_url():
-    """生成 OAuth 授权 URL"""
+    'Generate OAuth authorization URL'
     import urllib.parse
 
     base_auth_url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
@@ -143,7 +143,7 @@ def api_get_oauth_auth_url():
 @app.route('/api/oauth/exchange-token', methods=['POST'])
 @login_required
 def api_exchange_oauth_token():
-    """使用授权码换取 Refresh Token"""
+    'Use authorization code to exchange for Refresh Token'
     data = request.get_json(silent=True) or {}
     token_result = exchange_oauth_code_for_tokens(data.get('redirected_url', ''))
     return jsonify(token_result)
@@ -152,7 +152,7 @@ def api_exchange_oauth_token():
 @app.route('/api/accounts/<int:account_id>/reauthorize', methods=['POST'])
 @login_required
 def api_reauthorize_account(account_id):
-    """为已有 Outlook 账号重新授权，并立即执行一次刷新验证。"""
+    'Reauthorize the existing Outlook account and perform a refresh verification immediately.'
     db = get_db()
     account = db.execute(
         '''
@@ -169,7 +169,7 @@ def api_reauthorize_account(account_id):
             'success': False,
             'error': build_error_payload(
                 "ACCOUNT_NOT_FOUND",
-                "账号不存在",
+                'Account does not exist',
                 "NotFoundError",
                 404,
                 f"account_id={account_id}"
@@ -181,7 +181,7 @@ def api_reauthorize_account(account_id):
             'success': False,
             'error': build_error_payload(
                 "ACCOUNT_REAUTH_UNSUPPORTED",
-                "IMAP 账号不支持重新授权",
+                'IMAP accounts do not support re-authorization',
                 "UnsupportedAccountTypeError",
                 400,
                 f"account_id={account_id}"
@@ -195,10 +195,10 @@ def api_reauthorize_account(account_id):
             'success': False,
             'error': build_error_payload(
                 "OAUTH_EXCHANGE_FAILED",
-                "重新授权失败",
+                'Reauthorization failed',
                 "OAuthExchangeError",
                 400,
-                token_result.get('error') or '未知错误'
+                token_result.get('error') or 'Unknown error'
             )
         }), 400
 
@@ -213,7 +213,7 @@ def api_reauthorize_account(account_id):
             'success': False,
             'error': build_error_payload(
                 "ACCOUNT_REAUTH_SAVE_FAILED",
-                "保存重新授权信息失败",
+                'Failed to save reauthorization information',
                 "DatabaseError",
                 500,
                 f"account_id={account_id}"
@@ -237,30 +237,30 @@ def api_reauthorize_account(account_id):
     if validation_result.get('success'):
         return jsonify({
             'success': True,
-            'message': '重新授权成功，Token 刷新验证通过',
+            'message': 'Re-authorization is successful, Token refresh verification passed',
             'authorization_updated': True,
             'validation': {
                 'success': True,
                 'status': 'success',
-                'message': validation_result.get('message') or 'Token 刷新成功',
+                'message': validation_result.get('message') or 'Token refreshed successfully',
                 'authorization_type': validation_result.get('authorization_type') or '',
             }
         })
 
     return jsonify({
         'success': True,
-        'message': '重新授权已保存，但自动刷新验证失败',
+        'message': 'Reauthorization saved, but auto-refresh verification failed',
         'authorization_updated': True,
         'validation': {
             'success': False,
             'status': 'failed',
             'error': validation_result.get('error_payload'),
-            'error_message': validation_result.get('error_message') or '未知错误'
+            'error_message': validation_result.get('error_message') or 'Unknown error'
         }
     })
 
 
-# ==================== 设置 API ====================
+# ==================== Settings API ====================
 
 WEBDAV_BACKUP_SETTING_KEYS = (
     'webdav_backup_enabled',
@@ -304,7 +304,7 @@ def has_webdav_backup_setting_changes(data) -> bool:
 
 def validate_cron_expression_for_timezone(cron_expr: str, time_zone: str):
     if not cron_expr:
-        return 'Cron 表达式不能为空'
+        return 'Cron expression cannot be empty'
     if not is_valid_app_timezone_name(time_zone):
         return 'Invalid time zone'
     try:
@@ -313,17 +313,17 @@ def validate_cron_expression_for_timezone(cron_expr: str, time_zone: str):
         croniter(cron_expr, datetime.now(ZoneInfo(time_zone)))
         return None
     except ImportError:
-        return 'croniter 库未安装'
+        return 'The croniter library is not installed'
     except Exception as exc:
-        return f'Cron 表达式无效: {str(exc)}'
+        return f'Invalid Cron expression: {str(exc)}'
 
 
 def validate_five_field_cron_expression_for_timezone(cron_expr: str, time_zone: str):
     normalized = str(cron_expr or '').strip()
     if not normalized:
-        return 'Cron 表达式不能为空'
+        return 'Cron expression cannot be empty'
     if len(normalized.split()) != 5:
-        return '仅支持 5 段 Cron'
+        return 'Only supports 5-segment Cron'
     return validate_cron_expression_for_timezone(normalized, time_zone)
 
 
@@ -378,7 +378,7 @@ NORMAL_MAIL_RETENTION_CLEAR_RETRY_ATTEMPTS = 3
 NORMAL_MAIL_RETENTION_CLEAR_RETRY_DELAY_SECONDS = 0.05
 NORMAL_MAIL_RETENTION_CLEAR_STATUS = {
     'state': 'idle',
-    'message': '普通邮箱本地缓存清理空闲',
+    'message': 'No cache cleanup is running',
 }
 
 
@@ -424,11 +424,11 @@ def run_normal_mail_retention_clear_operation():
         try:
             deleted_count = clear_retained_normal_mail_cache_rows()
         except Exception as exc:
-            set_normal_mail_retention_clear_status('failed', f'清理失败：{exc}')
+            set_normal_mail_retention_clear_status('failed', f'Cleanup failed: {exc}')
             return
         set_normal_mail_retention_clear_status(
             'succeeded',
-            f'已清理 {deleted_count} 封普通邮箱本地缓存邮件',
+            f'{deleted_count} local cached emails of ordinary mailboxes have been cleared',
         )
 
 
@@ -445,7 +445,7 @@ def start_normal_mail_retention_clear_operation():
             return status
         NORMAL_MAIL_RETENTION_CLEAR_STATUS.update({
             'state': 'running',
-            'message': '正在清理普通邮箱本地缓存…',
+            'message': 'Cleaning the local cache of ordinary mailboxes...',
         })
         worker.start()
         status = dict(NORMAL_MAIL_RETENTION_CLEAR_STATUS)
@@ -506,7 +506,7 @@ def get_normal_mail_retention_storage_stats():
 @app.route('/api/settings/normal-mail-retention/status', methods=['GET'])
 @login_required
 def api_get_normal_mail_retention_status():
-    """返回普通邮箱本地保留统计，供设置页展示。"""
+    'Return local retention statistics of ordinary mailboxes for display on the settings page.'
     return jsonify({
         'success': True,
         'status': get_normal_mail_retention_storage_stats(),
@@ -516,7 +516,7 @@ def api_get_normal_mail_retention_status():
 @app.route('/api/settings/normal-mail-retention/clear', methods=['POST'])
 @login_required
 def api_clear_normal_mail_retention_cache():
-    """显式启动普通邮箱本地保留缓存清理。"""
+    'Explicitly initiate local retention cache cleanup for ordinary mailboxes.'
     status = start_normal_mail_retention_clear_operation()
     return jsonify({
         'success': True,
@@ -528,11 +528,11 @@ def api_clear_normal_mail_retention_cache():
 @app.route('/api/settings/validate-cron', methods=['POST'])
 @login_required
 def api_validate_cron():
-    """验证 Cron 表达式"""
+    'Validating Cron expressions'
     try:
         from croniter import croniter  # noqa: F401
     except ImportError:
-        return jsonify({'success': False, 'error': 'croniter 库未安装，请运行: pip install croniter'})
+        return jsonify({'success': False, 'error': 'The croniter library is not installed, please run: pip install croniter'})
 
     data = request.json or {}
     cron_expr = data.get('cron_expression', '').strip()
@@ -540,7 +540,7 @@ def api_validate_cron():
     expected_fields = data.get('expected_fields')
 
     if not cron_expr:
-        return jsonify({'success': False, 'error': 'Cron 表达式不能为空'})
+        return jsonify({'success': False, 'error': 'Cron expression cannot be empty'})
 
     if expected_fields is not None:
         try:
@@ -551,7 +551,7 @@ def api_validate_cron():
             return jsonify({
                 'success': False,
                 'valid': False,
-                'error': f'仅支持 {expected_field_count} 段 Cron'
+                'error': f'Only supports {expected_field_count} segment Cron'
             })
 
     if requested_timezone and not is_valid_app_timezone_name(requested_timezone):
@@ -572,25 +572,25 @@ def api_validate_cron():
         return jsonify({
             'success': False,
             'valid': False,
-            'error': f'Cron 表达式无效: {str(e)}'
+            'error': f'Invalid Cron expression: {str(e)}'
         })
 
 
 @app.route('/api/settings', methods=['GET'])
 @login_required
 def api_get_settings():
-    """获取所有设置"""
+    'Get all settings'
     settings = get_all_settings()
-    # 隐藏密码的部分字符
+    # Hide some characters of password
     if 'login_password' in settings:
         pwd = settings['login_password']
         if len(pwd) > 2:
             settings['login_password_masked'] = pwd[0] + '*' * (len(pwd) - 2) + pwd[-1]
         else:
             settings['login_password_masked'] = '*' * len(pwd)
-    # 返回解密后的对外 API Key
+    # Return the decrypted external API Key
     settings['external_api_key'] = get_external_api_key()
-    # 返回 DuckMail 设置
+    # Return to DuckMail settings
     settings['duckmail_base_url'] = get_duckmail_base_url()
     settings['duckmail_api_key'] = get_duckmail_api_key()
     settings['cloudflare_worker_domain'] = get_cloudflare_worker_domain()
@@ -672,7 +672,7 @@ def api_get_settings():
 @app.route('/api/settings', methods=['PUT'])
 @login_required
 def api_update_settings():
-    """更新设置"""
+    'Update settings'
     data = request.json or {}
     updated = []
     errors = []
@@ -681,9 +681,9 @@ def api_update_settings():
     if webdav_backup_changed:
         confirm_password = str(data.get('webdav_backup_verify_password', ''))
         if not confirm_password:
-            return jsonify({'success': False, 'error': '修改 WebDAV 备份设置需要验证登录密码'})
+            return jsonify({'success': False, 'error': 'Modifying WebDAV backup settings requires verification of login password'})
         if not verify_login_password(confirm_password):
-            return jsonify({'success': False, 'error': 'WebDAV 备份设置验证失败：登录密码错误'})
+            return jsonify({'success': False, 'error': 'WebDAV backup settings verification failed: wrong login password'})
 
         proposed_backup = {
             key: normalize_webdav_backup_setting_value(key, get_current_webdav_backup_setting_value(key))
@@ -697,9 +697,9 @@ def api_update_settings():
             backup_url = proposed_backup['webdav_backup_url']
             parsed_url = urlparse(backup_url)
             if not backup_url:
-                return jsonify({'success': False, 'error': '启用 WebDAV 备份时必须填写 WebDAV 目录 URL'})
+                return jsonify({'success': False, 'error': 'WebDAV directory URL must be filled in when enabling WebDAV backup'})
             if parsed_url.scheme not in ('http', 'https') or not parsed_url.netloc:
-                return jsonify({'success': False, 'error': 'WebDAV 目录 URL 必须是有效的 http(s) 地址'})
+                return jsonify({'success': False, 'error': 'WebDAV directory URL must be a valid http(s) address'})
 
             backup_timezone = str(data.get('app_timezone') or get_app_timezone()).strip()
             backup_timezone = normalize_app_timezone_name(backup_timezone, get_app_timezone())
@@ -707,63 +707,63 @@ def api_update_settings():
             if cron_error:
                 return jsonify({'success': False, 'error': cron_error})
 
-    # 更新登录密码：必须验证当前密码；成功后轮换会话版本，使其他已登录会话失效
+    # Update login password: the current password must be verified; after success, the session version will be rotated to invalidate other logged-in sessions
     if 'login_password' in data:
         new_password = str(data.get('login_password') or '').strip()
         if new_password:
             if len(new_password) < 8:
-                return jsonify({'success': False, 'error': '密码长度至少为 8 位'})
+                return jsonify({'success': False, 'error': 'Password length must be at least 8 characters'})
             current_password = str(data.get('current_login_password') or '')
             if not current_password:
-                return jsonify({'success': False, 'error': '修改登录密码需要验证当前密码'})
+                return jsonify({'success': False, 'error': 'Changing the login password requires verifying the current password'})
             if not verify_login_password(current_password):
-                return jsonify({'success': False, 'error': '当前登录密码错误'})
+                return jsonify({'success': False, 'error': 'The current login password is incorrect'})
             hashed_password = hash_password(new_password)
             if not set_setting('login_password', hashed_password):
-                return jsonify({'success': False, 'error': '更新登录密码失败'})
+                return jsonify({'success': False, 'error': 'Failed to update login password'})
             new_session_version = rotate_login_session_version()
-            # 当前改密会话继续有效，其余旧会话在下次请求时失效
+            # The current encryption session will continue to be valid, and the remaining old sessions will become invalid on the next request.
             session['logged_in'] = True
             session.permanent = True
             bind_login_session_version(new_session_version)
-            updated.append('登录密码')
+            updated.append('Password')
 
-    # 更新 GPTMail API Key
+    # Update GPTMail API Key
     if 'gptmail_api_key' in data:
         new_api_key = data['gptmail_api_key'].strip()
         if new_api_key:
             if set_setting('gptmail_api_key', new_api_key):
                 updated.append('GPTMail API Key')
             else:
-                errors.append('更新 GPTMail API Key 失败')
+                errors.append('Failed to update GPTMail API Key')
 
-    # 更新刷新周期
+    # Update refresh cycle
     if 'refresh_interval_days' in data:
         try:
             days = int(data['refresh_interval_days'])
             if days < 1 or days > 90:
-                errors.append('刷新周期必须在 1-90 天之间')
+                errors.append('Refresh period must be between 1-90 days')
             elif set_setting('refresh_interval_days', str(days)):
-                updated.append('刷新周期')
+                updated.append('Refresh cycle')
             else:
-                errors.append('更新刷新周期失败')
+                errors.append('Update refresh cycle failed')
         except ValueError:
-            errors.append('刷新周期必须是数字')
+            errors.append('The refresh period must be a number')
 
-    # 更新刷新间隔
+    # Update refresh interval
     if 'refresh_delay_seconds' in data:
         try:
             seconds = int(data['refresh_delay_seconds'])
             if seconds < 0 or seconds > 60:
-                errors.append('刷新间隔必须在 0-60 秒之间')
+                errors.append('The refresh interval must be between 0-60 seconds')
             elif set_setting('refresh_delay_seconds', str(seconds)):
-                updated.append('刷新间隔')
+                updated.append('Refresh interval')
             else:
-                errors.append('更新刷新间隔失败')
+                errors.append('Failed to update refresh interval')
         except ValueError:
-            errors.append('刷新间隔必须是数字')
+            errors.append('The refresh interval must be a number')
 
-    # 更新 Cron 表达式
+    # Update Cron expression
     if 'refresh_cron' in data:
         cron_expr = data['refresh_cron'].strip()
         if cron_expr:
@@ -772,35 +772,35 @@ def api_update_settings():
                 from datetime import datetime
                 croniter(cron_expr, datetime.now())
                 if set_setting('refresh_cron', cron_expr):
-                    updated.append('Cron 表达式')
+                    updated.append('Cron expression')
                 else:
-                    errors.append('更新 Cron 表达式失败')
+                    errors.append('Failed to update Cron expression')
             except ImportError:
-                errors.append('croniter 库未安装')
+                errors.append('The croniter library is not installed')
             except Exception as e:
-                errors.append(f'Cron 表达式无效: {str(e)}')
+                errors.append(f'Invalid Cron expression: {str(e)}')
 
-    # 更新刷新策略
+    # Update refresh strategy
     if 'use_cron_schedule' in data:
         use_cron = str(data['use_cron_schedule']).lower()
         if use_cron in ('true', 'false'):
             if set_setting('use_cron_schedule', use_cron):
-                updated.append('刷新策略')
+                updated.append('Refresh strategy')
             else:
-                errors.append('更新刷新策略失败')
+                errors.append('Failed to update refresh policy')
         else:
-            errors.append('刷新策略必须是 true 或 false')
+            errors.append('Refresh strategy must be true or false')
 
-    # 更新定时刷新开关
+    # Update scheduled refresh switch
     if 'enable_scheduled_refresh' in data:
         enable = str(data['enable_scheduled_refresh']).lower()
         if enable in ('true', 'false'):
             if set_setting('enable_scheduled_refresh', enable):
-                updated.append('定时刷新开关')
+                updated.append('Scheduled refresh switch')
             else:
-                errors.append('更新定时刷新开关失败')
+                errors.append('Failed to update scheduled refresh switch')
         else:
-            errors.append('定时刷新开关必须是 true 或 false')
+            errors.append('The scheduled refresh switch must be true or false')
 
     if 'app_timezone' in data:
         app_timezone = str(data['app_timezone']).strip()
@@ -815,31 +815,31 @@ def api_update_settings():
         show_created_at = str(data['show_account_created_at']).lower()
         if show_created_at in ('true', 'false'):
             if set_setting('show_account_created_at', show_created_at):
-                updated.append('创建时间展示')
+                updated.append('Creation time display')
             else:
-                errors.append('更新创建时间展示失败')
+                errors.append('Failed to update creation time display')
         else:
-            errors.append('创建时间展示必须是 true 或 false')
+            errors.append('Creation time display must be true or false')
 
     if 'show_account_sort_order' in data:
         show_sort_order = str(data['show_account_sort_order']).lower()
         if show_sort_order in ('true', 'false'):
             if set_setting('show_account_sort_order', show_sort_order):
-                updated.append('排序值展示')
+                updated.append('Sorting value display')
             else:
-                errors.append('更新排序值展示失败')
+                errors.append('Failed to update sorting value display')
         else:
-            errors.append('排序值展示必须是 true 或 false')
+            errors.append('Sort value display must be true or false')
 
     if 'show_group_id' in data:
         show_group_id = str(data['show_group_id']).lower()
         if show_group_id in ('true', 'false'):
             if set_setting('show_group_id', show_group_id):
-                updated.append('组ID展示')
+                updated.append('Group ID display')
             else:
-                errors.append('更新组ID展示失败')
+                errors.append('Failed to update group ID display')
         else:
-            errors.append('组ID展示必须是 true 或 false')
+            errors.append('Group ID display must be true or false')
 
     if 'normal_mail_local_retention_enabled' in data:
         retention_enabled = str(data['normal_mail_local_retention_enabled']).strip().lower()
@@ -850,105 +850,105 @@ def api_update_settings():
                 normalized_retention_enabled,
             ):
                 set_normal_mail_local_retention_enabled_cache(normalized_retention_enabled)
-                updated.append('普通邮箱本地保留开关')
+                updated.append('Ordinary mailbox local retention switch')
             else:
-                errors.append('更新普通邮箱本地保留开关失败')
+                errors.append('Failed to update the local retention switch of ordinary mailboxes')
         else:
-            errors.append('普通邮箱本地保留开关必须是 true 或 false')
+            errors.append('The local retention switch for ordinary mailboxes must be true or false')
 
     if 'active_skin_id' in data:
         success, error, _skin = set_active_skin(data.get('active_skin_id'))
         if success:
-            updated.append('当前皮肤')
+            updated.append('Current skin')
         else:
-            errors.append(error or '保存当前皮肤失败')
+            errors.append(error or 'Failed to save current skin')
 
-    # 更新对外 API Key
+    # Update external API Key
     if 'external_api_key' in data:
         new_ext_key = data['external_api_key'].strip()
         if new_ext_key:
             if set_setting('external_api_key', new_ext_key):
-                updated.append('对外 API Key')
+                updated.append('External API Key')
             else:
-                errors.append('更新对外 API Key 失败')
+                errors.append('Failed to update external API Key')
         else:
             if set_setting('external_api_key', ''):
-                updated.append('对外 API Key（已清空）')
+                updated.append('External API Key (cleared)')
 
-    # 更新 DuckMail 设置
+    # Update DuckMail settings
     if 'duckmail_base_url' in data:
         new_url = data['duckmail_base_url'].strip()
         if set_setting('duckmail_base_url', new_url):
-            updated.append('DuckMail API 地址')
+            updated.append('DuckMail API address')
         else:
-            errors.append('更新 DuckMail API 地址失败')
+            errors.append('Failed to update DuckMail API address')
 
     if 'duckmail_api_key' in data:
         new_dk_key = data['duckmail_api_key'].strip()
         if set_setting('duckmail_api_key', new_dk_key):
             updated.append('DuckMail API Key')
         else:
-            errors.append('更新 DuckMail API Key 失败')
+            errors.append('Failed to update DuckMail API Key')
 
     if 'cloudflare_worker_domain' in data:
         new_domain = data['cloudflare_worker_domain'].strip()
         if set_setting('cloudflare_worker_domain', new_domain):
-            updated.append('Cloudflare Worker 域名')
+            updated.append('Cloudflare Worker domain name')
         else:
-            errors.append('更新 Cloudflare Worker 域名失败')
+            errors.append('Failed to update Cloudflare Worker domain name')
 
     if 'cloudflare_email_domains' in data:
         new_domains = data['cloudflare_email_domains'].strip()
         if set_setting('cloudflare_email_domains', new_domains):
-            updated.append('Cloudflare 邮箱域名')
+            updated.append('Cloudflare email domain name')
         else:
-            errors.append('更新 Cloudflare 邮箱域名失败')
+            errors.append('Failed to update Cloudflare email domain name')
 
     if 'cloudflare_admin_password' in data:
         new_password = data['cloudflare_admin_password'].strip()
         if set_setting('cloudflare_admin_password', new_password):
-            updated.append('Cloudflare 管理密码')
+            updated.append('Cloudflare Admin Password')
         else:
-            errors.append('更新 Cloudflare 管理密码失败')
+            errors.append('Failed to update Cloudflare admin password')
 
     if 'cloudflare_ai_username_enabled' in data:
         enabled = normalize_bool_setting_value(data['cloudflare_ai_username_enabled'])
         if set_setting('cloudflare_ai_username_enabled', enabled):
-            updated.append('Cloudflare AI 用户名开关')
+            updated.append('Cloudflare AI username switch')
         else:
-            errors.append('保存 Cloudflare AI 用户名开关失败')
+            errors.append('Failed to save Cloudflare AI username switch')
 
     if 'cloudflare_ai_username_api_url' in data:
         if set_setting('cloudflare_ai_username_api_url', str(data['cloudflare_ai_username_api_url']).strip()):
-            updated.append('Cloudflare AI API 地址')
+            updated.append('Cloudflare AI API address')
         else:
-            errors.append('保存 Cloudflare AI API 地址失败')
+            errors.append('Failed to save Cloudflare AI API address')
 
     if 'cloudflare_ai_username_model' in data:
         if set_setting('cloudflare_ai_username_model', str(data['cloudflare_ai_username_model']).strip()):
-            updated.append('Cloudflare AI 模型')
+            updated.append('Cloudflare AI model')
         else:
-            errors.append('保存 Cloudflare AI 模型失败')
+            errors.append('Failed to save Cloudflare AI model')
 
     if 'cloudflare_ai_username_prompt' in data:
         prompt = str(data['cloudflare_ai_username_prompt'] or '').strip() or CLOUDFLARE_AI_USERNAME_DEFAULT_PROMPT
         if set_setting('cloudflare_ai_username_prompt', prompt):
-            updated.append('Cloudflare AI 提示词')
+            updated.append('Cloudflare AI prompt words')
         else:
-            errors.append('保存 Cloudflare AI 提示词失败')
+            errors.append('Failed to save Cloudflare AI prompt words')
 
     if data.get('cloudflare_ai_username_clear_api_key'):
         if set_setting_encrypted('cloudflare_ai_username_api_key', ''):
-            updated.append('Cloudflare AI API Key（已清空）')
+            updated.append('Cloudflare AI API Key (cleared)')
         else:
-            errors.append('清空 Cloudflare AI API Key 失败')
+            errors.append('Failed to clear Cloudflare AI API Key')
     elif 'cloudflare_ai_username_api_key' in data:
         ai_api_key = str(data['cloudflare_ai_username_api_key'] or '').strip()
         if ai_api_key:
             if set_setting_encrypted('cloudflare_ai_username_api_key', ai_api_key):
                 updated.append('Cloudflare AI API Key')
             else:
-                errors.append('保存 Cloudflare AI API Key 失败')
+                errors.append('Failed to save Cloudflare AI API Key')
 
     forward_execution_mode_for_delay = normalize_forward_execution_mode()
     forward_account_delay_updated = False
@@ -957,24 +957,24 @@ def api_update_settings():
         try:
             minutes = int(data['forward_check_interval_minutes'])
             if minutes < 1 or minutes > 60:
-                errors.append('转发检查间隔必须在 1-60 分钟之间')
+                errors.append('Forward check interval must be between 1-60 minutes')
             elif set_setting('forward_check_interval_minutes', str(minutes)):
-                updated.append('转发检查间隔')
+                updated.append('Forwarding check interval')
                 if 'forward_check_interval_seconds' not in data:
                     if not set_setting('forward_check_interval_seconds', str(minutes * 60)):
-                        errors.append('保存转发秒级轮询间隔失败')
+                        errors.append('Failed to save forwarding second-level polling interval')
             else:
-                errors.append('保存转发检查间隔失败')
+                errors.append('Failed to save forwarding check interval')
         except ValueError:
-            errors.append('转发检查间隔必须是数字')
+            errors.append('The forwarding check interval must be a number')
 
     if 'forward_check_interval_seconds' in data:
         try:
             seconds = parse_forward_check_interval_seconds_input(data['forward_check_interval_seconds'])
             if set_setting('forward_check_interval_seconds', str(seconds)):
-                updated.append('转发秒级轮询间隔')
+                updated.append('Forwarding second-level polling interval')
             else:
-                errors.append('保存转发秒级轮询间隔失败')
+                errors.append('Failed to save forwarding second-level polling interval')
         except ValueError as exc:
             errors.append(str(exc))
 
@@ -982,10 +982,10 @@ def api_update_settings():
         try:
             execution_mode = parse_forward_execution_mode_input(data['forward_execution_mode'])
             if set_setting('forward_execution_mode', execution_mode):
-                updated.append('转发执行模式')
+                updated.append('Forward execution mode')
                 forward_execution_mode_for_delay = execution_mode
             else:
-                errors.append('保存转发执行模式失败')
+                errors.append('Failed to save forwarding execution mode')
         except ValueError as exc:
             errors.append(str(exc))
 
@@ -993,9 +993,9 @@ def api_update_settings():
         try:
             workers = parse_forward_parallel_workers_input(data['forward_parallel_workers'])
             if set_setting('forward_parallel_workers', str(workers)):
-                updated.append('转发并行 worker 数')
+                updated.append('Number of forwarding parallel workers')
             else:
-                errors.append('保存转发并行 worker 数失败')
+                errors.append('Failed to save the number of forwarding parallel workers')
         except ValueError as exc:
             errors.append(str(exc))
 
@@ -1006,14 +1006,14 @@ def api_update_settings():
                 else int(data['forward_account_delay_seconds'])
             )
             if seconds < 0 or seconds > 60:
-                errors.append('账号间拉取间隔必须在 0-60 秒之间')
+                errors.append('The pull interval between accounts must be between 0-60 seconds')
             elif set_setting('forward_account_delay_seconds', str(seconds)):
-                updated.append('账号间拉取间隔')
+                updated.append('Pull interval between accounts')
                 forward_account_delay_updated = True
             else:
-                errors.append('保存账号间拉取间隔失败')
+                errors.append('Failed to save the pull interval between accounts')
         except (TypeError, ValueError):
-            errors.append('账号间拉取间隔必须是数字')
+            errors.append('The pull interval between accounts must be a number')
 
     if (
         'forward_execution_mode' in data
@@ -1021,168 +1021,168 @@ def api_update_settings():
         and not forward_account_delay_updated
     ):
         if set_setting('forward_account_delay_seconds', '0'):
-            updated.append('账号间拉取间隔')
+            updated.append('Pull interval between accounts')
         else:
-            errors.append('保存账号间拉取间隔失败')
+            errors.append('Failed to save the pull interval between accounts')
 
     if 'forward_email_window_minutes' in data:
         try:
             minutes = int(data['forward_email_window_minutes'])
             if minutes < 0 or minutes > 10080:
-                errors.append('转发邮件时间范围必须在 0-10080 分钟之间')
+                errors.append('The mail forwarding time range must be between 0-10080 minutes')
             elif set_setting('forward_email_window_minutes', str(minutes)):
-                updated.append('转发邮件时间范围')
+                updated.append('Forwarding email time range')
             else:
-                errors.append('保存转发邮件时间范围失败')
+                errors.append('Failed to save forwarding email time range')
         except ValueError:
-            errors.append('转发邮件时间范围必须是数字')
+            errors.append('The email forwarding time range must be a number')
 
     if 'forward_include_junkemail' in data:
         include_junk = str(data['forward_include_junkemail']).lower()
         if include_junk in ('true', 'false'):
             if set_setting('forward_include_junkemail', include_junk):
-                updated.append('转发垃圾箱邮件')
+                updated.append('Forward spam emails')
             else:
-                errors.append('保存转发垃圾箱邮件失败')
+                errors.append('Failed to save and forward junk mail')
         else:
-            errors.append('转发垃圾箱邮件必须是 true 或 false')
+            errors.append('Forwarding spam messages must be true or false')
 
     if MAIL_FETCH_TIMEOUT_SETTING_KEY in data:
         mail_fetch_timeout_seconds = parse_mail_fetch_timeout_seconds(data[MAIL_FETCH_TIMEOUT_SETTING_KEY])
         if mail_fetch_timeout_seconds is None:
             errors.append(
-                f'邮件获取超时必须在 {MAIL_FETCH_TIMEOUT_MIN_SECONDS}-{MAIL_FETCH_TIMEOUT_MAX_SECONDS} 秒之间'
+                f'Mail retrieval timeout must be between {MAIL_FETCH_TIMEOUT_MIN_SECONDS}-{MAIL_FETCH_TIMEOUT_MAX_SECONDS} seconds'
             )
         elif set_setting(MAIL_FETCH_TIMEOUT_SETTING_KEY, str(mail_fetch_timeout_seconds)):
-            updated.append('邮件获取超时')
+            updated.append('Mail retrieval timeout')
         else:
-            errors.append('保存邮件获取超时失败')
+            errors.append('Failed to save email and get timeout')
 
     if 'forward_channels' in data:
         forward_channels = normalize_forward_channel_settings(data['forward_channels'])
         stored_value = ','.join(forward_channels) if forward_channels else 'none'
         if set_setting('forward_channels', stored_value):
-            updated.append('转发渠道')
+            updated.append('Forwarding channel')
         else:
-            errors.append('保存转发渠道失败')
+            errors.append('Failed to save forwarding channel')
 
     if 'email_forward_recipient' in data:
         if set_setting('email_forward_recipient', data['email_forward_recipient'].strip()):
-            updated.append('邮件转发收件箱')
+            updated.append('Mail forwarding inbox')
         else:
-            errors.append('保存邮件转发收件箱失败')
+            errors.append('Failed to save mail forwarding inbox')
 
     if 'smtp_host' in data:
         if set_setting('smtp_host', data['smtp_host'].strip()):
-            updated.append('SMTP 主机')
+            updated.append('SMTP host')
         else:
-            errors.append('保存 SMTP 主机失败')
+            errors.append('Failed to save SMTP host')
 
     if 'smtp_port' in data:
         try:
             smtp_port = int(data['smtp_port'])
             if smtp_port <= 0 or smtp_port > 65535:
-                errors.append('SMTP 端口无效')
+                errors.append('Invalid SMTP port')
             elif set_setting('smtp_port', str(smtp_port)):
-                updated.append('SMTP 端口')
+                updated.append('SMTP port')
             else:
-                errors.append('保存 SMTP 端口失败')
+                errors.append('Failed to save SMTP port')
         except ValueError:
-            errors.append('SMTP 端口必须是数字')
+            errors.append('SMTP port must be numeric')
 
     if 'smtp_username' in data:
         if set_setting('smtp_username', data['smtp_username'].strip()):
-            updated.append('SMTP 用户名')
+            updated.append('SMTP username')
         else:
-            errors.append('保存 SMTP 用户名失败')
+            errors.append('Failed to save SMTP username')
 
     if 'smtp_password' in data:
         if set_setting_encrypted('smtp_password', data['smtp_password'].strip()):
-            updated.append('SMTP 密码')
+            updated.append('SMTP password')
         else:
-            errors.append('保存 SMTP 密码失败')
+            errors.append('Failed to save SMTP password')
 
     if 'smtp_from_email' in data:
         if set_setting('smtp_from_email', data['smtp_from_email'].strip()):
-            updated.append('SMTP 发件人')
+            updated.append('SMTP sender')
         else:
-            errors.append('保存 SMTP 发件人失败')
+            errors.append('Failed to save SMTP sender')
 
     if 'smtp_provider' in data:
         smtp_provider = normalize_smtp_forward_provider(data['smtp_provider'])
         if str(data['smtp_provider']).strip().lower() not in SMTP_FORWARD_PROVIDERS:
-            errors.append('SMTP 邮箱类型无效')
+            errors.append('Invalid SMTP mailbox type')
         elif set_setting('smtp_provider', smtp_provider):
-            updated.append('SMTP 邮箱类型')
+            updated.append('SMTP mailbox type')
         else:
-            errors.append('保存 SMTP 邮箱类型失败')
+            errors.append('Failed to save SMTP mailbox type')
 
     if 'smtp_use_tls' in data:
         if set_setting('smtp_use_tls', str(data['smtp_use_tls']).lower()):
             updated.append('SMTP TLS')
         else:
-            errors.append('保存 SMTP TLS 失败')
+            errors.append('Saving SMTP TLS failed')
 
     if 'smtp_use_ssl' in data:
         if set_setting('smtp_use_ssl', str(data['smtp_use_ssl']).lower()):
             updated.append('SMTP SSL')
         else:
-            errors.append('保存 SMTP SSL 失败')
+            errors.append('Saving SMTP SSL failed')
 
     if 'telegram_bot_token' in data:
         if set_setting_encrypted('telegram_bot_token', data['telegram_bot_token'].strip()):
             updated.append('Telegram Bot Token')
         else:
-            errors.append('保存 Telegram Bot Token 失败')
+            errors.append('Failed to save Telegram Bot Token')
 
     if 'telegram_chat_id' in data:
         if set_setting('telegram_chat_id', data['telegram_chat_id'].strip()):
             updated.append('Telegram Chat ID')
         else:
-            errors.append('保存 Telegram Chat ID 失败')
+            errors.append('Failed to save Telegram Chat ID')
 
     if 'telegram_topic_id' in data:
         if set_setting('telegram_topic_id', data['telegram_topic_id'].strip()):
             updated.append('Telegram Topic ID')
         else:
-            errors.append('保存 Telegram Topic ID 失败')
+            errors.append('Failed to save Telegram Topic ID')
 
     if 'telegram_proxy_url' in data:
         if set_setting('telegram_proxy_url', data['telegram_proxy_url'].strip()):
-            updated.append('Telegram 代理')
+            updated.append('Telegram proxy')
         else:
-            errors.append('保存 Telegram 代理失败')
+            errors.append('Failed to save Telegram proxy')
 
     if 'wecom_webhook_url' in data:
         if set_setting_encrypted('wecom_webhook_url', data['wecom_webhook_url'].strip()):
-            updated.append('企业微信 Webhook')
+            updated.append('Enterprise WeChat Webhook')
         else:
-            errors.append('保存企业微信 Webhook 失败')
+            errors.append('Failed to save Enterprise WeChat Webhook')
 
     if 'webdav_backup_enabled' in data:
         enabled = normalize_bool_setting_value(data['webdav_backup_enabled'])
         if set_setting('webdav_backup_enabled', enabled):
-            updated.append('WebDAV 备份开关')
+            updated.append('WebDAV backup switch')
         else:
-            errors.append('保存 WebDAV 备份开关失败')
+            errors.append('Failed to save WebDAV backup switch')
 
     if 'webdav_backup_url' in data:
         if set_setting('webdav_backup_url', str(data['webdav_backup_url']).strip()):
-            updated.append('WebDAV 目录 URL')
+            updated.append('WebDAV Directory URL')
         else:
-            errors.append('保存 WebDAV 目录 URL 失败')
+            errors.append('Failed to save WebDAV directory URL')
 
     if 'webdav_backup_username' in data:
         if set_setting('webdav_backup_username', str(data['webdav_backup_username']).strip()):
-            updated.append('WebDAV 用户名')
+            updated.append('WebDAV username')
         else:
-            errors.append('保存 WebDAV 用户名失败')
+            errors.append('Failed to save WebDAV username')
 
     if 'webdav_backup_password' in data:
         if set_setting_encrypted('webdav_backup_password', str(data['webdav_backup_password']).strip()):
-            updated.append('WebDAV 密码')
+            updated.append('WebDAV password')
         else:
-            errors.append('保存 WebDAV 密码失败')
+            errors.append('Failed to save WebDAV password')
 
     if 'webdav_backup_cron' in data:
         cron_expr = str(data['webdav_backup_cron']).strip()
@@ -1191,20 +1191,20 @@ def api_update_settings():
         if cron_error:
             errors.append(cron_error)
         elif set_setting('webdav_backup_cron', cron_expr):
-            updated.append('WebDAV 备份 Cron')
+            updated.append('WebDAV Backup Cron')
         else:
-            errors.append('保存 WebDAV 备份 Cron 失败')
+            errors.append('Saving WebDAV backup Cron failed')
 
     if errors:
         return jsonify({'success': False, 'error': '；'.join(errors)})
 
     if updated:
-        return jsonify({'success': True, 'message': f'已更新：{", ".join(updated)}'})
+        return jsonify({'success': True, 'message': f"Updated: {', '.join(updated)}"})
     else:
-        return jsonify({'success': False, 'error': '没有需要更新的设置'})
+        return jsonify({'success': False, 'error': 'There are no settings to update'})
 
 
-# ==================== 皮肤管理 API ====================
+# ==================== Skin Management API ====================
 
 @app.route('/api/skins', methods=['GET'])
 @login_required
@@ -1220,10 +1220,10 @@ def api_list_skins():
 def api_activate_skin(skin_id):
     success, error, skin = set_active_skin(skin_id)
     if not success:
-        return jsonify({'success': False, 'error': error or '启用皮肤失败'})
+        return jsonify({'success': False, 'error': error or 'Failed to enable skin'})
     return jsonify({
         'success': True,
-        'message': '皮肤已启用',
+        'message': 'Skin enabled',
         'active_skin': skin,
         'asset_hash': get_active_skin_asset_hash(),
     })
@@ -1238,11 +1238,11 @@ def api_upload_skin():
     except SkinValidationError as exc:
         return jsonify({'success': False, 'error': str(exc)})
     except Exception as exc:
-        return jsonify({'success': False, 'error': f'安装上传皮肤失败: {sanitize_error_details(str(exc))}'})
+        return jsonify({'success': False, 'error': f'Failed to install and upload skin: {sanitize_error_details(str(exc))}'})
 
     return jsonify({
         'success': True,
-        'message': '皮肤已安装',
+        'message': 'Skin installed',
         'skin': skin,
     })
 
@@ -1256,13 +1256,13 @@ def api_install_git_skin():
     except SkinValidationError as exc:
         return jsonify({'success': False, 'error': str(exc)})
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': '拉取 Git 皮肤超时'})
+        return jsonify({'success': False, 'error': 'Timeout when pulling Git skin'})
     except Exception as exc:
-        return jsonify({'success': False, 'error': f'安装 Git 皮肤失败: {sanitize_error_details(str(exc))}'})
+        return jsonify({'success': False, 'error': f'Failed to install Git skin: {sanitize_error_details(str(exc))}'})
 
     return jsonify({
         'success': True,
-        'message': 'Git 皮肤已安装',
+        'message': 'Git skin installed',
         'skin': skin,
     })
 
@@ -1275,13 +1275,13 @@ def api_update_git_skin(skin_id):
     except SkinValidationError as exc:
         return jsonify({'success': False, 'error': str(exc)})
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': '更新 Git 皮肤超时'})
+        return jsonify({'success': False, 'error': 'Update Git skin timeout'})
     except Exception as exc:
-        return jsonify({'success': False, 'error': f'更新 Git 皮肤失败: {sanitize_error_details(str(exc))}'})
+        return jsonify({'success': False, 'error': f'Failed to update Git skin: {sanitize_error_details(str(exc))}'})
 
     return jsonify({
         'success': True,
-        'message': 'Git 皮肤已更新',
+        'message': 'Git skin has been updated',
         'skin': skin,
     })
 
@@ -1291,42 +1291,42 @@ def api_update_git_skin(skin_id):
 def api_delete_skin(skin_id):
     success, error = delete_custom_skin(skin_id)
     if not success:
-        return jsonify({'success': False, 'error': error or '删除皮肤失败'})
-    return jsonify({'success': True, 'message': '皮肤已删除'})
+        return jsonify({'success': False, 'error': error or 'Failed to delete skin'})
+    return jsonify({'success': True, 'message': 'Skin removed'})
 
 
-# ==================== 对外 API ====================
+# ==================== External API ====================
 
 @app.route('/api/external/emails', methods=['GET'])
 @csrf_exempt
 @api_key_required
 def api_external_get_emails():
-    """对外 API：通过 API Key 获取邮件列表"""
+    'External API: Get the mailing list through API Key'
     email_addr = get_query_arg_preserve_plus('email', '').strip()
     folder = request.args.get('folder', 'inbox').strip().lower()
     skip = parse_non_negative_int(request.args.get('skip', 0), 0)
     top = parse_non_negative_int(request.args.get('top', 20), 20, 50)
 
     if not email_addr:
-        return jsonify({'success': False, 'error': '缺少 email 参数'}), 400
+        return jsonify({'success': False, 'error': 'Missing email parameter'}), 400
 
-    # 验证 folder 参数
+    # Verify folder parameter
     valid_folders = ['inbox', 'junkemail']
     if folder not in valid_folders:
-        return jsonify({'success': False, 'error': f'folder 参数无效，支持: {", ".join(valid_folders)}'}), 400
+        return jsonify({'success': False, 'error': f"The folder parameter is invalid, supported: {', '.join(valid_folders)}"}), 400
 
     account = resolve_account_for_email_api(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': '邮箱账号不存在'}), 404
+        return jsonify({'success': False, 'error': 'The email account does not exist'}), 404
 
-    # 获取代理设置：账号级配置优先，未配置时继承分组代理
+    # Get proxy settings: Account level configuration takes priority, if not configured, group proxy will be inherited.
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
 
-    # 收集所有错误信息
+    # Collect all error information
     all_errors = {}
 
-    # 1. 尝试 Graph API
+    # 1. Try Graph API
     graph_result = get_emails_graph(
         account['client_id'],
         account['refresh_token'],
@@ -1349,9 +1349,9 @@ def api_external_get_emails():
         graph_error = graph_result.get('error')
         all_errors['graph'] = graph_error
         if isinstance(graph_error, dict) and graph_error.get('type') in ('ProxyError', 'ConnectionError'):
-            return jsonify({'success': False, 'error': '账号代理或分组代理连接失败', 'details': all_errors})
+            return jsonify({'success': False, 'error': 'Account proxy or group proxy connection failed', 'details': all_errors})
 
-    # 2. 尝试新版 IMAP
+    # 2. Try the new version of IMAP
     imap_new_result = get_emails_imap_with_server(
         account['email'], account['client_id'], account['refresh_token'],
         folder, skip, top, IMAP_SERVER_NEW, proxy_url, fallback_proxy_urls
@@ -1366,7 +1366,7 @@ def api_external_get_emails():
     else:
         all_errors['imap_new'] = imap_new_result.get('error')
 
-    # 3. 尝试旧版 IMAP
+    # 3. Try an older version of IMAP
     imap_old_result = get_emails_imap_with_server(
         account['email'], account['client_id'], account['refresh_token'],
         folder, skip, top, IMAP_SERVER_OLD, proxy_url, fallback_proxy_urls
@@ -1381,17 +1381,14 @@ def api_external_get_emails():
     else:
         all_errors['imap_old'] = imap_old_result.get('error')
 
-    return jsonify({'success': False, 'error': '无法获取邮件，所有方式均失败', 'details': all_errors})
+    return jsonify({'success': False, 'error': 'Unable to get mail, all methods failed', 'details': all_errors})
 
 
 @app.route('/api/external/outlook/upload', methods=['POST'])
 @csrf_exempt
 @api_key_required
 def api_external_upload_outlook():
-    """对外 API：上传 Outlook 邮箱账号密码到上传表（默认未授权）。
-
-    支持单条 {email, password, remark?} 或批量 {accounts: [...]}。
-    """
+    'External API: Upload Outlook email account password to the upload table (unauthorized by default).\n\n    Supports single {email, password, remark?} or batch {accounts: [...]}.\n    '
     data = request.get_json(silent=True) or {}
 
     raw_accounts = data.get('accounts')
@@ -1412,7 +1409,7 @@ def api_external_upload_outlook():
             'remark': data.get('remark', ''),
         }]
     else:
-        return jsonify({'success': False, 'error': '请求体需包含 email/password 或非空 accounts 数组'}), 400
+        return jsonify({'success': False, 'error': 'The request body must contain email/password or a non-empty accounts array'}), 400
 
     summary = add_upload_accounts_bulk(items)
     return jsonify({'success': True, **summary})
@@ -1421,7 +1418,7 @@ def api_external_upload_outlook():
 @app.route('/api/outlook-upload-accounts', methods=['GET'])
 @login_required
 def api_list_outlook_upload_accounts():
-    """分页查询外部上传的 Outlook 账号，供前端弹框表格展示。"""
+    'Query externally uploaded Outlook accounts in pages for front-end pop-up table display.'
     page = parse_non_negative_int(request.args.get('page', 1), 1) or 1
     page_size = parse_non_negative_int(
         request.args.get('page_size', UPLOAD_ACCOUNTS_API_DEFAULT_PAGE_SIZE),
@@ -1442,7 +1439,7 @@ def api_list_outlook_upload_accounts():
 @app.route('/api/outlook-upload-accounts', methods=['POST'])
 @login_required
 def api_add_outlook_upload_account():
-    """添加单个外部上传的 Outlook 账号。"""
+    'Add a single externally uploaded Outlook account.'
     data = request.get_json(silent=True) or {}
     email = str(data.get('email', '') or '').strip()
     password = str(data.get('password', '') or '').strip()
@@ -1452,9 +1449,9 @@ def api_add_outlook_upload_account():
     tag_ids = data.get('tag_ids')
 
     if not email:
-        return jsonify({'success': False, 'error': '邮箱不能为空'}), 400
+        return jsonify({'success': False, 'error': 'The mailbox cannot be empty'}), 400
     if not password:
-        return jsonify({'success': False, 'error': '密码不能为空'}), 400
+        return jsonify({'success': False, 'error': 'Password cannot be empty'}), 400
 
     result = add_upload_account(
         email,
@@ -1468,20 +1465,17 @@ def api_add_outlook_upload_account():
     db.commit()
 
     if result['status'] == 'added':
-        return jsonify({'success': True, 'message': '添加成功', 'account': result})
+        return jsonify({'success': True, 'message': 'Added successfully', 'account': result})
     elif result['status'] == 'duplicate':
-        return jsonify({'success': False, 'error': '该邮箱已存在'}), 400
+        return jsonify({'success': False, 'error': 'The email already exists'}), 400
     else:
-        return jsonify({'success': False, 'error': '邮箱格式无效'}), 400
+        return jsonify({'success': False, 'error': 'Invalid email format'}), 400
 
 
 @app.route('/api/outlook-upload-accounts/<int:account_id>', methods=['PUT'])
 @login_required
 def api_update_outlook_upload_account(account_id):
-    """更新指定 ID 的外部上传账号（邮箱 / 密码 / 备注）。
-
-    请求体字段都可选；password 留空表示保持原密码；email/remark 不传入则保持原值。
-    """
+    'Update the external upload account (email/password/notes) of the specified ID.\n\n    The request body fields are all optional; leaving password blank means keeping the original password; email/remark will keep the original value if it is not passed in.\n    '
     data = request.get_json(silent=True) or {}
     email = data.get('email')
     password = data.get('password')
@@ -1504,43 +1498,43 @@ def api_update_outlook_upload_account(account_id):
     if status == 'updated':
         db = get_db()
         db.commit()
-        return jsonify({'success': True, 'message': '修改成功', 'account': result})
+        return jsonify({'success': True, 'message': 'Modification successful', 'account': result})
     if status == 'not_found':
-        return jsonify({'success': False, 'error': '账号不存在'}), 404
+        return jsonify({'success': False, 'error': 'Account does not exist'}), 404
     if status == 'duplicate':
-        return jsonify({'success': False, 'error': '该邮箱已存在'}), 400
+        return jsonify({'success': False, 'error': 'The email already exists'}), 400
     if status == 'invalid':
-        return jsonify({'success': False, 'error': '邮箱格式无效'}), 400
-    return jsonify({'success': False, 'error': '修改失败'}), 400
+        return jsonify({'success': False, 'error': 'Invalid email format'}), 400
+    return jsonify({'success': False, 'error': 'Modification failed'}), 400
 
 
 @app.route('/api/outlook-upload-accounts/<int:account_id>', methods=['DELETE'])
 @login_required
 def api_delete_outlook_upload_account(account_id):
-    """删除指定 ID 的外部上传账号。"""
+    'Delete the external upload account with the specified ID.'
     success = delete_upload_account(account_id)
     if success:
         db = get_db()
         db.commit()
-        return jsonify({'success': True, 'message': '删除成功'})
+        return jsonify({'success': True, 'message': 'Deletion successful'})
     else:
-        return jsonify({'success': False, 'error': '账号不存在'}), 404
+        return jsonify({'success': False, 'error': 'Account does not exist'}), 404
 
 
 @app.route('/api/outlook-upload-accounts/batch-delete', methods=['POST'])
 @login_required
 def api_batch_delete_outlook_upload_accounts():
-    """批量删除 Outlook 上传账号。"""
+    'Delete Outlook upload accounts in batches.'
     data = request.get_json(silent=True) or {}
     account_ids = normalize_account_ids(data.get('account_ids') or [])
     if not account_ids:
-        return jsonify({'success': False, 'error': '请选择要删除的账号'}), 400
+        return jsonify({'success': False, 'error': 'Please select the account you want to delete'}), 400
 
     summary = delete_upload_accounts_bulk(account_ids)
     get_db().commit()
     return jsonify({
         'success': True,
-        'message': f"已删除 {summary['deleted']} 个账号",
+        'message': f"{summary['deleted']} accounts deleted",
         **summary,
     })
 
@@ -1548,29 +1542,29 @@ def api_batch_delete_outlook_upload_accounts():
 @app.route('/api/outlook-upload-accounts/export-selected', methods=['POST'])
 @login_required
 def api_export_selected_upload_accounts():
-    """导出选中的 Outlook 上传账号为 TXT 文件（需要二次验证）"""
+    'Export the selected Outlook upload account to a TXT file (secondary verification required)'
     data = request.get_json(silent=True) or {}
     account_ids = normalize_account_ids(data.get('account_ids') or [])
     verify_token = data.get('verify_token')
 
-    # 检查二次验证token（使用内存存储）
+    # Check the two-step verification token (using memory storage)
     if not verify_token or verify_token not in export_verify_tokens:
-        return jsonify({'success': False, 'error': '需要二次验证', 'need_verify': True}), 401
+        return jsonify({'success': False, 'error': 'Secondary verification required', 'need_verify': True}), 401
 
     token_data = export_verify_tokens[verify_token]
 
-    # 检查是否过期
+    # Check if it is expired
     if token_data['expires'] < time.time():
         del export_verify_tokens[verify_token]
-        return jsonify({'success': False, 'error': '验证已过期，请重新验证', 'need_verify': True}), 401
+        return jsonify({'success': False, 'error': 'Verification has expired, please verify again', 'need_verify': True}), 401
 
-    # 清除验证token（一次性使用）
+    # Clear verification token (one-time use)
     del export_verify_tokens[verify_token]
 
     if not account_ids:
-        return jsonify({'success': False, 'error': '请选择要导出的账号'}), 400
+        return jsonify({'success': False, 'error': 'Please select the account to be exported'}), 400
 
-    # 查询上传账号
+    # Query upload account
     db = get_db()
     placeholders = ','.join('?' * len(account_ids))
     rows = db.execute(
@@ -1584,17 +1578,17 @@ def api_export_selected_upload_accounts():
     ).fetchall()
 
     if not rows:
-        return jsonify({'success': False, 'error': '选中的账号不存在或没有可导出的上传账号'})
+        return jsonify({'success': False, 'error': 'The selected account does not exist or there is no exportable upload account.'})
 
-    # 格式化导出内容
+    # Format export content
     lines = []
     for row in rows:
         email = str(row['email'] or '')
         password = get_upload_account_plain_password(row, tolerate_decrypt_error=True)
         client_id = str(row['client_id'] or '')
-        # refresh_token 在库中以 'enc:' 密文存储；导出必须解密成明文，否则外部
-        # 消费方拿到的是无法使用的密文。与 password 一致：解密失败时留空而不是
-        # 把密文泄漏到导出文件里。
+        # refresh_token is stored in the library as 'enc:' ciphertext; export must be decrypted into plaintext, otherwise external
+        # What the consumer gets is unusable ciphertext. Consistent with password: leave blank when decryption fails instead
+        # Leak the ciphertext into the export file.
         try:
             refresh_token = decrypt_data(str(row['refresh_token'] or ''))
         except RuntimeError:
@@ -1607,7 +1601,7 @@ def api_export_selected_upload_accounts():
         'export',
         'selected_upload_accounts',
         ','.join(map(str, account_ids)),
-        f"导出选中的 {len(rows)} 个上传账号"
+        f'Export the selected {len(rows)} upload accounts'
     )
 
     from datetime import datetime
@@ -1626,13 +1620,13 @@ def api_export_selected_upload_accounts():
 
 
 def _queue_formal_account_for_auto_auth(account_id: int) -> Dict[str, Any]:
-    """将单个正式账号加入自动授权队列；返回结果字典（含 success）。"""
+    'Add a single official account to the automatic authorization queue; return the result dictionary (including success).'
     account = get_account_by_id(account_id)
     if not account:
         return {
             'success': False,
             'account_id': account_id,
-            'error': '账号不存在',
+            'error': 'Account does not exist',
             'error_code': 'ACCOUNT_NOT_FOUND',
         }
 
@@ -1642,7 +1636,7 @@ def _queue_formal_account_for_auto_auth(account_id: int) -> Dict[str, Any]:
             'success': False,
             'account_id': account_id,
             'email': str(account.get('email') or ''),
-            'error': 'IMAP 账号不支持加入 Outlook 自动化授权',
+            'error': 'IMAP accounts do not support Outlook automated authorization.',
             'error_code': 'ACCOUNT_AUTO_AUTH_UNSUPPORTED',
         }
 
@@ -1653,7 +1647,7 @@ def _queue_formal_account_for_auto_auth(account_id: int) -> Dict[str, Any]:
             'success': False,
             'account_id': account_id,
             'email': email,
-            'error': '账号密码为空或无法解密，请先在编辑中设置密码',
+            'error': 'The account password is empty or cannot be decrypted. Please set the password in editing first.',
             'error_code': 'ACCOUNT_PASSWORD_MISSING',
         }
 
@@ -1674,7 +1668,7 @@ def _queue_formal_account_for_auto_auth(account_id: int) -> Dict[str, Any]:
             'success': False,
             'account_id': account_id,
             'email': email,
-            'error': '邮箱或密码无效，无法加入自动授权',
+            'error': 'Invalid email or password, unable to join automatic authorization',
             'error_code': 'ACCOUNT_AUTO_AUTH_INVALID',
         }
 
@@ -1690,11 +1684,7 @@ def _queue_formal_account_for_auto_auth(account_id: int) -> Dict[str, Any]:
 @app.route('/api/accounts/<int:account_id>/outlook-auto-auth', methods=['POST'])
 @login_required
 def api_queue_account_for_outlook_auto_auth(account_id):
-    """将已有 Outlook 正式账号加入 Outlook 自动化授权队列。
-
-    从服务端读取正式账号邮箱和密码，调用显式重新入队 helper 写入
-    outlook_upload_accounts。不返回密码。
-    """
+    'Add the existing official Outlook account to the Outlook automated authorization queue.\n\n    Read the official account email and password from the server, and call the explicit re-entry helper to write\n    outlook_upload_accounts. No password is returned.\n    '
     result = _queue_formal_account_for_auto_auth(account_id)
     if not result.get('success'):
         error_code = result.get('error_code') or 'ACCOUNT_AUTO_AUTH_FAILED'
@@ -1703,7 +1693,7 @@ def api_queue_account_for_outlook_auto_auth(account_id):
             'success': False,
             'error': build_error_payload(
                 error_code,
-                result.get('error') or '加入自动授权失败',
+                result.get('error') or 'Failed to join automatic authorization',
                 'NotFoundError' if status_code == 404 else 'ValidationError',
                 status_code,
                 f"account_id={account_id}",
@@ -1713,7 +1703,7 @@ def api_queue_account_for_outlook_auto_auth(account_id):
     get_db().commit()
     return jsonify({
         'success': True,
-        'message': '已加入自动授权' if result['status'] == 'added' else '已重新加入自动授权',
+        'message': 'Automatic authorization has been added' if result['status'] == 'added' else 'Automatic authorization has been rejoined',
         'upload_account_id': result['upload_account_id'],
         'email': result['email'],
         'status': result['status'],
@@ -1723,11 +1713,11 @@ def api_queue_account_for_outlook_auto_auth(account_id):
 @app.route('/api/accounts/batch-outlook-auto-auth', methods=['POST'])
 @login_required
 def api_batch_queue_accounts_for_outlook_auto_auth():
-    """批量将正式 Outlook 账号加入自动化授权队列。"""
+    'Add official Outlook accounts to the automated authorization queue in batches.'
     data = request.get_json(silent=True) or {}
     account_ids = normalize_account_ids(data.get('account_ids') or [])
     if not account_ids:
-        return jsonify({'success': False, 'error': '请选择要加入自动授权的账号'}), 400
+        return jsonify({'success': False, 'error': 'Please select the account to be added to the automatic authorization'}), 400
 
     results: List[Dict[str, Any]] = []
     added = updated = failed = 0
@@ -1745,7 +1735,7 @@ def api_batch_queue_accounts_for_outlook_auto_auth():
     get_db().commit()
     return jsonify({
         'success': True,
-        'message': f'已处理 {len(account_ids)} 个账号：新增 {added}，重新入队 {updated}，失败 {failed}',
+        'message': f'{len(account_ids)} accounts processed: {added} added, {updated} rejoined, failed {failed}',
         'total': len(account_ids),
         'added': added,
         'updated': updated,

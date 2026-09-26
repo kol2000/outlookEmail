@@ -41,7 +41,7 @@ class OutlookGraphSendMailTests(unittest.TestCase):
             db = web_outlook_app.get_db()
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
             db.commit()
 
     def _add_outlook_account(self, email='sender@outlook.com', authorization_type='graph'):
@@ -83,8 +83,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
         data = {
             'account_id': account_id,
             'recipients': ['recipient@example.com'],
-            'subject': '测试主题',
-            'body': '测试正文',
+            'subject': 'Test topic',
+            'body': 'Test text',
         }
         data.update(overrides)
         return self.client.post('/api/outlook/send-mail', json=data)
@@ -109,8 +109,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['Recipient@example.com', 'recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
                 proxy_url='http://primary-proxy:8080',
                 fallback_proxy_urls=['http://fallback-proxy:8081'],
             )
@@ -123,7 +123,7 @@ class OutlookGraphSendMailTests(unittest.TestCase):
         )
         self.assertTrue(result['success'])
         self.assertTrue(result['submitted'])
-        self.assertEqual(result['message'], '邮件已提交发送')
+        self.assertEqual(result['message'], 'The email has been submitted for sending')
         request_mock.assert_called_once()
         method, url = request_mock.call_args.args
         request_kwargs = request_mock.call_args.kwargs
@@ -132,7 +132,7 @@ class OutlookGraphSendMailTests(unittest.TestCase):
         self.assertEqual(request_kwargs['headers']['Authorization'], 'Bearer access-token')
         self.assertEqual(
             request_kwargs['json']['message']['body'],
-            {'contentType': 'Text', 'content': '正文'},
+            {'contentType': 'Text', 'content': 'Text'},
         )
         self.assertEqual(
             request_kwargs['json']['message']['toRecipients'],
@@ -160,8 +160,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                         'client-id',
                         'refresh-token',
                         ['recipient@example.com'],
-                        '主题',
-                        '正文',
+                        'Subject',
+                        'Text',
                     )
 
                     request_mock.assert_called_once()
@@ -197,8 +197,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                         'client-id',
                         'refresh-token',
                         ['recipient@example.com'],
-                        '主题',
-                        '正文',
+                        'Subject',
+                        'Text',
                     )
 
                     request_mock.assert_called_once()
@@ -222,8 +222,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
                 proxy_url='http://primary-proxy:8080',
             )
 
@@ -249,8 +249,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
             )
 
         self.assertFalse(result['success'])
@@ -273,8 +273,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
             )
 
         self.assertFalse(result['success'])
@@ -298,8 +298,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
             )
 
         request_mock.assert_called_once()
@@ -312,7 +312,7 @@ class OutlookGraphSendMailTests(unittest.TestCase):
     def test_send_helper_maps_invalid_grant_to_reauthorization_without_submitting_mail(self):
         token_error = web_outlook_app.build_error_payload(
             'GRAPH_TOKEN_FAILED',
-            '获取访问令牌失败',
+            'Failed to obtain access token',
             'GraphAPIError',
             400,
             {'error': 'invalid_grant'},
@@ -326,8 +326,8 @@ class OutlookGraphSendMailTests(unittest.TestCase):
                 'client-id',
                 'refresh-token',
                 ['recipient@example.com'],
-                '主题',
-                '正文',
+                'Subject',
+                'Text',
             )
 
         request_mock.assert_not_called()
@@ -339,18 +339,18 @@ class OutlookGraphSendMailTests(unittest.TestCase):
         with patch.object(
             web_outlook_app,
             'send_graph_mail_result',
-            return_value={'success': True, 'submitted': True, 'message': '邮件已提交发送'},
+            return_value={'success': True, 'submitted': True, 'message': 'The email has been submitted for sending'},
         ) as send_mock:
             response = self._post_send(account_id)
 
         self.assertEqual(response.status_code, 202)
-        self.assertEqual(response.get_json()['message'], '邮件已提交发送')
+        self.assertEqual(response.get_json()['message'], 'The email has been submitted for sending')
         send_mock.assert_called_once_with(
             'client-id',
             'refresh-token',
             ['recipient@example.com'],
-            '测试主题',
-            '测试正文',
+            'Test topic',
+            'Test text',
             proxy_url='',
             fallback_proxy_urls=['', ''],
         )

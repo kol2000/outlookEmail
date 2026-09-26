@@ -1,135 +1,135 @@
 # hierarchical-groups Specification
 
 ## Purpose
-定义邮箱分组最多三级的层级数据模型和后端行为，确保分组创建、移动、排序、删除、账号递归展示、代理继承和迁移兼容行为一致。
+Define a hierarchical data model and back-end behavior for mailbox groups with up to three levels to ensure consistent group creation, movement, sorting, deletion, account recursive display, agent inheritance and migration compatibility behavior.
 
 ## Requirements
 
-### Requirement: 三级分组数据模型
-系统 SHALL 支持 `groups` 表存储最多 3 级的树形层级关系。每个分组 MUST 有 `parent_id`（可 NULL）和 `level`（1/2/3）字段。`level=1` 的分组 `parent_id` MUST 为 NULL。
+### Requirement: Three-level grouping data model
+System SHALL supports the `groups` table to store up to 3 levels of tree hierarchical relationships. Each group MUST have `parent_id` (can be NULL) and `level` (1/2/3) fields. Grouping `parent_id` of `level=1` MUST be NULL.
 
-#### Scenario: 创建一级分组
-- **WHEN** 用户创建分组且未指定父分组
-- **THEN** 系统创建 `level=1, parent_id=NULL` 的分组
+#### Scenario: Create a first-level group
+- **WHEN** User creates a group and does not specify a parent group
+- **THEN** The system creates a group of `level=1, parent_id=NULL`
 
-#### Scenario: 创建二级分组
-- **WHEN** 用户创建分组并指定父分组为一级分组
-- **THEN** 系统创建 `level=2, parent_id=父分组id` 的分组
+#### Scenario: Create secondary grouping
+- **WHEN** The user creates a group and specifies the parent group as the first-level group
+- **THEN** The system creates a group with `level=2, parent_id=parent group id`
 
-#### Scenario: 创建三级分组
-- **WHEN** 用户创建分组并指定父分组为二级分组
-- **THEN** 系统创建 `level=3, parent_id=父分组id` 的分组
+#### Scenario: Create three-level grouping
+- **WHEN** The user creates a group and specifies the parent group as a secondary group
+- **THEN** The system creates a group with `level=3, parent_id=parent group id`
 
-#### Scenario: 禁止创建超过三级
-- **WHEN** 用户尝试在三级分组下创建子分组
-- **THEN** 系统 SHALL 拒绝并提示"已达到最大层级深度"
+#### Scenario: It is forbidden to create more than three levels
+- **WHEN** The user tried to create a subgroup under the third-level group
+- **THEN** System SHALL rejects and prompts "Maximum level depth reached"
 
-### Requirement: 递归后代分组查询
-系统 SHALL 提供函数 `get_descendant_group_ids(group_id)` 返回指定分组的所有后代分组 ID 列表（含自身）。
+### Requirement: Recursive descendant group query
+System SHALL provides function `get_descendant_group_ids(group_id)` to return a list of all descendant group IDs of the specified group (including itself).
 
-#### Scenario: 一级分组递归查询
-- **WHEN** 查询一级分组 `A`（含二级子分组 `B`、`C`，其中 `B` 含三级子分组 `D`）的后代
-- **THEN** 返回 `[A.id, B.id, D.id, C.id]`
+#### Scenario: First-level grouping recursive query
+- **WHEN** Query the descendants of the first-level group `A` (including the second-level sub-groups `B` and `C`, among which `B` contains the third-level sub-group `D`)
+- **THEN** returns `[A.id, B.id, D.id, C.id]`
 
-#### Scenario: 叶子分组递归查询
-- **WHEN** 查询三级叶子分组的后代
-- **THEN** 仅返回 `[自身id]`
+#### Scenario: Leaf grouping recursive query
+- **WHEN** Query the descendants of third-level leaf grouping
+- **THEN** only returns `[selfid]`
 
-### Requirement: 递归账号展示
-选中任意分组时，系统 SHALL 在账号面板中展示该分组及所有后代分组下的账号。
+### Requirement: Recursive account display
+When any group is selected, the system SHALL displays the accounts under this group and all descendant groups in the account panel.
 
-#### Scenario: 选中一级分组查看递归账号
-- **WHEN** 用户选中一级分组 `客户A`（有二级子分组`项目1`、`项目2`，其中`项目1`有三级子分组`子类1`）
-- **THEN** 账号面板展示 `客户A`、`项目1`、`项目2`、`子类1` 下的账号
+#### Scenario: Select the first-level group to view the recursive account
+- **WHEN** The user selects the first-level group `Customer A` (there are second-level sub-groups `Project 1` and `Project 2`, of which `Project 1` has a third-level sub-group `Subcategory 1`)
+- **THEN** The account panel displays accounts under `Customer A`, `Project 1`, `Project 2`, and `Subcategory 1`
 
-#### Scenario: 选中二级分组查看递归账号
-- **WHEN** 用户选中二级分组（有三级子分组）
-- **THEN** 账号面板展示该二级分组及其三级子分组下的账号
+#### Scenario: Select the secondary group to view the recursive account
+- **WHEN** The user selects a second-level group (with three-level sub-groups)
+- **THEN** The account panel displays the accounts under the second-level group and its third-level sub-groups
 
-### Requirement: 代理配置级联回退
-子分组未设置代理时，系统 SHALL 向上回退到父分组的代理配置，直到找到有代理的祖先分组或到达根节点。
+### Requirement: Agent configuration cascade fallback
+When a child group does not have a proxy set, the system SHALL falls back upwards to the proxy configuration of the parent group until it finds an ancestor group with a proxy or reaches the root node.
 
-#### Scenario: 三级分组代理回退
-- **WHEN** 三级分组未设代理、其父二级分组设了代理 `http://proxy:8080`
-- **THEN** 该三级分组下账号的代理配置为 `http://proxy:8080`
+#### Scenario: Three-level grouping agent fallback
+- **WHEN** The third-level group has no agent, and its parent second-level group has an agent `http://proxy:8080`
+- **THEN** The proxy configuration of the account under this third-level group is `http://proxy:8080`
 
-#### Scenario: 全链回退
-- **WHEN** 三级分组及父二级分组均未设代理、祖父一级分组设了代理
-- **THEN** 账号代理继承祖父一级分组的代理配置
+#### Scenario: Full chain rollback
+- **WHEN** Neither the third-level group nor the parent second-level group has an agent, and the grandfather first-level group has an agent.
+- **THEN** The account agent inherits the agent configuration of the grandparent first-level group
 
-#### Scenario: 无任何祖先代理
-- **WHEN** 三级分组、父二级、祖父一级均未设代理
-- **THEN** 账号代理配置为空值
+#### Scenario: No ancestor agent
+- **WHEN** There is no proxy for the third-level group, parent level 2, and grandparent level 1
+- **THEN** Account proxy configuration is empty
 
-### Requirement: 级联删除分组
-删除含有子分组的分组时，系统 SHALL 级联删除所有子分组，并将所有被删除分组（含子分组）下的账号移回默认分组 (id=1)。
+### Requirement: Cascade deletion of groups
+When deleting a group containing subgroups, the system SHALL cascades to delete all subgroups, and moves all accounts under the deleted group (including subgroups) back to the default group (id=1).
 
-#### Scenario: 删除含子分组的分组
-- **WHEN** 用户删除一级分组 `客户A`（下有二级分组 `项目1`、`项目2`）
-- **THEN** `项目1`、`项目2` 被删除，它们下面所有账号的 `group_id` 设为 `1`（默认分组），`客户A` 被删除
+#### Scenario: Delete groups containing subgroups
+- **WHEN** The user deletes the first-level group `Customer A` (there are second-level groups `Project 1` and `Project 2`)
+- **THEN** `Project 1` and `Project 2` are deleted, `group_id` of all accounts under them are set to `1` (default group), `Customer A` is deleted
 
-#### Scenario: 不允许删除默认分组
-- **WHEN** 用户尝试删除默认分组 (id=1)
-- **THEN** 系统 SHALL 拒绝删除
+#### Scenario: Deletion of default group is not allowed
+- **WHEN** User attempted to delete default group (id=1)
+- **THEN** System SHALL refuses to delete
 
-#### Scenario: 不允许删除临时邮箱分组
-- **WHEN** 用户尝试删除临时邮箱分组
-- **THEN** 系统 SHALL 拒绝删除
+#### Scenario: Do not allow deletion of temporary mailbox groups
+- **WHEN** User attempts to delete temporary mailbox group
+- **THEN** System SHALL refuses to delete
 
-### Requirement: 临时邮箱分组限制
-临时邮箱分组 (`is_system=1`) SHALL 始终为一级根分组，不允许在其下创建子分组，也不允许将其移动为其他分组的子分组。
+### Requirement: Temporary mailbox grouping restrictions
+Temporary mailbox group (`is_system=1`) SHALL is always a first-level root group and is not allowed to create subgroups under it or move it as a subgroup of other groups.
 
-#### Scenario: 阻止在临时邮箱下创建子分组
-- **WHEN** 用户尝试指定临时邮箱分组为父分组创建子分组
-- **THEN** 系统 SHALL 拒绝并提示错误
+#### Scenario: Prevent the creation of subgroups under temporary mailboxes
+- **WHEN** User attempts to specify a temporary mailbox group to create a child group for the parent group
+- **THEN** System SHALL refuses and prompts an error
 
-#### Scenario: 阻止移动临时邮箱分组
-- **WHEN** 用户尝试将临时邮箱分组拖拽到其他分组下
-- **THEN** 系统 SHALL 拒绝该操作
+#### Scenario: Prevent moving temporary mailbox groups
+- **WHEN** The user tries to drag the temporary mailbox group to another group
+- **THEN** System SHALL rejects the operation
 
-### Requirement: 跨层级移动分组
-系统 SHALL 支持通过拖拽将分组移动到不同父级下，移动时 MUST 校验目标深度与子树深度之和不超过 3。
+### Requirement: Cross-level mobile grouping
+System SHALL supports moving groups to different parents by dragging. When moving, it must be verified that the sum of the target depth and the subtree depth does not exceed 3.
 
-#### Scenario: 将二级分组移到另一个一级分组下
-- **WHEN** 用户将二级分组 `项目1` 从一级分组 `客户A` 拖到一级分组 `客户B` 下
-- **THEN** `项目1` 的 `parent_id` 更新为 `客户B.id`，`level` 保持 2，其子分组 level 不变
+#### Scenario: Move the second-level group under another first-level group
+- **WHEN** The user drags the second-level group `Project 1` from the first-level group `Customer A` to the first-level group `Customer B`
+- **THEN** `parent_id` of `project 1` is updated to `customerB.id`, `level` remains 2, and its subgroup level remains unchanged
 
-#### Scenario: 将一级分组移为另一分组的子分组
-- **WHEN** 用户将一级分组 `X`（无子分组）拖入一级分组 `Y` 下
-- **THEN** `X` 的 `parent_id` 设为 `Y.id`，`level` 更新为 2
+#### Scenario: Move one level group to a subgroup of another group
+- **WHEN** The user drags the first-level group `X` (no subgroup) into the first-level group `Y`
+- **THEN** `parent_id` of `X` is set to `Y.id`, `level` is updated to 2
 
-#### Scenario: 移动导致超过三级深度时拒绝
-- **WHEN** 用户将含二级子分组的一级分组拖入另一个二级分组下
-- **THEN** 系统 SHALL 拒绝并提示"移动后层级深度将超过 3 级"
+#### Scenario: Rejection when movement causes depth beyond three levels
+- **WHEN** The user drags a first-level group containing second-level sub-groups into another second-level grouping
+- **THEN** The system SHALL refuses and prompts "The depth of the level will exceed 3 levels after the move"
 
-### Requirement: 同父级下排序
-系统 SHALL 支持在同一 `parent_id` 下通过 `sort_order` 对子分组排序。
+### Requirement: Sort under the same parent
+System SHALL supports sorting subgroups by `sort_order` under the same `parent_id`.
 
-#### Scenario: 同级排序
-- **WHEN** 用户拖拽调整同一父分组下两个子分组的顺序
-- **THEN** 系统更新它们的 `sort_order` 使顺序与拖拽结果一致，不影响其他父级下的分组
+#### Scenario: Sorting by peers
+- **WHEN** The user drags and drops to adjust the order of two sub-groups under the same parent group.
+- **THEN** The system updates their `sort_order` to make the order consistent with the drag result and does not affect the groups under other parents.
 
-### Requirement: 分组名称全局唯一
-分组名称 SHALL 在全局范围内保持唯一，不区分同 parent 或不同 parent。
+### Requirement: Group name is globally unique
+The group name SHALL remains unique in the global scope and does not distinguish between the same parent or different parents.
 
-#### Scenario: 创建同名分组被拒绝
-- **WHEN** 用户尝试创建与已存在分组同名的分组（即使在不同父级下）
-- **THEN** 系统 SHALL 拒绝并提示"分组名称已存在"
+#### Scenario: Creating a group with the same name was rejected
+- **WHEN** User attempts to create a group with the same name as an existing group (even under a different parent)
+- **THEN** System SHALL rejects and prompts "Group name already exists"
 
-### Requirement: 后代账号数统计
-系统 SHALL 提供分组的后代账号数统计（含直属及所有递归后代的账号）。
+### Requirement: Statistics of descendant accounts
+System SHALL provides statistics on the number of grouped descendant accounts (including direct and all recursive descendant accounts).
 
-#### Scenario: 一级分组的后代账号数
-- **WHEN** 一级分组 `客户A` 直属 3 个账号，二级子分组 `项目1` 有 5 个账号，`项目2` 有 2 个账号
-- **THEN** `客户A` 的 `descendant_account_count` 为 10
+#### Scenario: The number of descendant accounts in the first-level group
+- **WHEN** The first-level group `Customer A` has 3 accounts directly, the second-level sub-group `Project 1` has 5 accounts, and `Project 2` has 2 accounts
+- **THEN** `Customer A`’s `descendant_account_count` is 10
 
-#### Scenario: 叶子分组的后代账号数
-- **WHEN** 三级叶子分组有 5 个直属账号
-- **THEN** 其 `descendant_account_count` 为 5
+#### Scenario: Number of descendant accounts of leaf groups
+- **WHEN** The third-level leaf group has 5 direct accounts
+- **THEN** whose `descendant_account_count` is 5
 
-### Requirement: 数据库迁移兼容
-系统 SHALL 提供迁移脚本为已有扁平分组数据补充 `parent_id=NULL, level=1`。
+### Requirement: Database migration compatible
+System SHALL provides a migration script to supplement the existing flat group data `parent_id=NULL, level=1`.
 
-#### Scenario: 已有分组迁移
-- **WHEN** 数据库从扁平结构升级
-- **THEN** 所有已有分组的 `parent_id` 为 NULL、`level` 为 1，功能不受影响
+#### Scenario: Already have group migration
+- **WHEN** Database upgrade from flat structure
+- **THEN** `parent_id` of all existing groups is NULL and `level` is 1, and the function is not affected

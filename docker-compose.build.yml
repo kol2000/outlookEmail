@@ -10,30 +10,30 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # 持久化数据（数据库、token 等）
+      # Persistent data (database, token, etc.)
       - ./data:/app/data
-      # 只读挂载静态资源与模板（支持宿主机编辑实时生效）
+      # Read-only mounting of static resources and templates (supports host editing to take effect in real time)
       - ./static:/app/static:ro
       - ./templates:/app/templates:ro
     env_file:
       - .env.local
     environment:
       - FLASK_ENV=production
-      # Docker 自更新（如需启用请取消注释，并确认 .env.local 中有 DOCKER_UPDATE_ENABLED=true）
+      # Docker self-update (if you want to enable it, please uncomment it and confirm that DOCKER_UPDATE_ENABLED=true is in .env.local)
       # - /var/run/docker.sock:/var/run/docker.sock
-      # 用 docker-compose 管理时删掉下面两行，保留给用户按需启用
+      # Delete the following two lines when managing with docker-compose, and reserve them for users to enable on demand.
       # - DOCKER_UPDATE_ENABLED=true
       # - DOCKER_UPDATE_CONTAINER=outlook-mail
-    # 镜像标签建议用 mutable tag（latest / main / dev）以便自更新；如用固定版本号（v2.0.x）则无更新能力
+    # It is recommended to use mutable tag (latest / main / dev) for image tags to facilitate self-update; if a fixed version number (v2.0.x) is used, there is no update capability
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:5000/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s  # 给启动留缓冲，避免健康检查未就绪时误判
+      start_period: 15s # Leave a buffer for startup to avoid misjudgment when the health check is not ready
 
-# 如需使用 Docker 命名卷替代 ./data 绑定挂载，取消下面注释：
+# If you want to use Docker named volumes instead of ./data bind mounts, uncomment the following:
 # volumes:
 #   outlook-data:
 #     driver: local

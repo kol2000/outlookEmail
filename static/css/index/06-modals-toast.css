@@ -1,4 +1,4 @@
-        /* 模态框 */
+        /* Modal box */
         .modal {
             display: none;
             position: fixed;
@@ -2543,7 +2543,7 @@
             line-height: 1.5;
         }
 
-        /* 消息提示 */
+        /* Message prompt */
         .toast {
             position: fixed;
             top: 80px;

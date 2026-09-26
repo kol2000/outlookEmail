@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OutlookEmail 侧边栏</title>
+  <title>OutlookEmail Sidebar</title>
   <link rel="stylesheet" href="sidepanel.css">
   <script src="catalogs.js"></script>
   <script src="i18n.js"></script>
@@ -17,42 +17,42 @@
     <header class="side-header">
       <div>
         <h1>OutlookEmail</h1>
-        <p id="panelStatus">插件内操作面板</p>
+        <p id="panelStatus">In-plug-in operation panel</p>
       </div>
-      <button id="btnConfig" class="icon-btn" type="button" title="配置">⚙</button>
+      <button id="btnConfig" class="icon-btn" type="button" title="Configuration">⚙</button>
     </header>
 
     <section id="configPanel" class="config-panel">
       <label>
-        <span>服务地址</span>
+        <span>Service address</span>
         <input id="serverUrl" type="url" placeholder="https://outlook.icio.eu.org">
       </label>
       <label>
-        <span>Web 登录密码</span>
-        <input id="password" type="password" placeholder="输入 Web 端登录密码">
+        <span>Web login password</span>
+        <input id="password" type="password" placeholder="Enter the web login password">
       </label>
       <label class="check-row">
         <input id="rememberPassword" type="checkbox">
-        <span>记住密码到本机浏览器</span>
+        <span>Remember password to local browser</span>
       </label>
-      <button id="btnLogin" class="primary-btn" type="button">保存配置</button>
+      <button id="btnLogin" class="primary-btn" type="button">Save configuration</button>
       <div id="message" class="message"></div>
     </section>
 
-    <nav class="quick-bar" aria-label="功能入口">
-      <button type="button" data-view="mail">邮箱</button>
-      <button type="button" data-view="import">导入</button>
-      <button type="button" data-view="refresh">刷新</button>
+    <nav class="quick-bar" aria-label="Function entrance">
+      <button type="button" data-view="mail">Mailboxes</button>
+      <button type="button" data-view="import">Import</button>
+      <button type="button" data-view="refresh">Refresh</button>
       <button type="button" data-view="token">Token</button>
-      <button type="button" data-view="export">导出</button>
-      <button type="button" data-view="tags">标签</button>
-      <button type="button" data-view="settings">设置</button>
+      <button type="button" data-view="export">Export</button>
+      <button type="button" data-view="tags">Tags</button>
+      <button type="button" data-view="settings">Settings</button>
     </nav>
 
     <section class="content">
       <div class="view-head">
-        <h2 id="viewTitle">邮箱</h2>
-        <button id="btnReload" class="small-btn" type="button">刷新</button>
+        <h2 id="viewTitle">Mailboxes</h2>
+        <button id="btnReload" class="small-btn" type="button">Refresh</button>
       </div>
       <div id="viewContent" class="view-content"></div>
     </section>

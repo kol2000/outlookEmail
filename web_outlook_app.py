@@ -60,7 +60,7 @@ class DesktopServer:
         if self.failed.is_set():
             raise self.error
         if not self.ready.is_set():
-            raise RuntimeError(_tr('桌面服务启动超时'))
+            raise RuntimeError(_tr('Desktop service startup timeout'))
 
     def _serve(self) -> None:
         try:
@@ -112,10 +112,10 @@ def main():
     access_url = f"http://{access_host}:{port}"
 
     print("=" * 60)
-    print(_tr('Outlook 邮件 Web 应用'))
+    print(_tr('Outlook Mail Web App'))
     print("=" * 60)
-    print(_tr('访问地址: {__0__}', f'{access_url}'))
-    print(_tr('运行模式: {__0__}', f"{('开发' if debug else '生产')}"))
+    print(_tr('Access address: {__0__}', f'{access_url}'))
+    print(_tr('Operating mode: {__0__}', f"{('Development' if debug else 'Production')}"))
     print("=" * 60)
 
     try:

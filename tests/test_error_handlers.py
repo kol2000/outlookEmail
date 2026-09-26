@@ -57,7 +57,7 @@ class ErrorHandlerTests(unittest.TestCase):
         self.assertEqual(status_code, 400)
         payload = response.get_json()
         self.assertEqual(payload['success'], False)
-        self.assertEqual(payload['error'], '请求格式错误')
+        self.assertEqual(payload['error'], 'Request format error')
         self.assertNotIn('csrf_error', payload)
 
     @unittest.skipUnless(getattr(web_outlook_app, 'CSRF_AVAILABLE', False), 'Flask-WTF not installed')

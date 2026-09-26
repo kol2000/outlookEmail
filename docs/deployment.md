@@ -1,28 +1,28 @@
-# 🚀 部署指南
+# 🚀 Deployment Guide
 
-## 方式一：使用 Windows `exe`
+## Method 1: Using Windows `exe`
 
-从 GitHub Releases 下载对应版本的 `OutlookEmail-windows-x64-*.zip`，解压后直接运行 `OutlookEmail.exe`。
+Download the corresponding version of `OutlookEmail-windows-x64-*.zip` from GitHub Releases, and run `OutlookEmail.exe` directly after decompression.
 
-**桌面版首次启动会自动：**
-- 创建本地数据目录
-- 初始化数据库
-- 自动生成并持久化 `SECRET_KEY`
+When the ** desktop version is started for the first time, it will automatically: **
+- Create local data directory
+- Initialize database
+- Automatically generate and persist `SECRET_KEY`
 
-**Windows 默认数据目录：**
+**Windows default data directory: **
 - `%APPDATA%\OutlookEmail`
 
-默认访问地址仍为 `http://127.0.0.1:5000`。
+The default access address is still `http://127.0.0.1:5000`.
 
-## 方式二：使用 Docker（推荐服务器部署）
+## Method 2: Use Docker (server deployment recommended)
 
-直接使用 GitHub Actions 自动构建的镜像，无需本地构建：
+Directly use the image automatically built by GitHub Actions without building locally:
 
 ```bash
-# 拉取最新镜像
+# Pull the latest image
 docker pull ghcr.io/assast/outlookemail:latest
 
-# 运行容器
+# Run container
 docker run -d \
   --name outlook-mail-reader \
   -p 5000:5000 \
@@ -31,55 +31,55 @@ docker run -d \
   -e SECRET_KEY=your-secret-key-here \
   ghcr.io/assast/outlookemail:latest
 
-# 查看日志
+# View log
 docker logs -f outlook-mail-reader
 
-# 停止容器
+# Stop the container
 docker stop outlook-mail-reader
 docker rm outlook-mail-reader
 ```
 
-**首次启动会自动：**
-- 创建数据目录
-- 初始化数据库
-- 创建默认分组和临时邮箱分组
-- 设置默认密码（admin123）
+** will automatically start up for the first time: **
+- Create data directory
+- Initialize database
+- Create default groups and temporary mailbox groups
+- Set default password (admin123)
 
-## 方式三：使用 Python 直接运行
+## Method 3: Run directly using Python
 
 ```bash
-# 克隆仓库
+# Clone repository
 git clone https://github.com/assast/outlookEmail.git
 cd outlookEmail
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 
-# 设置环境变量
+# Set environment variables
 export LOGIN_PASSWORD=admin123
 export SECRET_KEY=your-secret-key-here
 export PORT=5000
 
-# 运行应用
+# Run the application
 python web_outlook_app.py
 ```
 
-访问 `http://localhost:5000` 即可使用。
-服务器部署建议始终显式设置固定 `SECRET_KEY`。
+Access `http://localhost:5000` to use.
+Server deployments recommend always explicitly setting the fixed `SECRET_KEY`.
 
-## 运行模式说明
+## Operation mode description
 
-服务需要保持单 worker 运行。Token 刷新管理里的流式任务、导出验证等短期任务使用进程内状态保存；如果自定义部署成多个 worker，POST 初始化任务和后续 SSE 订阅可能落到不同进程，导致任务不存在或过期。
+The service needs to keep a single worker running. Short-term tasks such as streaming tasks and export verification in token refresh management use in-process state storage; if the customization is deployed into multiple workers, the POST initialization task and subsequent SSE subscription may fall into different processes, causing the task to not exist or expire.
 
-官方 Docker 镜像已固定为 Gunicorn 单 worker，并通过线程处理慢请求：
+The official Docker image has been fixed as Gunicorn single worker, and handles slow requests through threads:
 
 ```bash
 gunicorn -k gthread -w 1 --threads ${GUNICORN_THREADS:-4} ...
 ```
 
-如需调整并发，请优先调整 `GUNICORN_THREADS`，不要增加 worker 数。
+If you need to adjust concurrency, please adjust `GUNICORN_THREADS` first and do not increase the number of workers.
 
-## 使用 Docker Compose
+## Using Docker Compose
 
 ```yaml
 version: '3.8'
@@ -101,89 +101,89 @@ services:
 ```
 
 ```bash
-# 启动服务
+# Start service
 docker-compose up -d
 
-# 查看定时任务启动日志（应出现“定时任务已启动”）
+# Check the scheduled task startup log ("Scheduled task has started" should appear)
 docker-compose logs -f
 
-# 停止服务
+# Stop service
 docker-compose down
 ```
 
-## 定时刷新说明
+## Scheduled refresh instructions
 
-- 应用在 `python web_outlook_app.py`、Docker、Docker Compose、Gunicorn 单 worker 模式下都会自动初始化定时任务。
-- 如需确认定时任务是否已启动，可执行 `docker-compose logs -f`，日志中应出现“定时任务已启动”。
-- 若使用 Cron 模式，请确认已在系统设置中开启 `use_cron_schedule`，并填写正确的 5 段 Cron 表达式。
+- Applications in `python web_outlook_app.py`, Docker, Docker Compose, and Gunicorn single worker modes will automatically initialize scheduled tasks.
+- If you need to confirm whether the scheduled task has been started, you can execute `docker-compose logs -f`, and "The scheduled task has been started" should appear in the log.
+- If using Cron mode, please make sure `use_cron_schedule` is turned on in the system settings and fill in the correct 5-segment Cron expression.
 
-## 环境变量配置
+## Environment variable configuration
 
-| 变量名 | 说明 | 默认值 |
+| Variable | Description | Default |
 |--------|------|--------|
-| `SECRET_KEY` | Session 密钥（服务器部署强烈建议固定设置） | Windows `exe` 首次启动会自动生成并持久化；Docker / Python / 生产环境请显式设置固定值，不要随意修改，否则会导致已存储敏感数据无法解密 |
-| `LOGIN_PASSWORD` | 登录密码 | `admin123` |
-| `FLASK_ENV` | 运行环境 | `production` |
-| `LOG_LEVEL` | 全局日志级别（`DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL`）。默认 `INFO` 会输出出站 `[代理]` 详情（含 Resin Platform/Account，密码已打码）。批量拉信或 Token 刷新时日志较多，生产环境若只需告警可设 `LOG_LEVEL=WARNING` 降噪 | `INFO` |
-| `PORT` | 应用端口 | `5000` |
-| `HOST` | 监听地址 | `0.0.0.0` |
-| `DATABASE_PATH` | 数据库路径 | `data/outlook_accounts.db` |
-| `GPTMAIL_BASE_URL` | GPTMail API 地址 | `https://mail.chatgpt.org.uk` |
+| `SECRET_KEY` | Session key (fixed setting is strongly recommended for server deployment) | Windows `exe` will be automatically generated and persisted on first startup; Docker/Python/production environment please set the fixed value explicitly and do not modify it at will, otherwise the stored sensitive data will not be decrypted |
+| `LOGIN_PASSWORD` | Login password | `admin123` |
+| `FLASK_ENV` | Operating environment | `production` |
+| `LOG_LEVEL` | Global log level (`DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL`). By default, `INFO` will output the outbound `[Agent]` details (including Resin Platform/Account, password has been coded). There are many logs when sending messages in batches or refreshing Tokens. If you only need alarms in the production environment, you can set `LOG_LEVEL=WARNING` for noise reduction | `INFO` |
+| `PORT` | Application port | `5000` |
+| `HOST` | listening address | `0.0.0.0` |
+| `DATABASE_PATH` | Database path | `data/outlook_accounts.db` |
+| `GPTMAIL_BASE_URL` | GPTMail API address | `https://mail.chatgpt.org.uk` |
 | `GPTMAIL_API_KEY` | GPTMail API Key | `gpt-test` |
-| `DUCKMAIL_BASE_URL` | DuckMail API 地址 | `https://api.duckmail.sbs` |
-| `DUCKMAIL_API_KEY` | DuckMail API Key | 空 |
-| `CLOUDFLARE_WORKER_DOMAIN` | Cloudflare Temp Email Worker 域名，也兼容读取 `WORKER_DOMAIN` | 空 |
-| `CLOUDFLARE_EMAIL_DOMAINS` | Cloudflare 临时邮箱域名列表，逗号分隔，也兼容读取 `EMAIL_DOMAIN` | 空 |
-| `CLOUDFLARE_ADMIN_PASSWORD` | Cloudflare 管理密码，也兼容读取 `ADMIN_PASSWORD` | 空 |
-| `OAUTH_CLIENT_ID` | OAuth 客户端 ID | `建议使用自己的，如果实在搞不到不填的话会使用默认的` |
-| `OAUTH_REDIRECT_URI` | OAuth 重定向 URI | `建议使用自己的，如果实在搞不到不填的话会使用默认的` |
+| `DUCKMAIL_BASE_URL` | DuckMail API address | `https://api.duckmail.sbs` |
+| `DUCKMAIL_API_KEY` | DuckMail API Key | Empty |
+| `CLOUDFLARE_WORKER_DOMAIN` | Cloudflare Temp Email Worker domain name, also compatible with reading `WORKER_DOMAIN` | empty |
+| `CLOUDFLARE_EMAIL_DOMAINS` | Cloudflare temporary email domain name list, comma separated, also compatible with reading `EMAIL_DOMAIN` | empty |
+| `CLOUDFLARE_ADMIN_PASSWORD` | Cloudflare management password, also compatible with reading `ADMIN_PASSWORD` | empty |
+| `OAUTH_CLIENT_ID` | OAuth client ID | `It is recommended to use your own. If you really can’t get it and leave it blank, you will use the default one` |
+| `OAUTH_REDIRECT_URI` | OAuth redirect URI | `It is recommended to use your own. If you really can’t get it and leave it blank, you will use the default one` |
 
-**生成 SECRET_KEY：**
+** generates SECRET_KEY: **
 ```bash
 python -c 'import secrets; print(secrets.token_hex(32))'
 ```
 
-## 数据持久化
+## Data persistence
 
-数据库文件存储在 `./data` 目录中，通过 Docker Volume 挂载实现持久化。
+The database file is stored in the `./data` directory and is mounted through Docker Volume for persistence.
 
-自定义外观皮肤文件存储在数据库文件同目录下的 `skins/` 目录。默认数据库路径是 `data/outlook_accounts.db` 时，皮肤目录为 `data/skins/`。Docker 部署应继续挂载整个 `./data:/app/data`，不要只备份单个数据库文件，否则自定义皮肤文件会丢失并回退到内置 `classic` 皮肤。
+Custom appearance skin files are stored in the `skins/` directory in the same directory as the database file. When the default database path is `data/outlook_accounts.db`, the skin directory is `data/skins/`. Docker deployments should continue to mount the entire `./data:/app/data`, do not just back up a single database file, otherwise the custom skin files will be lost and fall back to the built-in `classic` skin.
 
-数据库包含以下表：
-- `settings` - 系统设置（登录密码、API Key 等）
-- `groups` - 邮箱分组
-- `accounts` - Outlook 邮箱账号
-- `account_refresh_logs` - 账号刷新记录
-- `temp_emails` - 临时邮箱
-- `temp_email_messages` - 临时邮箱的邮件
+The database contains the following tables:
+- `settings` - System settings (login password, API Key, etc.)
+- `groups` - Mailbox grouping
+- `accounts` - Outlook email account
+- `account_refresh_logs` - Account refresh record
+- `temp_emails` - Temporary email
+- `temp_email_messages` - Email from temporary mailbox
 
-## 端口映射
+## Port mapping
 
-默认映射 5000 端口，可以在 `docker-compose.yml` 中修改：
+The default mapping is port 5000, which can be modified in `docker-compose.yml`:
 
 ```yaml
 ports:
-  - "8080:5000"  # 将容器的 5000 端口映射到主机的 8080 端口
+  - "8080:5000" # Map the container's 5000 port to the host's 8080 port
 ```
 
-## 镜像说明
+## Mirror description
 
-项目使用 GitHub Actions 自动构建并推送 Docker 镜像，支持稳定版、开发版和正式版本标签。
+The project uses GitHub Actions to automatically build and push Docker images, supporting stable version, development version and official version tags.
 
-### 可用镜像标签
+### Available image tags
 
-- `ghcr.io/assast/outlookemail:latest` - 默认分支最近一次符合条件的稳定构建
-- `ghcr.io/assast/outlookemail:main` - `main` 分支最近一次符合条件的构建
-- `ghcr.io/assast/outlookemail:dev` - `dev` 分支最近一次符合条件的构建
-- `ghcr.io/assast/outlookemail:vX.Y.Z` - 指定正式版本镜像，由手动发版工作流生成
+- `ghcr.io/assast/outlookemail:latest` - The last eligible stable build of the default branch
+- `ghcr.io/assast/outlookemail:main` - The latest eligible build of the `main` branch
+- `ghcr.io/assast/outlookemail:dev` - The latest eligible build of the `dev` branch
+- `ghcr.io/assast/outlookemail:vX.Y.Z` - specifies the official version image, generated by manual release workflow
 
-补充说明：
+Additional explanation:
 
-- 文档改动不会触发 Docker 镜像重建
-- 正式发版时建议优先使用 `vX.Y.Z` 明确版本标签
-- 具体发版流程见仓库根目录的 `RELEASE.md`
+- Document changes will not trigger Docker image reconstruction
+- It is recommended to give priority to using `vX.Y.Z` to clarify the version label when officially releasing the version.
+- For the specific release process, please see `RELEASE.md` in the root directory of the warehouse
 
-### 更新镜像
+### Update image
 
 ```bash
 docker pull ghcr.io/assast/outlookemail:latest
@@ -191,7 +191,7 @@ docker-compose down
 docker-compose up -d
 ```
 
-### 自己构建镜像（可选）
+### Build the image yourself (optional)
 
 ```bash
 docker build -t outlook-mail-reader .
@@ -203,16 +203,16 @@ docker run -d \
   outlook-mail-reader
 ```
 
-## 生产环境部署
+## Production environment deployment
 
-### 使用 Nginx + HTTPS
+### Using Nginx + HTTPS
 
-**1. 安装 Nginx**
+**1. Install Nginx**
 ```bash
 sudo apt install nginx certbot python3-certbot-nginx -y
 ```
 
-**2. 配置 Nginx** `/etc/nginx/sites-available/outlook-mail-reader`
+**2. Configuration Nginx** `/etc/nginx/sites-available/outlook-mail-reader`
 ```nginx
 server {
     listen 80;
@@ -225,7 +225,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # WebSocket 支持（如果需要）
+        # WebSocket support (if required)
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -233,28 +233,28 @@ server {
 }
 ```
 
-**3. 启用配置**
+**3. Enable configuration **
 ```bash
 sudo ln -s /etc/nginx/sites-available/outlook-mail-reader /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-**4. 配置 HTTPS**
+**4. Configure HTTPS**
 ```bash
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 使用 Caddy（更简单）
+### Using Caddy (easier)
 
 ```bash
 sudo apt install caddy -y
 
-# 配置 /etc/caddy/Caddyfile
+# Configure /etc/caddy/Caddyfile
 your-domain.com {
     reverse_proxy localhost:5000
 }
 
-# 重载（自动 HTTPS）
+# Reload (auto HTTPS)
 sudo systemctl reload caddy
 ```

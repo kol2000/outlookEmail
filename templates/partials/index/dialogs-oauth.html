@@ -1,22 +1,22 @@
-    <!-- 获取 Refresh Token 模态框 -->
+    <!-- Get Refresh Token modal box-->
     <div class="modal" id="getRefreshTokenModal" onmousedown="if(event.target === this) hideGetRefreshTokenModal()">
         <div class="modal-content" style="width: min(720px, calc(100vw - 32px));">
             <div class="modal-header">
-                <h3 id="oauthModalTitle">{{ tr("🔑 授权并保存 Outlook 账号") }}</h3>
+                <h3 id="oauthModalTitle">{{ tr("🔑 Authorize and save Outlook account") }}</h3>
                 <button class="modal-close" onclick="hideGetRefreshTokenModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="settings-panel" id="oauthAccountFieldsPanel" style="margin-bottom: 16px;">
                     <div class="settings-section-head" style="margin-bottom: 14px;">
-                        <h4 id="oauthAccountSectionTitle" style="margin-top: 0;">{{ tr("待入库账号") }}</h4>
-                        <p id="oauthAccountSectionHint">{{ tr("换取并预览只需要粘贴授权后的回调 URL。邮箱、密码和目标分组仅在保存账号时使用，可稍后补充。") }}</p>
+                        <h4 id="oauthAccountSectionTitle" style="margin-top: 0;">{{ tr("Account to be added to the database") }}</h4>
+                        <p id="oauthAccountSectionHint">{{ tr("To exchange and preview, just paste the authorized callback URL. Email, password and target group are only used when saving the account and can be added later.") }}</p>
                     </div>
                     <div class="settings-grid">
                         <div class="form-group" id="oauthEmailGroup">
-                            <label class="form-label" id="oauthEmailLabel">{{ tr("邮箱账号（保存时可选）") }}</label>
+                            <label class="form-label" id="oauthEmailLabel">{{ tr("Email account (optional when saving)") }}</label>
                             <div class="secret-input-row">
                                 <input type="text" class="form-input" id="oauthEmailInput" placeholder="your@outlook.com">
-                                <button type="button" class="secret-reveal-btn" id="copyOauthEmailBtn" onclick="copyOauthField('oauthEmailInput',I18n.t('邮箱已复制'))" title="{{ tr("复制邮箱") }}" aria-label="{{ tr("复制邮箱") }}" style="display: none;">
+                                <button type="button" class="secret-reveal-btn" id="copyOauthEmailBtn" onclick="copyOauthField('oauthEmailInput',I18n.t('Email address copied'))" title="{{ tr("Copy mailbox") }}" aria-label="{{ tr("Copy mailbox") }}" style="display: none;">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -25,10 +25,10 @@
                             </div>
                         </div>
                         <div class="form-group" id="oauthPasswordGroup">
-                            <label class="form-label" id="oauthPasswordLabel">{{ tr("密码（保存时可选）") }}</label>
+                            <label class="form-label" id="oauthPasswordLabel">{{ tr("Password (optional when saving)") }}</label>
                             <div class="secret-input-row">
-                                <input type="password" class="form-input" id="oauthPasswordInput" placeholder="{{ tr("输入邮箱密码") }}">
-                                <button type="button" class="secret-reveal-btn" id="revealOauthPasswordBtn" onclick="toggleOauthPasswordVisibility()" title="{{ tr("显示密码") }}" aria-label="{{ tr("显示密码") }}" style="display: none;">
+                                <input type="password" class="form-input" id="oauthPasswordInput" placeholder="{{ tr("Enter email password") }}">
+                                <button type="button" class="secret-reveal-btn" id="revealOauthPasswordBtn" onclick="toggleOauthPasswordVisibility()" title="{{ tr("Show password") }}" aria-label="{{ tr("Show password") }}" style="display: none;">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
                                         <circle cx="12" cy="12" r="3"></circle>
@@ -37,47 +37,47 @@
                             </div>
                         </div>
                         <div class="form-group" id="oauthTargetGroup">
-                            <label class="form-label">{{ tr("目标分组") }}</label>
+                            <label class="form-label">{{ tr("Target grouping") }}</label>
                             <select class="form-select" id="tokenSaveGroupSelect"></select>
                         </div>
                         <div class="form-group" id="oauthForwardGroup" style="display: flex; align-items: end;">
                             <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #4b5563; margin-bottom: 8px;">
                                 <input type="checkbox" id="oauthForwardEnabled">
-                                <span>{{ tr("保存后启用邮件转发") }}</span>
+                                <span>{{ tr("Enable mail forwarding after saving") }}</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">{{ tr("步骤 1: 打开授权页面") }}</label>
+                    <label class="form-label">{{ tr("Step 1: Open the authorization page") }}</label>
                     <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                         <input type="text" class="form-input" id="authUrlInput" readonly
                             style="flex: 1; font-size: 12px; font-family: monospace;">
-                        <button class="btn btn-secondary" onclick="copyAuthUrl()" style="white-space: nowrap;">{{ tr("📋\n                            复制") }}</button>
-                        <button class="btn btn-primary" onclick="openAuthUrl()" style="white-space: nowrap;">{{ tr("🔗\n                            打开") }}</button>
+                        <button class="btn btn-secondary" onclick="copyAuthUrl()" style="white-space: nowrap;">{{ tr("📋\n copy") }}</button>
+                        <button class="btn btn-primary" onclick="openAuthUrl()" style="white-space: nowrap;">{{ tr("🔗\n Open") }}</button>
                     </div>
-                    <div class="form-hint">{{ tr("点击\"打开\"按钮在浏览器中授权，或点击\"复制\"后手动粘贴到浏览器") }}</div>
+                    <div class="form-hint">{{ tr("Click the \"Open\" button to authorize in the browser, or click \"Copy\" and manually paste it into the browser") }}</div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">{{ tr("步骤 2: 粘贴授权后的回调 URL") }}</label>
+                    <label class="form-label">{{ tr("Step 2: Paste the authorized callback URL") }}</label>
                     <textarea class="form-textarea" id="redirectUrlInput"
-                        placeholder="{{ tr("授权成功后，浏览器会跳转到一个空白页，请复制地址栏中的完整 URL 并粘贴到这里") }}"
+                        placeholder="{{ tr("After successful authorization, the browser will jump to a blank page. Please copy the complete URL in the address bar and paste it here.") }}"
                         style="height: 80px; font-size: 12px; font-family: monospace;"></textarea>
-                    <div class="form-hint">{{ tr("URL 格式类似：http://localhost:8080/?code=xxxxx") }}&state=12345</div>
+                    <div class="form-hint">{{ tr("The URL format is similar: http://localhost:8080/?code=xxxxx") }}&state=12345</div>
                 </div>
 
                 <div class="form-group" id="refreshTokenResult" style="display: none;">
-                    <label class="form-label">{{ tr("✅ 保存预览") }}</label>
+                    <label class="form-label">{{ tr("✅ Save preview") }}</label>
                     <div class="settings-panel" style="border-color: #bfdbfe; background: #f8fbff;">
                         <div class="settings-grid" style="margin-bottom: 14px;">
                             <div class="form-group">
-                                <label class="form-label">{{ tr("邮箱") }}</label>
+                                <label class="form-label">{{ tr("Mailboxes") }}</label>
                                 <input type="text" class="form-input" id="oauthPreviewEmail" readonly>
                             </div>
                             <div class="form-group" id="oauthPreviewPasswordGroup">
-                                <label class="form-label">{{ tr("密码") }}</label>
+                                <label class="form-label">{{ tr("Password") }}</label>
                                 <input type="text" class="form-input" id="oauthPreviewPassword" readonly>
                             </div>
                             <div class="form-group">
@@ -85,7 +85,7 @@
                                 <input type="text" class="form-input" id="oauthPreviewClientId" readonly style="font-family: monospace; font-size: 12px;">
                             </div>
                             <div class="form-group" id="oauthPreviewGroupGroup">
-                                <label class="form-label">{{ tr("目标分组") }}</label>
+                                <label class="form-label">{{ tr("Target grouping") }}</label>
                                 <input type="text" class="form-input" id="oauthPreviewGroup" readonly>
                             </div>
                         </div>
@@ -96,14 +96,14 @@
                         </div>
                     </div>
                     <div class="form-hint" style="color: #0078d4;">
-                        {{ tr("可先手动点击“换取并预览”查看结果；也可以直接点击“直接保存（自动换取）”，系统会在保存前自动换取 Token。若修改了邮箱、密码或授权回调 URL，会要求重新换取。") }}
+                        {{ tr("You can manually click \"Exchange and Preview\" to view the results; you can also directly click \"Save Directly (Automatic Exchange)\" and the system will automatically exchange the Token before saving. If you change your email address, password, or authorization callback URL, you will be asked to change it again.") }}
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="hideGetRefreshTokenModal()">{{ tr("关闭") }}</button>
-                <button class="btn btn-primary" id="exchangeTokenBtn" onclick="exchangeToken()">{{ tr("换取并预览") }}</button>
-                <button class="btn btn-primary" id="saveTokenAccountBtn" onclick="saveTokenAccount()">{{ tr("直接保存（自动换取）") }}</button>
+                <button class="btn btn-secondary" onclick="hideGetRefreshTokenModal()">{{ tr("Close") }}</button>
+                <button class="btn btn-primary" id="exchangeTokenBtn" onclick="exchangeToken()">{{ tr("Exchange and preview") }}</button>
+                <button class="btn btn-primary" id="saveTokenAccountBtn" onclick="saveTokenAccount()">{{ tr("Save directly (automatic exchange)") }}</button>
             </div>
         </div>
     </div>

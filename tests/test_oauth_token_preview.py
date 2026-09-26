@@ -15,15 +15,15 @@ def test_exchange_token_preview_only_requires_redirect_url_before_request():
     assert "if (!redirectUrl)" in pre_request_logic
     assert "if (!groupId)" not in pre_request_logic
     assert "if (!email || !password)" not in pre_request_logic
-    assert "请先输入邮箱账号和密码" not in pre_request_logic
+    assert 'Please enter your email account and password first' not in pre_request_logic
 
 
 def test_oauth_preview_labels_account_fields_optional():
     html = OAUTH_DIALOG_PATH.read_text(encoding='utf-8')
 
-    assert '邮箱账号（保存时可选）' in html
-    assert '密码（保存时可选）' in html
-    assert '换取并预览只需要粘贴授权后的回调 URL' in html
+    assert 'Email account (optional when saving)' in html
+    assert 'Password (optional when saving)' in html
+    assert 'To exchange and preview, just paste the authorized callback URL' in html
 
 
 def test_reauthorize_mode_posts_to_account_endpoint_without_saving_new_account():
@@ -43,7 +43,7 @@ def test_reauthorize_entry_is_scoped_to_outlook_accounts():
     primary_html = (ROOT_DIR / 'templates' / 'partials' / 'index' / 'dialogs-primary.html').read_text(encoding='utf-8')
 
     assert 'id="editReauthorizeGroup"' in primary_html
-    assert '重新授权并刷新' in primary_html
+    assert 'Reauthorize and refresh' in primary_html
     assert "reauthorizeGroup.style.display = isOutlook ? '' : 'none'" in groups_js
     assert 'id="oauthPasswordGroup"' in oauth_html
     assert 'id="oauthTargetGroup"' in oauth_html
@@ -92,7 +92,7 @@ def test_oauth_js_copy_uses_secret_value_with_fallback():
 
     assert 'input.dataset.secretValue || input.value' in copy_source
     assert 'copyTextToClipboard' in copy_source
-    assert '内容为空' in copy_source
+    assert 'The content is empty and cannot be copied.' in copy_source
 
 
 def test_reauthorize_fetches_account_password_when_missing():
@@ -110,7 +110,7 @@ def test_reauthorize_fetches_account_password_when_missing():
 def test_reauthorize_from_edit_passes_password_from_dataset():
     source = OAUTH_JS_PATH.read_text(encoding='utf-8')
     edit_reauth_start = source.index('function showReauthorizeAccountModalFromEdit')
-    edit_reauth_end = source.index('// 复制授权 URL', edit_reauth_start)
+    edit_reauth_end = source.index('// Copy the authorization URL', edit_reauth_start)
     edit_reauth_source = source[edit_reauth_start:edit_reauth_end]
 
     assert "document.getElementById('editPassword')" in edit_reauth_source

@@ -368,7 +368,7 @@ class DockerUpdateTests(unittest.TestCase):
         core_js = (ROOT_DIR / 'static' / 'js' / 'index' / '01-core.js').read_text(encoding='utf-8')
 
         self.assertIn('state.success === null || typeof state.success === \'undefined\'', core_js)
-        self.assertIn('服务可能已重启，请刷新并核对当前版本/镜像', core_js)
+        self.assertIn('The service may have been restarted, please refresh and check the current version/image', core_js)
 
 
 if __name__ == '__main__':

@@ -18,8 +18,8 @@ ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
 
 
 def clear_upload_management_fixtures(db):
-    group_names = ('上传目标分组', '路由目标分组')
-    tag_names = ('上传标签A', '上传标签B', '路由标签')
+    group_names = ('Upload target group', 'Routing target grouping')
+    tag_names = ('Upload tag A', 'Upload tag B', 'Routing label')
     group_placeholders = ','.join('?' * len(group_names))
     tag_placeholders = ','.join('?' * len(tag_names))
     db.execute(
@@ -129,7 +129,7 @@ class OutlookUploadDataLayerTests(unittest.TestCase):
                 "SELECT password FROM outlook_upload_accounts WHERE email = ?",
                 ('dupe@outlook.com',),
             ).fetchone()
-        self.assertEqual(web_outlook_app.decrypt_data(row['password']), 'p1')   # 原值未被覆盖
+        self.assertEqual(web_outlook_app.decrypt_data(row['password']), 'p1')   # The original value is not overwritten
 
     def test_add_invalid_email_or_empty_password_returns_invalid(self):
         with self.app.app_context():
@@ -160,7 +160,7 @@ class OutlookUploadDataLayerTests(unittest.TestCase):
     def test_query_upload_accounts_page_includes_matching_formal_account_tags(self):
         email = 'tagged-upload@outlook.com'
         formal_email = 'Tagged-Upload@Outlook.com'
-        tag_names = {'自动授权', '重点'}
+        tag_names = {'Automatic authorization', 'Highlights'}
 
         with self.app.app_context():
             db = web_outlook_app.get_db()
@@ -317,10 +317,10 @@ class OutlookUploadDataLayerTests(unittest.TestCase):
 
     def test_add_upload_account_stores_group_proxy_and_tag_ids(self):
         with self.app.app_context():
-            group_id = web_outlook_app.add_group('上传目标分组')
+            group_id = web_outlook_app.add_group('Upload target group')
             self.assertIsNotNone(group_id)
-            tag_a = web_outlook_app.add_tag('上传标签A', '#111')
-            tag_b = web_outlook_app.add_tag('上传标签B', '#222')
+            tag_a = web_outlook_app.add_tag('Upload tag A', '#111')
+            tag_b = web_outlook_app.add_tag('Upload tag B', '#222')
             self.assertIsNotNone(tag_a)
             self.assertIsNotNone(tag_b)
 
@@ -361,7 +361,7 @@ class OutlookUploadDataLayerTests(unittest.TestCase):
         )
         self.assertEqual(
             web_outlook_app.get_upload_account_proxy_display('http://proxy.example:bad'),
-            '已配置代理',
+            'Proxy configured',
         )
         self.assertEqual(web_outlook_app.get_upload_account_proxy_display(''), '')
 
@@ -397,7 +397,7 @@ class OutlookUploadRequeueTests(unittest.TestCase):
             db.commit()
 
     def test_1_1_new_email_creates_record_with_encrypted_password(self):
-        """正式邮箱加入自动授权时新增记录，密码加密且响应不回显明文。"""
+        'When the official mailbox is added to automatic authorization, a new record is added, the password is encrypted and the response does not return plain text.'
         with self.app.app_context():
             result = web_outlook_app.upsert_upload_account_for_auto_auth(
                 '  New@Outlook.com ', 'secret-pwd', 'from-formal-account'
@@ -422,13 +422,13 @@ class OutlookUploadRequeueTests(unittest.TestCase):
         self.assertEqual(row['status'], 'active')
         self.assertEqual(row['source'], 'auto_auth')
         self.assertEqual(row['remark'], 'from-formal-account')
-        # 返回值不包含密码
+        # The return value does not contain the password
         self.assertNotIn('password', result)
 
     def test_1_2_requeue_authorized_row_overwrites_and_resets(self):
-        """同邮箱已授权暂存记录重新入队时覆盖密码、重置 is_authorized=0、status=active。"""
+        'When the authorized temporary record of the same mailbox is re-entered into the queue, the password will be overwritten and is_authorized=0 and status=active will be reset.'
         with self.app.app_context():
-            # 先用 add_upload_account 添加一条，再模拟已授权
+            # First use add_upload_account to add one, and then simulate the authorization
             add_result = web_outlook_app.add_upload_account(
                 'queue@outlook.com', 'old-password', 'old remark'
             )
@@ -443,7 +443,7 @@ class OutlookUploadRequeueTests(unittest.TestCase):
             )
             db.commit()
 
-            # 重新入队
+            # Rejoin the team
             result = web_outlook_app.upsert_upload_account_for_auto_auth(
                 'queue@outlook.com', 'new-password', 'requeued'
             )
@@ -465,11 +465,11 @@ class OutlookUploadRequeueTests(unittest.TestCase):
         self.assertEqual(row['status'], 'active')
         self.assertEqual(row['remark'], 'requeued')
         self.assertEqual(row['source'], 'auto_auth')
-        # 不创建重复记录
+        # Do not create duplicate records
         self.assertEqual(row['total_rows'], 1)
 
     def test_1_3_requeue_unauthorized_row_overwrites_metadata(self):
-        """同邮箱未授权暂存记录重新入队时覆盖密码和备注/来源，保持单行。"""
+        'When unauthorized temporary records in the same mailbox are re-entered into the queue, the password and remarks/source will be overwritten and kept in a single line.'
         with self.app.app_context():
             add_result = web_outlook_app.add_upload_account(
                 'pending@outlook.com', 'first-pwd', 'first note'
@@ -500,7 +500,7 @@ class OutlookUploadRequeueTests(unittest.TestCase):
         self.assertEqual(row['total_rows'], 1)
 
     def test_1_5_external_upload_duplicate_still_returns_duplicate(self):
-        """未走显式重新入队路径时重复邮箱仍返回 duplicate 且不覆盖旧密码。"""
+        'Duplicate mailboxes still return duplicate when no explicit re-enqueue path is taken and the old password is not overwritten.'
         with self.app.app_context():
             web_outlook_app.add_upload_account('ext@outlook.com', 'original')
             web_outlook_app.get_db().commit()
@@ -557,7 +557,7 @@ class OutlookUploadRouteTests(unittest.TestCase):
         self.assertEqual(payload['total'], 1)
         self.assertEqual(payload['added'], 1)
         self.assertEqual(payload['results'][0]['status'], 'added')
-        # 响应不回显 password
+        # Response does not echo password
         self.assertNotIn('password', payload['results'][0])
         self.assertNotIn('secret', response.get_data(as_text=True))
 
@@ -697,17 +697,17 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
         self.assertNotIn('<th style="width: 42px; min-width: 42px;">ID</th>', html)
-        self.assertIn('<td colspan="9" class="upload-accounts-empty">{{ tr("正在加载...") }}</td>', html)
+        self.assertIn('<td colspan="9" class="upload-accounts-empty">{{ tr("Loading...") }}</td>', html)
         self.assertIn('<tr class="upload-accounts-row--editing" data-editing-id="${escapeHtml(String(itemId))}">', js)
         self.assertNotIn('<td>${escapeHtml(String(itemId))}</td>', js)
-        self.assertIn('<tr><td colspan="9" class="upload-accounts-empty">暂无数据</td></tr>', js)
-        self.assertIn('<tr><td colspan="9" class="upload-accounts-empty">正在加载...</td></tr>', js)
+        self.assertIn(r'<tr><td colspan=\"9\" class=\"upload-accounts-empty\">No data yet</td></tr>', js)
+        self.assertIn(r'<tr><td colspan=\"9\" class=\"upload-accounts-empty\">Loading...</td></tr>', js)
 
     def test_upload_accounts_table_shows_tags_column(self):
         html = (ROOT_DIR / 'templates' / 'partials' / 'index' / 'dialogs-management.html').read_text(encoding='utf-8')
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
-        self.assertIn('<th style="width: 160px; min-width: 100px;">{{ tr("标签") }}</th>', html)
+        self.assertIn('<th style="width: 160px; min-width: 100px;">{{ tr("Tags") }}</th>', html)
         self.assertIn('function formatUploadAccountTags(tags)', js)
         self.assertIn('<td>${formatUploadAccountTags(item.tags)}</td>', js)
 
@@ -715,7 +715,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         html = (ROOT_DIR / 'templates' / 'partials' / 'index' / 'dialogs-management.html').read_text(encoding='utf-8')
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
-        self.assertIn('<th style="width: 160px; min-width: 160px;">{{ tr("账号代理") }}</th>', html)
+        self.assertIn('<th style="width: 160px; min-width: 160px;">{{ tr("Account agent") }}</th>', html)
         self.assertIn('function getUploadAccountProxyDisplay(proxyUrl)', js)
         self.assertIn('function formatUploadAccountProxy(proxyUrl)', js)
         self.assertIn("parsedProxy.username = '';", js)
@@ -731,9 +731,9 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
         self.assertIn('id="uploadAccountsAuthStatusFilter"', html)
-        self.assertIn('<option value="all">{{ tr("全部") }}</option>', html)
-        self.assertIn('<option value="unauthorized">{{ tr("未授权") }}</option>', html)
-        self.assertIn('<option value="authorized">{{ tr("已授权") }}</option>', html)
+        self.assertIn('<option value="all">{{ tr("All") }}</option>', html)
+        self.assertIn('<option value="unauthorized">{{ tr("Unauthorized") }}</option>', html)
+        self.assertIn('<option value="authorized">{{ tr("Authorized") }}</option>', html)
         self.assertIn('authStatus: \'all\'', js)
         self.assertIn('auth_status: uploadAccountsState.authStatus', js)
         self.assertIn('function handleUploadAccountsAuthStatusChange(value)', js)
@@ -774,7 +774,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
             self.assertIn(f'<option value="{page_size}"', html)
         for page_size in (200, 500, 1000, 2000, 5000, 10000):
             self.assertNotIn(f'<option value="{page_size}"', html)
-        self.assertIn('<option value="20" selected>{{ tr("每页 20") }}</option>', html)
+        self.assertIn('<option value="20" selected>{{ tr("20 per page") }}</option>', html)
         self.assertIn('const UPLOAD_ACCOUNTS_PAGE_SIZE_DEFAULT = 20;', js)
         self.assertIn('const UPLOAD_ACCOUNTS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];', js)
         self.assertIn('pageSize: UPLOAD_ACCOUNTS_PAGE_SIZE_DEFAULT', js)
@@ -837,7 +837,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         self.assertIn('clearUploadAccountSelection();', auth_handler)
         self.assertIn('clearUploadAccountSelection();', page_size_handler)
         self.assertIn('clearUploadAccountSelection();', search_handler)
-        # 翻页保留选择；仅筛选/搜索/每页数量变化时清空
+        # Keep selection when turning pages; clear only when filtering/searching/number of pages changes
         page_handler = js.split('function changeUploadAccountsPage(delta)', 1)[1].split(
             '\n        function handleUploadAccountsAuthStatusChange', 1
         )[0]
@@ -851,8 +851,8 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         self.assertIn('data-upload-account-password="${escapeHtml(plainPassword)}"', js)
         self.assertNotIn('/password`', js)
         self.assertIn('upload-accounts-password-mask', js)
-        self.assertIn('aria-label="显示密码"', js)
-        self.assertIn("'隐藏密码'", js)
+        self.assertIn('aria-label="Show password"', js)
+        self.assertIn('I18n.t("Hide password")', js)
         self.assertNotIn('<td class="upload-accounts-cell-mono">${escapeHtml(formatUploadAccountPassword(item))}</td>', js)
 
     def test_table_password_reveal_does_not_inline_password_in_graph_auth_button(self):
@@ -878,11 +878,11 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         self.assertIn('id="uploadAccountsSelectAllVisible"', html)
         self.assertIn('onclick="authorizeSelectedUploadAccounts()"', html)
         self.assertIn('onclick="deleteSelectedUploadAccounts()"', html)
-        self.assertIn('首次授权成功并新建正式账号', html)
+        self.assertIn('The first authorization is successful and a new official account is created.', html)
         add_form_start = html.index('id="addUploadAccountGroupSelect"')
         add_form_end = html.index('id="submitAddUploadAccountBtn"', add_form_start)
         add_form_html = html[add_form_start:add_form_end]
-        self.assertNotIn('回退代理', add_form_html)
+        self.assertNotIn('Fallback proxy', add_form_html)
         self.assertNotIn('fallback', add_form_html.lower())
 
         self.assertIn("group_id: groupId", js)
@@ -948,8 +948,8 @@ class OutlookUploadBatchDeleteRouteTests(unittest.TestCase):
 
     def test_add_upload_account_route_accepts_group_tags_proxy(self):
         with self.app.app_context():
-            group_id = web_outlook_app.add_group('路由目标分组')
-            tag_id = web_outlook_app.add_tag('路由标签', '#333')
+            group_id = web_outlook_app.add_group('Routing target grouping')
+            tag_id = web_outlook_app.add_tag('Routing label', '#333')
             self.assertIsNotNone(group_id)
             self.assertIsNotNone(tag_id)
 
@@ -1116,7 +1116,7 @@ class OutlookUploadUpdateRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         body = response.get_json()
         self.assertFalse(body['success'])
-        self.assertIn('已存在', body['error'])
+        self.assertIn('already exists', body['error'])
 
     def test_update_invalid_email_returns_400(self):
         account_id = self._seed()
