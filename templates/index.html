@@ -1,15 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ current_language() }}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outlook 邮件管理</title>
+    <title>{{ tr("Outlook 邮件管理") }}</title>
     <link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">
     <!-- DOMPurify for XSS protection -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('bundled_index_css', v=frontend_asset_hash) }}">
     <link rel="stylesheet" id="activeSkinStylesheet" href="{{ url_for('active_skin_css', v=skin_asset_hash) }}">
+    <script src="{{ url_for('localized_catalog') }}"></script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/i18n.css') }}">
 </head>
 
 <body>
@@ -42,7 +45,7 @@
     <!-- 全屏查看邮件模态框 -->
     <div id="fullscreenEmailModal" class="fullscreen-email-modal" onmousedown="closeFullscreenEmailOnBackdrop(event)">
         <div class="fullscreen-email-header">
-            <div class="fullscreen-email-title" id="fullscreenEmailTitle">邮件详情</div>
+            <div class="fullscreen-email-title" id="fullscreenEmailTitle">{{ tr("邮件详情") }}</div>
             <button class="fullscreen-close-btn" onclick="closeFullscreenEmail()">×</button>
         </div>
         <div class="fullscreen-email-content" id="fullscreenEmailContent">
@@ -54,16 +57,16 @@
     <div id="rawEmailModal" class="fullscreen-email-modal raw-email-modal" onmousedown="closeRawEmailOnBackdrop(event)">
         <div class="fullscreen-email-header raw-email-header">
             <div>
-                <div class="fullscreen-email-title" id="rawEmailTitle">原始邮件</div>
-                <div class="raw-email-warning" id="rawEmailWarning">原始邮件包含完整邮件头和路由信息，请谨慎分享。</div>
+                <div class="fullscreen-email-title" id="rawEmailTitle">{{ tr("原始邮件") }}</div>
+                <div class="raw-email-warning" id="rawEmailWarning">{{ tr("原始邮件包含完整邮件头和路由信息，请谨慎分享。") }}</div>
             </div>
             <div class="raw-email-actions">
-                <button class="raw-email-action-btn" type="button" onclick="copyRawEmailSource()">复制</button>
-                <button class="raw-email-action-btn" type="button" onclick="downloadRawEmailSource()">下载 .eml</button>
+                <button class="raw-email-action-btn" type="button" onclick="copyRawEmailSource()">{{ tr("复制") }}</button>
+                <button class="raw-email-action-btn" type="button" onclick="downloadRawEmailSource()">{{ tr("下载 .eml") }}</button>
                 <button class="fullscreen-close-btn" onclick="closeRawEmailModal()">×</button>
             </div>
         </div>
-        <pre class="raw-email-content" id="rawEmailContent">点击“显示原始邮件”加载 MIME 源码。</pre>
+        <pre class="raw-email-content" id="rawEmailContent">{{ tr("点击“显示原始邮件”加载 MIME 源码。") }}</pre>
     </div>
 </body>
 

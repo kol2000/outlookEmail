@@ -89,8 +89,8 @@
 
             const isRevealed = input.dataset.secretRevealed === 'true';
             const isImap = inputId === 'editImapPassword';
-            const showLabel = isImap ? '显示 IMAP 密码' : '显示密码';
-            const hideLabel = isImap ? '隐藏 IMAP 密码' : '隐藏密码';
+            const showLabel = isImap ? I18n.t('显示 IMAP 密码') : I18n.t('显示密码');
+            const hideLabel = isImap ? I18n.t('隐藏 IMAP 密码') : I18n.t('隐藏密码');
 
             if (isRevealed) {
                 input.value = input.dataset.secretMask || '';
@@ -110,7 +110,7 @@
         }
 
         function clearEditAccountSecrets() {
-            resetEditSecretInput('editPassword', 'revealEditPasswordBtn', false, '', '可选');
+            resetEditSecretInput('editPassword', 'revealEditPasswordBtn', false, '', I18n.t('可选'));
             resetEditSecretInput('editImapPassword', 'revealEditImapPasswordBtn', false, '', '');
             editAccountSecretState = {
                 accountId: ''
@@ -142,7 +142,7 @@
             if (cachedEl) cachedEl.textContent = String(cachedBodyCount);
             if (estimatedEl) estimatedEl.textContent = formatStorageBytes(status.estimated_retained_bytes);
             if (dbEl) dbEl.textContent = formatStorageBytes(status.db_file_bytes);
-            if (clearEl) clearEl.textContent = `清理状态：${clearStatus.message || clearStatus.state || '普通邮箱本地缓存清理空闲'}`;
+            if (clearEl) clearEl.textContent = I18n.tpl`清理状态：${clearStatus.message || clearStatus.state || I18n.t('普通邮箱本地缓存清理空闲')}`;
             if (errorEl) {
                 errorEl.style.display = 'none';
                 errorEl.textContent = '';
@@ -158,7 +158,7 @@
         function renderNormalMailRetentionStatusError(message) {
             const errorEl = document.getElementById('normalMailRetentionStatsError');
             if (!errorEl) return;
-            errorEl.textContent = message || '加载普通邮箱本地保留统计失败';
+            errorEl.textContent = message || I18n.t('加载普通邮箱本地保留统计失败');
             errorEl.style.display = 'block';
         }
 
@@ -200,13 +200,13 @@
                 const response = await fetch('/api/settings/normal-mail-retention/status', { cache: 'no-store' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '加载普通邮箱本地保留统计失败');
+                    throw new Error(data.error || I18n.t('加载普通邮箱本地保留统计失败'));
                 }
                 updateNormalMailRetentionStats(data.status || {});
                 return data.status || {};
             } catch (error) {
                 if (!options.silent) {
-                    renderNormalMailRetentionStatusError(error.message || '加载普通邮箱本地保留统计失败');
+                    renderNormalMailRetentionStatusError(error.message || I18n.t('加载普通邮箱本地保留统计失败'));
                 }
                 return null;
             }
@@ -214,15 +214,15 @@
 
         async function clearNormalMailRetentionCache() {
             const confirmed = await showConfirmModal(
-                '确定要清理普通邮箱本地缓存吗？这只会删除本机 SQLite 中保留的普通邮箱列表和正文缓存，不会关闭本地保留开关。',
-                { title: '清理普通邮箱本地缓存', confirmText: '确认清理' }
+                I18n.t('确定要清理普通邮箱本地缓存吗？这只会删除本机 SQLite 中保留的普通邮箱列表和正文缓存，不会关闭本地保留开关。'),
+                { title: I18n.t('清理普通邮箱本地缓存'), confirmText: I18n.t('确认清理') }
             );
             if (!confirmed) return false;
             try {
                 const response = await fetch('/api/settings/normal-mail-retention/clear', { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '启动普通邮箱本地缓存清理失败');
+                    throw new Error(data.error || I18n.t('启动普通邮箱本地缓存清理失败'));
                 }
                 if (typeof invalidateNormalMailRetentionCaches === 'function') {
                     invalidateNormalMailRetentionCaches({ resetCurrentView: true });
@@ -230,14 +230,14 @@
                 resetNormalMailRetentionStatusPollDelay();
                 updateNormalMailRetentionStats({
                     ...(lastNormalMailRetentionStatus || {}),
-                    clear_status: data.status || { state: 'running', message: '正在清理普通邮箱本地缓存…' }
+                    clear_status: data.status || { state: 'running', message: I18n.t('正在清理普通邮箱本地缓存…') }
                 });
-                showToast(data.already_running ? '普通邮箱本地缓存正在清理中' : '已开始清理普通邮箱本地缓存', 'success');
+                showToast(data.already_running ? I18n.t('普通邮箱本地缓存正在清理中') : I18n.t('已开始清理普通邮箱本地缓存'), 'success');
                 scheduleNormalMailRetentionStatusPoll();
                 return true;
             } catch (error) {
-                renderNormalMailRetentionStatusError(error.message || '启动普通邮箱本地缓存清理失败');
-                showToast('启动普通邮箱本地缓存清理失败', 'error');
+                renderNormalMailRetentionStatusError(error.message || I18n.t('启动普通邮箱本地缓存清理失败'));
+                showToast(I18n.t('启动普通邮箱本地缓存清理失败'), 'error');
                 return false;
             }
         }
@@ -316,10 +316,10 @@
         }
 
         function formatSkinSourceLabel(sourceType) {
-            if (sourceType === 'builtin') return '内置';
-            if (sourceType === 'upload') return '上传';
+            if (sourceType === 'builtin') return I18n.t('内置');
+            if (sourceType === 'upload') return I18n.t('上传');
             if (sourceType === 'git') return 'Git';
-            return sourceType || '未知';
+            return sourceType || I18n.t('未知');
         }
 
         function renderSkinList(payload = {}) {
@@ -334,7 +334,7 @@
 
             const skins = Array.isArray(payload.skins) ? payload.skins : [];
             if (!skins.length) {
-                listEl.innerHTML = '<div class="settings-note">没有可用皮肤。</div>';
+                listEl.innerHTML = I18n.t('<div class="settings-note">没有可用皮肤。</div>');
                 return;
             }
 
@@ -352,19 +352,19 @@
                 const gitMeta = sourceType === 'git' && skin.git_url
                     ? `<span>${escapeHtml(skin.git_url)}${skin.git_ref ? ` @ ${escapeHtml(skin.git_ref)}` : ''}</span>`
                     : '';
-                const activePill = isActive ? '<span class="skin-pill skin-pill--active">当前</span>' : '';
-                const invalidPill = isInvalid ? '<span class="skin-pill skin-pill--invalid">不可用</span>' : '';
+                const activePill = isActive ? I18n.t('<span class="skin-pill skin-pill--active">当前</span>') : '';
+                const invalidPill = isInvalid ? I18n.t('<span class="skin-pill skin-pill--invalid">不可用</span>') : '';
                 const activateButton = isActive || isInvalid
                     ? ''
-                    : `<button class="btn btn-sm btn-secondary" type="button" onclick="activateSkin('${skinId}')">启用</button>`;
+                    : I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="activateSkin('${skinId}')">启用</button>`;
                 const updateButton = sourceType === 'git'
-                    ? `<button class="btn btn-sm btn-secondary" type="button" onclick="updateGitSkin('${skinId}')">更新</button>`
+                    ? I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="updateGitSkin('${skinId}')">更新</button>`
                     : '';
                 const deleteButton = !skin.builtin && !isActive
-                    ? `<button class="btn btn-sm btn-danger" type="button" onclick="deleteSkin('${skinId}')">删除</button>`
+                    ? I18n.tpl`<button class="btn btn-sm btn-danger" type="button" onclick="deleteSkin('${skinId}')">删除</button>`
                     : '';
 
-                return `
+                return I18n.tpl`
                     <article class="skin-card ${isActive ? 'is-active' : ''} ${isInvalid ? 'is-invalid' : ''}">
                         <div>
                             <div class="skin-card__title">
@@ -394,21 +394,21 @@
         async function loadSkinSettings() {
             const listEl = document.getElementById('settingsSkinList');
             if (listEl) {
-                listEl.innerHTML = '<div class="settings-note">正在加载皮肤列表...</div>';
+                listEl.innerHTML = I18n.t('<div class="settings-note">正在加载皮肤列表...</div>');
             }
             try {
                 const response = await fetch('/api/skins', { cache: 'no-store' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '加载皮肤列表失败');
+                    throw new Error(data.error || I18n.t('加载皮肤列表失败'));
                 }
                 renderSkinList(data);
                 setSkinSettingsStatus('');
                 return data;
             } catch (error) {
-                setSkinSettingsStatus(error.message || '加载皮肤列表失败', 'error');
+                setSkinSettingsStatus(error.message || I18n.t('加载皮肤列表失败'), 'error');
                 if (listEl) {
-                    listEl.innerHTML = '<div class="settings-note">皮肤列表加载失败。</div>';
+                    listEl.innerHTML = I18n.t('<div class="settings-note">皮肤列表加载失败。</div>');
                 }
                 return null;
             }
@@ -417,7 +417,7 @@
         async function activateSkin(skinId) {
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) {
-                showToast('皮肤 ID 无效', 'error');
+                showToast(I18n.t('皮肤 ID 无效'), 'error');
                 return;
             }
             try {
@@ -426,14 +426,14 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '启用皮肤失败');
+                    throw new Error(data.error || I18n.t('启用皮肤失败'));
                 }
                 refreshActiveSkinStylesheet(data.asset_hash);
-                showToast('皮肤已启用', 'success');
+                showToast(I18n.t('皮肤已启用'), 'success');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || '启用皮肤失败', 'error');
-                setSkinSettingsStatus(error.message || '启用皮肤失败', 'error');
+                showToast(error.message || I18n.t('启用皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('启用皮肤失败'), 'error');
             }
         }
 
@@ -441,12 +441,12 @@
             const input = document.getElementById('settingsSkinUploadFile');
             const file = input?.files?.[0];
             if (!file) {
-                showToast('请选择 zip 皮肤包', 'error');
+                showToast(I18n.t('请选择 zip 皮肤包'), 'error');
                 return;
             }
             const formData = new FormData();
             formData.append('skin', file);
-            setSkinSettingsStatus('正在安装上传皮肤...', 'pending');
+            setSkinSettingsStatus(I18n.t('正在安装上传皮肤...'), 'pending');
             try {
                 const response = await fetch('/api/skins/upload', {
                     method: 'POST',
@@ -454,15 +454,15 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '安装上传皮肤失败');
+                    throw new Error(data.error || I18n.t('安装上传皮肤失败'));
                 }
                 if (input) input.value = '';
-                showToast('皮肤已安装', 'success');
+                showToast(I18n.t('皮肤已安装'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || '安装上传皮肤失败', 'error');
-                setSkinSettingsStatus(error.message || '安装上传皮肤失败', 'error');
+                showToast(error.message || I18n.t('安装上传皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('安装上传皮肤失败'), 'error');
             }
         }
 
@@ -470,10 +470,10 @@
             const gitUrl = document.getElementById('settingsSkinGitUrl')?.value.trim() || '';
             const gitRef = document.getElementById('settingsSkinGitRef')?.value.trim() || '';
             if (!gitUrl) {
-                showToast('请输入 Git 仓库地址', 'error');
+                showToast(I18n.t('请输入 Git 仓库地址'), 'error');
                 return;
             }
-            setSkinSettingsStatus('正在安装 Git 皮肤...', 'pending');
+            setSkinSettingsStatus(I18n.t('正在安装 Git 皮肤...'), 'pending');
             try {
                 const response = await fetch('/api/skins/git/install', {
                     method: 'POST',
@@ -482,38 +482,38 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '安装 Git 皮肤失败');
+                    throw new Error(data.error || I18n.t('安装 Git 皮肤失败'));
                 }
-                showToast('Git 皮肤已安装', 'success');
+                showToast(I18n.t('Git 皮肤已安装'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || '安装 Git 皮肤失败', 'error');
-                setSkinSettingsStatus(error.message || '安装 Git 皮肤失败', 'error');
+                showToast(error.message || I18n.t('安装 Git 皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('安装 Git 皮肤失败'), 'error');
             }
         }
 
         async function updateGitSkin(skinId) {
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) return;
-            setSkinSettingsStatus('正在更新 Git 皮肤...', 'pending');
+            setSkinSettingsStatus(I18n.t('正在更新 Git 皮肤...'), 'pending');
             try {
                 const response = await fetch(`/api/skins/${encodeURIComponent(normalizedId)}/git/update`, {
                     method: 'POST'
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '更新 Git 皮肤失败');
+                    throw new Error(data.error || I18n.t('更新 Git 皮肤失败'));
                 }
                 if (lastLoadedSkinSettings?.active_skin_id === normalizedId) {
                     refreshActiveSkinStylesheet(data.skin?.asset_hash);
                 }
-                showToast('Git 皮肤已更新', 'success');
+                showToast(I18n.t('Git 皮肤已更新'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || '更新 Git 皮肤失败', 'error');
-                setSkinSettingsStatus(error.message || '更新 Git 皮肤失败', 'error');
+                showToast(error.message || I18n.t('更新 Git 皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('更新 Git 皮肤失败'), 'error');
             }
         }
 
@@ -521,8 +521,8 @@
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) return;
             const confirmed = await showConfirmModal(
-                '确定要删除这个自定义皮肤吗？',
-                { title: '删除皮肤', confirmText: '确认删除' }
+                I18n.t('确定要删除这个自定义皮肤吗？'),
+                { title: I18n.t('删除皮肤'), confirmText: I18n.t('确认删除') }
             );
             if (!confirmed) return;
             try {
@@ -531,13 +531,13 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || '删除皮肤失败');
+                    throw new Error(data.error || I18n.t('删除皮肤失败'));
                 }
-                showToast('皮肤已删除', 'success');
+                showToast(I18n.t('皮肤已删除'), 'success');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || '删除皮肤失败', 'error');
-                setSkinSettingsStatus(error.message || '删除皮肤失败', 'error');
+                showToast(error.message || I18n.t('删除皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('删除皮肤失败'), 'error');
             }
         }
 
@@ -657,7 +657,7 @@
             crypto.getRandomValues(array);
             const key = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
             document.getElementById('settingsExternalApiKey').value = key;
-            showToast('已生成随机 API Key，请保存设置', 'success');
+            showToast(I18n.t('已生成随机 API Key，请保存设置'), 'success');
         }
 
         // 切换刷新策略
@@ -709,7 +709,7 @@
 
                 if (data.success && data.valid) {
                     const previewTimeZone = data.time_zone || selectedTimeZone;
-                    const nextRun = new Date(data.next_run).toLocaleString('zh-CN', {
+                    const nextRun = new Date(data.next_run).toLocaleString(I18n.language, {
                         timeZone: previewTimeZone,
                         year: 'numeric',
                         month: '2-digit',
@@ -718,7 +718,7 @@
                         minute: '2-digit'
                     });
                     resultEl.style.display = 'block';
-                    resultEl.innerHTML = `
+                    resultEl.innerHTML = I18n.tpl`
                         <div style="color: #28a745;">
                             ✓ 表达式有效<br>
                             下次执行: ${nextRun}
@@ -728,13 +728,13 @@
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = `
                         <div style="color: #dc3545;">
-                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || '表达式无效')}
+                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t('表达式无效'))}
                         </div>
                     `;
                 }
             } catch (error) {
                 resultEl.style.display = 'block';
-                resultEl.innerHTML = `
+                resultEl.innerHTML = I18n.tpl`
                     <div style="color: #dc3545;">
                         ✗ 验证失败: ${error.message}
                     </div>
@@ -783,21 +783,21 @@
 
             const lines = [];
             if (settings.webdav_backup_next_run) {
-                lines.push(`下次执行：${formatAbsoluteDateTime(settings.webdav_backup_next_run)}（${settings.app_timezone || getAppTimeZone()}）`);
+                lines.push(I18n.tpl`下次执行：${formatAbsoluteDateTime(settings.webdav_backup_next_run)}（${settings.app_timezone || getAppTimeZone()}）`);
             }
             if (settings.webdav_backup_last_run_at) {
-                const statusText = settings.webdav_backup_last_status === 'success' ? '成功' : (settings.webdav_backup_last_status || '未知');
-                lines.push(`上次执行：${formatAbsoluteDateTime(settings.webdav_backup_last_run_at)}，状态：${statusText}`);
+                const statusText = settings.webdav_backup_last_status === 'success' ? I18n.t('成功') : (settings.webdav_backup_last_status || I18n.t('未知'));
+                lines.push(I18n.tpl`上次执行：${formatAbsoluteDateTime(settings.webdav_backup_last_run_at)}，状态：${statusText}`);
             }
             if (settings.webdav_backup_last_filename) {
-                lines.push(`最近文件：${settings.webdav_backup_last_filename}`);
+                lines.push(I18n.tpl`最近文件：${settings.webdav_backup_last_filename}`);
             }
             if (settings.webdav_backup_last_message) {
                 lines.push(settings.webdav_backup_last_message);
             }
 
             statusEl.style.display = 'block';
-            statusEl.textContent = lines.length ? lines.join('\n') : '尚未执行备份。保存设置后，调度器重启时会加载新的 Cron 计划。';
+            statusEl.textContent = lines.length ? lines.join('\n') : I18n.t('尚未执行备份。保存设置后，调度器重启时会加载新的 Cron 计划。');
         }
 
         async function selectWebdavBackupCronExample(cronExpr) {
@@ -839,7 +839,7 @@
                 const data = await response.json();
                 if (data.success && data.valid) {
                     const previewTimeZone = data.time_zone || selectedTimeZone;
-                    const nextRun = new Date(data.next_run).toLocaleString('zh-CN', {
+                    const nextRun = new Date(data.next_run).toLocaleString(I18n.language, {
                         timeZone: previewTimeZone,
                         year: 'numeric',
                         month: '2-digit',
@@ -848,7 +848,7 @@
                         minute: '2-digit'
                     });
                     resultEl.style.display = 'block';
-                    resultEl.innerHTML = `
+                    resultEl.innerHTML = I18n.tpl`
                         <div style="color: #28a745;">
                             ✓ 表达式有效<br>
                             下次执行: ${nextRun}
@@ -858,13 +858,13 @@
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = `
                         <div style="color: #dc3545;">
-                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || '表达式无效')}
+                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t('表达式无效'))}
                         </div>
                     `;
                 }
             } catch (error) {
                 resultEl.style.display = 'block';
-                resultEl.innerHTML = `
+                resultEl.innerHTML = I18n.tpl`
                     <div style="color: #dc3545;">
                         ✗ 验证失败: ${error.message}
                     </div>
@@ -880,27 +880,27 @@
             const draft = buildWebdavBackupDraftConfig();
 
             if (!draft.url) {
-                showToast('请先填写 WebDAV 目录 URL', 'error');
+                showToast(I18n.t('请先填写 WebDAV 目录 URL'), 'error');
                 return;
             }
             try {
                 const backupUrl = new URL(draft.url);
                 if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                    showToast('WebDAV 目录 URL 必须是 http(s) 地址', 'error');
+                    showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                     return;
                 }
             } catch (error) {
-                showToast('WebDAV 目录 URL 无效', 'error');
+                showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '测试中...';
+            btn.textContent = I18n.t('测试中...');
             if (resultEl) {
                 resultEl.style.display = 'block';
                 resultEl.style.color = '';
-                resultEl.textContent = '正在上传测试文件...';
+                resultEl.textContent = I18n.t('正在上传测试文件...');
             }
 
             try {
@@ -913,7 +913,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    const message = data.message || 'WebDAV 测试成功';
+                    const message = data.message || I18n.t('WebDAV 测试成功');
                     showToast(message, 'success');
                     if (resultEl) {
                         resultEl.style.display = 'block';
@@ -921,8 +921,8 @@
                         resultEl.textContent = `✓ ${message}`;
                     }
                 } else {
-                    const message = data.error && data.error.message ? data.error.message : (data.error || 'WebDAV 测试失败');
-                    handleApiError(data, 'WebDAV 测试失败');
+                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t('WebDAV 测试失败'));
+                    handleApiError(data, I18n.t('WebDAV 测试失败'));
                     if (resultEl) {
                         resultEl.style.display = 'block';
                         resultEl.style.color = '#dc3545';
@@ -930,11 +930,11 @@
                     }
                 }
             } catch (error) {
-                showToast('WebDAV 测试失败', 'error');
+                showToast(I18n.t('WebDAV 测试失败'), 'error');
                 if (resultEl) {
                     resultEl.style.display = 'block';
                     resultEl.style.color = '#dc3545';
-                    resultEl.textContent = `✗ WebDAV 测试失败: ${error.message}`;
+                    resultEl.textContent = I18n.tpl`✗ WebDAV 测试失败: ${error.message}`;
                 }
             } finally {
                 btn.disabled = false;
@@ -951,31 +951,31 @@
             const loginPassword = document.getElementById('webdavBackupVerifyPassword')?.value || '';
 
             if (!draft.url) {
-                showToast('请先填写 WebDAV 目录 URL', 'error');
+                showToast(I18n.t('请先填写 WebDAV 目录 URL'), 'error');
                 return;
             }
             try {
                 const backupUrl = new URL(draft.url);
                 if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                    showToast('WebDAV 目录 URL 必须是 http(s) 地址', 'error');
+                    showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                     return;
                 }
             } catch (error) {
-                showToast('WebDAV 目录 URL 无效', 'error');
+                showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                 return;
             }
             if (!loginPassword) {
-                showToast('手动上传备份需要输入登录密码', 'error');
+                showToast(I18n.t('手动上传备份需要输入登录密码'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '上传中...';
+            btn.textContent = I18n.t('上传中...');
             if (resultEl) {
                 resultEl.style.display = 'block';
                 resultEl.style.color = '';
-                resultEl.textContent = '正在上传真实备份文件...';
+                resultEl.textContent = I18n.t('正在上传真实备份文件...');
             }
 
             try {
@@ -989,7 +989,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    const message = data.message || 'WebDAV 备份已上传';
+                    const message = data.message || I18n.t('WebDAV 备份已上传');
                     showToast(message, 'success');
                     if (resultEl) {
                         resultEl.style.display = 'block';
@@ -998,8 +998,8 @@
                     }
                     await loadSettings();
                 } else {
-                    const message = data.error && data.error.message ? data.error.message : (data.error || 'WebDAV 备份上传失败');
-                    handleApiError(data, '手动上传失败');
+                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t('WebDAV 备份上传失败'));
+                    handleApiError(data, I18n.t('手动上传失败'));
                     if (resultEl) {
                         resultEl.style.display = 'block';
                         resultEl.style.color = '#dc3545';
@@ -1007,11 +1007,11 @@
                     }
                 }
             } catch (error) {
-                showToast('手动上传失败', 'error');
+                showToast(I18n.t('手动上传失败'), 'error');
                 if (resultEl) {
                     resultEl.style.display = 'block';
                     resultEl.style.color = '#dc3545';
-                    resultEl.textContent = `✗ 手动上传失败: ${error.message}`;
+                    resultEl.textContent = I18n.tpl`✗ 手动上传失败: ${error.message}`;
                 }
             } finally {
                 btn.disabled = false;
@@ -1023,7 +1023,7 @@
             if (document.getElementById('editForwardEnabled')) return;
             const statusGroup = document.getElementById('editStatus')?.closest('.form-group');
             if (!statusGroup) return;
-            statusGroup.insertAdjacentHTML('afterend', `
+            statusGroup.insertAdjacentHTML('afterend', I18n.tpl`
                 <div class="form-group">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="editForwardEnabled">
@@ -1052,7 +1052,7 @@
             const selectedIds = getTagFilterSelectedIds(container);
             const tags = typeof allTags !== 'undefined' && Array.isArray(allTags) ? allTags : [];
             const selectedItems = selectedIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
-            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, '未选择标签');
+            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t('未选择标签'));
         }
 
         function toggleImportTagDropdown(event) {
@@ -1112,7 +1112,7 @@
             const selectedIds = getTagFilterSelectedIds(container);
             const tags = typeof allTags !== 'undefined' && Array.isArray(allTags) ? allTags : [];
             const selectedItems = selectedIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
-            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, '未选择标签');
+            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t('未选择标签'));
         }
 
         function toggleEditTagDropdown(event) {
@@ -1147,7 +1147,7 @@
                 : [];
             const enabledChannels = (Array.isArray(channels) ? channels : []).filter(channel => channel.enabled);
             if (!enabledChannels.length) {
-                select.innerHTML = '<option value="">请先在设置中配置 Cloudflare 渠道</option>';
+                select.innerHTML = I18n.t('<option value="">请先在设置中配置 Cloudflare 渠道</option>');
                 return [];
             }
             const currentValue = select.value;
@@ -1203,23 +1203,23 @@
             const importButton = document.querySelector('#addAccountModal .btn.btn-primary');
 
             if (!input && !isCloudflareAutoImport) {
-                showToast('请输入账号信息', 'error');
+                showToast(I18n.t('请输入账号信息'), 'error');
                 return;
             }
 
             if (!isTempGroup && provider === 'custom' && !imapHost) {
-                showToast('自定义 IMAP 必须填写服务器地址', 'error');
+                showToast(I18n.t('自定义 IMAP 必须填写服务器地址'), 'error');
                 return;
             }
             if (isTempGroup && tempProvider === 'cloudflare' && !cloudflareChannelId) {
-                showToast('请选择 Cloudflare 渠道', 'error');
+                showToast(I18n.t('请选择 Cloudflare 渠道'), 'error');
                 return;
             }
 
             try {
                 if (importButton) {
                     importButton.disabled = true;
-                    importButton.textContent = '导入中...';
+                    importButton.textContent = I18n.t('导入中...');
                 }
                 let response;
                 if (isTempGroup) {
@@ -1243,7 +1243,7 @@
                         const progressHint = document.getElementById('importFormatExample');
                         if (progressHint) {
                             progressHint.style.display = '';
-                            progressHint.textContent = '正在拉取地址列表...';
+                            progressHint.textContent = I18n.t('正在拉取地址列表...');
                         }
 
                         response = await fetch(endpoint, {
@@ -1277,12 +1277,12 @@
                                                 const percent = eventData.total > 0
                                                     ? Math.round((eventData.imported / eventData.total) * 100)
                                                     : 0;
-                                                progressHint.textContent = `导入进度: ${eventData.imported}/${eventData.total} (${percent}%) - 新增 ${eventData.added}，更新 ${eventData.updated}`;
+                                                progressHint.textContent = I18n.tpl`导入进度: ${eventData.imported}/${eventData.total} (${percent}%) - 新增 ${eventData.added}，更新 ${eventData.updated}`;
                                             } else if (eventData.type === 'complete') {
                                                 if (progressHint) {
                                                     progressHint.textContent = eventData.success
-                                                        ? `✅ ${eventData.message || '导入完成'}`
-                                                        : `❌ ${eventData.error || '导入失败'}`;
+                                                        ? `✅ ${eventData.message || I18n.t('导入完成')}`
+                                                        : `❌ ${eventData.error || I18n.t('导入失败')}`;
                                                 }
                                             }
                                         } catch (e) {
@@ -1301,7 +1301,7 @@
                                     await loadGroups();
                                     if (currentGroupId === groupId) await loadAccountsByGroup(groupId);
                                 } else {
-                                    handleApiError(lastData, '导入临时邮箱失败');
+                                    handleApiError(lastData, I18n.t('导入临时邮箱失败'));
                                 }
                                 return;
                             }
@@ -1343,14 +1343,14 @@
                         await loadAccountsByGroup(groupId, true);
                     }
                 } else {
-                    handleApiError(data, '导入失败');
+                    handleApiError(data, I18n.t('导入失败'));
                 }
             } catch (error) {
-                showToast('导入失败', 'error');
+                showToast(I18n.t('导入失败'), 'error');
             } finally {
                 if (importButton) {
                     importButton.disabled = false;
-                    importButton.textContent = '导入';
+                    importButton.textContent = I18n.t('导入');
                 }
             }
         }
@@ -1367,7 +1367,7 @@
                     editAccountSecretState.accountId = String(acc.id || '');
                     document.getElementById('editAccountId').value = acc.id;
                     document.getElementById('editEmail').value = acc.email || '';
-                    resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', '可选');
+                    resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', I18n.t('可选'));
                     document.getElementById('editClientId').value = acc.client_id || '';
                     document.getElementById('editAuthorizationType').value = acc.authorization_type || '';
                     document.getElementById('editRefreshToken').value = acc.refresh_token || '';
@@ -1394,7 +1394,7 @@
                     setModalVisible('editAccountModal', true);
                 }
             } catch (error) {
-                showToast('加载账号信息失败', 'error');
+                showToast(I18n.t('加载账号信息失败'), 'error');
             }
         }
 
@@ -1446,21 +1446,21 @@
 
             if (isOutlook) {
                 if (!data.email || !data.client_id || !data.refresh_token) {
-                    showToast('邮箱、Client ID 和 Refresh Token 不能为空', 'error');
+                    showToast(I18n.t('邮箱、Client ID 和 Refresh Token 不能为空'), 'error');
                     return;
                 }
             } else {
                 if (!data.email || (!imapPasswordValue && !imapPasswordLockedWithSavedValue)) {
-                    showToast('邮箱和 IMAP 密码不能为空', 'error');
+                    showToast(I18n.t('邮箱和 IMAP 密码不能为空'), 'error');
                     return;
                 }
                 if (provider === 'custom' && !data.imap_host) {
-                    showToast('自定义 IMAP 必须填写服务器地址', 'error');
+                    showToast(I18n.t('自定义 IMAP 必须填写服务器地址'), 'error');
                     return;
                 }
             }
             if (!Number.isFinite(sortOrder) || sortOrder < 0) {
-                showToast('排序值不能小于 0', 'error');
+                showToast(I18n.t('排序值不能小于 0'), 'error');
                 return;
             }
 
@@ -1484,10 +1484,10 @@
                         loadAccountsByGroup(currentGroupId, true);
                     }
                 } else {
-                    handleApiError(result, '更新失败');
+                    handleApiError(result, I18n.t('更新失败'));
                 }
             } catch (error) {
-                showToast('更新失败', 'error');
+                showToast(I18n.t('更新失败'), 'error');
             }
         }
 
@@ -1497,8 +1497,8 @@
             const deleteBtn = document.getElementById('deleteCloudflareChannelBtn');
             const testBtn = document.getElementById('testCloudflareChannelBtn');
             const testResult = document.getElementById('cloudflareChannelTestResult');
-            if (saveBtn) saveBtn.textContent = isEditing ? '保存渠道' : '创建渠道';
-            if (resetBtn) resetBtn.textContent = isEditing ? '新建渠道' : '清空表单';
+            if (saveBtn) saveBtn.textContent = isEditing ? I18n.t('保存渠道') : I18n.t('创建渠道');
+            if (resetBtn) resetBtn.textContent = isEditing ? I18n.t('新建渠道') : I18n.t('清空表单');
             if (deleteBtn) deleteBtn.style.display = isEditing ? '' : 'none';
             if (testBtn) testBtn.style.display = isEditing ? '' : 'none';
             if (testResult) testResult.style.display = 'none';
@@ -1512,7 +1512,7 @@
             document.getElementById('settingsCloudflareWorkerDomain').value = '';
             document.getElementById('settingsCloudflareEmailDomains').value = '';
             document.getElementById('settingsCloudflareAdminPassword').value = '';
-            document.getElementById('settingsCloudflareAdminPassword').placeholder = '对应 Cloudflare Temp Email 的 ADMIN_PASSWORD';
+            document.getElementById('settingsCloudflareAdminPassword').placeholder = I18n.t('对应 Cloudflare Temp Email 的 ADMIN_PASSWORD');
             document.getElementById('settingsCloudflareEnabled').checked = true;
             document.getElementById('settingsCloudflareDefault').checked = cloudflareSettingsChannels.length === 0;
             setCloudflareChannelFormMode(false);
@@ -1522,18 +1522,18 @@
             const list = document.getElementById('settingsCloudflareChannelList');
             if (!list) return;
             if (!cloudflareSettingsChannels.length) {
-                list.innerHTML = '<div class="form-hint">暂无 Cloudflare 渠道</div>';
+                list.innerHTML = I18n.t('<div class="form-hint">暂无 Cloudflare 渠道</div>');
                 return;
             }
-            list.innerHTML = cloudflareSettingsChannels.map(channel => `
+            list.innerHTML = cloudflareSettingsChannels.map(channel => I18n.tpl`
                 <div class="cloudflare-channel-row">
                     <div>
                         <div class="cloudflare-channel-row-title">${escapeHtml(channel.name || `#${channel.id}`)}</div>
                         <div class="cloudflare-channel-row-meta">
-                            <span class="cloudflare-channel-pill">${escapeHtml(channel.worker_domain || '未配置 Worker')}</span>
-                            <span class="cloudflare-channel-pill">${escapeHtml((channel.email_domains || []).join(', ') || '未配置域名')}</span>
-                            <span class="cloudflare-channel-pill">${channel.enabled ? '启用' : '停用'}</span>
-                            ${channel.is_default ? '<span class="cloudflare-channel-pill">默认</span>' : ''}
+                            <span class="cloudflare-channel-pill">${escapeHtml(channel.worker_domain || I18n.t('未配置 Worker'))}</span>
+                            <span class="cloudflare-channel-pill">${escapeHtml((channel.email_domains || []).join(', ') || I18n.t('未配置域名'))}</span>
+                            <span class="cloudflare-channel-pill">${channel.enabled ? I18n.t('启用') : I18n.t('停用')}</span>
+                            ${channel.is_default ? I18n.t('<span class="cloudflare-channel-pill">默认</span>') : ''}
                             <span class="cloudflare-channel-pill">${Number(channel.reference_count || 0)} 个邮箱</span>
                         </div>
                     </div>
@@ -1544,7 +1544,7 @@
 
         async function loadCloudflareChannelsForSettings() {
             const list = document.getElementById('settingsCloudflareChannelList');
-            if (list) list.innerHTML = '<div class="form-hint">加载中...</div>';
+            if (list) list.innerHTML = I18n.t('<div class="form-hint">加载中...</div>');
             try {
                 const response = await fetch('/api/cloudflare/channels');
                 const data = await response.json();
@@ -1553,7 +1553,7 @@
                 resetCloudflareChannelForm();
             } catch (error) {
                 cloudflareSettingsChannels = [];
-                if (list) list.innerHTML = '<div class="form-hint">加载失败</div>';
+                if (list) list.innerHTML = I18n.t('<div class="form-hint">加载失败</div>');
             }
         }
 
@@ -1565,7 +1565,7 @@
             document.getElementById('settingsCloudflareWorkerDomain').value = channel.worker_domain || '';
             document.getElementById('settingsCloudflareEmailDomains').value = (channel.email_domains || []).join(', ');
             document.getElementById('settingsCloudflareAdminPassword').value = '';
-            document.getElementById('settingsCloudflareAdminPassword').placeholder = channel.admin_password_configured ? '已保存，留空不修改' : '对应 Cloudflare Temp Email 的 ADMIN_PASSWORD';
+            document.getElementById('settingsCloudflareAdminPassword').placeholder = channel.admin_password_configured ? I18n.t('已保存，留空不修改') : I18n.t('对应 Cloudflare Temp Email 的 ADMIN_PASSWORD');
             document.getElementById('settingsCloudflareEnabled').checked = !!channel.enabled;
             document.getElementById('settingsCloudflareDefault').checked = !!channel.is_default;
             setCloudflareChannelFormMode(true);
@@ -1574,7 +1574,7 @@
         async function testCloudflareChannelConnection() {
             const channelId = document.getElementById('settingsCloudflareChannelId')?.value || '';
             if (!channelId) {
-                showToast('请先选择要测试的渠道', 'error');
+                showToast(I18n.t('请先选择要测试的渠道'), 'error');
                 return;
             }
 
@@ -1585,13 +1585,13 @@
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = '测试中...';
+                btn.textContent = I18n.t('测试中...');
             }
             if (resultContainer) {
                 resultContainer.style.display = '';
             }
             if (resultText) {
-                resultText.textContent = '正在测试 Cloudflare 管理员 API 连接...';
+                resultText.textContent = I18n.t('正在测试 Cloudflare 管理员 API 连接...');
                 resultText.className = 'form-hint';
             }
 
@@ -1603,7 +1603,7 @@
                 const data = await response.json();
 
                 if (resultText) {
-                    let html = `<strong>${escapeHtml(data.message || '测试完成')}</strong><br><br>`;
+                    let html = `<strong>${escapeHtml(data.message || I18n.t('测试完成'))}</strong><br><br>`;
                     if (data.tests && Array.isArray(data.tests)) {
                         html += '<ul style="margin: 0; padding-left: 20px;">';
                         for (const test of data.tests) {
@@ -1611,12 +1611,12 @@
                             html += `<li>${icon} ${escapeHtml(test.test)}`;
                             if (test.success) {
                                 if (test.domains) {
-                                    html += `: ${test.domains.length} 个域名`;
+                                    html += I18n.tpl`: ${test.domains.length} 个域名`;
                                     if (test.domains.length > 0) {
                                         html += ` (${test.domains.slice(0, 3).map(d => escapeHtml(d)).join(', ')}${test.domains.length > 3 ? '...' : ''})`;
                                     }
                                 } else if (test.count !== undefined) {
-                                    html += `: 总计 ${test.count} 条记录`;
+                                    html += I18n.tpl`: 总计 ${test.count} 条记录`;
                                 }
                             } else if (test.error) {
                                 html += `: ${escapeHtml(test.error)}`;
@@ -1630,16 +1630,16 @@
                 }
 
                 if (data.success) {
-                    showToast('连接测试通过', 'success');
+                    showToast(I18n.t('连接测试通过'), 'success');
                 } else {
-                    showToast(data.message || '连接测试失败', 'error');
+                    showToast(data.message || I18n.t('连接测试失败'), 'error');
                 }
             } catch (error) {
                 if (resultText) {
-                    resultText.textContent = `测试失败: ${error.message}`;
+                    resultText.textContent = I18n.tpl`测试失败: ${error.message}`;
                     resultText.className = 'form-hint error-text';
                 }
-                showToast('测试连接失败', 'error');
+                showToast(I18n.t('测试连接失败'), 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1659,11 +1659,11 @@
                 is_default: !!document.getElementById('settingsCloudflareDefault')?.checked
             };
             if (!payload.name || !payload.worker_domain) {
-                showToast('请填写渠道名称和 Worker 域名', 'error');
+                showToast(I18n.t('请填写渠道名称和 Worker 域名'), 'error');
                 return;
             }
             if (!channelId && !payload.admin_password) {
-                showToast('新建渠道必须填写管理员密码', 'error');
+                showToast(I18n.t('新建渠道必须填写管理员密码'), 'error');
                 return;
             }
             try {
@@ -1674,39 +1674,39 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '保存 Cloudflare 渠道失败');
+                    handleApiError(data, I18n.t('保存 Cloudflare 渠道失败'));
                     return;
                 }
-                showToast(data.message || 'Cloudflare 渠道已保存', 'success');
+                showToast(data.message || I18n.t('Cloudflare 渠道已保存'), 'success');
                 delete accountsCache.cloudflareChannels;
                 delete accountsCache.temp;
                 await loadCloudflareChannelsForSettings();
                 if (currentGroupId) loadTempEmails(true);
             } catch (error) {
-                showToast('保存 Cloudflare 渠道失败', 'error');
+                showToast(I18n.t('保存 Cloudflare 渠道失败'), 'error');
             }
         }
 
         async function deleteCloudflareChannel() {
             const channelId = document.getElementById('settingsCloudflareChannelId')?.value || '';
             if (!channelId) return;
-            if (!(await showConfirmModal('确定要删除这个 Cloudflare 渠道吗？', { title: '删除渠道', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.t('确定要删除这个 Cloudflare 渠道吗？'), { title: I18n.t('删除渠道'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
             try {
                 const response = await fetch(`/api/cloudflare/channels/${encodeURIComponent(channelId)}`, { method: 'DELETE' });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '删除 Cloudflare 渠道失败');
+                    handleApiError(data, I18n.t('删除 Cloudflare 渠道失败'));
                     return;
                 }
-                showToast(data.message || 'Cloudflare 渠道已删除', 'success');
+                showToast(data.message || I18n.t('Cloudflare 渠道已删除'), 'success');
                 delete accountsCache.cloudflareChannels;
                 delete accountsCache.temp;
                 await loadCloudflareChannelsForSettings();
                 if (currentGroupId) loadTempEmails(true);
             } catch (error) {
-                showToast('删除 Cloudflare 渠道失败', 'error');
+                showToast(I18n.t('删除 Cloudflare 渠道失败'), 'error');
             }
         }
 
@@ -1728,10 +1728,10 @@
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = '测试中...';
+                btn.textContent = I18n.t('测试中...');
             }
             if (resultEl) {
-                resultEl.textContent = '测试中...';
+                resultEl.textContent = I18n.t('测试中...');
             }
 
             try {
@@ -1742,18 +1742,18 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, 'AI 用户名测试失败');
-                    if (resultEl) resultEl.textContent = data.error || '测试失败';
+                    handleApiError(data, I18n.t('AI 用户名测试失败'));
+                    if (resultEl) resultEl.textContent = data.error || I18n.t('测试失败');
                     return;
                 }
                 const usernames = Array.isArray(data.usernames) ? data.usernames : [];
                 if (resultEl) {
-                    resultEl.textContent = usernames.length ? usernames.join(', ') : '未返回可用用户名';
+                    resultEl.textContent = usernames.length ? usernames.join(', ') : I18n.t('未返回可用用户名');
                 }
-                showToast('AI 用户名测试完成', 'success');
+                showToast(I18n.t('AI 用户名测试完成'), 'success');
             } catch (error) {
-                showToast('AI 用户名测试失败', 'error');
-                if (resultEl) resultEl.textContent = '测试失败';
+                showToast(I18n.t('AI 用户名测试失败'), 'error');
+                if (resultEl) resultEl.textContent = I18n.t('测试失败');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1780,11 +1780,11 @@
                     document.getElementById('settingsCloudflareAiApiUrl').value = data.settings.cloudflare_ai_username_api_url || '';
                     document.getElementById('settingsCloudflareAiModel').value = data.settings.cloudflare_ai_username_model || '';
                     document.getElementById('settingsCloudflareAiApiKey').value = '';
-                    document.getElementById('settingsCloudflareAiApiKey').placeholder = data.settings.cloudflare_ai_username_api_key_configured ? '已保存，留空不修改' : '输入 AI API Key';
-                    document.getElementById('settingsCloudflareAiApiKeyHint').textContent = data.settings.cloudflare_ai_username_api_key_configured ? '已配置' : '未配置';
+                    document.getElementById('settingsCloudflareAiApiKey').placeholder = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t('已保存，留空不修改') : I18n.t('输入 AI API Key');
+                    document.getElementById('settingsCloudflareAiApiKeyHint').textContent = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t('已配置') : I18n.t('未配置');
                     document.getElementById('settingsCloudflareAiClearApiKey').checked = false;
                     document.getElementById('settingsCloudflareAiPrompt').value = data.settings.cloudflare_ai_username_prompt || '';
-                    document.getElementById('settingsCloudflareAiTestResult').textContent = '未测试';
+                    document.getElementById('settingsCloudflareAiTestResult').textContent = I18n.t('未测试');
                     document.getElementById('settingsAppTimezone').value = appTimeZone;
                     document.getElementById('settingsPassword').value = '';
                     const currentPasswordInput = document.getElementById('settingsCurrentPassword');
@@ -1843,7 +1843,7 @@
                     await loadNormalMailRetentionStatus();
                 }
             } catch (error) {
-                showToast('加载设置失败', 'error');
+                showToast(I18n.t('加载设置失败'), 'error');
             }
         }
 
@@ -1869,11 +1869,11 @@
 
             if (password) {
                 if (!currentPassword) {
-                    showToast('修改登录密码需要输入当前密码', 'error');
+                    showToast(I18n.t('修改登录密码需要输入当前密码'), 'error');
                     return;
                 }
                 if (password.length < 8) {
-                    showToast('新登录密码长度至少为 8 位', 'error');
+                    showToast(I18n.t('新登录密码长度至少为 8 位'), 'error');
                     return;
                 }
                 settings.login_password = password;
@@ -1923,11 +1923,11 @@
             const webdavBackupVerifyPassword = document.getElementById('webdavBackupVerifyPassword')?.value || '';
 
             if (Number.isNaN(days) || days < 1 || days > 90) {
-                showToast('刷新周期必须在 1-90 天之间', 'error');
+                showToast(I18n.t('刷新周期必须在 1-90 天之间'), 'error');
                 return;
             }
             if (Number.isNaN(delay) || delay < 0 || delay > 60) {
-                showToast('刷新间隔必须在 0-60 秒之间', 'error');
+                showToast(I18n.t('刷新间隔必须在 0-60 秒之间'), 'error');
                 return;
             }
             if (!isValidAppTimeZone(appTimeZone)) {
@@ -1935,84 +1935,84 @@
                 return;
             }
             if (Number.isNaN(mailFetchTimeoutSeconds) || mailFetchTimeoutSeconds < 30 || mailFetchTimeoutSeconds > 300) {
-                showToast('邮件获取超时必须在 30-300 秒之间', 'error');
+                showToast(I18n.t('邮件获取超时必须在 30-300 秒之间'), 'error');
                 return;
             }
             if (Number.isNaN(forwardSeconds) || forwardSeconds < 20 || forwardSeconds > 3600) {
-                showToast('转发轮询间隔必须在 20-3600 秒之间', 'error');
+                showToast(I18n.t('转发轮询间隔必须在 20-3600 秒之间'), 'error');
                 return;
             }
             if (!['serial', 'parallel'].includes(forwardExecutionMode)) {
-                showToast('转发执行模式无效', 'error');
+                showToast(I18n.t('转发执行模式无效'), 'error');
                 return;
             }
             if (Number.isNaN(forwardParallelWorkers) || forwardParallelWorkers < 1 || forwardParallelWorkers > 10) {
-                showToast('转发并行 worker 数必须在 1-10 之间', 'error');
+                showToast(I18n.t('转发并行 worker 数必须在 1-10 之间'), 'error');
                 return;
             }
             if (Number.isNaN(forwardAccountDelaySeconds) || forwardAccountDelaySeconds < 0 || forwardAccountDelaySeconds > 60) {
-                showToast('账号间拉取间隔必须在 0-60 秒之间', 'error');
+                showToast(I18n.t('账号间拉取间隔必须在 0-60 秒之间'), 'error');
                 return;
             }
             if (Number.isNaN(forwardWindowMinutes) || forwardWindowMinutes < 0 || forwardWindowMinutes > 10080) {
-                showToast('转发邮件时间范围必须在 0-10080 分钟之间', 'error');
+                showToast(I18n.t('转发邮件时间范围必须在 0-10080 分钟之间'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && !smtpRecipient) {
-                showToast('启用 SMTP 转发时必须填写转发到邮箱', 'error');
+                showToast(I18n.t('启用 SMTP 转发时必须填写转发到邮箱'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && !smtpHost) {
-                showToast('启用 SMTP 转发时必须填写 SMTP 主机', 'error');
+                showToast(I18n.t('启用 SMTP 转发时必须填写 SMTP 主机'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && !smtpUsername && !smtpFromEmail) {
-                showToast('至少需要填写 SMTP 用户名或发件人邮箱之一', 'error');
+                showToast(I18n.t('至少需要填写 SMTP 用户名或发件人邮箱之一'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && (Number.isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
-                showToast('SMTP 端口无效', 'error');
+                showToast(I18n.t('SMTP 端口无效'), 'error');
                 return;
             }
             if (forwardChannels.includes('telegram') && !telegramBotToken) {
-                showToast('启用 TG 转发时必须填写 Telegram Bot Token', 'error');
+                showToast(I18n.t('启用 TG 转发时必须填写 Telegram Bot Token'), 'error');
                 return;
             }
             if (forwardChannels.includes('telegram') && !telegramChatId) {
-                showToast('启用 TG 转发时必须填写 Telegram Chat ID', 'error');
+                showToast(I18n.t('启用 TG 转发时必须填写 Telegram Chat ID'), 'error');
                 return;
             }
             if (telegramTopicId && !/^\d+$/.test(telegramTopicId)) {
-                showToast('Telegram Topic ID 必须是纯数字', 'error');
+                showToast(I18n.t('Telegram Topic ID 必须是纯数字'), 'error');
                 return;
             }
             if (forwardChannels.includes('wecom') && !wecomWebhookUrl) {
-                showToast('启用企业微信转发时必须填写 Webhook 地址', 'error');
+                showToast(I18n.t('启用企业微信转发时必须填写 Webhook 地址'), 'error');
                 return;
             }
             if (webdavBackupChanged) {
                 if (!webdavBackupVerifyPassword) {
-                    showToast('修改 WebDAV 备份设置需要输入登录密码', 'error');
+                    showToast(I18n.t('修改 WebDAV 备份设置需要输入登录密码'), 'error');
                     return;
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true' && !webdavBackupSettings.webdav_backup_url) {
-                    showToast('启用 WebDAV 备份时必须填写 WebDAV 目录 URL', 'error');
+                    showToast(I18n.t('启用 WebDAV 备份时必须填写 WebDAV 目录 URL'), 'error');
                     return;
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true') {
                     try {
                         const backupUrl = new URL(webdavBackupSettings.webdav_backup_url);
                         if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                            showToast('WebDAV 目录 URL 必须是 http(s) 地址', 'error');
+                            showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                             return;
                         }
                     } catch (error) {
-                        showToast('WebDAV 目录 URL 无效', 'error');
+                        showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                         return;
                     }
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true' && !webdavBackupSettings.webdav_backup_cron) {
-                    showToast('请输入 WebDAV 备份 Cron 表达式', 'error');
+                    showToast(I18n.t('请输入 WebDAV 备份 Cron 表达式'), 'error');
                     return;
                 }
             }
@@ -2057,7 +2057,7 @@
 
             if (strategy === 'cron') {
                 if (!refreshCron) {
-                    showToast('请输入 Cron 表达式', 'error');
+                    showToast(I18n.t('请输入 Cron 表达式'), 'error');
                     return;
                 }
                 settings.refresh_cron = refreshCron;
@@ -2068,8 +2068,8 @@
             let shouldClearNormalMailRetentionCache = false;
             if (wasRetentionEnabled && !normalMailLocalRetentionEnabled && savedMessageCount > 0) {
                 const confirmed = await showConfirmModal(
-                    '关闭普通邮箱本地保留将清理已保存的普通邮箱本地缓存数据。此操作不可恢复，是否继续？',
-                    { title: '关闭普通邮箱本地保留', confirmText: '确认关闭并清理' }
+                    I18n.t('关闭普通邮箱本地保留将清理已保存的普通邮箱本地缓存数据。此操作不可恢复，是否继续？'),
+                    { title: I18n.t('关闭普通邮箱本地保留'), confirmText: I18n.t('确认关闭并清理') }
                 );
                 if (!confirmed) {
                     const switchEl = document.getElementById('normalMailLocalRetentionEnabled');
@@ -2089,12 +2089,12 @@
 
                 data = await response.json();
             } catch (error) {
-                showToast('保存设置失败', 'error');
+                showToast(I18n.t('保存设置失败'), 'error');
                 return;
             }
 
             if (!data.success) {
-                handleApiError(data, '保存设置失败');
+                handleApiError(data, I18n.t('保存设置失败'));
                 return;
             }
 
@@ -2113,7 +2113,7 @@
                     const clearResponse = await fetch('/api/settings/normal-mail-retention/clear', { method: 'POST' });
                     const clearData = await clearResponse.json();
                     if (!clearResponse.ok || !clearData.success) {
-                        throw new Error(clearData.error || '启动普通邮箱本地缓存清理失败');
+                        throw new Error(clearData.error || I18n.t('启动普通邮箱本地缓存清理失败'));
                     }
                     if (typeof invalidateNormalMailRetentionCaches === 'function') {
                         invalidateNormalMailRetentionCaches({ resetCurrentView: true });
@@ -2121,11 +2121,11 @@
                     resetNormalMailRetentionStatusPollDelay();
                     updateNormalMailRetentionStats({
                         ...(lastNormalMailRetentionStatus || {}),
-                        clear_status: clearData.status || { state: 'running', message: '正在清理普通邮箱本地缓存…' }
+                        clear_status: clearData.status || { state: 'running', message: I18n.t('正在清理普通邮箱本地缓存…') }
                     });
                     scheduleNormalMailRetentionStatusPoll();
                 } catch (error) {
-                    showToast('设置已保存，但启动普通邮箱本地缓存清理失败', 'warning');
+                    showToast(I18n.t('设置已保存，但启动普通邮箱本地缓存清理失败'), 'warning');
                 }
             } else {
                 await loadNormalMailRetentionStatus({ silent: true });
@@ -2134,7 +2134,7 @@
                 await loadGroups();
                 await refreshVisibleAccountList(false);
             } catch (error) {
-                showToast('设置已保存，但列表刷新失败，请刷新页面', 'warning');
+                showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');
                 hideSettingsModal();
                 return;
             }
@@ -2144,9 +2144,9 @@
             if (currentPasswordInput) currentPasswordInput.value = '';
 
             if (password) {
-                showToast('登录密码已更新，其他已登录设备需要重新登录', 'success');
+                showToast(I18n.t('登录密码已更新，其他已登录设备需要重新登录'), 'success');
             } else {
-                showToast('时间展示已生效，定时任务重启后生效', 'success');
+                showToast(I18n.t('时间展示已生效，定时任务重启后生效'), 'success');
             }
             hideSettingsModal();
         }
@@ -2189,47 +2189,47 @@
             const draft = buildForwardingDraftConfig();
             if (channel === 'smtp') {
                 if (!draft.smtp.recipient) {
-                    showToast('请先填写 SMTP 转发到邮箱', 'error');
+                    showToast(I18n.t('请先填写 SMTP 转发到邮箱'), 'error');
                     return;
                 }
                 if (!draft.smtp.host) {
-                    showToast('请先填写 SMTP 主机', 'error');
+                    showToast(I18n.t('请先填写 SMTP 主机'), 'error');
                     return;
                 }
                 if (!draft.smtp.username && !draft.smtp.from_email) {
-                    showToast('请至少填写 SMTP 用户名或发件人邮箱', 'error');
+                    showToast(I18n.t('请至少填写 SMTP 用户名或发件人邮箱'), 'error');
                     return;
                 }
                 if (!draft.smtp.port || draft.smtp.port < 1 || draft.smtp.port > 65535) {
-                    showToast('SMTP 端口无效', 'error');
+                    showToast(I18n.t('SMTP 端口无效'), 'error');
                     return;
                 }
             } else if (channel === 'telegram') {
                 if (!draft.telegram.bot_token) {
-                    showToast('请先填写 Telegram Bot Token', 'error');
+                    showToast(I18n.t('请先填写 Telegram Bot Token'), 'error');
                     return;
                 }
                 if (!draft.telegram.chat_id) {
-                    showToast('请先填写 Telegram Chat ID', 'error');
+                    showToast(I18n.t('请先填写 Telegram Chat ID'), 'error');
                     return;
                 }
                 if (draft.telegram.topic_id && !/^\d+$/.test(draft.telegram.topic_id)) {
-                    showToast('Telegram Topic ID 必须是纯数字', 'error');
+                    showToast(I18n.t('Telegram Topic ID 必须是纯数字'), 'error');
                     return;
                 }
             } else if (channel === 'wecom') {
                 if (!draft.wecom.webhook_url) {
-                    showToast('请先填写企业微信 Webhook 地址', 'error');
+                    showToast(I18n.t('请先填写企业微信 Webhook 地址'), 'error');
                     return;
                 }
             } else {
-                showToast('未知转发渠道', 'error');
+                showToast(I18n.t('未知转发渠道'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '发送中...';
+            btn.textContent = I18n.t('发送中...');
 
             try {
                 const response = await fetch('/api/settings/test-forward-channel', {
@@ -2242,12 +2242,12 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || '测试成功', 'success');
+                    showToast(data.message || I18n.t('测试成功'), 'success');
                 } else {
-                    handleApiError(data, '测试失败');
+                    handleApiError(data, I18n.t('测试失败'));
                 }
             } catch (error) {
-                showToast('测试失败', 'error');
+                showToast(I18n.t('测试失败'), 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -2255,7 +2255,7 @@
         }
 
         function formatRelativeTime(timestamp) {
-            if (!timestamp) return '从未刷新';
+            if (!timestamp) return I18n.t('从未刷新');
 
             const now = new Date();
             let dateStr = timestamp;
@@ -2268,9 +2268,9 @@
             const diffHours = Math.floor(diffMs / 3600000);
             const diffDays = Math.floor(diffMs / 86400000);
 
-            if (diffMins < 1) return '刚刚';
-            if (diffMins < 60) return `${diffMins} 分钟前`;
-            if (diffHours < 24) return `${diffHours} 小时前`;
-            if (diffDays < 30) return `${diffDays} 天前`;
-            return `${Math.floor(diffDays / 30)} 月前`;
+            if (diffMins < 1) return I18n.t('刚刚');
+            if (diffMins < 60) return I18n.tpl`${diffMins} 分钟前`;
+            if (diffHours < 24) return I18n.tpl`${diffHours} 小时前`;
+            if (diffDays < 30) return I18n.tpl`${diffDays} 天前`;
+            return I18n.tpl`${Math.floor(diffDays / 30)} 月前`;
         }

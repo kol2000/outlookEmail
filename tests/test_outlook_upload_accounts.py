@@ -697,7 +697,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
         self.assertNotIn('<th style="width: 42px; min-width: 42px;">ID</th>', html)
-        self.assertIn('<td colspan="9" class="upload-accounts-empty">正在加载...</td>', html)
+        self.assertIn('<td colspan="9" class="upload-accounts-empty">{{ tr("正在加载...") }}</td>', html)
         self.assertIn('<tr class="upload-accounts-row--editing" data-editing-id="${escapeHtml(String(itemId))}">', js)
         self.assertNotIn('<td>${escapeHtml(String(itemId))}</td>', js)
         self.assertIn('<tr><td colspan="9" class="upload-accounts-empty">暂无数据</td></tr>', js)
@@ -707,7 +707,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         html = (ROOT_DIR / 'templates' / 'partials' / 'index' / 'dialogs-management.html').read_text(encoding='utf-8')
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
-        self.assertIn('<th style="width: 160px; min-width: 100px;">标签</th>', html)
+        self.assertIn('<th style="width: 160px; min-width: 100px;">{{ tr("标签") }}</th>', html)
         self.assertIn('function formatUploadAccountTags(tags)', js)
         self.assertIn('<td>${formatUploadAccountTags(item.tags)}</td>', js)
 
@@ -715,7 +715,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         html = (ROOT_DIR / 'templates' / 'partials' / 'index' / 'dialogs-management.html').read_text(encoding='utf-8')
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
-        self.assertIn('<th style="width: 160px; min-width: 160px;">账号代理</th>', html)
+        self.assertIn('<th style="width: 160px; min-width: 160px;">{{ tr("账号代理") }}</th>', html)
         self.assertIn('function getUploadAccountProxyDisplay(proxyUrl)', js)
         self.assertIn('function formatUploadAccountProxy(proxyUrl)', js)
         self.assertIn("parsedProxy.username = '';", js)
@@ -731,9 +731,9 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
         js = (ROOT_DIR / 'static' / 'js' / 'index' / '12-outlook-upload-accounts.js').read_text(encoding='utf-8')
 
         self.assertIn('id="uploadAccountsAuthStatusFilter"', html)
-        self.assertIn('<option value="all">全部</option>', html)
-        self.assertIn('<option value="unauthorized">未授权</option>', html)
-        self.assertIn('<option value="authorized">已授权</option>', html)
+        self.assertIn('<option value="all">{{ tr("全部") }}</option>', html)
+        self.assertIn('<option value="unauthorized">{{ tr("未授权") }}</option>', html)
+        self.assertIn('<option value="authorized">{{ tr("已授权") }}</option>', html)
         self.assertIn('authStatus: \'all\'', js)
         self.assertIn('auth_status: uploadAccountsState.authStatus', js)
         self.assertIn('function handleUploadAccountsAuthStatusChange(value)', js)
@@ -774,7 +774,7 @@ class OutlookUploadFrontendStructureTests(unittest.TestCase):
             self.assertIn(f'<option value="{page_size}"', html)
         for page_size in (200, 500, 1000, 2000, 5000, 10000):
             self.assertNotIn(f'<option value="{page_size}"', html)
-        self.assertIn('<option value="20" selected>每页 20</option>', html)
+        self.assertIn('<option value="20" selected>{{ tr("每页 20") }}</option>', html)
         self.assertIn('const UPLOAD_ACCOUNTS_PAGE_SIZE_DEFAULT = 20;', js)
         self.assertIn('const UPLOAD_ACCOUNTS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];', js)
         self.assertIn('pageSize: UPLOAD_ACCOUNTS_PAGE_SIZE_DEFAULT', js)

@@ -1064,7 +1064,8 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
                 }
             return {'success': True, 'addresses': [], 'count': 0}
 
-        with patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', side_effect=mock_get_addresses) as mock_api:
+        # Exercise pagination protection without 10,000 unrelated SQLite writes.
+        with patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', side_effect=mock_get_addresses) as mock_api, patch.object(web_outlook_app, 'upsert_cloudflare_temp_email', return_value=('added', None)) as persist_mock:
             response = self.client.post('/api/temp-emails/import-cloudflare-addresses', json={
                 'cloudflare_channel_id': channel_id,
                 'page_size': 100,
@@ -1075,6 +1076,7 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
         # 应该在 100 页时停止（100 页 * 100 条/页 = 10000 条）
         self.assertEqual(mock_api.call_count, 100)
         self.assertEqual(payload['added_count'], 10000)
+        self.assertEqual(persist_mock.call_count, 10000)
         self.assertIn('已达到最大分页限制', '；'.join(payload.get('errors', [])))
 
     def test_export_groups_cloudflare_temp_emails_by_channel_name(self):

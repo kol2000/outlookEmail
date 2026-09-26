@@ -231,7 +231,7 @@
                 return '-';
             }
 
-            return date.toLocaleString('zh-CN', {
+            return date.toLocaleString(I18n.language, {
                 timeZone: getAppTimeZone(),
                 year: 'numeric',
                 month: '2-digit',
@@ -535,7 +535,7 @@
         function fetchWithTimeout(url, options = {}) {
             const fetchOptions = { ...(options || {}) };
             const timeoutMs = Number(fetchOptions.timeoutMs || 0);
-            const timeoutMessage = fetchOptions.timeoutMessage || '请求超时，请稍后重试';
+            const timeoutMessage = fetchOptions.timeoutMessage || I18n.t('请求超时，请稍后重试');
             delete fetchOptions.timeoutMs;
             delete fetchOptions.timeoutMessage;
 
@@ -579,7 +579,7 @@
                     try {
                         eventSource.close();
                     } catch (error) {
-                        console.warn('关闭超时 EventSource 失败:', error);
+                        console.warn(I18n.t('关闭超时 EventSource 失败:'), error);
                     }
                     if (typeof onTimeout === 'function') {
                         onTimeout();
@@ -593,15 +593,15 @@
 
         function getFolderDisplayName(folder) {
             const names = {
-                all: '全部邮件',
-                inbox: '收件箱',
-                junkemail: '垃圾邮件',
-                deleteditems: '已删除邮件'
+                all: I18n.t('全部邮件'),
+                inbox: I18n.t('收件箱'),
+                junkemail: I18n.t('垃圾邮件'),
+                deleteditems: I18n.t('已删除邮件')
             };
-            return names[String(folder || '').trim().toLowerCase()] || '邮件';
+            return names[String(folder || '').trim().toLowerCase()] || I18n.t('邮件');
         }
 
-        function normalizeGroupName(groupName, fallbackName = '未命名分组') {
+        function normalizeGroupName(groupName, fallbackName = I18n.t('未命名分组')) {
             const normalizedName = String(groupName || '').trim();
             return normalizedName || fallbackName;
         }
@@ -638,17 +638,17 @@
             if (groupText) {
                 groupText.textContent = currentGroup
                     ? normalizeGroupName(currentGroup.name)
-                    : '未选择';
+                    : I18n.t('未选择');
             }
 
             if (accountText) {
                 accountText.textContent = currentAccount
-                    ? `${currentAccount}${isTempEmailGroup ? ' (临时)' : ''}`
-                    : '未选择';
+                    ? `${currentAccount}${isTempEmailGroup ? I18n.t(' (临时)') : ''}`
+                    : I18n.t('未选择');
             }
 
             if (listText) {
-                listText.textContent = listHidden ? '返回列表' : '当前列表';
+                listText.textContent = listHidden ? I18n.t('返回列表') : I18n.t('当前列表');
             }
 
             document.body.classList.toggle('mobile-email-detail-open', !!mobileActive && !!listHidden);
@@ -737,16 +737,16 @@
             if (!versionText) return;
 
             if (typeof copyTextToClipboard === 'function') {
-                Promise.resolve(copyTextToClipboard(versionText, '版本号已复制')).finally(closeVersionPopover);
+                Promise.resolve(copyTextToClipboard(versionText, I18n.t('版本号已复制'))).finally(closeVersionPopover);
                 return;
             }
 
             if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
                 navigator.clipboard.writeText(versionText).then(() => {
-                    showToast('版本号已复制', 'success');
+                    showToast(I18n.t('版本号已复制'), 'success');
                     closeVersionPopover();
                 }).catch(() => {
-                    showToast('复制失败，请手动复制', 'error');
+                    showToast(I18n.t('复制失败，请手动复制'), 'error');
                 });
             }
         }
@@ -764,15 +764,15 @@
             const updateAvailable = currentVersionStatusState === 'update_available';
 
             updateButtons.forEach(updateButton => {
-                const defaultLabel = updateButton.dataset.defaultLabel || 'Docker 更新';
-                const unavailableLabel = updateButton.dataset.unavailableLabel || '不可在线更新';
+                const defaultLabel = updateButton.dataset.defaultLabel || I18n.t('Docker 更新');
+                const unavailableLabel = updateButton.dataset.unavailableLabel || I18n.t('不可在线更新');
 
                 updateButton.hidden = !(enabled && updateAvailable);
                 updateButton.disabled = !available || running;
-                updateButton.textContent = running ? '更新中...' : (available ? defaultLabel : unavailableLabel);
+                updateButton.textContent = running ? I18n.t('更新中...') : (available ? defaultLabel : unavailableLabel);
                 updateButton.title = available
-                    ? '启动 Docker 在线更新'
-                    : (dockerUpdateStatus?.reason || 'Docker 更新不可用');
+                    ? I18n.t('启动 Docker 在线更新')
+                    : (dockerUpdateStatus?.reason || I18n.t('Docker 更新不可用'));
             });
 
             const dockerHint = document.getElementById('releaseNoticeDockerHint');
@@ -788,14 +788,14 @@
 
             dockerUpdateStatusRequest = fetchWithTimeout('/api/docker-update/status', {
                 timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
-                timeoutMessage: 'Docker 更新状态获取超时',
+                timeoutMessage: I18n.t('Docker 更新状态获取超时'),
                 cache: 'no-store',
                 credentials: 'same-origin'
             })
                 .then(async (response) => {
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok || !payload.success || !payload.docker_update) {
-                        throw new Error(payload.error || 'Docker 更新状态获取失败');
+                        throw new Error(payload.error || I18n.t('Docker 更新状态获取失败'));
                     }
                     dockerUpdateStatus = payload.docker_update;
                     refreshDockerUpdateButton();
@@ -826,19 +826,19 @@
 
             if (state.success === null || typeof state.success === 'undefined') {
                 showToast(
-                    state.message || '服务可能已重启，请刷新并核对当前版本/镜像',
+                    state.message || I18n.t('服务可能已重启，请刷新并核对当前版本/镜像'),
                     'warning'
                 );
                 return;
             }
 
             if (state.success === false) {
-                showToast(state.error || state.message || 'Docker 更新未完成', 'error');
+                showToast(state.error || state.message || I18n.t('Docker 更新未完成'), 'error');
                 return;
             }
 
             if (state.success === true) {
-                showToast(state.message || 'Docker 更新已完成', 'success');
+                showToast(state.message || I18n.t('Docker 更新已完成'), 'success');
             }
         }
 
@@ -846,12 +846,12 @@
             const updateButton = document.getElementById('appVersionDockerUpdateBtn');
             if (updateButton?.disabled) return;
 
-            const confirmed = window.confirm('将启动 Docker 在线更新，容器可能会自动重启。确认继续？');
+            const confirmed = window.confirm(I18n.t('将启动 Docker 在线更新，容器可能会自动重启。确认继续？'));
             if (!confirmed) return;
 
             document.querySelectorAll('#appVersionDockerUpdateBtn, #releaseNoticeDockerUpdateBtn').forEach(button => {
                 button.disabled = true;
-                button.textContent = '更新中...';
+                button.textContent = I18n.t('更新中...');
             });
 
             try {
@@ -860,20 +860,20 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({}),
                     timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
-                    timeoutMessage: 'Docker 更新启动超时',
+                    timeoutMessage: I18n.t('Docker 更新启动超时'),
                     credentials: 'same-origin'
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok || !payload.success) {
-                    throw new Error(payload.error || 'Docker 更新启动失败');
+                    throw new Error(payload.error || I18n.t('Docker 更新启动失败'));
                 }
                 dockerUpdateStatus = payload.docker_update || dockerUpdateStatus;
                 refreshDockerUpdateButton();
-                showToast(payload.message || 'Docker 更新任务已启动，正在等待结果', 'info');
+                showToast(payload.message || I18n.t('Docker 更新任务已启动，正在等待结果'), 'info');
                 window.setTimeout(() => monitorDockerUpdateResult(0), 2000);
             } catch (error) {
                 await loadDockerUpdateStatus(true);
-                showToast(error?.message || 'Docker 更新启动失败', 'error');
+                showToast(error?.message || I18n.t('Docker 更新启动失败'), 'error');
             }
         }
 
@@ -883,10 +883,10 @@
             const actionLink = document.getElementById('appVersionActionLink');
             const upgradeBadgeEl = document.getElementById('appVersionUpgradeBadge');
             const state = String(versionStatus.status || 'unknown').trim() || 'unknown';
-            const badgeLabel = String(versionStatus.badge_label || '检查失败').trim() || '检查失败';
-            const hint = String(versionStatus.hint || '暂时无法获取仓库版本信息').trim() || '暂时无法获取仓库版本信息';
+            const badgeLabel = String(versionStatus.badge_label || I18n.t('检查失败')).trim() || I18n.t('检查失败');
+            const hint = String(versionStatus.hint || I18n.t('暂时无法获取仓库版本信息')).trim() || I18n.t('暂时无法获取仓库版本信息');
             const updateUrl = String(versionStatus.update_url || '').trim();
-            const defaultLabel = actionLink?.dataset.defaultLabel || '查看更新日志';
+            const defaultLabel = actionLink?.dataset.defaultLabel || I18n.t('查看更新日志');
             currentVersionStatusState = state;
 
             if (statusBadge) {
@@ -905,7 +905,7 @@
 
             if (actionLink) {
                 actionLink.href = updateUrl || actionLink.href;
-                actionLink.textContent = state === 'update_available' ? '前往更新' : defaultLabel;
+                actionLink.textContent = state === 'update_available' ? I18n.t('前往更新') : defaultLabel;
             }
 
             refreshDockerUpdateButton();
@@ -918,19 +918,19 @@
 
             applyVersionStatus({
                 status: 'checking',
-                badge_label: '检查中',
-                hint: '正在检查仓库版本...',
+                badge_label: I18n.t('检查中'),
+                hint: I18n.t('正在检查仓库版本...'),
             });
 
             const requestUrl = forceRefresh ? '/api/version-status?refresh=1' : '/api/version-status';
             versionStatusRequest = fetchWithTimeout(requestUrl, {
                 timeoutMs: VERSION_STATUS_REQUEST_TIMEOUT_MS,
-                timeoutMessage: '检查更新超时',
+                timeoutMessage: I18n.t('检查更新超时'),
             })
                 .then(async (response) => {
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok || !payload.success || !payload.version_status) {
-                        throw new Error(payload.error || '版本状态获取失败');
+                        throw new Error(payload.error || I18n.t('版本状态获取失败'));
                     }
                     applyVersionStatus(payload.version_status);
                     showUpdateNoticeIfNeeded(payload.version_status);
@@ -939,8 +939,8 @@
                 .catch(() => {
                     const fallbackStatus = {
                         status: 'unknown',
-                        badge_label: '检查失败',
-                        hint: '暂时无法获取仓库版本信息',
+                        badge_label: I18n.t('检查失败'),
+                        hint: I18n.t('暂时无法获取仓库版本信息'),
                     };
                     applyVersionStatus(fallbackStatus);
                     return fallbackStatus;
@@ -988,7 +988,7 @@
             isListVisible = false;
             const toggleText = document.getElementById('toggleListText');
             if (toggleText) {
-                toggleText.textContent = '显示列表';
+                toggleText.textContent = I18n.t('显示列表');
             }
             closeMobilePanels();
             closeNavbarActionsMenu();
@@ -1007,7 +1007,7 @@
                 isListVisible = true;
                 const toggleText = document.getElementById('toggleListText');
                 if (toggleText) {
-                    toggleText.textContent = '隐藏列表';
+                    toggleText.textContent = I18n.t('隐藏列表');
                 }
             }
 
@@ -1334,28 +1334,28 @@
             const noteEntries = Array.isArray(releaseNotes.entries) && releaseNotes.entries.length > 0
                 ? releaseNotes.entries.slice(0, 3)
                 : [{
-                    title: releaseNotes.title || latestVersion || '更新内容',
+                    title: releaseNotes.title || latestVersion || I18n.t('更新内容'),
                     items: Array.isArray(releaseNotes.items) ? releaseNotes.items : [],
                 }];
-            const hint = String(versionStatus.hint || '发现新版本').trim();
+            const hint = String(versionStatus.hint || I18n.t('发现新版本')).trim();
 
             modal.dataset.latestVersion = latestVersion;
 
             const summaryEl = document.getElementById('releaseNoticeVersionSummary');
             if (summaryEl) {
-                summaryEl.textContent = `当前版本：${currentVersion || '-'} / 最新版本：${latestVersion || '-'}`;
+                summaryEl.textContent = I18n.tpl`当前版本：${currentVersion || '-'} / 最新版本：${latestVersion || '-'}`;
             }
 
             const listEl = document.getElementById('releaseNoticeNotesList');
             if (listEl) {
                 const cards = noteEntries
                     .map((entry, index) => {
-                        const entryTitle = String(entry?.title || (index === 0 ? latestVersion : '更新内容')).trim();
+                        const entryTitle = String(entry?.title || (index === 0 ? latestVersion : I18n.t('更新内容'))).trim();
                         const entryItems = Array.isArray(entry?.items) ? entry.items : [];
                         const itemsMarkup = entryItems.length > 0
                             ? entryItems.map(item => `<li>${escapeHtml(String(item || ''))}</li>`).join('')
-                            : '<li>暂时无法获取更新内容，可查看完整更新日志。</li>';
-                        const badgeMarkup = index === 0 ? '<span class="release-notice-badge">最新</span>' : '';
+                            : I18n.t('<li>暂时无法获取更新内容，可查看完整更新日志。</li>');
+                        const badgeMarkup = index === 0 ? I18n.t('<span class="release-notice-badge">最新</span>') : '';
                         return `
                             <div class="release-notice-card release-notice-entry">
                                 <div class="release-notice-entry-header">
@@ -1367,7 +1367,7 @@
                         `;
                     })
                     .join('');
-                listEl.innerHTML = cards || `
+                listEl.innerHTML = cards || I18n.tpl`
                     <div class="release-notice-card release-notice-entry">
                         <div class="release-notice-entry-header">
                             <div class="release-notice-card-title">更新内容</div>
@@ -1380,7 +1380,7 @@
 
             const hintEl = document.getElementById('releaseNoticeHint');
             if (hintEl) {
-                hintEl.textContent = `${hint}。此提示每个新版本只会显示一次。`;
+                hintEl.textContent = I18n.tpl`${hint}。此提示每个新版本只会显示一次。`;
             }
 
             const changelogLink = document.getElementById('releaseNoticeChangelogLink');
@@ -1600,7 +1600,7 @@
                     buildLoadMoreEmailsUrl(nextSkip),
                     {
                         timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
-                        timeoutMessage: '加载更多邮件超时，请稍后重试'
+                        timeoutMessage: I18n.t('加载更多邮件超时，请稍后重试')
                     }
                 );
                 const data = await response.json();
@@ -1668,13 +1668,13 @@
                     // 显示"没有更多邮件"
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) {
-                        loadingEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>';
+                        loadingEl.innerHTML = I18n.t('<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>');
                     }
                 }
             } catch (error) {
                 const loadingEl = document.getElementById('loadingMore');
                 if (loadingEl) loadingEl.remove();
-                showToast(isTimeoutAbortError(error) ? '加载更多邮件超时' : '加载失败', 'error');
+                showToast(isTimeoutAbortError(error) ? I18n.t('加载更多邮件超时') : I18n.t('加载失败'), 'error');
             } finally {
                 isLoadingMore = false;
                 // 启用按钮
@@ -1705,7 +1705,7 @@
                 applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
                 // 清空邮件列表，显示提示
-                document.getElementById('emailList').innerHTML = `
+                document.getElementById('emailList').innerHTML = I18n.tpl`
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
                         <div class="empty-state-text">正在自动刷新${getFolderDisplayName(folder)}...</div>
@@ -1720,7 +1720,7 @@
                 hasMoreEmails = true;
             }
 
-            document.getElementById('emailDetail').innerHTML = `
+            document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
                     <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -1752,7 +1752,7 @@
                 // 取消预设颜色的选中状态
                 document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
             } else {
-                showToast('请输入有效的十六进制颜色（如 #FF5500）', 'error');
+                showToast(I18n.t('请输入有效的十六进制颜色（如 #FF5500）'), 'error');
             }
         }
 
@@ -1769,7 +1769,7 @@
             if (errorDetail && type === 'error') {
                 const detailLink = document.createElement('a');
                 detailLink.href = 'javascript:void(0)';
-                detailLink.textContent = ' [详情]';
+                detailLink.textContent = I18n.t(' [详情]');
                 detailLink.style.color = '#ffdddd';
                 detailLink.style.textDecoration = 'underline';
                 detailLink.style.marginLeft = '8px';
@@ -1815,7 +1815,7 @@
         // 通用确认模态框 - 替代原生 confirm()
         let _genericConfirmResolve = null;
 
-        function showConfirmModal(message, { title = "确认操作", confirmText = "确认", danger = true } = {}) {
+        function showConfirmModal(message, { title = I18n.t("确认操作"), confirmText = I18n.t("确认"), danger = true } = {}) {
             return new Promise((resolve) => {
                 _genericConfirmResolve = resolve;
                 document.getElementById('genericConfirmTitle').textContent = title;
@@ -1854,7 +1854,7 @@
         // 显示刷新错误信息
         function showRefreshError(accountId, errorMessage, accountEmail, accountType = 'outlook') {
             showModal('refreshErrorModal');
-            document.getElementById('refreshErrorEmail').textContent = `账号：${accountEmail || '未知'}`;
+            document.getElementById('refreshErrorEmail').textContent = I18n.tpl`账号：${accountEmail || I18n.t('未知')}`;
             document.getElementById('refreshErrorMessage').textContent = errorMessage;
             const reauthorizeBtn = document.getElementById('reauthorizeAccountFromErrorBtn');
             const canReauthorize = !!accountId && String(accountType || 'outlook').toLowerCase() !== 'imap';
@@ -1877,7 +1877,7 @@
 
             const originalText = triggerBtn.textContent;
             triggerBtn.disabled = true;
-            triggerBtn.textContent = '触发中...';
+            triggerBtn.textContent = I18n.t('触发中...');
 
             try {
                 if (!csrfToken) {
@@ -1892,14 +1892,14 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(data.message || '已触发一次转发检查', 'success');
+                    showToast(data.message || I18n.t('已触发一次转发检查'), 'success');
                     loadForwardingLogs();
                     loadFailedForwardingLogs();
                 } else {
-                    showToast(data.error || data.message || '触发转发检查失败', 'error');
+                    showToast(data.error || data.message || I18n.t('触发转发检查失败'), 'error');
                 }
             } catch (error) {
-                showToast('触发转发检查失败', 'error');
+                showToast(I18n.t('触发转发检查失败'), 'error');
             } finally {
                 triggerBtn.disabled = false;
                 triggerBtn.textContent = originalText;
@@ -1910,7 +1910,7 @@
             currentForwardingLogAccountId = accountId;
             currentForwardingLogAccountEmail = accountEmail || '';
             const title = document.getElementById('accountForwardingLogsTitle');
-            title.textContent = `${accountEmail || '该账号'} 的转发日志`;
+            title.textContent = I18n.tpl`${accountEmail || I18n.t('该账号')} 的转发日志`;
             showModal('accountForwardingLogsModal');
             await loadAccountForwardingLogs();
         }
@@ -1921,21 +1921,21 @@
             const cursorValueEl = document.getElementById('accountForwardingCursorValue');
             const cursorHintEl = document.getElementById('accountForwardingCursorHint');
             if (!currentForwardingLogAccountId) {
-                listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">未选择账号</div>';
+                listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">未选择账号</div>');
                 if (cursorValueEl) {
                     cursorValueEl.textContent = '-';
                 }
                 return;
             }
 
-            listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>';
+            listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>');
 
             try {
                 const suffix = failedOnly ? '&failed_only=1' : '';
                 const response = await fetch(`/api/accounts/${currentForwardingLogAccountId}/forwarding-logs?limit=100${suffix}`);
                 const data = await response.json();
                 if (!data.success || !Array.isArray(data.logs)) {
-                    throw new Error('加载失败');
+                    throw new Error(I18n.t('加载失败'));
                 }
                 let account = data.account || {};
                 if (!Object.keys(account).length) {
@@ -1946,29 +1946,29 @@
                             account = accountData.account;
                         }
                     } catch (fallbackError) {
-                        console.warn('加载账号转发元信息失败:', fallbackError);
+                        console.warn(I18n.t('加载账号转发元信息失败:'), fallbackError);
                     }
                 }
                 if (cursorValueEl) {
                     cursorValueEl.textContent = account.forward_last_checked_at
                         ? formatDateTime(account.forward_last_checked_at)
-                        : '未设置';
+                        : I18n.t('未设置');
                 }
                 if (cursorHintEl) {
                     cursorHintEl.textContent = account.forward_enabled
-                        ? '回退游标后，会按当前转发时间范围重新扫描最近邮件；已成功转发过的邮件仍会被去重。'
-                        : '该账号当前未开启转发，回退游标后仍需先开启账号转发。';
+                        ? I18n.t('回退游标后，会按当前转发时间范围重新扫描最近邮件；已成功转发过的邮件仍会被去重。')
+                        : I18n.t('该账号当前未开启转发，回退游标后仍需先开启账号转发。');
                 }
                 if (data.logs.length === 0) {
-                    listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">${failedOnly ? '该账号暂无失败转发日志' : '该账号暂无转发日志'}</div>`;
+                    listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">${failedOnly ? I18n.t('该账号暂无失败转发日志') : I18n.t('该账号暂无转发日志')}</div>`;
                     return;
                 }
 
                 let html = '';
                 data.logs.forEach(log => {
                     const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
-                    const statusText = log.status === 'success' ? '成功' : '失败';
-                    html += `
+                    const statusText = log.status === 'success' ? I18n.t('成功') : I18n.t('失败');
+                    html += I18n.tpl`
                         <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
                             <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
                                 <div style="font-weight: 600;">${escapeHtml(log.account_email || currentForwardingLogAccountEmail || '-')}</div>
@@ -1986,9 +1986,9 @@
                 listEl.innerHTML = html;
             } catch (error) {
                 if (cursorValueEl) {
-                    cursorValueEl.textContent = '加载失败';
+                    cursorValueEl.textContent = I18n.t('加载失败');
                 }
-                listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">加载账号转发日志失败</div>';
+                listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #dc3545;">加载账号转发日志失败</div>');
             }
         }
 
@@ -1996,15 +1996,15 @@
             if (!currentForwardingLogAccountId) return;
 
             const btn = document.getElementById('resetAccountForwardingCursorBtn');
-            const originalText = btn?.textContent || '回退游标并重扫';
+            const originalText = btn?.textContent || I18n.t('回退游标并重扫');
 
-            if (!(await showConfirmModal(`确定要回退 ${currentForwardingLogAccountEmail || '该账号'} 的转发游标，并立即重扫最近邮件吗？\n\n已成功转发过的邮件仍会因为去重记录被跳过。`, { title: '回退转发游标', confirmText: '确认回退' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要回退 ${currentForwardingLogAccountEmail || I18n.t('该账号')} 的转发游标，并立即重扫最近邮件吗？\n\n已成功转发过的邮件仍会因为去重记录被跳过。`, { title: I18n.t('回退转发游标'), confirmText: I18n.t('确认回退') }))) {
                 return;
             }
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = '处理中...';
+                btn.textContent = I18n.t('处理中...');
             }
 
             try {
@@ -2022,15 +2022,15 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    throw new Error(data.error || '重置转发游标失败');
+                    throw new Error(data.error || I18n.t('重置转发游标失败'));
                 }
 
-                showToast(data.message || '已回退转发游标并触发检查', 'success');
+                showToast(data.message || I18n.t('已回退转发游标并触发检查'), 'success');
                 await loadAccountForwardingLogs();
                 loadForwardingLogs();
                 loadFailedForwardingLogs();
             } catch (error) {
-                showToast(error.message || '重置转发游标失败', 'error');
+                showToast(error.message || I18n.t('重置转发游标失败'), 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -2067,8 +2067,8 @@
         function renderEmptyStateMarkup(icon, text, options = {}) {
             const {
                 allowHtml = false,
-                actionLabel = '刷新',
-                actionTitle = '刷新列表',
+                actionLabel = I18n.t('刷新'),
+                actionTitle = I18n.t('刷新列表'),
                 onAction = ''
             } = options;
 
@@ -2186,7 +2186,7 @@
         // 显示统一错误详情模态框
         function showErrorDetailModal(error) {
             showModal('errorDetailModal');
-            document.getElementById('errorModalUserMessage').textContent = error.message || '发生未知错误';
+            document.getElementById('errorModalUserMessage').textContent = error.message || I18n.t('发生未知错误');
             document.getElementById('errorModalCode').textContent = error.code || '-';
             document.getElementById('errorModalType').textContent = error.type || '-';
             document.getElementById('errorModalStatus').textContent = error.status || '-';
@@ -2196,11 +2196,11 @@
             const detailsContainer = document.getElementById('errorModalDetailsContainer');
             const toggleBtn = document.getElementById('toggleTraceBtn');
 
-            detailsEl.textContent = formatFetchErrorDetails(error && error.details) || '暂无详细技术堆栈信息';
+            detailsEl.textContent = formatFetchErrorDetails(error && error.details) || I18n.t('暂无详细技术堆栈信息');
 
             // 重置堆栈显示状态
             detailsContainer.style.display = 'none';
-            toggleBtn.textContent = '显示堆栈/细节';
+            toggleBtn.textContent = I18n.t('显示堆栈/细节');
         }
 
         // 隐藏统一错误详情模态框
@@ -2214,18 +2214,18 @@
 
             const methodNames = {
                 'graph': 'Graph API',
-                'imap_new': 'IMAP（新服务器）',
-                'imap_old': 'IMAP（旧服务器）',
-                'imap_generic': '标准 IMAP',
-                'browser': '浏览器到服务端',
-                'inbox': '收件箱',
-                'junkemail': '垃圾邮件',
-                'deleteditems': '已删除邮件',
-                'all': '全部邮件'
+                'imap_new': I18n.t('IMAP（新服务器）'),
+                'imap_old': I18n.t('IMAP（旧服务器）'),
+                'imap_generic': I18n.t('标准 IMAP'),
+                'browser': I18n.t('浏览器到服务端'),
+                'inbox': I18n.t('收件箱'),
+                'junkemail': I18n.t('垃圾邮件'),
+                'deleteditems': I18n.t('已删除邮件'),
+                'all': I18n.t('全部邮件')
             };
 
             function translateError(err) {
-                if (!err) return '未知错误';
+                if (!err) return I18n.t('未知错误');
                 // err 可能是 string 或 object
                 if (typeof err === 'string') return err;
 
@@ -2236,48 +2236,48 @@
 
                 // 翻译常见错误
                 if (reasonCode === 'MAIL_PROXY_FAILED') {
-                    return msg || '代理连接失败：请检查代理地址、端口、认证信息和回退代理设置';
+                    return msg || I18n.t('代理连接失败：请检查代理地址、端口、认证信息和回退代理设置');
                 }
                 if (reasonCode === 'MAIL_NETWORK_TIMEOUT' || code === 'EMAIL_FETCH_TIMEOUT') {
-                    return msg || '网络连接超时：请检查网络、代理和邮件服务地址';
+                    return msg || I18n.t('网络连接超时：请检查网络、代理和邮件服务地址');
                 }
                 if (reasonCode === 'MAIL_NETWORK_FAILED') {
-                    return msg || '网络连接失败：请检查 DNS、防火墙、代理和邮件服务地址';
+                    return msg || I18n.t('网络连接失败：请检查 DNS、防火墙、代理和邮件服务地址');
                 }
                 if (reasonCode === 'MAIL_TLS_FAILED') {
-                    return msg || 'TLS/SSL 连接失败：请检查邮件服务地址、端口和系统证书';
+                    return msg || I18n.t('TLS/SSL 连接失败：请检查邮件服务地址、端口和系统证书');
                 }
                 if (code === 'GRAPH_TOKEN_EXCEPTION' && details.includes('ProxyError')) {
-                    return '代理连接失败：无法连接到代理服务器，请检查代理地址是否正确以及代理是否在运行';
+                    return I18n.t('代理连接失败：无法连接到代理服务器，请检查代理地址是否正确以及代理是否在运行');
                 }
                 if (code === 'GRAPH_TOKEN_FAILED' || code === 'IMAP_TOKEN_FAILED') {
                     if (details.includes('invalid_grant')) {
-                        return 'Token 已失效或权限不足：请重新授权登录或更换 refresh_token';
+                        return I18n.t('Token 已失效或权限不足：请重新授权登录或更换 refresh_token');
                     }
                     if (details.includes('invalid_client')) {
-                        return 'Client ID 无效：请检查 client_id 配置是否正确';
+                        return I18n.t('Client ID 无效：请检查 client_id 配置是否正确');
                     }
-                    return `令牌获取失败：${msg}`;
+                    return I18n.tpl`令牌获取失败：${msg}`;
                 }
                 if (code === 'EMAIL_FETCH_FAILED') {
-                    return `获取邮件失败：${msg}`;
+                    return I18n.tpl`获取邮件失败：${msg}`;
                 }
                 if (code === 'IMAP_CONNECTION_FAILED') {
-                    return 'IMAP 连接失败：无法连接到邮件服务器';
+                    return I18n.t('IMAP 连接失败：无法连接到邮件服务器');
                 }
                 if (code === 'IMAP_FOLDER_NOT_FOUND') {
-                    return `IMAP 文件夹不存在或无权访问：${msg || '请检查邮箱服务端的实际文件夹名称'}`;
+                    return I18n.tpl`IMAP 文件夹不存在或无权访问：${msg || I18n.t('请检查邮箱服务端的实际文件夹名称')}`;
                 }
                 if (code === 'IMAP_AUTH_FAILED') {
-                    return `IMAP 认证失败：${msg || '请检查邮箱密码或授权码'}`;
+                    return I18n.tpl`IMAP 认证失败：${msg || I18n.t('请检查邮箱密码或授权码')}`;
                 }
                 if (code === 'IMAP_UNSAFE_LOGIN_BLOCKED') {
-                    return msg || '邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查 IMAP 开关、授权码和当前网络环境';
+                    return msg || I18n.t('邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查 IMAP 开关、授权码和当前网络环境');
                 }
                 if (code === 'IMAP_CONNECT_FAILED') {
-                    return `IMAP 连接失败：${msg || '请检查 IMAP 主机、端口和网络连通性'}`;
+                    return I18n.tpl`IMAP 连接失败：${msg || I18n.t('请检查 IMAP 主机、端口和网络连通性')}`;
                 }
-                return msg || details || '未知错误';
+                return msg || details || I18n.t('未知错误');
             }
 
             const expandedDetails = expandFolderProtocolFetchErrors(details);
@@ -2295,8 +2295,8 @@
             const summaryEl = document.getElementById('emailFetchErrorSummary');
             if (summaryEl) {
                 summaryEl.textContent = methods.length > 1
-                    ? '所有获取方式均失败，以下是各方式的详细错误信息：'
-                    : '获取邮件失败，以下是详细错误信息：';
+                    ? I18n.t('所有获取方式均失败，以下是各方式的详细错误信息：')
+                    : I18n.t('获取邮件失败，以下是详细错误信息：');
             }
 
             let html = '';
@@ -2312,7 +2312,7 @@
                     const detailText = (err && typeof err === 'object')
                         ? formatFetchErrorDetails(err.details)
                         : formatFetchErrorDetails(detailEntries[method]);
-                    html += `
+                    html += I18n.tpl`
                         <div style="background: #fff5f5; border: 1px solid #fde2e2; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px;">
                             <div style="font-weight: 600; color: #dc3545; margin-bottom: 6px; font-size: 14px;">${escapeHtml(name)}</div>
                             <div style="color: #333; font-size: 13px; line-height: 1.6;">${escapeHtml(reason)}</div>
@@ -2329,7 +2329,7 @@
             });
 
             if (!html) {
-                html = '<div style="color:#666;">无详细错误信息</div>';
+                html = I18n.t('<div style="color:#666;">无详细错误信息</div>');
             }
 
             document.getElementById('emailFetchErrorContent').innerHTML = html;
@@ -2347,10 +2347,10 @@
 
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                btn.textContent = '隐藏堆栈/细节';
+                btn.textContent = I18n.t('隐藏堆栈/细节');
             } else {
                 container.style.display = 'none';
-                btn.textContent = '显示堆栈/细节';
+                btn.textContent = I18n.t('显示堆栈/细节');
             }
         }
 
@@ -2363,7 +2363,7 @@
             const status = document.getElementById('errorModalStatus').textContent;
             const traceId = document.getElementById('errorModalTraceId').textContent;
 
-            const fullErrorText = `
+            const fullErrorText = I18n.tpl`
 【用户错误信息】
 ${userMessage}
 
@@ -2378,7 +2378,7 @@ ${details}
             `.trim();
 
             navigator.clipboard.writeText(fullErrorText).then(() => {
-                showToast('错误详情已复制', 'success');
+                showToast(I18n.t('错误详情已复制'), 'success');
             }).catch(() => {
                 // 降级方案
                 const textarea = document.createElement('textarea');
@@ -2387,12 +2387,12 @@ ${details}
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast('错误详情已复制', 'success');
+                showToast(I18n.t('错误详情已复制'), 'success');
             });
         }
 
         // 统一处理 API 响应错误
-        function handleApiError(data, defaultMessage = '请求失败') {
+        function handleApiError(data, defaultMessage = I18n.t('请求失败')) {
             if (!data.success) {
                 // 检查是否是统一错误格式
                 if (data.error && data.error.message) {
@@ -2437,7 +2437,7 @@ ${details}
             }
 
             if (!group) {
-                nameEl.textContent = '选择分组';
+                nameEl.textContent = I18n.t('选择分组');
                 idBadgeEl.textContent = '';
                 idBadgeEl.style.display = 'none';
                 return;
@@ -2484,7 +2484,7 @@ ${details}
             if (btn) {
                 btn.classList.toggle('active', isMinimal);
                 btn.setAttribute('aria-pressed', isMinimal ? 'true' : 'false');
-                btn.title = isMinimal ? '切换详细展示' : '切换极简展示';
+                btn.title = isMinimal ? I18n.t('切换详细展示') : I18n.t('切换极简展示');
             }
         }
 
@@ -2500,7 +2500,7 @@ ${details}
             if (btn) {
                 btn.classList.toggle('active', isMinimal);
                 btn.setAttribute('aria-pressed', isMinimal ? 'true' : 'false');
-                btn.title = isMinimal ? '切换详细展示' : '切换极简展示';
+                btn.title = isMinimal ? I18n.t('切换详细展示') : I18n.t('切换极简展示');
             }
         }
 

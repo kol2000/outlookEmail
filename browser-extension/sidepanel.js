@@ -25,13 +25,13 @@
   };
 
   const viewTitles = {
-    mail: '邮箱',
-    import: '导入',
-    refresh: '刷新',
+    mail: I18n.t('邮箱'),
+    import: I18n.t('导入'),
+    refresh: I18n.t('刷新'),
     token: 'Token',
-    export: '导出',
-    tags: '标签',
-    settings: '设置',
+    export: I18n.t('导出'),
+    tags: I18n.t('标签'),
+    settings: I18n.t('设置'),
   };
 
   const normalProviders = [
@@ -41,8 +41,8 @@
     ['163', '163'],
     ['126', '126'],
     ['yahoo', 'Yahoo'],
-    ['aliyun', '阿里邮箱'],
-    ['custom', '自定义 IMAP'],
+    ['aliyun', I18n.t('阿里邮箱')],
+    ['custom', I18n.t('自定义 IMAP')],
   ];
 
   const tempProviders = [
@@ -176,7 +176,7 @@
       }
       const date = new Date(normalized);
       if (Number.isNaN(date.getTime())) return String(value);
-      return date.toLocaleString('zh-CN', { hour12: false });
+      return date.toLocaleString(I18n.language, { hour12: false });
     } catch {
       return String(value);
     }
@@ -256,7 +256,7 @@
     });
   }
 
-  async function withSession(task, loadingText = '正在登录...') {
+  async function withSession(task, loadingText = I18n.t('正在登录...')) {
     setBusy(true);
     getEl('panelStatus').textContent = loadingText;
     showMessage(loadingText);
@@ -268,7 +268,7 @@
       showMessage('');
       return await task(config);
     } catch (error) {
-      getEl('panelStatus').textContent = '操作失败';
+      getEl('panelStatus').textContent = I18n.t('操作失败');
       showMessage(Api.friendlyError(error), 'error');
       return null;
     } finally {
@@ -276,7 +276,7 @@
     }
   }
 
-  async function runAction(config, task, loadingText = '正在处理...') {
+  async function runAction(config, task, loadingText = I18n.t('正在处理...')) {
     setBusy(true);
     getEl('panelStatus').textContent = loadingText;
     showMessage(loadingText);
@@ -287,7 +287,7 @@
       showMessage('');
       return result;
     } catch (error) {
-      getEl('panelStatus').textContent = '操作失败';
+      getEl('panelStatus').textContent = I18n.t('操作失败');
       showMessage(Api.friendlyError(error), 'error');
       return null;
     } finally {
@@ -298,9 +298,9 @@
   async function copyText(text) {
     try {
       await navigator.clipboard.writeText(String(text || ''));
-      showMessage('已复制');
+      showMessage(I18n.t('已复制'));
     } catch {
-      showMessage('复制失败', 'error');
+      showMessage(I18n.t('复制失败'), 'error');
     }
   }
 
@@ -342,11 +342,11 @@
         
         let label = '';
         if (isSystem(group) || Number(group.id) === 1) {
-          label = `${group.name} (${count})`;
+          label = `${I18n.groupName(group)} (${count})`;
         } else {
           const level = Number(group.level || 1);
           if (level === 1) {
-            label = `${group.name} (${count})`;
+            label = `${I18n.groupName(group)} (${count})`;
           } else {
             let prefix = '';
             if (level === 3) {
@@ -364,7 +364,7 @@
             } else {
               prefix += '├─\u00A0';
             }
-            label = `${prefix}${group.name} (${count})`;
+            label = `${prefix}${I18n.groupName(group)} (${count})`;
           }
         }
         return `<option value="${escapeHtml(group.id)}"${selected}>${escapeHtml(label)}</option>`;
@@ -374,7 +374,7 @@
   function tagCheckboxes(tags, selectedIds = [], name = 'tagIds') {
     const selected = new Set((selectedIds || []).map((item) => String(item)));
     if (!Array.isArray(tags) || !tags.length) {
-      return '<div class="item-meta">暂无标签。</div>';
+      return I18n.t('<div class="item-meta">暂无标签。</div>');
     }
     return tags.map((tag) => `
       <label class="check-row inline-check">
@@ -416,13 +416,13 @@
   function closeMailActionPanel() {
     const target = getEl('mailEmails');
     if (target) {
-      target.innerHTML = '<div class="card muted">选择邮箱后，邮件会显示在这里。</div>';
+      target.innerHTML = I18n.t('<div class="card muted">选择邮箱后，邮件会显示在这里。</div>');
     }
     revealAccountsPanel();
   }
 
   async function renderMailView() {
-    setContent('<div class="card muted">正在加载分组...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载分组...</div>'));
     await withSession(async (config) => {
       const groups = await loadGroups(config);
       const storedGroupId = await Storage.getSelectedMailGroupId();
@@ -433,7 +433,7 @@
         mailState.selectedGroupId = String(groups[0]?.id || '');
         await Storage.setSelectedMailGroupId(mailState.selectedGroupId);
       }
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
           <label><span>分组</span><select id="mailGroupSelect">${groupOptions(groups, mailState.selectedGroupId)}</select></label>
           <label><span>搜索</span><input id="accountSearch" placeholder="邮箱、备注、标签或别名"></label>
@@ -455,16 +455,16 @@
         mailState.selectedGroupId = getEl('mailGroupSelect').value;
         mailState.accountOffset = 0;
         await Storage.setSelectedMailGroupId(mailState.selectedGroupId);
-        runAction(config, () => loadMailAccounts(config, groups), '正在加载账号...');
+        runAction(config, () => loadMailAccounts(config, groups), I18n.t('正在加载账号...'));
       });
       getEl('btnAccountSearch').addEventListener('click', () => {
         mailState.accountOffset = 0;
-        runAction(config, () => loadMailAccounts(config, groups), '正在搜索账号...');
+        runAction(config, () => loadMailAccounts(config, groups), I18n.t('正在搜索账号...'));
       });
       getEl('accountSearch').addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           mailState.accountOffset = 0;
-          runAction(config, () => loadMailAccounts(config, groups), '正在搜索账号...');
+          runAction(config, () => loadMailAccounts(config, groups), I18n.t('正在搜索账号...'));
         }
       });
       getEl('btnNewGroup').addEventListener('click', () => showGroupEditor(config));
@@ -473,19 +473,19 @@
       getEl('btnGroupUp').addEventListener('click', () => moveSelectedGroup(config, -1));
       getEl('btnGroupDown').addEventListener('click', () => moveSelectedGroup(config, 1));
       await loadMailAccounts(config, groups);
-    }, '正在加载邮箱...');
+    }, I18n.t('正在加载邮箱...'));
   }
 
   async function showGroupEditor(config, group = null) {
     const target = getEl('mailEmails');
     if (group && isTempEmailGroup(group)) {
-      target.innerHTML = '<div class="card muted">临时邮箱是系统分组，不能编辑。</div>';
+      target.innerHTML = I18n.t('<div class="card muted">临时邮箱是系统分组，不能编辑。</div>');
       return;
     }
     const isEdit = !!group;
-    target.innerHTML = `
+    target.innerHTML = I18n.tpl`
       <div class="card">
-        <div class="item-title">${isEdit ? '编辑分组' : '新增分组'}</div>
+        <div class="item-title">${isEdit ? I18n.t('编辑分组') : I18n.t('新增分组')}</div>
         <label><span>名称</span><input id="groupName" value="${escapeHtml(group?.name || '')}"></label>
         <label><span>说明</span><textarea id="groupDescription">${escapeHtml(group?.description || '')}</textarea></label>
         <div class="row">
@@ -521,22 +521,22 @@
       getEl('groupEditorResult').innerHTML = renderResult(payload);
       await loadGroups(config);
       renderMailView();
-    }, '正在保存分组...'));
+    }, I18n.t('正在保存分组...')));
   }
 
   async function deleteSelectedGroup(config) {
     const group = getSelectedMailGroup();
     if (!group) return;
     if (isTempEmailGroup(group)) {
-      getEl('mailEmails').innerHTML = '<div class="card muted">临时邮箱是系统分组，不能删除。</div>';
+      getEl('mailEmails').innerHTML = I18n.t('<div class="card muted">临时邮箱是系统分组，不能删除。</div>');
       return;
     }
-    if (!window.confirm(`确定删除分组「${group.name}」吗？账号会移到默认分组。`)) return;
+    if (!window.confirm(I18n.tpl`确定删除分组「${group.name}」吗？账号会移到默认分组。`)) return;
     await runAction(config, async () => {
       await Api.apiRequest(config, `/api/groups/${group.id}`, { method: 'DELETE' });
       mailState.selectedGroupId = '';
       renderMailView();
-    }, '正在删除分组...');
+    }, I18n.t('正在删除分组...'));
   }
 
   async function moveSelectedGroup(config, delta) {
@@ -554,7 +554,7 @@
         body: { group_ids: ids.map((item) => Number(item)) },
       });
       await renderMailView();
-    }, '正在调整分组...');
+    }, I18n.t('正在调整分组...'));
   }
 
   async function loadMailAccounts(config, groups) {
@@ -562,9 +562,9 @@
     const target = getEl('mailAccounts');
     const emailTarget = getEl('mailEmails');
     if (emailTarget) {
-      emailTarget.innerHTML = '<div class="card muted">选择邮箱后，邮件会显示在这里。</div>';
+      emailTarget.innerHTML = I18n.t('<div class="card muted">选择邮箱后，邮件会显示在这里。</div>');
     }
-    target.innerHTML = '<div class="card muted">正在加载账号...</div>';
+    target.innerHTML = I18n.t('<div class="card muted">正在加载账号...</div>');
 
     if (isTempEmailGroup(selectedGroup)) {
       await loadTempEmailAccounts(config, target);
@@ -588,10 +588,10 @@
     const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
     mailState.accounts = accounts;
     if (!accounts.length) {
-      target.innerHTML = '<div class="card muted">该分组暂无账号。</div>';
+      target.innerHTML = I18n.t('<div class="card muted">该分组暂无账号。</div>');
       return;
     }
-    const pager = `
+    const pager = I18n.tpl`
       <div class="toolbar wrap">
         <button id="btnPrevAccounts" class="small-btn" type="button" ${mailState.accountOffset <= 0 ? 'disabled' : ''}>上一页</button>
         <button id="btnNextAccounts" class="small-btn" type="button" ${payload.has_more ? '' : 'disabled'}>下一页</button>
@@ -599,11 +599,11 @@
       </div>
     `;
     target.innerHTML = `${pager}${accounts.map((account, index) => {
-      const forwardLabel = account.forward_enabled ? '关闭转发' : '开启转发';
-      const aliases = Array.isArray(account.aliases) && account.aliases.length ? ` · 别名 ${account.aliases.length}` : '';
+      const forwardLabel = account.forward_enabled ? I18n.t('关闭转发') : I18n.t('开启转发');
+      const aliases = Array.isArray(account.aliases) && account.aliases.length ? I18n.tpl` · 别名 ${account.aliases.length}` : '';
       const refreshStatus = account.last_refresh_status ? ` · Token ${account.last_refresh_status}` : '';
       const remark = account.remark ? ` · ${account.remark}` : '';
-      return `
+      return I18n.tpl`
         <div class="item" data-account-index="${escapeHtml(index)}">
           <div class="item-title">${escapeHtml(account.email)}</div>
           <div class="item-meta">ID ${escapeHtml(account.id)} · ${escapeHtml(providerLabel(account.provider || account.account_type))} · ${escapeHtml(account.status || '')}${escapeHtml(aliases)}${escapeHtml(refreshStatus)}${escapeHtml(remark)}</div>
@@ -625,11 +625,11 @@
     }).join('')}`;
     getEl('btnPrevAccounts')?.addEventListener('click', () => {
       mailState.accountOffset = Math.max(0, mailState.accountOffset - mailState.accountLimit);
-      runAction(config, () => loadMailAccounts(config, groups), '正在加载上一页...');
+      runAction(config, () => loadMailAccounts(config, groups), I18n.t('正在加载上一页...'));
     });
     getEl('btnNextAccounts')?.addEventListener('click', () => {
       mailState.accountOffset += mailState.accountLimit;
-      runAction(config, () => loadMailAccounts(config, groups), '正在加载下一页...');
+      runAction(config, () => loadMailAccounts(config, groups), I18n.t('正在加载下一页...'));
     });
     target.querySelectorAll('[data-action]').forEach((button) => {
       button.addEventListener('click', () => handleAccountAction(config, button));
@@ -662,7 +662,7 @@
     const action = button.dataset.action;
     if (action === 'copy') return copyText(button.dataset.copy || '');
     if (action === 'view-mails') {
-      return runAction(config, () => loadAccountEmails(config, button.dataset.email), '正在加载邮件...');
+      return runAction(config, () => loadAccountEmails(config, button.dataset.email), I18n.t('正在加载邮件...'));
     }
     if (action === 'edit-account') return showAccountEditor(config, button.dataset.accountId);
     if (action === 'tag-account') return showTagAssignment(config, 'account', button.dataset.accountId, button.dataset.label || '');
@@ -674,7 +674,7 @@
           body: { account_ids: [Number(button.dataset.accountId)], forward_enabled: enable },
         });
         await loadMailAccounts(config, mailState.groups);
-      }, '正在更新转发状态...');
+      }, I18n.t('正在更新转发状态...'));
     }
     if (action === 'refresh-account') {
       return runAction(config, async () => {
@@ -685,14 +685,14 @@
         getEl('mailEmails').innerHTML = renderResult(payload);
         revealMailPanel();
         await loadMailAccounts(config, mailState.groups);
-      }, '正在刷新 Token...');
+      }, I18n.t('正在刷新 Token...'));
     }
     if (action === 'delete-account') {
-      if (!window.confirm(`确定删除账号 ${button.dataset.label || ''} 吗？`)) return null;
+      if (!window.confirm(I18n.tpl`确定删除账号 ${button.dataset.label || ''} 吗？`)) return null;
       return runAction(config, async () => {
         await Api.apiRequest(config, `/api/accounts/${button.dataset.accountId}`, { method: 'DELETE' });
         await loadMailAccounts(config, mailState.groups);
-      }, '正在删除账号...');
+      }, I18n.t('正在删除账号...'));
     }
     return null;
   }
@@ -706,7 +706,7 @@
       const account = accountPayload.account || {};
       const provider = account.provider || account.account_type || 'outlook';
       const aliases = Array.isArray(account.aliases) ? account.aliases.join('\n') : '';
-      getEl('mailEmails').innerHTML = `
+      getEl('mailEmails').innerHTML = I18n.tpl`
         <div class="card">
           <div class="item-title">编辑账号</div>
           <label><span>邮箱</span><input id="editEmail" value="${escapeHtml(account.email || '')}"></label>
@@ -779,11 +779,11 @@
         });
         getEl('accountEditorResult').innerHTML = renderResult(payload);
         await loadMailAccounts(config, mailState.groups);
-      }, '正在保存账号...'));
+      }, I18n.t('正在保存账号...')));
       getEl('btnOnlyStatusActive').addEventListener('click', () => updateAccountStatus(config, accountId, 'active'));
       getEl('btnOnlyStatusInactive').addEventListener('click', () => updateAccountStatus(config, accountId, 'inactive'));
       getEl('btnCancelAccountEditor').addEventListener('click', closeMailActionPanel);
-    }, '正在加载账号详情...');
+    }, I18n.t('正在加载账号详情...'));
   }
 
   async function updateAccountStatus(config, accountId, status) {
@@ -794,7 +794,7 @@
       });
       getEl('accountEditorResult').innerHTML = renderResult(payload);
       await loadMailAccounts(config, mailState.groups);
-    }, '正在更新状态...');
+    }, I18n.t('正在更新状态...'));
   }
 
   async function showTagAssignment(config, type, id, label) {
@@ -802,7 +802,7 @@
       const tags = await loadTags(config);
       const endpoint = type === 'temp' ? '/api/temp-emails/tags' : '/api/accounts/tags';
       const idKey = type === 'temp' ? 'temp_email_ids' : 'account_ids';
-      getEl('mailEmails').innerHTML = `
+      getEl('mailEmails').innerHTML = I18n.tpl`
         <div class="card">
           <div class="item-title">标签：${escapeHtml(label)}</div>
           <label><span>标签</span><select id="assignTagId">${tags.map((tag) => `<option value="${escapeHtml(tag.id)}">${escapeHtml(tag.name)}</option>`).join('')}</select></label>
@@ -823,16 +823,16 @@
           });
           getEl('tagAssignResult').innerHTML = renderResult(payload);
           await loadMailAccounts(config, mailState.groups);
-        }, '正在更新标签...');
+        }, I18n.t('正在更新标签...'));
       }
       getEl('btnAddAssignedTag').addEventListener('click', () => submit('add'));
       getEl('btnRemoveAssignedTag').addEventListener('click', () => submit('remove'));
       getEl('btnCancelTagAssignment').addEventListener('click', closeMailActionPanel);
-    }, '正在加载标签...');
+    }, I18n.t('正在加载标签...'));
   }
 
   async function loadTempEmailAccounts(config, target) {
-    target.innerHTML = '<div class="card muted">正在加载临时邮箱...</div>';
+    target.innerHTML = I18n.t('<div class="card muted">正在加载临时邮箱...</div>');
     const payload = await Api.apiRequest(config, '/api/temp-emails');
     const emails = Array.isArray(payload.emails) ? payload.emails : [];
     mailState.tempEmails = emails;
@@ -848,12 +848,12 @@
       return providerOk && (!search || haystack.includes(search));
     });
     const showCloudflareGlobal = (filter === 'all' || filter === 'cloudflare')
-      && (!search || 'cloudflare所有邮件'.includes(search) || 'cloudflare all messages'.includes(search));
+      && (!search || I18n.t('cloudflare所有邮件').includes(search) || 'cloudflare all messages'.includes(search));
 
-    target.innerHTML = `
+    target.innerHTML = I18n.tpl`
       <div class="card">
         <div class="row">
-          <label><span>渠道</span><select id="tempProviderFilter">${renderOptions([['all', '全部'], ...tempProviders], filter)}</select></label>
+          <label><span>渠道</span><select id="tempProviderFilter">${renderOptions([['all', I18n.t('全部')], ...tempProviders], filter)}</select></label>
           <label><span>搜索</span><input id="tempEmailSearch" value="${escapeHtml(search)}" placeholder="临时邮箱或标签"></label>
         </div>
         <div class="toolbar wrap">
@@ -861,7 +861,7 @@
           <button id="btnGoTempImport" class="secondary-btn" type="button">导入/生成</button>
         </div>
       </div>
-      ${showCloudflareGlobal ? `
+      ${showCloudflareGlobal ? I18n.tpl`
         <div class="item cloudflare-entry">
           <div class="item-title">Cloudflare所有邮件</div>
           <div class="item-meta">查看当前 Worker 中的全部邮件，可按收件地址过滤。</div>
@@ -872,7 +872,7 @@
       ` : ''}
       ${filtered.length ? filtered.map((item) => {
         const provider = providerLabel(item.provider || 'gptmail');
-        return `
+        return I18n.tpl`
           <div class="item">
             <div class="item-title">${escapeHtml(item.email)}</div>
             <div class="item-meta">ID ${escapeHtml(item.id)} · ${escapeHtml(provider)} · 临时邮箱</div>
@@ -886,17 +886,17 @@
             </div>
           </div>
         `;
-      }).join('') : (!showCloudflareGlobal ? '<div class="card muted">暂无临时邮箱。</div>' : '')}
+      }).join('') : (!showCloudflareGlobal ? I18n.t('<div class="card muted">暂无临时邮箱。</div>') : '')}
     `;
     getEl('tempProviderFilter').addEventListener('change', () => {
-      runAction(config, () => loadTempEmailAccounts(config, target), '正在筛选临时邮箱...');
+      runAction(config, () => loadTempEmailAccounts(config, target), I18n.t('正在筛选临时邮箱...'));
     });
     getEl('btnFilterTempEmails').addEventListener('click', () => {
-      runAction(config, () => loadTempEmailAccounts(config, target), '正在筛选临时邮箱...');
+      runAction(config, () => loadTempEmailAccounts(config, target), I18n.t('正在筛选临时邮箱...'));
     });
     getEl('tempEmailSearch').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
-        runAction(config, () => loadTempEmailAccounts(config, target), '正在搜索临时邮箱...');
+        runAction(config, () => loadTempEmailAccounts(config, target), I18n.t('正在搜索临时邮箱...'));
       }
     });
     getEl('btnGoTempImport').addEventListener('click', () => renderView('import'));
@@ -909,10 +909,10 @@
     const action = button.dataset.tempAction;
     if (action === 'copy') return copyText(button.dataset.copy || '');
     if (action === 'cloudflare-global') {
-      return runAction(config, () => loadCloudflareGlobalMessages(config, false), '正在加载 Cloudflare 所有邮件...');
+      return runAction(config, () => loadCloudflareGlobalMessages(config, false), I18n.t('正在加载 Cloudflare 所有邮件...'));
     }
     if (action === 'view') {
-      return runAction(config, () => loadTempEmailMessages(config, button.dataset.email), '正在加载临时邮箱邮件...');
+      return runAction(config, () => loadTempEmailMessages(config, button.dataset.email), I18n.t('正在加载临时邮箱邮件...'));
     }
     if (action === 'refresh') {
       return runAction(config, async () => {
@@ -922,15 +922,15 @@
         });
         getEl('mailEmails').innerHTML = renderResult(payload);
         revealMailPanel();
-      }, '正在刷新临时邮箱...');
+      }, I18n.t('正在刷新临时邮箱...'));
     }
     if (action === 'tag') return showTagAssignment(config, 'temp', button.dataset.id, button.dataset.email || '');
     if (action === 'delete') {
-      if (!window.confirm(`确定删除临时邮箱 ${button.dataset.email || ''} 吗？`)) return null;
+      if (!window.confirm(I18n.tpl`确定删除临时邮箱 ${button.dataset.email || ''} 吗？`)) return null;
       return runAction(config, async () => {
         await Api.apiRequest(config, `/api/temp-emails/${encodePath(button.dataset.email)}`, { method: 'DELETE' });
         await loadTempEmailAccounts(config, getEl('mailAccounts'));
-      }, '正在删除临时邮箱...');
+      }, I18n.t('正在删除临时邮箱...'));
     }
     return null;
   }
@@ -942,7 +942,7 @@
     const keyword = valueOf('mailKeyword');
     const subject = valueOf('mailSubject');
     const from = valueOf('mailFrom');
-    target.innerHTML = `<div class="card muted">正在加载 ${escapeHtml(email)} 的邮件...</div>`;
+    target.innerHTML = I18n.tpl`<div class="card muted">正在加载 ${escapeHtml(email)} 的邮件...</div>`;
     revealMailPanel();
     const payload = await Api.apiRequest(config, pathWithQuery(`/api/emails/${encodePath(email)}`, {
       folder,
@@ -954,16 +954,16 @@
     }), { timeoutMs: 70000 });
     const emails = Array.isArray(payload.emails) ? payload.emails : [];
     mailState.currentEmails = emails;
-    target.innerHTML = `
+    target.innerHTML = I18n.tpl`
       <div class="card">
         <div class="item-title">${escapeHtml(email)}</div>
-        <div class="item-meta">${escapeHtml(payload.method || '')} · 最近 ${emails.length} 封邮件${payload.matched_alias ? ` · 命中别名 ${escapeHtml(payload.matched_alias)}` : ''}</div>
+        <div class="item-meta">${escapeHtml(payload.method || '')} · 最近 ${emails.length} 封邮件${payload.matched_alias ? I18n.tpl` · 命中别名 ${escapeHtml(payload.matched_alias)}` : ''}</div>
         <div class="row">
           <label><span>文件夹</span><select id="mailFolder">${renderOptions([
-        ['all', '全部'],
-        ['inbox', '收件箱'],
-        ['junkemail', '垃圾邮件'],
-        ['deleteditems', '已删除'],
+        ['all', I18n.t('全部')],
+        ['inbox', I18n.t('收件箱')],
+        ['junkemail', I18n.t('垃圾邮件')],
+        ['deleteditems', I18n.t('已删除')],
       ], folder)}</select></label>
           <label><span>关键词</span><input id="mailKeyword" value="${escapeHtml(keyword)}"></label>
         </div>
@@ -977,10 +977,10 @@
         </div>
       </div>
       <div class="list">
-        ${emails.length ? emails.map((item, index) => `
+        ${emails.length ? emails.map((item, index) => I18n.tpl`
           <div class="item ${item.is_read === false ? 'unread' : ''}">
-            <div class="item-title">${escapeHtml(item.subject || '无主题')}</div>
-            <div class="item-meta">${escapeHtml(item.from || '')} · ${escapeHtml(formatDate(item.date))} · ${escapeHtml(item.folder || folder)}${item.has_attachments ? ' · 有附件' : ''}</div>
+            <div class="item-title">${escapeHtml(item.subject || I18n.t('无主题'))}</div>
+            <div class="item-meta">${escapeHtml(item.from || '')} · ${escapeHtml(formatDate(item.date))} · ${escapeHtml(item.folder || folder)}${item.has_attachments ? I18n.t(' · 有附件') : ''}</div>
             <div class="item-meta">${escapeHtml(item.body_preview || '')}</div>
             <div class="item-actions wrap">
               <button class="small-btn" type="button" data-mail-action="detail" data-index="${escapeHtml(index)}">详情</button>
@@ -988,12 +988,12 @@
               <button class="danger-btn" type="button" data-mail-action="delete" data-index="${escapeHtml(index)}">删除</button>
             </div>
           </div>
-        `).join('') : '<div class="card muted">没有邮件。</div>'}
+        `).join('') : I18n.t('<div class="card muted">没有邮件。</div>')}
       </div>
       <div id="mailDetail"></div>
     `;
     getEl('btnReloadMails').addEventListener('click', () => {
-      runAction(config, () => loadAccountEmails(config, email), '正在刷新邮件...');
+      runAction(config, () => loadAccountEmails(config, email), I18n.t('正在刷新邮件...'));
     });
     getEl('btnBackToAccounts').addEventListener('click', revealAccountsPanel);
     target.querySelectorAll('[data-mail-action]').forEach((button) => {
@@ -1031,7 +1031,7 @@
           folder,
           method: getMailItemMethod(item),
         }, payload.email || {});
-      }, '正在加载邮件详情...');
+      }, I18n.t('正在加载邮件详情...'));
     }
     if (action === 'mark-read') {
       return markNormalMailRead(config, email, item, folder);
@@ -1059,11 +1059,11 @@
         timeoutMs: 70000,
       });
       getEl('mailDetail').innerHTML = renderResult(payload);
-    }, '正在标记已读...');
+    }, I18n.t('正在标记已读...'));
   }
 
   async function deleteNormalMail(config, email, item, folder) {
-    if (!window.confirm('确定删除这封邮件吗？')) return;
+    if (!window.confirm(I18n.t('确定删除这封邮件吗？'))) return;
     const targetFolder = folder || item.folder || 'inbox';
     await runAction(config, async () => {
       const payload = await Api.apiRequest(config, '/api/emails/delete', {
@@ -1082,44 +1082,44 @@
       });
       getEl('mailDetail').innerHTML = renderResult(payload);
       await loadAccountEmails(config, email);
-    }, '正在删除邮件...');
+    }, I18n.t('正在删除邮件...'));
   }
 
   async function loadTempEmailMessages(config, email) {
     mailState.currentTempEmail = email;
     const target = getEl('mailEmails');
-    target.innerHTML = `<div class="card muted">正在加载 ${escapeHtml(email)} 的临时邮件...</div>`;
+    target.innerHTML = I18n.tpl`<div class="card muted">正在加载 ${escapeHtml(email)} 的临时邮件...</div>`;
     revealMailPanel();
     const payload = await Api.apiRequest(config, `/api/temp-emails/${encodePath(email)}/messages`, { timeoutMs: 70000 });
     const emails = Array.isArray(payload.emails) ? payload.emails : [];
     mailState.currentTempMessages = emails;
-    target.innerHTML = `
+    target.innerHTML = I18n.tpl`
       <div class="card">
         <div class="item-title">${escapeHtml(email)}</div>
-        <div class="item-meta">${escapeHtml(payload.method || '临时邮箱')} · 最近 ${emails.length} 封邮件</div>
+        <div class="item-meta">${escapeHtml(payload.method || I18n.t('临时邮箱'))} · 最近 ${emails.length} 封邮件</div>
         <div class="toolbar wrap">
           <button id="btnRefreshTempMessages" class="secondary-btn" type="button">刷新邮件</button>
           <button id="btnBackToAccounts" class="secondary-btn" type="button">返回账号列表</button>
         </div>
       </div>
       <div class="list">
-        ${emails.length ? emails.map((item, index) => `
+        ${emails.length ? emails.map((item, index) => I18n.tpl`
           <div class="item">
-            <div class="item-title">${escapeHtml(item.subject || '无主题')}</div>
+            <div class="item-title">${escapeHtml(item.subject || I18n.t('无主题'))}</div>
             <div class="item-meta">${escapeHtml(item.from || '')} · ${escapeHtml(formatDate(item.date || item.timestamp))}</div>
             <div class="item-meta">${escapeHtml(item.body_preview || '')}</div>
             <div class="item-actions">
               <button class="small-btn" type="button" data-temp-mail-detail="${escapeHtml(index)}">详情</button>
             </div>
           </div>
-        `).join('') : '<div class="card muted">没有邮件。</div>'}
+        `).join('') : I18n.t('<div class="card muted">没有邮件。</div>')}
       </div>
       <div id="tempMailDetail"></div>
     `;
     getEl('btnRefreshTempMessages').addEventListener('click', () => runAction(config, async () => {
       await Api.apiRequest(config, `/api/temp-emails/${encodePath(email)}/refresh`, { method: 'POST', timeoutMs: 70000 });
       await loadTempEmailMessages(config, email);
-    }, '正在刷新临时邮件...'));
+    }, I18n.t('正在刷新临时邮件...')));
     getEl('btnBackToAccounts').addEventListener('click', revealAccountsPanel);
     target.querySelectorAll('[data-temp-mail-detail]').forEach((button) => {
       button.addEventListener('click', () => loadTempEmailDetail(config, email, toInt(button.dataset.tempMailDetail, -1)));
@@ -1134,7 +1134,7 @@
         timeoutMs: 70000,
       });
       renderEmailDetail(config, 'tempMailDetail', { type: 'temp', email, item }, payload.email || {});
-    }, '正在加载临时邮件详情...');
+    }, I18n.t('正在加载临时邮件详情...'));
   }
 
   async function loadCloudflareGlobalMessages(config, append) {
@@ -1144,7 +1144,7 @@
       mailState.cloudflareOffset = 0;
       mailState.cloudflareHasMore = false;
       mailState.cloudflareEmails = [];
-      target.innerHTML = '<div class="card muted">正在加载 Cloudflare 所有邮件...</div>';
+      target.innerHTML = I18n.t('<div class="card muted">正在加载 Cloudflare 所有邮件...</div>');
       revealMailPanel();
     }
 
@@ -1164,8 +1164,8 @@
   function renderCloudflareGlobalPanel(config, payload = {}) {
     const target = getEl('mailEmails');
     const emails = mailState.cloudflareEmails;
-    const queried = payload.queried_email && payload.fallback_used ? ` · 实际查询 ${payload.queried_email}` : '';
-    target.innerHTML = `
+    const queried = payload.queried_email && payload.fallback_used ? I18n.tpl` · 实际查询 ${payload.queried_email}` : '';
+    target.innerHTML = I18n.tpl`
       <div class="card">
         <div class="item-title">Cloudflare所有邮件</div>
         <div class="item-meta">已加载 ${escapeHtml(emails.length)} / ${escapeHtml(payload.total_count ?? emails.length)}${escapeHtml(queried)}</div>
@@ -1178,9 +1178,9 @@
         </div>
       </div>
       <div class="list">
-        ${emails.length ? emails.map((item, index) => `
+        ${emails.length ? emails.map((item, index) => I18n.tpl`
           <div class="item">
-            <div class="item-title">${escapeHtml(item.subject || '无主题')}</div>
+            <div class="item-title">${escapeHtml(item.subject || I18n.t('无主题'))}</div>
             <div class="item-meta">${escapeHtml(item.from || '')} → ${escapeHtml(item.to || '')} · ${escapeHtml(formatDate(item.date || item.timestamp))}</div>
             <div class="item-meta">${escapeHtml(item.body_preview || '')}</div>
             <div class="item-actions">
@@ -1188,20 +1188,20 @@
               <button class="small-btn" type="button" data-cf-copy="${escapeHtml(item.to || '')}">复制收件人</button>
             </div>
           </div>
-        `).join('') : '<div class="card muted">没有邮件。</div>'}
+        `).join('') : I18n.t('<div class="card muted">没有邮件。</div>')}
       </div>
       <div id="cloudflareMailDetail"></div>
     `;
     getEl('btnApplyCloudflareFilter').addEventListener('click', () => {
       mailState.cloudflareFilter = valueOf('cloudflareAddressFilter');
-      runAction(config, () => loadCloudflareGlobalMessages(config, false), '正在加载 Cloudflare 所有邮件...');
+      runAction(config, () => loadCloudflareGlobalMessages(config, false), I18n.t('正在加载 Cloudflare 所有邮件...'));
     });
     getEl('btnClearCloudflareFilter').addEventListener('click', () => {
       mailState.cloudflareFilter = '';
-      runAction(config, () => loadCloudflareGlobalMessages(config, false), '正在加载 Cloudflare 所有邮件...');
+      runAction(config, () => loadCloudflareGlobalMessages(config, false), I18n.t('正在加载 Cloudflare 所有邮件...'));
     });
     getEl('btnMoreCloudflareMessages').addEventListener('click', () => {
-      runAction(config, () => loadCloudflareGlobalMessages(config, true), '正在加载更多 Cloudflare 邮件...');
+      runAction(config, () => loadCloudflareGlobalMessages(config, true), I18n.t('正在加载更多 Cloudflare 邮件...'));
     });
     getEl('btnBackToAccounts').addEventListener('click', revealAccountsPanel);
     target.querySelectorAll('[data-cf-detail]').forEach((button) => {
@@ -1223,10 +1223,10 @@
         const folder = context.folder || 'inbox';
         const method = context.method || 'graph';
         const href = `${Api.trimUrl(config.serverUrl)}/api/email/${encodePath(context.email)}/${encodePath(email.id || context.item?.id)}/attachments/${encodePath(attachment.id)}?${queryString({ folder, method })}`;
-        return `<a class="small-btn attachment-link" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(attachment.name || '附件')} ${escapeHtml(formatBytes(attachment.size))}</a>`;
+        return `<a class="small-btn attachment-link" href="${escapeHtml(href)}" target="_blank" rel="noreferrer">${escapeHtml(attachment.name || I18n.t('附件'))} ${escapeHtml(formatBytes(attachment.size))}</a>`;
       }).join('')
       : '';
-    const normalActions = context.type === 'normal' ? `
+    const normalActions = context.type === 'normal' ? I18n.tpl`
       <div class="toolbar wrap">
         <button id="${targetId}MarkRead" class="secondary-btn" type="button">标记已读</button>
         <button id="${targetId}Raw" class="secondary-btn" type="button">源码</button>
@@ -1235,7 +1235,7 @@
     ` : '';
     target.innerHTML = `
       <div class="card detail-card">
-        <div class="item-title">${escapeHtml(email.subject || '无主题')}</div>
+        <div class="item-title">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
         <div class="item-meta">From: ${escapeHtml(email.from || '')}</div>
         <div class="item-meta">To: ${escapeHtml(email.to || context.email || '')}</div>
         ${email.cc ? `<div class="item-meta">Cc: ${escapeHtml(email.cc)}</div>` : ''}
@@ -1278,24 +1278,24 @@
         method: context.method || 'graph',
       }), { timeoutMs: 70000 });
       renderBodyContent(`${targetId}Body`, text, 'text');
-    }, '正在加载源码...');
+    }, I18n.t('正在加载源码...'));
   }
 
   async function renderImportView() {
-    setContent('<div class="card muted">正在加载导入工具...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载导入工具...</div>'));
     await withSession(async (config) => {
       const [groups, tags] = await Promise.all([loadGroups(config), loadTags(config)]);
       const defaultGroupId = groups.find((group) => !isTempEmailGroup(group))?.id || groups[0]?.id || '';
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
-          <label><span>导入对象</span><select id="importMode">${renderOptions([['normal', '普通邮箱'], ['temp', '临时邮箱']], 'normal')}</select></label>
+          <label><span>导入对象</span><select id="importMode">${renderOptions([['normal', I18n.t('普通邮箱')], ['temp', I18n.t('临时邮箱')]], 'normal')}</select></label>
           <div id="normalImportFields">
             <label><span>目标分组</span><select id="importGroup">${groupOptions(groups, defaultGroupId, false)}</select></label>
             <div class="row">
               <label><span>邮箱类型</span><select id="importProvider">${renderOptions(normalProviders, 'outlook')}</select></label>
               <label><span>Outlook 格式</span><select id="importFormat">${renderOptions([
-        ['client_id_refresh_token', 'ClientID 在前'],
-        ['refresh_token_client_id', 'RefreshToken 在前'],
+        ['client_id_refresh_token', I18n.t('ClientID 在前')],
+        ['refresh_token_client_id', I18n.t('RefreshToken 在前')],
       ], 'client_id_refresh_token')}</select></label>
             </div>
             <div id="customImapImportFields" class="hidden">
@@ -1354,14 +1354,14 @@
       getEl('btnLoadTempDomains').addEventListener('click', () => loadTempDomains(config));
       getEl('btnGenerateTempEmail').addEventListener('click', () => generateTempEmail(config));
       await loadTempDomains(config);
-    }, '正在加载导入...');
+    }, I18n.t('正在加载导入...'));
   }
 
   async function submitImport(config) {
     await runAction(config, async () => {
       const mode = valueOf('importMode');
       const result = getEl('importResult');
-      result.innerHTML = '<div class="card muted">正在导入...</div>';
+      result.innerHTML = I18n.t('<div class="card muted">正在导入...</div>');
       if (mode === 'temp') {
         const payload = await Api.apiRequest(config, '/api/temp-emails/import', {
           method: 'POST',
@@ -1392,24 +1392,24 @@
         timeoutMs: 70000,
       });
       result.innerHTML = renderResult(payload);
-    }, '正在导入账号...');
+    }, I18n.t('正在导入账号...'));
   }
 
   async function loadTempDomains(config) {
     const provider = valueOf('generateProvider') || 'gptmail';
     const select = getEl('generateDomain');
     if (!select) return;
-    select.innerHTML = '<option value="">默认</option>';
+    select.innerHTML = I18n.t('<option value="">默认</option>');
     if (provider === 'gptmail') return;
     await runAction(config, async () => {
       const endpoint = provider === 'duckmail' ? '/api/duckmail/domains' : '/api/cloudflare/domains';
       const payload = await Api.apiRequest(config, endpoint, { timeoutMs: 70000 });
       const domains = Array.isArray(payload.domains) ? payload.domains : [];
-      select.innerHTML = '<option value="">默认</option>' + domains.map((item) => {
+      select.innerHTML = I18n.t('<option value="">默认</option>') + domains.map((item) => {
         const domain = item.domain || item;
         return `<option value="${escapeHtml(domain)}">${escapeHtml(domain)}</option>`;
       }).join('');
-    }, '正在加载域名...');
+    }, I18n.t('正在加载域名...'));
   }
 
   async function generateTempEmail(config) {
@@ -1435,11 +1435,11 @@
         timeoutMs: 70000,
       });
       getEl('importResult').innerHTML = renderResult(payload);
-    }, '正在生成临时邮箱...');
+    }, I18n.t('正在生成临时邮箱...'));
   }
 
   async function renderRefreshView() {
-    setContent('<div class="card muted">正在加载刷新状态...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载刷新状态...</div>'));
     await withSession(async (config) => {
       const status = getEl('refreshStatusFilter')?.value || 'all';
       const q = valueOf('refreshSearch');
@@ -1451,12 +1451,12 @@
       }));
       const accounts = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload.accounts) ? payload.accounts : []);
       const stats = payload.stats || {};
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
           <div class="item-title">刷新统计</div>
           <div class="item-meta">总数 ${escapeHtml(stats.total ?? payload.total ?? 0)} · 成功 ${escapeHtml(stats.success_count ?? 0)} · 失败 ${escapeHtml(stats.failed_count ?? 0)} · 从不 ${escapeHtml(stats.never_count ?? 0)} · 状态 ${escapeHtml(stats.last_refresh_status || 'idle')}</div>
           <div class="row">
-            <label><span>状态</span><select id="refreshStatusFilter">${renderOptions([['all', '全部'], ['success', '成功'], ['failed', '失败'], ['never', '从未刷新']], status)}</select></label>
+            <label><span>状态</span><select id="refreshStatusFilter">${renderOptions([['all', I18n.t('全部')], ['success', I18n.t('成功')], ['failed', I18n.t('失败')], ['never', I18n.t('从未刷新')]], status)}</select></label>
             <label><span>搜索</span><input id="refreshSearch" value="${escapeHtml(q)}"></label>
           </div>
           <div class="toolbar wrap">
@@ -1471,7 +1471,7 @@
         </div>
         <div id="refreshStreamLog" class="card result-box"></div>
         <div id="refreshList" class="list">
-          ${accounts.map((account) => `
+          ${accounts.map((account) => I18n.tpl`
             <div class="item">
               <div class="item-title">${escapeHtml(account.email)}</div>
               <div class="item-meta">ID ${escapeHtml(account.id)} · 状态 ${escapeHtml(account.last_refresh_status || 'never')} · ${escapeHtml(formatDate(account.last_refresh_at))}</div>
@@ -1482,7 +1482,7 @@
                 <button class="small-btn" type="button" data-refresh-action="logs" data-id="${escapeHtml(account.id)}">日志</button>
               </div>
             </div>
-          `).join('') || '<div class="card muted">没有可刷新的账号。</div>'}
+          `).join('') || I18n.t('<div class="card muted">没有可刷新的账号。</div>')}
         </div>
       `);
       getEl('btnFilterRefresh').addEventListener('click', () => renderRefreshView());
@@ -1496,17 +1496,17 @@
         const result = await Api.apiRequest(config, '/api/accounts/refresh-failed', { method: 'POST', timeoutMs: 10 * 60 * 1000 });
         getEl('refreshStreamLog').textContent = JSON.stringify(result, null, 2);
         await renderRefreshView();
-      }, '正在重试失败账号...'));
+      }, I18n.t('正在重试失败账号...')));
       getEl('btnStopRefresh').addEventListener('click', () => runAction(config, async () => {
         const result = await Api.apiRequest(config, '/api/accounts/stop-full-refresh', { method: 'POST' });
         getEl('refreshStreamLog').textContent = JSON.stringify(result, null, 2);
-      }, '正在停止刷新...'));
+      }, I18n.t('正在停止刷新...')));
       getEl('btnLoadRefreshLogs').addEventListener('click', () => loadRefreshLogs(config, false));
       getEl('btnLoadFailedRefreshLogs').addEventListener('click', () => loadRefreshLogs(config, true));
       getEl('refreshList').querySelectorAll('[data-refresh-action]').forEach((button) => {
         button.addEventListener('click', () => handleRefreshAccountAction(config, button));
       });
-    }, '正在加载刷新...');
+    }, I18n.t('正在加载刷新...'));
   }
 
   async function startRefreshStream(config, path) {
@@ -1515,12 +1515,12 @@
       log.textContent = '';
       await Api.apiStreamRequest(config, path, (event) => {
         const type = event.type || 'message';
-        const line = `[${type}] ${event.email || event.message || ''} ${event.current ? `${event.current}/${event.total}` : ''} 成功:${event.success_count ?? ''} 失败:${event.failed_count ?? ''}`;
+        const line = I18n.tpl`[${type}] ${event.email || event.message || ''} ${event.current ? `${event.current}/${event.total}` : ''} 成功:${event.success_count ?? ''} 失败:${event.failed_count ?? ''}`;
         log.textContent += `${line}\n`;
         log.scrollTop = log.scrollHeight;
       }, { timeoutMs: 30 * 60 * 1000 });
       await renderRefreshView();
-    }, '正在执行刷新...');
+    }, I18n.t('正在执行刷新...'));
   }
 
   async function handleRefreshAccountAction(config, button) {
@@ -1532,7 +1532,7 @@
       const payload = await Api.apiRequest(config, endpoint, { method: 'POST', timeoutMs: 70000 });
       getEl('refreshStreamLog').textContent = JSON.stringify(payload, null, 2);
       await renderRefreshView();
-    }, '正在刷新账号...');
+    }, I18n.t('正在刷新账号...'));
   }
 
   async function loadRefreshLogs(config, failedOnly, accountId = '') {
@@ -1544,12 +1544,12 @@
       const logs = Array.isArray(payload.logs) ? payload.logs : [];
       getEl('refreshStreamLog').textContent = logs.map((log) => {
         return `${log.created_at || ''} ${log.account_email || ''} ${log.status || ''} ${log.error_message || ''}`;
-      }).join('\n') || '暂无日志';
-    }, '正在加载刷新日志...');
+      }).join('\n') || I18n.t('暂无日志');
+    }, I18n.t('正在加载刷新日志...'));
   }
 
   async function renderTokenView() {
-    setContent('<div class="card muted">正在加载 Token 工具...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载 Token 工具...</div>'));
     await withSession(async (config) => {
       const [authPayload, groups] = await Promise.all([
         Api.apiRequest(config, '/api/oauth/auth-url'),
@@ -1557,7 +1557,7 @@
       ]);
       const defaultGroup = groups.find((group) => !isTempEmailGroup(group))?.id || '';
       mailState.oauthPreview = null;
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
           <div class="item-title">OAuth 授权链接</div>
           <div class="item-meta">Client ID: ${escapeHtml(authPayload.client_id || '')}</div>
@@ -1589,13 +1589,13 @@
         el?.addEventListener('input', () => { mailState.oauthPreview = null; });
         el?.addEventListener('change', () => { mailState.oauthPreview = null; });
       });
-    }, '正在加载 Token...');
+    }, I18n.t('正在加载 Token...'));
   }
 
   async function exchangeToken(config) {
     return runAction(config, async () => {
       return exchangeTokenPayload(config);
-    }, '正在换取 Token...');
+    }, I18n.t('正在换取 Token...'));
   }
 
   async function exchangeTokenPayload(config) {
@@ -1625,7 +1625,7 @@
       }
       const preview = mailState.oauthPreview;
       if (!preview || !preview.email || !preview.password || !preview.client_id || !preview.refresh_token) {
-        throw new Error('保存账号前需要填写邮箱、密码并成功换取 Token');
+        throw new Error(I18n.t('保存账号前需要填写邮箱、密码并成功换取 Token'));
       }
       const accountString = [preview.email, preview.password, preview.client_id, preview.refresh_token].join('----');
       const payload = await Api.apiRequest(config, '/api/accounts', {
@@ -1639,16 +1639,16 @@
         timeoutMs: 70000,
       });
       getEl('tokenResult').innerHTML = renderResult(payload);
-    }, '正在保存账号...');
+    }, I18n.t('正在保存账号...'));
   }
 
   async function renderExportView() {
-    setContent('<div class="card muted">正在加载导出...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载导出...</div>'));
     await withSession(async (config) => {
       const groups = await loadGroups(config);
       const sortedGroups = flattenGroupTree(buildGroupTree(groups));
 
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
           <label><span>二次验证密码</span><input id="exportPassword" type="password" placeholder="输入 Web 登录密码"></label>
           <div class="toolbar wrap">
@@ -1663,7 +1663,7 @@
               return `
                 <label class="check-row export-group-label" style="padding-left: ${paddingLeft}px; transition: opacity 0.15s;">
                   <input type="checkbox" name="exportGroup" class="export-group-checkbox" value="${escapeHtml(group.id)}">
-                  <span>${escapeHtml(group.name)} (${escapeHtml(count)})</span>
+                  <span>${escapeHtml(I18n.groupName(group))} (${escapeHtml(count)})</span>
                 </label>
               `;
             }).join('')}
@@ -1768,7 +1768,7 @@
         getEl('exportResult').value = await Api.apiTextRequest(config, `/api/accounts/export?verify_token=${encodeURIComponent(token)}`, {
           timeoutMs: 70000,
         });
-      }, '正在导出全部...'));
+      }, I18n.t('正在导出全部...')));
 
       getEl('btnExportSelected').addEventListener('click', () => runAction(config, async () => {
         const token = await getVerifyToken();
@@ -1791,17 +1791,17 @@
           body: { group_ids: groupIds, verify_token: token },
           timeoutMs: 70000,
         });
-      }, '正在导出选中分组...'));
+      }, I18n.t('正在导出选中分组...')));
 
       getEl('btnCopyExportResult').addEventListener('click', () => copyText(getEl('exportResult').value));
-    }, '正在加载导出...');
+    }, I18n.t('正在加载导出...'));
   }
 
   async function renderTagsView() {
-    setContent('<div class="card muted">正在加载标签...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载标签...</div>'));
     await withSession(async (config) => {
       const tags = await loadTags(config);
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card row">
           <input id="tagName" placeholder="标签名">
           <input id="tagColor" type="color" value="#1a1a1a">
@@ -1810,7 +1810,7 @@
         <div class="card">
           <div class="item-title">批量绑定</div>
           <div class="row">
-            <label><span>对象</span><select id="batchTagTarget">${renderOptions([['account', '普通账号'], ['temp', '临时邮箱']], 'account')}</select></label>
+            <label><span>对象</span><select id="batchTagTarget">${renderOptions([['account', I18n.t('普通账号')], ['temp', I18n.t('临时邮箱')]], 'account')}</select></label>
             <label><span>标签</span><select id="batchTagId">${tags.map((tag) => `<option value="${escapeHtml(tag.id)}">${escapeHtml(tag.name)}</option>`).join('')}</select></label>
           </div>
           <label><span>ID 列表</span><textarea id="batchTagIds" placeholder="多个 ID 用逗号或换行分隔"></textarea></label>
@@ -1820,7 +1820,7 @@
           </div>
         </div>
         <div id="tagList" class="list">
-          ${tags.map((tag) => `
+          ${tags.map((tag) => I18n.tpl`
             <div class="item">
               <div class="item-title"><span class="tag-dot" style="--tag-color:${escapeHtml(tag.color || '#1a1a1a')}"></span> ${escapeHtml(tag.name)}</div>
               <div class="item-meta">ID ${escapeHtml(tag.id)}</div>
@@ -1828,7 +1828,7 @@
                 <button class="danger-btn" type="button" data-tag-id="${escapeHtml(tag.id)}">删除</button>
               </div>
             </div>
-          `).join('') || '<div class="card muted">暂无标签。</div>'}
+          `).join('') || I18n.t('<div class="card muted">暂无标签。</div>')}
         </div>
         <div id="tagsResult"></div>
       `);
@@ -1838,7 +1838,7 @@
           body: { name: valueOf('tagName'), color: valueOf('tagColor') },
         });
         renderTagsView();
-      }, '正在新增标签...'));
+      }, I18n.t('正在新增标签...')));
       async function batchTag(action) {
         await runAction(config, async () => {
           const ids = valueOf('batchTagIds').split(/[\s,，]+/).map((item) => Number(item)).filter(Boolean);
@@ -1850,7 +1850,7 @@
             body: { [idKey]: ids, tag_id: Number(valueOf('batchTagId')), action },
           });
           getEl('tagsResult').innerHTML = renderResult(payload);
-        }, '正在批量更新标签...');
+        }, I18n.t('正在批量更新标签...'));
       }
       getEl('btnBatchAddTag').addEventListener('click', () => batchTag('add'));
       getEl('btnBatchRemoveTag').addEventListener('click', () => batchTag('remove'));
@@ -1858,13 +1858,13 @@
         button.addEventListener('click', () => runAction(config, async () => {
           await Api.apiRequest(config, `/api/tags/${button.dataset.tagId}`, { method: 'DELETE' });
           renderTagsView();
-        }, '正在删除标签...'));
+        }, I18n.t('正在删除标签...')));
       });
-    }, '正在加载标签...');
+    }, I18n.t('正在加载标签...'));
   }
 
   async function renderSettingsView() {
-    setContent('<div class="card muted">正在加载设置...</div>');
+    setContent(I18n.t('<div class="card muted">正在加载设置...</div>'));
     await withSession(async (config) => {
       const payload = await Api.apiRequest(config, '/api/settings');
       const settings = payload.settings || {};
@@ -1874,7 +1874,7 @@
       const forwardAccountDelaySeconds = forwardExecutionMode === 'parallel'
         ? '0'
         : (settings.forward_account_delay_seconds || '0');
-      setContent(`
+      setContent(I18n.tpl`
         <div class="card">
           <div class="item-title">基础与刷新</div>
           <div class="row">
@@ -1909,7 +1909,7 @@
           </div>
           <div class="row">
             <label><span>检查间隔（秒）</span><input id="settingForwardCheckIntervalSeconds" type="number" min="20" max="3600" value="${escapeHtml(forwardIntervalSeconds)}"></label>
-            <label><span>执行模式</span><select id="settingForwardExecutionMode">${renderOptions([['serial', '串行'], ['parallel', '并行']], forwardExecutionMode)}</select></label>
+            <label><span>执行模式</span><select id="settingForwardExecutionMode">${renderOptions([['serial', I18n.t('串行')], ['parallel', I18n.t('并行')]], forwardExecutionMode)}</select></label>
           </div>
           <div class="row">
             <label><span>账号间隔（秒）</span><input id="settingForwardAccountDelay" type="number" min="0" max="60" value="${escapeHtml(forwardAccountDelaySeconds)}"></label>
@@ -1978,7 +1978,7 @@
       };
       getEl('settingForwardExecutionMode')?.addEventListener('change', syncForwardExecutionMode);
       syncForwardExecutionMode();
-    }, '正在加载设置...');
+    }, I18n.t('正在加载设置...'));
   }
 
   function collectSettingsPayload() {
@@ -2040,7 +2040,7 @@
         timeoutMs: 70000,
       });
       getEl('settingsResult').innerHTML = renderResult(payload);
-    }, '正在保存设置...');
+    }, I18n.t('正在保存设置...'));
   }
 
   async function validateCron(config, cronExpression, expectedFields) {
@@ -2054,7 +2054,7 @@
         },
       });
       getEl('settingsResult').innerHTML = renderResult(payload);
-    }, '正在校验 Cron...');
+    }, I18n.t('正在校验 Cron...'));
   }
 
   function forwardTestConfig() {
@@ -2089,7 +2089,7 @@
         timeoutMs: 70000,
       });
       getEl('settingsResult').innerHTML = renderResult(payload);
-    }, `正在测试 ${channel}...`);
+    }, I18n.tpl`正在测试 ${channel}...`);
   }
 
   function webdavConfig() {
@@ -2108,7 +2108,7 @@
         timeoutMs: 70000,
       });
       getEl('settingsResult').innerHTML = renderResult(payload);
-    }, '正在测试 WebDAV...');
+    }, I18n.t('正在测试 WebDAV...'));
   }
 
   async function uploadWebdav(config) {
@@ -2122,7 +2122,7 @@
         timeoutMs: 10 * 60 * 1000,
       });
       getEl('settingsResult').innerHTML = renderResult(payload);
-    }, '正在上传 WebDAV 备份...');
+    }, I18n.t('正在上传 WebDAV 备份...'));
   }
 
   function toggleConfigPanel() {
@@ -2151,7 +2151,7 @@
       getEl('configPanel').classList.add('collapsed');
       await renderView(currentView);
     } else {
-      setContent('<div class="card muted">填写服务地址和 Web 登录密码后，直接点击上方功能即可在侧边栏内操作。</div>');
+      setContent(I18n.t('<div class="card muted">填写服务地址和 Web 登录密码后，直接点击上方功能即可在侧边栏内操作。</div>'));
     }
   });
 })();

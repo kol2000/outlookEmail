@@ -29,17 +29,17 @@
         function getRefreshStatusMeta(status) {
             switch (String(status || '').toLowerCase()) {
                 case 'running':
-                    return { label: '刷新中', className: 'running' };
+                    return { label: I18n.t('刷新中'), className: 'running' };
                 case 'success':
-                    return { label: '成功', className: 'success' };
+                    return { label: I18n.t('成功'), className: 'success' };
                 case 'failed':
-                    return { label: '失败', className: 'failed' };
+                    return { label: I18n.t('失败'), className: 'failed' };
                 case 'partial_failed':
-                    return { label: '部分失败', className: 'partial-failed' };
+                    return { label: I18n.t('部分失败'), className: 'partial-failed' };
                 case 'never':
-                    return { label: '从未刷新', className: 'never' };
+                    return { label: I18n.t('从未刷新'), className: 'never' };
                 default:
-                    return { label: '未执行', className: 'never' };
+                    return { label: I18n.t('未执行'), className: 'never' };
             }
         }
 
@@ -55,7 +55,7 @@
             try {
                 source.close();
             } catch (error) {
-                console.warn('关闭 Token 刷新 EventSource 失败:', error);
+                console.warn(I18n.t('关闭 Token 刷新 EventSource 失败:'), error);
             }
             if (refreshModalState.eventSource === source) {
                 refreshModalState.eventSource = null;
@@ -83,28 +83,28 @@
             if (refreshAllBtn) {
                 refreshAllBtn.disabled = refreshModalState.isRunning;
                 refreshAllBtn.textContent = refreshModalState.isRunning
-                    ? (refreshModalState.stopRequested ? '停止中...' : '刷新中...')
-                    : '全量刷新';
+                    ? (refreshModalState.stopRequested ? I18n.t('停止中...') : I18n.t('刷新中...'))
+                    : I18n.t('全量刷新');
             }
 
             const stopRefreshBtn = document.getElementById('stopRefreshBtn');
             if (stopRefreshBtn) {
                 stopRefreshBtn.hidden = !refreshModalState.isRunning;
                 stopRefreshBtn.disabled = !refreshModalState.isRunning || refreshModalState.stopRequested;
-                stopRefreshBtn.textContent = refreshModalState.stopRequested ? '停止中...' : '停止任务';
+                stopRefreshBtn.textContent = refreshModalState.stopRequested ? I18n.t('停止中...') : I18n.t('停止任务');
             }
 
             const retryFailedBtn = document.getElementById('retryFailedBtn');
             if (retryFailedBtn) {
                 retryFailedBtn.disabled = refreshModalState.isRunning;
-                retryFailedBtn.textContent = '重试失败';
+                retryFailedBtn.textContent = I18n.t('重试失败');
             }
 
             syncRefreshBatchControls();
             syncRefreshPaginationControls();
         }
 
-        function updateRefreshLogSummary(text = '暂无任务日志') {
+        function updateRefreshLogSummary(text = I18n.t('暂无任务日志')) {
             const summaryEl = document.getElementById('refreshLogsSummary');
             if (summaryEl) {
                 summaryEl.textContent = text;
@@ -117,7 +117,7 @@
                 return;
             }
             if (!refreshModalState.runtimeLogs.length) {
-                container.innerHTML = '<div class="refresh-log-empty">暂无任务日志</div>';
+                container.innerHTML = I18n.t('<div class="refresh-log-empty">暂无任务日志</div>');
                 return;
             }
 
@@ -135,9 +135,9 @@
         function appendRefreshRuntimeLog(level, title, detail = '') {
             refreshModalState.runtimeLogs.unshift({
                 level: String(level || 'info').toLowerCase(),
-                title: String(title || '').trim() || '任务更新',
+                title: String(title || '').trim() || I18n.t('任务更新'),
                 detail: String(detail || '').trim(),
-                time: new Date().toLocaleTimeString('zh-CN', {
+                time: new Date().toLocaleTimeString(I18n.language, {
                     hour: '2-digit',
                     minute: '2-digit',
                     second: '2-digit',
@@ -187,7 +187,7 @@
         }
 
         function getRefreshPaginationMarkup() {
-            return `
+            return I18n.tpl`
                 <div class="refresh-pagination" aria-label="Token 刷新管理分页">
                     <select id="refreshPageSizeSelect" class="refresh-pagination__select"
                         onchange="handleRefreshPageSizeChange(this.value)">
@@ -273,7 +273,7 @@
 
             const totalPagesText = document.getElementById('refreshTotalPagesText');
             if (totalPagesText) {
-                totalPagesText.textContent = `/ ${totalPages} 页`;
+                totalPagesText.textContent = I18n.tpl`/ ${totalPages} 页`;
             }
 
             const prevBtn = document.getElementById('refreshPrevPageBtn');
@@ -366,7 +366,7 @@
 
         function withRefreshAccountBatchContext(callback) {
             if (typeof withAccountBatchSelectionContext !== 'function') {
-                showToast('批量操作模块尚未加载，请刷新页面后重试', 'error');
+                showToast(I18n.t('批量操作模块尚未加载，请刷新页面后重试'), 'error');
                 return undefined;
             }
             return withAccountBatchSelectionContext(getRefreshAccountBatchContext(), callback);
@@ -378,7 +378,7 @@
             document.querySelectorAll('.refresh-selection-mode-btn').forEach(button => {
                 button.classList.toggle('active', refreshModalState.selectionMode);
                 button.setAttribute('aria-pressed', refreshModalState.selectionMode ? 'true' : 'false');
-                button.title = refreshModalState.selectionMode ? '退出批量选择' : '批量选择';
+                button.title = refreshModalState.selectionMode ? I18n.t('退出批量选择') : I18n.t('批量选择');
             });
             if (!refreshModalState.selectionMode) {
                 refreshModalState.selectionDragState = null;
@@ -579,20 +579,20 @@
             document.querySelectorAll('.refresh-selection-mode-btn').forEach(button => {
                 button.classList.toggle('active', refreshModalState.selectionMode);
                 button.setAttribute('aria-pressed', refreshModalState.selectionMode ? 'true' : 'false');
-                button.title = refreshModalState.selectionMode ? '退出批量选择' : '批量选择';
+                button.title = refreshModalState.selectionMode ? I18n.t('退出批量选择') : I18n.t('批量选择');
             });
 
             const summaryEl = document.getElementById('refreshSelectedSummary');
             if (summaryEl) {
                 summaryEl.textContent = hasSelection
-                    ? (hiddenSelectedCount > 0 ? `已选 ${selectedIds.length} 项，当前筛选外 ${hiddenSelectedCount} 项` : `已选 ${selectedIds.length} 项`)
-                    : '未选择账号';
+                    ? (hiddenSelectedCount > 0 ? I18n.tpl`已选 ${selectedIds.length} 项，当前筛选外 ${hiddenSelectedCount} 项` : I18n.tpl`已选 ${selectedIds.length} 项`)
+                    : I18n.t('未选择账号');
             }
 
             const selectVisibleBtn = document.getElementById('refreshSelectVisibleBtn');
             if (selectVisibleBtn) {
                 selectVisibleBtn.disabled = !hasVisibleItems || refreshModalState.isRunning;
-                selectVisibleBtn.textContent = allVisibleSelected ? '取消当前列表' : '全选当前列表';
+                selectVisibleBtn.textContent = allVisibleSelected ? I18n.t('取消当前列表') : I18n.t('全选当前列表');
             }
 
             const clearSelectionBtn = document.getElementById('refreshClearSelectionBtn');
@@ -603,7 +603,7 @@
             const refreshSelectedBtn = document.getElementById('refreshSelectedBtn');
             if (refreshSelectedBtn) {
                 refreshSelectedBtn.disabled = !hasSelection || refreshModalState.isRunning;
-                refreshSelectedBtn.textContent = hasSelection ? `刷新已选 (${selectedIds.length})` : '刷新已选';
+                refreshSelectedBtn.textContent = hasSelection ? I18n.tpl`刷新已选 (${selectedIds.length})` : I18n.t('刷新已选');
             }
 
             const copySelectedBtn = document.getElementById('refreshCopySelectedBtn');
@@ -611,14 +611,14 @@
                 const isCopying = copySelectedBtn.dataset.loading === 'true';
                 copySelectedBtn.disabled = !hasSelection || refreshModalState.isRunning || isCopying;
                 if (!isCopying) {
-                    copySelectedBtn.textContent = hasSelection ? `复制邮箱+别名 (${selectedIds.length})` : '复制邮箱+别名';
+                    copySelectedBtn.textContent = hasSelection ? I18n.tpl`复制邮箱+别名 (${selectedIds.length})` : I18n.t('复制邮箱+别名');
                 }
             }
 
             const exportSelectedBtn = document.getElementById('refreshExportSelectedBtn');
             if (exportSelectedBtn) {
                 exportSelectedBtn.disabled = !hasSelection || refreshModalState.isRunning;
-                exportSelectedBtn.textContent = hasSelection ? `导出 (${selectedIds.length})` : '导出';
+                exportSelectedBtn.textContent = hasSelection ? I18n.tpl`导出 (${selectedIds.length})` : I18n.t('导出');
             }
 
             const enableForwardingBtn = document.getElementById('refreshEnableForwardingBtn');
@@ -627,20 +627,20 @@
                 || disableForwardingBtn?.dataset.loading === 'true';
             if (enableForwardingBtn) {
                 enableForwardingBtn.disabled = !hasSelection || enableForwardingCount === 0 || refreshModalState.isRunning || isForwardingUpdating;
-                enableForwardingBtn.title = hasSelection && enableForwardingCount === 0 ? '所选账号已全部开启转发' : '';
+                enableForwardingBtn.title = hasSelection && enableForwardingCount === 0 ? I18n.t('所选账号已全部开启转发') : '';
                 if (enableForwardingBtn.dataset.loading !== 'true') {
                     enableForwardingBtn.textContent = enableForwardingCount > 0 && enableForwardingCount !== selectedIds.length
-                        ? `开启转发 (${enableForwardingCount})`
-                        : '开启转发';
+                        ? I18n.tpl`开启转发 (${enableForwardingCount})`
+                        : I18n.t('开启转发');
                 }
             }
             if (disableForwardingBtn) {
                 disableForwardingBtn.disabled = !hasSelection || disableForwardingCount === 0 || refreshModalState.isRunning || isForwardingUpdating;
-                disableForwardingBtn.title = hasSelection && disableForwardingCount === 0 ? '所选账号已全部取消转发' : '';
+                disableForwardingBtn.title = hasSelection && disableForwardingCount === 0 ? I18n.t('所选账号已全部取消转发') : '';
                 if (disableForwardingBtn.dataset.loading !== 'true') {
                     disableForwardingBtn.textContent = disableForwardingCount > 0 && disableForwardingCount !== selectedIds.length
-                        ? `取消转发 (${disableForwardingCount})`
-                        : '取消转发';
+                        ? I18n.tpl`取消转发 (${disableForwardingCount})`
+                        : I18n.t('取消转发');
                 }
             }
 
@@ -649,7 +649,7 @@
                 const isUpdatingProxy = proxyBtn.dataset.loading === 'true';
                 proxyBtn.disabled = !hasSelection || refreshModalState.isRunning || isUpdatingProxy;
                 if (!isUpdatingProxy) {
-                    proxyBtn.textContent = hasSelection ? `代理 (${selectedIds.length})` : '代理';
+                    proxyBtn.textContent = hasSelection ? I18n.tpl`代理 (${selectedIds.length})` : I18n.t('代理');
                 }
             }
 
@@ -673,7 +673,7 @@
                 const isDeleting = deleteSelectedBtn.dataset.loading === 'true';
                 deleteSelectedBtn.disabled = !hasSelection || refreshModalState.isRunning || isDeleting;
                 if (!isDeleting) {
-                    deleteSelectedBtn.textContent = hasSelection ? `删除 (${selectedIds.length})` : '删除';
+                    deleteSelectedBtn.textContent = hasSelection ? I18n.tpl`删除 (${selectedIds.length})` : I18n.t('删除');
                 }
             }
 
@@ -762,12 +762,12 @@
                 ? Math.min(refreshModalState.total, startItem + refreshModalState.items.length - 1)
                 : 0;
             summaryEl.textContent = refreshModalState.total > 0
-                ? `第 ${startItem}-${endItem} 项 / 共 ${refreshModalState.total} 项`
-                : '共 0 项';
+                ? I18n.tpl`第 ${startItem}-${endItem} 项 / 共 ${refreshModalState.total} 项`
+                : I18n.t('共 0 项');
             syncRefreshPaginationControls();
 
             if (!refreshModalState.items.length) {
-                container.innerHTML = '<div class="refresh-account-empty">当前筛选条件下暂无邮箱</div>';
+                container.innerHTML = I18n.t('<div class="refresh-account-empty">当前筛选条件下暂无邮箱</div>');
                 syncRefreshBatchControls();
                 return;
             }
@@ -808,14 +808,14 @@
                         <td class="refresh-account-status-cell">${renderRefreshStatusBadge(item.last_refresh_status, isRunning)}</td>
                         <td class="refresh-account-action">
                             ${canRetry
-                                ? `<button class="btn btn-sm btn-primary" type="button" onclick="retrySingleAccount(${item.id}, '${escapeJs(item.email)}')">重试</button>`
+                                ? I18n.tpl`<button class="btn btn-sm btn-primary" type="button" onclick="retrySingleAccount(${item.id}, '${escapeJs(item.email)}')">重试</button>`
                                 : '<span class="refresh-account-time">-</span>'}
                         </td>
                     </tr>
                 `;
             }).join('');
 
-            container.innerHTML = `
+            container.innerHTML = I18n.tpl`
                 <table class="refresh-account-table">
                     <thead>
                         <tr>
@@ -843,7 +843,7 @@
                     renderRefreshStats(data.stats || {});
                 }
             } catch (error) {
-                console.error('加载刷新统计失败:', error);
+                console.error(I18n.t('加载刷新统计失败:'), error);
             }
         }
 
@@ -859,7 +859,7 @@
                 const response = await fetch(`/api/accounts/refresh-status-list?${params.toString()}`);
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '加载 Token 刷新状态失败');
+                    handleApiError(data, I18n.t('加载 Token 刷新状态失败'));
                     return;
                 }
                 refreshModalState.page = Math.max(1, parseInt(data.page, 10) || refreshModalState.page);
@@ -875,7 +875,7 @@
                 renderRefreshAccountList(data.items || [], data.total || 0);
                 updateRefreshStatusFilterButtons();
             } catch (error) {
-                showToast('加载 Token 刷新状态失败', 'error');
+                showToast(I18n.t('加载 Token 刷新状态失败'), 'error');
             }
         }
 
@@ -947,7 +947,7 @@
             syncRefreshActionButtons();
             renderRefreshRuntimeLogs();
             if (!refreshModalState.runtimeLogs.length) {
-                updateRefreshLogSummary(refreshModalState.isRunning ? '正在执行全量刷新任务' : '暂无任务日志');
+                updateRefreshLogSummary(refreshModalState.isRunning ? I18n.t('正在执行全量刷新任务') : I18n.t('暂无任务日志'));
             }
 
             const searchInput = document.getElementById('refreshSearchInput');
@@ -1054,12 +1054,12 @@
                 return;
             }
 
-            const taskLabel = options.taskLabel || '刷新';
-            const startSummary = options.startSummary || `正在准备${taskLabel}任务`;
-            const startLogTitle = options.startLogTitle || `已提交${taskLabel}任务`;
-            const startLogDetail = options.startLogDetail || '正在建立刷新连接';
-            const requestErrorToast = options.requestErrorToast || `${taskLabel}请求失败`;
-            const emptyToast = options.emptyToast || '没有需要处理的账号';
+            const taskLabel = options.taskLabel || I18n.t('刷新');
+            const startSummary = options.startSummary || I18n.tpl`正在准备${taskLabel}任务`;
+            const startLogTitle = options.startLogTitle || I18n.tpl`已提交${taskLabel}任务`;
+            const startLogDetail = options.startLogDetail || I18n.t('正在建立刷新连接');
+            const requestErrorToast = options.requestErrorToast || I18n.tpl`${taskLabel}请求失败`;
+            const emptyToast = options.emptyToast || I18n.t('没有需要处理的账号');
             const clearSelectionOnComplete = options.clearSelectionOnComplete === true;
 
             beginRefreshTaskRuntime(startSummary, startLogTitle, startLogDetail);
@@ -1090,7 +1090,7 @@
                     try {
                         data = JSON.parse(event.data);
                     } catch (error) {
-                        console.error('解析刷新日志失败:', error);
+                        console.error(I18n.t('解析刷新日志失败:'), error);
                         return;
                     }
 
@@ -1100,9 +1100,9 @@
                         failedCount = Math.max(0, Number(data.failed_count || 0));
                         setRefreshSnapshotCounts(totalCount, successCount, failedCount);
 
-                        const delayText = Number(data.delay_seconds || 0) > 0 ? `，刷新间隔 ${data.delay_seconds} 秒` : '';
-                        updateRefreshLogSummary(totalCount > 0 ? `任务运行中：0 / ${totalCount}` : '本次没有需要处理的账号');
-                        appendRefreshRuntimeLog('info', '任务开始', `本次共需处理 ${totalCount} 个账号${delayText}`);
+                        const delayText = Number(data.delay_seconds || 0) > 0 ? I18n.tpl`，刷新间隔 ${data.delay_seconds} 秒` : '';
+                        updateRefreshLogSummary(totalCount > 0 ? I18n.tpl`任务运行中：0 / ${totalCount}` : I18n.t('本次没有需要处理的账号'));
+                        appendRefreshRuntimeLog('info', I18n.t('任务开始'), I18n.tpl`本次共需处理 ${totalCount} 个账号${delayText}`);
                         return;
                     }
 
@@ -1112,8 +1112,8 @@
                         failedCount = Math.max(0, Number(data.failed_count || failedCount));
                         refreshModalState.currentRefreshingAccountId = data.account_id || null;
                         setRefreshSnapshotCounts(totalCount, successCount, failedCount);
-                        updateRefreshLogSummary(`任务运行中：${Math.max(0, Number(data.current || 0) - 1)} / ${Math.max(totalCount, Number(data.total || 0))}`);
-                        appendRefreshRuntimeLog('info', `开始刷新 ${data.email || '-'}`, `进度 ${data.current || 0}/${data.total || totalCount}`);
+                        updateRefreshLogSummary(I18n.tpl`任务运行中：${Math.max(0, Number(data.current || 0) - 1)} / ${Math.max(totalCount, Number(data.total || 0))}`);
+                        appendRefreshRuntimeLog('info', I18n.tpl`开始刷新 ${data.email || '-'}`, I18n.tpl`进度 ${data.current || 0}/${data.total || totalCount}`);
                         renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
                         return;
                     }
@@ -1124,12 +1124,12 @@
                         failedCount = Math.max(0, Number(data.failed_count || failedCount));
                         refreshModalState.currentRefreshingAccountId = null;
                         setRefreshSnapshotCounts(totalCount, successCount, failedCount);
-                        updateRefreshLogSummary(`任务运行中：${successCount + failedCount} / ${Math.max(totalCount, Number(data.total || 0))}`);
+                        updateRefreshLogSummary(I18n.tpl`任务运行中：${successCount + failedCount} / ${Math.max(totalCount, Number(data.total || 0))}`);
                         applyRefreshResultToListItem(data);
                         appendRefreshRuntimeLog(
                             data.status === 'failed' ? 'error' : 'success',
-                            `${data.email || '-'} ${data.status === 'failed' ? '刷新失败' : '刷新成功'}`,
-                            data.error_message || `累计成功 ${successCount}，失败 ${failedCount}`
+                            `${data.email || '-'} ${data.status === 'failed' ? I18n.t('刷新失败') : I18n.t('刷新成功')}`,
+                            data.error_message || I18n.tpl`累计成功 ${successCount}，失败 ${failedCount}`
                         );
                         renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
                         return;
@@ -1138,8 +1138,8 @@
                     if (data.type === 'delay') {
                         const waitSeconds = Math.max(0, Number(data.seconds || 0));
                         const processedCount = successCount + failedCount;
-                        updateRefreshLogSummary(`任务运行中：${processedCount} / ${totalCount}，等待 ${waitSeconds} 秒`);
-                        appendRefreshRuntimeLog('warn', '等待下一轮刷新', `等待 ${waitSeconds} 秒后继续`);
+                        updateRefreshLogSummary(I18n.tpl`任务运行中：${processedCount} / ${totalCount}，等待 ${waitSeconds} 秒`);
+                        appendRefreshRuntimeLog('warn', I18n.t('等待下一轮刷新'), I18n.tpl`等待 ${waitSeconds} 秒后继续`);
                         return;
                     }
 
@@ -1150,9 +1150,9 @@
                             failedCount = Math.max(0, Number(data.failed_count || failedCount));
                             setRefreshSnapshotCounts(totalCount, successCount, failedCount);
                             finishRefreshTaskRuntime(eventSource);
-                            updateRefreshLogSummary(`任务已停止：已处理 ${data.processed_count || (successCount + failedCount)} / ${totalCount}`);
-                            appendRefreshRuntimeLog('warn', '任务已停止', data.message || `已停止${taskLabel}任务`);
-                            showToast(data.message || `已停止${taskLabel}任务`, 'warning');
+                            updateRefreshLogSummary(I18n.tpl`任务已停止：已处理 ${data.processed_count || (successCount + failedCount)} / ${totalCount}`);
+                            appendRefreshRuntimeLog('warn', I18n.t('任务已停止'), data.message || I18n.tpl`已停止${taskLabel}任务`);
+                            showToast(data.message || I18n.tpl`已停止${taskLabel}任务`, 'warning');
                             await reloadRefreshWorkbenchData();
                         });
                         return;
@@ -1172,18 +1172,18 @@
                             }
 
                             if (totalCount <= 0) {
-                                updateRefreshLogSummary('本次没有需要处理的账号');
-                                appendRefreshRuntimeLog('info', '任务完成', '本次没有需要处理的账号');
+                                updateRefreshLogSummary(I18n.t('本次没有需要处理的账号'));
+                                appendRefreshRuntimeLog('info', I18n.t('任务完成'), I18n.t('本次没有需要处理的账号'));
                                 showToast(emptyToast, 'info');
                             } else {
-                                updateRefreshLogSummary(`任务已完成：${successCount + failedCount} / ${totalCount}`);
+                                updateRefreshLogSummary(I18n.tpl`任务已完成：${successCount + failedCount} / ${totalCount}`);
                                 appendRefreshRuntimeLog(
                                     failedCount > 0 ? 'warn' : 'success',
-                                    '任务完成',
-                                    `成功 ${successCount}，失败 ${failedCount}`
+                                    I18n.t('任务完成'),
+                                    I18n.tpl`成功 ${successCount}，失败 ${failedCount}`
                                 );
                                 showToast(
-                                    `${taskLabel}完成：成功 ${successCount}，失败 ${failedCount}`,
+                                    I18n.tpl`${taskLabel}完成：成功 ${successCount}，失败 ${failedCount}`,
                                     failedCount > 0 ? 'warning' : 'success'
                                 );
                             }
@@ -1196,9 +1196,9 @@
                     if (data.type === 'conflict') {
                         await finalizeRefreshTask(async () => {
                             finishRefreshTaskRuntime(eventSource);
-                            updateRefreshLogSummary('已有任务在执行');
-                            appendRefreshRuntimeLog('warn', '任务未启动', data.message || '已有刷新任务在执行');
-                            showToast(data.message || '已有刷新任务在执行', 'warning');
+                            updateRefreshLogSummary(I18n.t('已有任务在执行'));
+                            appendRefreshRuntimeLog('warn', I18n.t('任务未启动'), data.message || I18n.t('已有刷新任务在执行'));
+                            showToast(data.message || I18n.t('已有刷新任务在执行'), 'warning');
                             await reloadRefreshWorkbenchData();
                         });
                         return;
@@ -1213,16 +1213,16 @@
                                 setRefreshSnapshotCounts(totalCount, successCount, failedCount);
                             }
                             finishRefreshTaskRuntime(eventSource);
-                            updateRefreshLogSummary('任务执行失败');
-                            appendRefreshRuntimeLog('error', '任务执行失败', data.message || `${taskLabel}过程中出现错误`);
-                            showToast(data.message || `${taskLabel}过程中出现错误`, 'error');
+                            updateRefreshLogSummary(I18n.t('任务执行失败'));
+                            appendRefreshRuntimeLog('error', I18n.t('任务执行失败'), data.message || I18n.tpl`${taskLabel}过程中出现错误`);
+                            showToast(data.message || I18n.tpl`${taskLabel}过程中出现错误`, 'error');
                             await reloadRefreshWorkbenchData();
                         });
                     }
                 };
 
                 eventSource.onerror = function (error) {
-                    console.error('Token 刷新 EventSource 错误:', error);
+                    console.error(I18n.t('Token 刷新 EventSource 错误:'), error);
                     if (refreshModalState.eventSource !== eventSource || finished) {
                         return;
                     }
@@ -1232,17 +1232,17 @@
                     finishRefreshTaskRuntime(eventSource);
 
                     if (!wasStopping) {
-                        updateRefreshLogSummary('连接已中断');
-                        appendRefreshRuntimeLog('error', '连接中断', `${taskLabel}日志连接异常断开`);
-                        showToast(`${taskLabel}过程中出现错误`, 'error');
+                        updateRefreshLogSummary(I18n.t('连接已中断'));
+                        appendRefreshRuntimeLog('error', I18n.t('连接中断'), I18n.tpl`${taskLabel}日志连接异常断开`);
+                        showToast(I18n.tpl`${taskLabel}过程中出现错误`, 'error');
                     }
 
                     reloadRefreshWorkbenchData();
                 };
             } catch (error) {
                 finishRefreshTaskRuntime();
-                updateRefreshLogSummary('任务启动失败');
-                appendRefreshRuntimeLog('error', '任务启动失败', error.message || requestErrorToast);
+                updateRefreshLogSummary(I18n.t('任务启动失败'));
+                appendRefreshRuntimeLog('error', I18n.t('任务启动失败'), error.message || requestErrorToast);
                 showToast(requestErrorToast, 'error');
             }
         }
@@ -1254,17 +1254,17 @@
                 return;
             }
 
-            if (!(await showConfirmModal('确定要刷新所有账号的 Token 吗？', { title: '刷新 Token', confirmText: '确认刷新', danger: false }))) {
+            if (!(await showConfirmModal(I18n.t('确定要刷新所有账号的 Token 吗？'), { title: I18n.t('刷新 Token'), confirmText: I18n.t('确认刷新'), danger: false }))) {
                 return;
             }
 
             await startRefreshEventStream('/api/accounts/trigger-scheduled-refresh?force=true', {
-                taskLabel: '全量刷新',
-                startSummary: '正在准备全量刷新任务',
-                startLogTitle: '已提交全量刷新任务',
-                startLogDetail: '正在建立刷新连接',
-                requestErrorToast: '刷新请求失败',
-                emptyToast: '没有可刷新的账号',
+                taskLabel: I18n.t('全量刷新'),
+                startSummary: I18n.t('正在准备全量刷新任务'),
+                startLogTitle: I18n.t('已提交全量刷新任务'),
+                startLogDetail: I18n.t('正在建立刷新连接'),
+                requestErrorToast: I18n.t('刷新请求失败'),
+                emptyToast: I18n.t('没有可刷新的账号'),
             });
         }
 
@@ -1276,8 +1276,8 @@
             const stopBtn = document.getElementById('stopRefreshBtn');
             refreshModalState.stopRequested = true;
             syncRefreshActionButtons();
-            updateRefreshLogSummary('正在请求停止任务');
-            appendRefreshRuntimeLog('warn', '已发送停止请求', '当前账号处理完成后会结束任务');
+            updateRefreshLogSummary(I18n.t('正在请求停止任务'));
+            appendRefreshRuntimeLog('warn', I18n.t('已发送停止请求'), I18n.t('当前账号处理完成后会结束任务'));
 
             try {
                 const response = await fetch('/api/accounts/stop-full-refresh', {
@@ -1287,21 +1287,21 @@
                 if (!response.ok || !data.success) {
                     refreshModalState.stopRequested = false;
                     syncRefreshActionButtons();
-                    updateRefreshLogSummary('停止请求失败');
-                    appendRefreshRuntimeLog('error', '停止请求失败', data.message || '停止任务失败');
-                    showToast(data.message || '停止任务失败', 'error');
+                    updateRefreshLogSummary(I18n.t('停止请求失败'));
+                    appendRefreshRuntimeLog('error', I18n.t('停止请求失败'), data.message || I18n.t('停止任务失败'));
+                    showToast(data.message || I18n.t('停止任务失败'), 'error');
                     return;
                 }
                 if (stopBtn) {
                     stopBtn.blur();
                 }
-                showToast(data.message || '已请求停止刷新任务', 'warning');
+                showToast(data.message || I18n.t('已请求停止刷新任务'), 'warning');
             } catch (error) {
                 refreshModalState.stopRequested = false;
                 syncRefreshActionButtons();
-                updateRefreshLogSummary('停止请求失败');
-                appendRefreshRuntimeLog('error', '停止请求失败', error.message || '停止请求异常');
-                showToast('停止任务失败', 'error');
+                updateRefreshLogSummary(I18n.t('停止请求失败'));
+                appendRefreshRuntimeLog('error', I18n.t('停止请求失败'), error.message || I18n.t('停止请求异常'));
+                showToast(I18n.t('停止任务失败'), 'error');
             }
         }
 
@@ -1312,12 +1312,12 @@
             }
 
             await startRefreshEventStream('/api/accounts/refresh-failed-stream', {
-                taskLabel: '失败重试',
-                startSummary: '正在准备失败重试任务',
-                startLogTitle: '已提交失败重试任务',
-                startLogDetail: '正在建立刷新连接',
-                requestErrorToast: '重试请求失败',
-                emptyToast: '没有需要重试的失败账号',
+                taskLabel: I18n.t('失败重试'),
+                startSummary: I18n.t('正在准备失败重试任务'),
+                startLogTitle: I18n.t('已提交失败重试任务'),
+                startLogDetail: I18n.t('正在建立刷新连接'),
+                requestErrorToast: I18n.t('重试请求失败'),
+                emptyToast: I18n.t('没有需要重试的失败账号'),
             });
         }
 
@@ -1357,10 +1357,10 @@
 
             const accountIds = getSelectedRefreshAccountIds();
             if (!accountIds.length) {
-                showToast('请先选择要刷新的账号', 'error');
+                showToast(I18n.t('请先选择要刷新的账号'), 'error');
                 return;
             }
-            if (!(await showConfirmModal(`确定要刷新选中的 ${accountIds.length} 个账号 Token 吗？`, { title: '刷新已选 Token', confirmText: '确认刷新', danger: false }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要刷新选中的 ${accountIds.length} 个账号 Token 吗？`, { title: I18n.t('刷新已选 Token'), confirmText: I18n.t('确认刷新'), danger: false }))) {
                 return;
             }
 
@@ -1374,14 +1374,14 @@
                 data = await response.json();
 
                 if (!response.ok || !data.success || !data.stream_url) {
-                    handleApiError(data, '批量刷新任务初始化失败');
+                    handleApiError(data, I18n.t('批量刷新任务初始化失败'));
                     return;
                 }
             } catch (error) {
                 handleApiError({
                     success: false,
                     error: {
-                        message: '批量刷新任务初始化失败',
+                        message: I18n.t('批量刷新任务初始化失败'),
                         details: error.message,
                         code: 'NETWORK_ERROR',
                         type: 'Frontend'
@@ -1391,12 +1391,12 @@
             }
 
             await startRefreshEventStream(data.stream_url, {
-                taskLabel: '批量刷新',
-                startSummary: '正在准备批量刷新任务',
-                startLogTitle: '已提交批量刷新任务',
-                startLogDetail: `已选择 ${accountIds.length} 个账号`,
-                requestErrorToast: '批量刷新请求失败',
-                emptyToast: '没有可刷新的选中账号',
+                taskLabel: I18n.t('批量刷新'),
+                startSummary: I18n.t('正在准备批量刷新任务'),
+                startLogTitle: I18n.t('已提交批量刷新任务'),
+                startLogDetail: I18n.tpl`已选择 ${accountIds.length} 个账号`,
+                requestErrorToast: I18n.t('批量刷新请求失败'),
+                emptyToast: I18n.t('没有可刷新的选中账号'),
                 clearSelectionOnComplete: true,
             });
         }
@@ -1409,16 +1409,16 @@
 
             const accountIds = getSelectedRefreshAccountIds();
             if (!accountIds.length) {
-                showToast('请先选择要删除的账号', 'error');
+                showToast(I18n.t('请先选择要删除的账号'), 'error');
                 return;
             }
-            if (!(await showConfirmModal(`确定要删除选中的 ${accountIds.length} 个账号吗？此操作不可恢复。`, { title: '删除已选账号', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除选中的 ${accountIds.length} 个账号吗？此操作不可恢复。`, { title: I18n.t('删除已选账号'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = '删除中...';
+            btn.textContent = I18n.t('删除中...');
 
             try {
                 const response = await fetch('/api/accounts/batch-delete', {
@@ -1429,7 +1429,7 @@
                 const data = await response.json();
 
                 if (!data.success) {
-                    handleApiError(data, '批量删除失败');
+                    handleApiError(data, I18n.t('批量删除失败'));
                     return;
                 }
 
@@ -1439,9 +1439,9 @@
                 if (!refreshModalState.selectedAccountIds.size) {
                     refreshModalState.selectionAnchorId = null;
                 }
-                updateRefreshLogSummary(data.message || `已删除 ${deletedAccounts.length} 个账号`);
-                appendRefreshRuntimeLog('warn', '批量删除账号', data.message || `已删除 ${deletedAccounts.length} 个账号`);
-                showToast(data.message || `已删除 ${deletedAccounts.length} 个账号`, 'success');
+                updateRefreshLogSummary(data.message || I18n.tpl`已删除 ${deletedAccounts.length} 个账号`);
+                appendRefreshRuntimeLog('warn', I18n.t('批量删除账号'), data.message || I18n.tpl`已删除 ${deletedAccounts.length} 个账号`);
+                showToast(data.message || I18n.tpl`已删除 ${deletedAccounts.length} 个账号`, 'success');
 
                 if (typeof invalidateAccountCaches === 'function') {
                     invalidateAccountCaches();
@@ -1454,7 +1454,7 @@
                 }
                 await reloadRefreshWorkbenchData();
             } catch (error) {
-                showToast('批量删除失败', 'error');
+                showToast(I18n.t('批量删除失败'), 'error');
             } finally {
                 btn.dataset.loading = 'false';
                 syncRefreshBatchControls();
@@ -1465,8 +1465,8 @@
         async function retrySingleAccount(accountId, accountEmail) {
             try {
                 refreshModalState.currentRefreshingAccountId = accountId;
-                updateRefreshLogSummary(`正在重试 ${accountEmail}`);
-                appendRefreshRuntimeLog('info', `开始重试 ${accountEmail}`, '单账号重试任务');
+                updateRefreshLogSummary(I18n.tpl`正在重试 ${accountEmail}`);
+                appendRefreshRuntimeLog('info', I18n.tpl`开始重试 ${accountEmail}`, I18n.t('单账号重试任务'));
                 renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
 
                 const response = await fetch(`/api/accounts/${accountId}/retry-refresh`, {
@@ -1475,20 +1475,20 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    appendRefreshRuntimeLog('success', `${accountEmail} 刷新成功`, '单账号重试完成');
-                    updateRefreshLogSummary(`${accountEmail} 重试完成`);
-                    showToast(`${accountEmail} 刷新成功`, 'success');
+                    appendRefreshRuntimeLog('success', I18n.tpl`${accountEmail} 刷新成功`, I18n.t('单账号重试完成'));
+                    updateRefreshLogSummary(I18n.tpl`${accountEmail} 重试完成`);
+                    showToast(I18n.tpl`${accountEmail} 刷新成功`, 'success');
                     await reloadRefreshWorkbenchData();
                 } else {
-                    const errorMessage = data?.error?.message || data?.error || data?.message || '刷新失败';
-                    appendRefreshRuntimeLog('error', `${accountEmail} 刷新失败`, errorMessage);
-                    updateRefreshLogSummary(`${accountEmail} 重试失败`);
-                    handleApiError(data, `${accountEmail} 刷新失败`);
+                    const errorMessage = data?.error?.message || data?.error || data?.message || I18n.t('刷新失败');
+                    appendRefreshRuntimeLog('error', I18n.tpl`${accountEmail} 刷新失败`, errorMessage);
+                    updateRefreshLogSummary(I18n.tpl`${accountEmail} 重试失败`);
+                    handleApiError(data, I18n.tpl`${accountEmail} 刷新失败`);
                 }
             } catch (error) {
-                appendRefreshRuntimeLog('error', `${accountEmail} 刷新失败`, error.message || '刷新请求失败');
-                updateRefreshLogSummary(`${accountEmail} 重试失败`);
-                handleApiError({ success: false, error: { message: '刷新请求失败', details: error.message, code: 'NETWORK_ERROR', type: 'Frontend' } });
+                appendRefreshRuntimeLog('error', I18n.tpl`${accountEmail} 刷新失败`, error.message || I18n.t('刷新请求失败'));
+                updateRefreshLogSummary(I18n.tpl`${accountEmail} 重试失败`);
+                handleApiError({ success: false, error: { message: I18n.t('刷新请求失败'), details: error.message, code: 'NETWORK_ERROR', type: 'Frontend' } });
             } finally {
                 refreshModalState.currentRefreshingAccountId = null;
                 renderRefreshAccountList(refreshModalState.items, refreshModalState.total);
@@ -1507,13 +1507,13 @@
 
                 if (data.success) {
                     if (data.logs.length === 0) {
-                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无转发历史</div>';
+                        listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">暂无转发历史</div>');
                     } else {
                         let html = '';
                         data.logs.forEach(log => {
                             const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
-                            const statusText = log.status === 'success' ? '成功' : '失败';
-                            html += `
+                            const statusText = log.status === 'success' ? I18n.t('成功') : I18n.t('失败');
+                            html += I18n.tpl`
                                 <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
                                     <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
                                         <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
@@ -1538,11 +1538,11 @@
                     }
                     const toggleBtn = document.getElementById('forwardingLogsToggleBtn');
                     if (toggleBtn) {
-                        toggleBtn.textContent = '收起历史';
+                        toggleBtn.textContent = I18n.t('收起历史');
                     }
                 }
             } catch (error) {
-                showToast('加载转发历史失败', 'error');
+                showToast(I18n.t('加载转发历史失败'), 'error');
             }
         }
 
@@ -1558,11 +1558,11 @@
 
                 if (data.success) {
                     if (data.logs.length === 0) {
-                        listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无转发失败记录</div>';
+                        listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">暂无转发失败记录</div>');
                     } else {
                         let html = '';
                         data.logs.forEach(log => {
-                            html += `
+                            html += I18n.tpl`
                                 <div style="padding: 12px; border-bottom: 1px solid #f3d6d6;">
                                     <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
                                         <div style="font-weight: 600;">${escapeHtml(log.account_email)}</div>
@@ -1573,7 +1573,7 @@
                                         <div>邮件 ID：${escapeHtml(log.message_id || '-')}</div>
                                         <div>时间：${formatDateTime(log.created_at)}</div>
                                     </div>
-                                    <div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message || '未知错误')}</div>
+                                    <div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message || I18n.t('未知错误'))}</div>
                                 </div>
                             `;
                         });
@@ -1587,11 +1587,11 @@
                     }
                     const toggleBtn = document.getElementById('failedForwardingLogsToggleBtn');
                     if (toggleBtn) {
-                        toggleBtn.textContent = '收起失败';
+                        toggleBtn.textContent = I18n.t('收起失败');
                     }
                 }
             } catch (error) {
-                showToast('加载转发失败记录失败', 'error');
+                showToast(I18n.t('加载转发失败记录失败'), 'error');
             }
         }
 
@@ -1624,7 +1624,7 @@
             }
             const toggleBtn = document.getElementById('forwardingLogsToggleBtn');
             if (toggleBtn) {
-                toggleBtn.textContent = '查看历史';
+                toggleBtn.textContent = I18n.t('查看历史');
             }
         }
 
@@ -1639,7 +1639,7 @@
             }
             const toggleBtn = document.getElementById('failedForwardingLogsToggleBtn');
             if (toggleBtn) {
-                toggleBtn.textContent = '查看失败';
+                toggleBtn.textContent = I18n.t('查看失败');
             }
         }
 
@@ -1667,12 +1667,12 @@
             const hours = Math.floor(diff / 3600000);
             const days = Math.floor(diff / 86400000);
 
-            if (minutes < 1) return '刚刚';
-            if (minutes < 60) return `${minutes}分钟前`;
-            if (hours < 24) return `${hours}小时前`;
-            if (days < 7) return `${days}天前`;
+            if (minutes < 1) return I18n.t('刚刚');
+            if (minutes < 60) return I18n.tpl`${minutes}分钟前`;
+            if (hours < 24) return I18n.tpl`${hours}小时前`;
+            if (days < 7) return I18n.tpl`${days}天前`;
 
-            return date.toLocaleString('zh-CN', {
+            return date.toLocaleString(I18n.language, {
                 timeZone: getAppTimeZone(),
                 year: 'numeric',
                 month: '2-digit',

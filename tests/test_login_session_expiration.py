@@ -254,11 +254,11 @@ class LoginSessionExpirationTests(unittest.TestCase):
     def test_login_template_exposes_duration_memory_without_password_storage(self):
         source = (ROOT_DIR / 'templates' / 'login.html').read_text(encoding='utf-8')
 
-        self.assertIn('<option value="7">7 天</option>', source)
-        self.assertIn('<option value="30" selected>30 天</option>', source)
-        self.assertIn('<option value="90">90 天</option>', source)
-        self.assertIn('<option value="180">180 天</option>', source)
-        self.assertIn('<option value="permanent">永久有效</option>', source)
+        self.assertIn('<option value="7">{{ tr("7 天") }}</option>', source)
+        self.assertIn('<option value="30" selected>{{ tr("30 天") }}</option>', source)
+        self.assertIn('<option value="90">{{ tr("90 天") }}</option>', source)
+        self.assertIn('<option value="180">{{ tr("180 天") }}</option>', source)
+        self.assertIn('<option value="permanent">{{ tr("永久有效") }}</option>', source)
         self.assertIn("const LOGIN_DURATION_STORAGE_KEY = 'outlook_login_duration_days';", source)
         self.assertIn('localStorage.getItem(LOGIN_DURATION_STORAGE_KEY)', source)
         self.assertIn('localStorage.setItem(LOGIN_DURATION_STORAGE_KEY, value)', source)

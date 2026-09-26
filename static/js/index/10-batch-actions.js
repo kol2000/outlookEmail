@@ -22,7 +22,7 @@
             document.querySelectorAll('.account-selection-mode-btn').forEach(button => {
                 button.classList.toggle('active', accountSelectionMode);
                 button.setAttribute('aria-pressed', accountSelectionMode ? 'true' : 'false');
-                button.title = accountSelectionMode ? '退出批量选择' : '批量选择';
+                button.title = accountSelectionMode ? I18n.t('退出批量选择') : I18n.t('批量选择');
             });
             if (!accountSelectionMode) {
                 accountSelectionDragState = null;
@@ -239,7 +239,7 @@
             const totalAccountCount = Number(accountPaginationState?.total) || loadedAccountCount;
             const isPartialPageLoaded = !isTempContext && totalAccountCount > loadedAccountCount;
             const loadedScopeSuffix = isPartialPageLoaded
-                ? `（已加载 ${loadedAccountCount}/${totalAccountCount}）`
+                ? I18n.tpl`（已加载 ${loadedAccountCount}/${totalAccountCount}）`
                 : '';
 
             if (batchRefreshBtn) batchRefreshBtn.style.display = isTempContext ? 'none' : 'inline-flex';
@@ -254,42 +254,42 @@
             if (batchDeleteBtn) batchDeleteBtn.style.display = 'inline-flex';
             if (selectAllBtn) {
                 const allLoadedChecked = loadedAccountCount > 0 && checked.length === loadedAccountCount;
-                const scopeLabel = isPartialPageLoaded ? '已加载' : '';
+                const scopeLabel = isPartialPageLoaded ? I18n.t('已加载') : '';
                 selectAllBtn.textContent = allLoadedChecked
-                    ? `取消全选${scopeLabel}`
-                    : `全选${scopeLabel}`;
+                    ? I18n.tpl`取消全选${scopeLabel}`
+                    : I18n.tpl`全选${scopeLabel}`;
             }
 
             if (checked.length > 0) {
                 bar.style.display = 'flex';
                 panel?.classList.add('batch-toolbar-active');
                 countSpan.textContent = isTempContext
-                    ? `已选 ${checked.length} 项`
+                    ? I18n.tpl`已选 ${checked.length} 项`
                     : (refreshableChecked.length > 0 && refreshableChecked.length !== checked.length
-                    ? `已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项${loadedScopeSuffix}`
-                    : `已选 ${checked.length} 项${loadedScopeSuffix}`);
+                    ? I18n.tpl`已选 ${checked.length} 项，可刷新 ${refreshableChecked.length} 项${loadedScopeSuffix}`
+                    : I18n.tpl`已选 ${checked.length} 项${loadedScopeSuffix}`);
                 if (batchRefreshBtn) {
                     const isRefreshing = batchRefreshBtn.dataset.loading === 'true';
                     batchRefreshBtn.disabled = refreshableChecked.length === 0 || isRefreshing;
                     batchRefreshBtn.title = refreshableChecked.length === 0
-                        ? '所选账号中没有可刷新的 Outlook 账号'
+                        ? I18n.t('所选账号中没有可刷新的 Outlook 账号')
                         : '';
                     if (!isRefreshing) {
                         batchRefreshBtn.textContent = refreshableChecked.length > 0
-                            ? `刷新 Token${refreshableChecked.length !== checked.length ? ` (${refreshableChecked.length})` : ''}`
-                            : '刷新 Token';
+                            ? I18n.tpl`刷新 Token${refreshableChecked.length !== checked.length ? ` (${refreshableChecked.length})` : ''}`
+                            : I18n.t('刷新 Token');
                     }
                 }
                 if (batchOutlookAutoAuthBtn) {
                     const isQueueing = batchOutlookAutoAuthBtn.dataset.loading === 'true';
                     batchOutlookAutoAuthBtn.disabled = autoAuthChecked.length === 0 || isQueueing;
                     batchOutlookAutoAuthBtn.title = autoAuthChecked.length === 0
-                        ? '所选账号中没有可加入自动授权的 Outlook 账号'
-                        : '将所选 Outlook 账号加入自动化授权队列';
+                        ? I18n.t('所选账号中没有可加入自动授权的 Outlook 账号')
+                        : I18n.t('将所选 Outlook 账号加入自动化授权队列');
                     if (!isQueueing) {
                         batchOutlookAutoAuthBtn.textContent = autoAuthChecked.length > 0
-                            ? `加入自动授权${autoAuthChecked.length !== checked.length ? ` (${autoAuthChecked.length})` : ''}`
-                            : '加入自动授权';
+                            ? I18n.tpl`加入自动授权${autoAuthChecked.length !== checked.length ? ` (${autoAuthChecked.length})` : ''}`
+                            : I18n.t('加入自动授权');
                     }
                 }
                 if (batchCopyBtn) {
@@ -297,48 +297,48 @@
                     batchCopyBtn.disabled = checked.length === 0 || isCopying;
                     if (!isCopying) {
                         batchCopyBtn.textContent = isTempContext
-                            ? (checked.length > 1 ? `复制邮箱 (${checked.length})` : '复制邮箱')
-                            : (checked.length > 1 ? `复制邮箱+别名 (${checked.length})` : '复制邮箱+别名');
+                            ? (checked.length > 1 ? I18n.tpl`复制邮箱 (${checked.length})` : I18n.t('复制邮箱'))
+                            : (checked.length > 1 ? I18n.tpl`复制邮箱+别名 (${checked.length})` : I18n.t('复制邮箱+别名'));
                     }
                 }
                 if (batchExportBtn) {
                     batchExportBtn.disabled = checked.length === 0;
-                    batchExportBtn.textContent = checked.length > 1 ? `导出 (${checked.length})` : '导出';
+                    batchExportBtn.textContent = checked.length > 1 ? I18n.tpl`导出 (${checked.length})` : I18n.t('导出');
                 }
                 if (batchProxyBtn) {
                     const isUpdatingProxy = batchProxyBtn.dataset.loading === 'true';
                     batchProxyBtn.disabled = checked.length === 0 || isUpdatingProxy;
                     if (!isUpdatingProxy) {
-                        batchProxyBtn.textContent = checked.length > 1 ? `代理 (${checked.length})` : '代理';
+                        batchProxyBtn.textContent = checked.length > 1 ? I18n.tpl`代理 (${checked.length})` : I18n.t('代理');
                     }
                 }
                 if (batchEnableForwardingBtn) {
                     batchEnableForwardingBtn.disabled = enableForwardingChecked.length === 0 || isForwardingUpdating;
                     batchEnableForwardingBtn.title = enableForwardingChecked.length === 0
-                        ? '所选账号已全部开启转发'
+                        ? I18n.t('所选账号已全部开启转发')
                         : '';
                     if (batchEnableForwardingBtn.dataset.loading !== 'true') {
                         batchEnableForwardingBtn.textContent = enableForwardingChecked.length > 0
-                            ? `开启转发${enableForwardingChecked.length !== checked.length ? ` (${enableForwardingChecked.length})` : ''}`
-                            : '开启转发';
+                            ? I18n.tpl`开启转发${enableForwardingChecked.length !== checked.length ? ` (${enableForwardingChecked.length})` : ''}`
+                            : I18n.t('开启转发');
                     }
                 }
                 if (batchDisableForwardingBtn) {
                     batchDisableForwardingBtn.disabled = disableForwardingChecked.length === 0 || isForwardingUpdating;
                     batchDisableForwardingBtn.title = disableForwardingChecked.length === 0
-                        ? '所选账号已全部取消转发'
+                        ? I18n.t('所选账号已全部取消转发')
                         : '';
                     if (batchDisableForwardingBtn.dataset.loading !== 'true') {
                         batchDisableForwardingBtn.textContent = disableForwardingChecked.length > 0
-                            ? `取消转发${disableForwardingChecked.length !== checked.length ? ` (${disableForwardingChecked.length})` : ''}`
-                            : '取消转发';
+                            ? I18n.tpl`取消转发${disableForwardingChecked.length !== checked.length ? ` (${disableForwardingChecked.length})` : ''}`
+                            : I18n.t('取消转发');
                     }
                 }
                 if (batchDeleteBtn) {
                     const isDeleting = batchDeleteBtn.dataset.loading === 'true';
                     batchDeleteBtn.disabled = isDeleting;
                     if (!isDeleting) {
-                        batchDeleteBtn.textContent = checked.length > 1 ? `删除 (${checked.length})` : '删除';
+                        batchDeleteBtn.textContent = checked.length > 1 ? I18n.tpl`删除 (${checked.length})` : I18n.t('删除');
                     }
                 }
                 positionAccountBatchActionBar();
@@ -349,48 +349,48 @@
                 if (batchRefreshBtn) {
                     batchRefreshBtn.disabled = false;
                     batchRefreshBtn.dataset.loading = 'false';
-                    batchRefreshBtn.textContent = '刷新 Token';
+                    batchRefreshBtn.textContent = I18n.t('刷新 Token');
                     batchRefreshBtn.title = '';
                 }
                 if (batchOutlookAutoAuthBtn) {
                     batchOutlookAutoAuthBtn.disabled = false;
                     batchOutlookAutoAuthBtn.dataset.loading = 'false';
-                    batchOutlookAutoAuthBtn.textContent = '加入自动授权';
+                    batchOutlookAutoAuthBtn.textContent = I18n.t('加入自动授权');
                     batchOutlookAutoAuthBtn.title = '';
                 }
                 if (batchCopyBtn) {
                     batchCopyBtn.disabled = false;
                     batchCopyBtn.dataset.loading = 'false';
-                    batchCopyBtn.textContent = isTempContext ? '复制邮箱' : '复制邮箱+别名';
+                    batchCopyBtn.textContent = isTempContext ? I18n.t('复制邮箱') : I18n.t('复制邮箱+别名');
                     batchCopyBtn.title = '';
                 }
                 if (batchExportBtn) {
                     batchExportBtn.disabled = false;
-                    batchExportBtn.textContent = '导出';
+                    batchExportBtn.textContent = I18n.t('导出');
                     batchExportBtn.title = '';
                 }
                 if (batchProxyBtn) {
                     batchProxyBtn.disabled = false;
                     batchProxyBtn.dataset.loading = 'false';
-                    batchProxyBtn.textContent = '代理';
+                    batchProxyBtn.textContent = I18n.t('代理');
                     batchProxyBtn.title = '';
                 }
                 if (batchEnableForwardingBtn) {
                     batchEnableForwardingBtn.disabled = false;
                     batchEnableForwardingBtn.dataset.loading = 'false';
-                    batchEnableForwardingBtn.textContent = '开启转发';
+                    batchEnableForwardingBtn.textContent = I18n.t('开启转发');
                     batchEnableForwardingBtn.title = '';
                 }
                 if (batchDisableForwardingBtn) {
                     batchDisableForwardingBtn.disabled = false;
                     batchDisableForwardingBtn.dataset.loading = 'false';
-                    batchDisableForwardingBtn.textContent = '取消转发';
+                    batchDisableForwardingBtn.textContent = I18n.t('取消转发');
                     batchDisableForwardingBtn.title = '';
                 }
                 if (batchDeleteBtn) {
                     batchDeleteBtn.disabled = false;
                     batchDeleteBtn.dataset.loading = 'false';
-                    batchDeleteBtn.textContent = '删除';
+                    batchDeleteBtn.textContent = I18n.t('删除');
                 }
             }
         }
@@ -626,7 +626,7 @@
 
             const selectedAccounts = getAccountBatchSelectedAccounts(context);
             if (!selectedAccounts.length) {
-                showToast('请先选择要复制的邮箱', 'error');
+                showToast(I18n.t('请先选择要复制的邮箱'), 'error');
                 return;
             }
 
@@ -641,16 +641,16 @@
 
             const emailList = Array.from(emailSet);
             if (!emailList.length) {
-                showToast('所选账号没有可复制的邮箱', 'error');
+                showToast(I18n.t('所选账号没有可复制的邮箱'), 'error');
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = '复制中...';
+            btn.textContent = I18n.t('复制中...');
 
             try {
-                await copyTextToClipboard(emailList.join('\n'), `已复制 ${emailList.length} 个邮箱地址`);
+                await copyTextToClipboard(emailList.join('\n'), I18n.tpl`已复制 ${emailList.length} 个邮箱地址`);
             } finally {
                 btn.dataset.loading = 'false';
                 updateAccountBatchControls(context);
@@ -660,13 +660,13 @@
         function exportSelectedAccounts() {
             const context = getCurrentAccountBatchSelectionContext();
             if (context.isTempContext) {
-                showToast('临时邮箱暂不支持选中导出', 'error');
+                showToast(I18n.t('临时邮箱暂不支持选中导出'), 'error');
                 return;
             }
 
             const accountIds = getAccountBatchSelectedIds(context);
             if (!accountIds.length) {
-                showToast('请先选择要导出的邮箱', 'error');
+                showToast(I18n.t('请先选择要导出的邮箱'), 'error');
                 return;
             }
 
@@ -678,7 +678,7 @@
             const btn = getAccountBatchButton(context, 'outlookAutoAuth');
             if (!btn || btn.disabled) return;
             if (context.isTempContext) {
-                showToast('临时邮箱不支持加入自动授权', 'error');
+                showToast(I18n.t('临时邮箱不支持加入自动授权'), 'error');
                 return;
             }
 
@@ -689,19 +689,19 @@
                 .filter(Number.isFinite);
 
             if (!accountIds.length) {
-                showToast('所选账号中没有可加入自动授权的 Outlook 账号', 'error');
+                showToast(I18n.t('所选账号中没有可加入自动授权的 Outlook 账号'), 'error');
                 return;
             }
             if (!(await showConfirmModal(
-                `确定将所选 ${accountIds.length} 个 Outlook 账号加入自动授权队列吗？`,
-                { title: '批量加入自动授权', confirmText: '确认加入', danger: false }
+                I18n.tpl`确定将所选 ${accountIds.length} 个 Outlook 账号加入自动授权队列吗？`,
+                { title: I18n.t('批量加入自动授权'), confirmText: I18n.t('确认加入'), danger: false }
             ))) {
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = '入队中...';
+            btn.textContent = I18n.t('入队中...');
 
             try {
                 const response = await fetch('/api/accounts/batch-outlook-auto-auth', {
@@ -711,16 +711,16 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '批量加入自动授权失败');
+                    handleApiError(data, I18n.t('批量加入自动授权失败'));
                     return;
                 }
-                showToast(data.message || `已处理 ${accountIds.length} 个账号`, 'success');
+                showToast(data.message || I18n.tpl`已处理 ${accountIds.length} 个账号`, 'success');
                 const modal = document.getElementById('outlookUploadAccountsModal');
                 if (modal && modal.classList.contains('show') && typeof loadUploadAccounts === 'function') {
                     loadUploadAccounts();
                 }
             } catch (error) {
-                showToast('批量加入自动授权失败: ' + error.message, 'error');
+                showToast(I18n.t('批量加入自动授权失败: ') + error.message, 'error');
             } finally {
                 btn.dataset.loading = 'false';
                 updateAccountBatchControls(context);
@@ -738,20 +738,20 @@
                 .length;
 
             if (!accountIds.length) {
-                showToast('请先选择要刷新的邮箱', 'error');
+                showToast(I18n.t('请先选择要刷新的邮箱'), 'error');
                 return;
             }
             if (!refreshableCount) {
-                showToast('所选账号中没有可刷新的 Outlook 账号', 'error');
+                showToast(I18n.t('所选账号中没有可刷新的 Outlook 账号'), 'error');
                 return;
             }
-            if (!(await showConfirmModal(`确定要刷新所选 ${accountIds.length} 个邮箱的 Token 吗？`, { title: '批量刷新 Token', confirmText: '确认刷新', danger: false }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要刷新所选 ${accountIds.length} 个邮箱的 Token 吗？`, { title: I18n.t('批量刷新 Token'), confirmText: I18n.t('确认刷新'), danger: false }))) {
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = '刷新中...';
+            btn.textContent = I18n.t('刷新中...');
 
             try {
                 const response = await fetch('/api/accounts/refresh-selected', {
@@ -762,13 +762,13 @@
                 const data = await response.json();
 
                 if (!data.success) {
-                    handleApiError(data, '批量刷新失败');
+                    handleApiError(data, I18n.t('批量刷新失败'));
                     return;
                 }
 
                 const toastType = data.failed_count > 0 || data.skipped_count > 0 ? 'warning' : 'success';
                 showToast(
-                    `批量刷新完成：成功 ${data.success_count}，失败 ${data.failed_count}，跳过 ${data.skipped_count}`,
+                    I18n.tpl`批量刷新完成：成功 ${data.success_count}，失败 ${data.failed_count}，跳过 ${data.skipped_count}`,
                     toastType
                 );
 
@@ -785,7 +785,7 @@
                     await refreshVisibleAccountList(true);
                 }
             } catch (error) {
-                showToast('批量刷新请求失败', 'error');
+                showToast(I18n.t('批量刷新请求失败'), 'error');
             } finally {
                 btn.dataset.loading = 'false';
                 updateAccountBatchControls(context);
@@ -800,25 +800,25 @@
             const selectedAccounts = getAccountBatchSelectedAccounts(context);
             const accountIds = getAccountBatchSelectedIds(context);
             const eligibleCount = selectedAccounts.filter(account => !!account.forward_enabled !== targetEnabled).length;
-            const actionLabel = targetEnabled ? '开启转发' : '取消转发';
-            const loadingLabel = targetEnabled ? '开启中...' : '取消中...';
-            const finishedLabel = targetEnabled ? '已全部开启转发' : '已全部取消转发';
-            const skippedLabel = targetEnabled ? '已开启' : '已取消';
+            const actionLabel = targetEnabled ? I18n.t('开启转发') : I18n.t('取消转发');
+            const loadingLabel = targetEnabled ? I18n.t('开启中...') : I18n.t('取消中...');
+            const finishedLabel = targetEnabled ? I18n.t('已全部开启转发') : I18n.t('已全部取消转发');
+            const skippedLabel = targetEnabled ? I18n.t('已开启') : I18n.t('已取消');
 
             if (!accountIds.length) {
-                showToast(`请先选择要${actionLabel}的邮箱`, 'error');
+                showToast(I18n.tpl`请先选择要${actionLabel}的邮箱`, 'error');
                 return;
             }
             if (!eligibleCount) {
-                showToast(`所选账号${finishedLabel}`, 'error');
+                showToast(I18n.tpl`所选账号${finishedLabel}`, 'error');
                 return;
             }
 
             const skippedCount = accountIds.length - eligibleCount;
             const confirmMessage = skippedCount > 0
-                ? `确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？其中 ${skippedCount} 个${skippedLabel}账号会自动跳过。`
-                : `确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？`;
-            if (!(await showConfirmModal(confirmMessage, { title: actionLabel, confirmText: '确认', danger: false }))) {
+                ? I18n.tpl`确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？其中 ${skippedCount} 个${skippedLabel}账号会自动跳过。`
+                : I18n.tpl`确定要为所选 ${accountIds.length} 个邮箱${actionLabel}吗？`;
+            if (!(await showConfirmModal(confirmMessage, { title: actionLabel, confirmText: I18n.t('确认'), danger: false }))) {
                 return;
             }
 
@@ -838,14 +838,14 @@
                 const data = await response.json();
 
                 if (!data.success) {
-                    handleApiError(data, `批量${actionLabel}失败`);
+                    handleApiError(data, I18n.tpl`批量${actionLabel}失败`);
                     return;
                 }
 
-                showToast(data.message || `已为 ${eligibleCount} 个账号${actionLabel}`, 'success');
+                showToast(data.message || I18n.tpl`已为 ${eligibleCount} 个账号${actionLabel}`, 'success');
                 await afterSuccessfulAccountBatchMutation(context);
             } catch (error) {
-                showToast(`批量${actionLabel}失败`, 'error');
+                showToast(I18n.tpl`批量${actionLabel}失败`, 'error');
             } finally {
                 btn.dataset.loading = 'false';
                 updateAccountBatchControls(context);
@@ -870,18 +870,18 @@
             const isTempContext = !!context.isTempContext;
 
             if (!accountIds.length) {
-                showToast(isTempContext ? '请先选择要删除的临时邮箱' : '请先选择要删除的邮箱', 'error');
+                showToast(isTempContext ? I18n.t('请先选择要删除的临时邮箱') : I18n.t('请先选择要删除的邮箱'), 'error');
                 return;
             }
 
-            const resourceLabel = isTempContext ? '临时邮箱' : '邮箱';
-            if (!(await showConfirmModal(`确定要删除所选 ${accountIds.length} 个${resourceLabel}吗？此操作不可恢复。`, { title: `批量删除${resourceLabel}`, confirmText: '确认删除' }))) {
+            const resourceLabel = isTempContext ? I18n.t('临时邮箱') : I18n.t('邮箱');
+            if (!(await showConfirmModal(I18n.tpl`确定要删除所选 ${accountIds.length} 个${resourceLabel}吗？此操作不可恢复。`, { title: I18n.tpl`批量删除${resourceLabel}`, confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = '删除中...';
+            btn.textContent = I18n.t('删除中...');
 
             try {
                 const response = await fetch(isTempContext ? '/api/temp-emails/batch-delete' : '/api/accounts/batch-delete', {
@@ -894,7 +894,7 @@
                 const data = await response.json();
 
                 if (!data.success) {
-                    handleApiError(data, '批量删除失败');
+                    handleApiError(data, I18n.t('批量删除失败'));
                     return;
                 }
 
@@ -902,10 +902,10 @@
                     ? (isTempContext ? data.deleted_emails : data.deleted_accounts).map(item => item.email).filter(Boolean)
                     : accountEmails;
 
-                showToast(data.message || `已删除 ${deletedEmails.length} 个${resourceLabel}`, 'success');
+                showToast(data.message || I18n.tpl`已删除 ${deletedEmails.length} 个${resourceLabel}`, 'success');
                 await afterSuccessfulAccountBatchMutation(context, { deletedEmails });
             } catch (error) {
-                showToast('批量删除失败', 'error');
+                showToast(I18n.t('批量删除失败'), 'error');
             } finally {
                 btn.dataset.loading = 'false';
                 updateAccountBatchControls(context);
@@ -917,15 +917,15 @@
             const context = setPendingAccountBatchModalContext();
             const accountIds = getAccountBatchSelectedIds(context);
             if (!accountIds.length) {
-                showToast('请先选择要操作的账号', 'error');
+                showToast(I18n.t('请先选择要操作的账号'), 'error');
                 clearPendingAccountBatchModalContext();
                 return;
             }
             batchActionType = type;
-            const resourceLabel = context.isTempContext ? '临时邮箱' : '账号';
+            const resourceLabel = context.isTempContext ? I18n.t('临时邮箱') : I18n.t('账号');
             document.getElementById('batchTagTitle').textContent = type === 'add'
-                ? `批量给${resourceLabel}添加标签`
-                : `批量移除${resourceLabel}标签`;
+                ? I18n.tpl`批量给${resourceLabel}添加标签`
+                : I18n.tpl`批量移除${resourceLabel}标签`;
             showModal('batchTagModal');
 
             // 加载标签选项
@@ -940,20 +940,20 @@
         // 加载标签到下拉框
         async function loadTagsForSelect() {
             const select = document.getElementById('batchTagSelect');
-            select.innerHTML = '<option value="">加载中...</option>';
+            select.innerHTML = I18n.t('<option value="">加载中...</option>');
 
             try {
                 const response = await fetch('/api/tags');
                 const data = await response.json();
                 if (data.success) {
-                    let html = '<option value="">请选择标签...</option>';
+                    let html = I18n.t('<option value="">请选择标签...</option>');
                     data.tags.forEach(tag => {
                         html += `<option value="${tag.id}">${escapeHtml(tag.name)}</option>`;
                     });
                     select.innerHTML = html;
                 }
             } catch (error) {
-                select.innerHTML = '<option value="">加载失败</option>';
+                select.innerHTML = I18n.t('<option value="">加载失败</option>');
             }
         }
 
@@ -962,7 +962,7 @@
             const context = getPendingAccountBatchModalContext();
             const tagId = document.getElementById('batchTagSelect').value;
             if (!tagId) {
-                showToast('请选择标签', 'error');
+                showToast(I18n.t('请选择标签'), 'error');
                 return;
             }
 
@@ -993,10 +993,10 @@
                     hideBatchTagModal();
                     await afterSuccessfulAccountBatchMutation(context);
                 } else {
-                    showToast(data.error || '操作失败', 'error');
+                    showToast(data.error || I18n.t('操作失败'), 'error');
                 }
             } catch (error) {
-                showToast('请求失败', 'error');
+                showToast(I18n.t('请求失败'), 'error');
             } finally {
                 updateAccountBatchControls(context);
             }
@@ -1007,13 +1007,13 @@
         function showBatchProxyModal() {
             const context = setPendingAccountBatchModalContext();
             if (context.isTempContext) {
-                showToast('临时邮箱不支持账号代理设置', 'error');
+                showToast(I18n.t('临时邮箱不支持账号代理设置'), 'error');
                 clearPendingAccountBatchModalContext();
                 return;
             }
             const accountIds = getAccountBatchSelectedIds(context);
             if (!accountIds.length) {
-                showToast('请先选择要设置代理的邮箱', 'error');
+                showToast(I18n.t('请先选择要设置代理的邮箱'), 'error');
                 clearPendingAccountBatchModalContext();
                 return;
             }
@@ -1033,7 +1033,7 @@
             const btn = getAccountBatchButton(context, 'proxy');
             const accountIds = getAccountBatchSelectedIds(context);
             if (!accountIds.length) {
-                showToast('请先选择要设置代理的邮箱', 'error');
+                showToast(I18n.t('请先选择要设置代理的邮箱'), 'error');
                 return;
             }
 
@@ -1042,17 +1042,17 @@
             const fallbackProxyUrl2 = document.getElementById('batchFallbackProxyUrl2').value.trim();
             const isClearing = !proxyUrl && !fallbackProxyUrl1 && !fallbackProxyUrl2;
             const confirmMessage = isClearing
-                ? `确定要清空所选 ${accountIds.length} 个邮箱的账号代理，并改为继承分组代理吗？`
-                : `确定要为所选 ${accountIds.length} 个邮箱设置账号代理吗？`;
+                ? I18n.tpl`确定要清空所选 ${accountIds.length} 个邮箱的账号代理，并改为继承分组代理吗？`
+                : I18n.tpl`确定要为所选 ${accountIds.length} 个邮箱设置账号代理吗？`;
 
-            if (!(await showConfirmModal(confirmMessage, { title: '设置账号代理', confirmText: '确认', danger: false }))) {
+            if (!(await showConfirmModal(confirmMessage, { title: I18n.t('设置账号代理'), confirmText: I18n.t('确认'), danger: false }))) {
                 return;
             }
 
             if (btn) {
                 btn.disabled = true;
                 btn.dataset.loading = 'true';
-                btn.textContent = '设置中...';
+                btn.textContent = I18n.t('设置中...');
             }
 
             try {
@@ -1068,15 +1068,15 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, '批量设置代理失败');
+                    handleApiError(data, I18n.t('批量设置代理失败'));
                     return;
                 }
 
-                showToast(data.message || '账号代理已更新', 'success');
+                showToast(data.message || I18n.t('账号代理已更新'), 'success');
                 hideBatchProxyModal();
                 await afterSuccessfulAccountBatchMutation(context);
             } catch (error) {
-                showToast('批量设置代理失败', 'error');
+                showToast(I18n.t('批量设置代理失败'), 'error');
             } finally {
                 if (btn) {
                     btn.dataset.loading = 'false';
@@ -1091,13 +1091,13 @@
         async function showBatchMoveGroupModal() {
             const context = setPendingAccountBatchModalContext();
             if (context.isTempContext) {
-                showToast('临时邮箱不支持移动分组', 'error');
+                showToast(I18n.t('临时邮箱不支持移动分组'), 'error');
                 clearPendingAccountBatchModalContext();
                 return;
             }
             const accountIds = getAccountBatchSelectedIds(context);
             if (!accountIds.length) {
-                showToast('请先选择要移动的邮箱', 'error');
+                showToast(I18n.t('请先选择要移动的邮箱'), 'error');
                 clearPendingAccountBatchModalContext();
                 return;
             }
@@ -1113,13 +1113,13 @@
         // 加载分组到下拉框
         async function loadGroupsForBatchMove() {
             const select = document.getElementById('batchMoveGroupSelect');
-            select.innerHTML = '<option value="">加载中...</option>';
+            select.innerHTML = I18n.t('<option value="">加载中...</option>');
 
             try {
                 const response = await fetch('/api/groups');
                 const data = await response.json();
                 if (data.success) {
-                    let html = '<option value="">请选择分组...</option>';
+                    let html = I18n.t('<option value="">请选择分组...</option>');
                     const batchMoveTree = typeof buildGroupTree === 'function' ? buildGroupTree(data.groups) : [];
                     const optionGroups = typeof flattenGroupTree === 'function'
                         ? flattenGroupTree(batchMoveTree)
@@ -1133,7 +1133,7 @@
                     select.innerHTML = html;
                 }
             } catch (error) {
-                select.innerHTML = '<option value="">加载失败</option>';
+                select.innerHTML = I18n.t('<option value="">加载失败</option>');
             }
         }
 
@@ -1142,7 +1142,7 @@
             const context = getPendingAccountBatchModalContext();
             const groupId = document.getElementById('batchMoveGroupSelect').value;
             if (!groupId) {
-                showToast('请选择目标分组', 'error');
+                showToast(I18n.t('请选择目标分组'), 'error');
                 return;
             }
 
@@ -1165,10 +1165,10 @@
                     hideBatchMoveGroupModal();
                     await afterSuccessfulAccountBatchMutation(context);
                 } else {
-                    showToast(data.error || '操作失败', 'error');
+                    showToast(data.error || I18n.t('操作失败'), 'error');
                 }
             } catch (error) {
-                showToast('请求失败', 'error');
+                showToast(I18n.t('请求失败'), 'error');
             } finally {
                 updateAccountBatchControls(context);
             }

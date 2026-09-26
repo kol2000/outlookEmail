@@ -8,6 +8,8 @@ Outlook 邮件读取测试工具
 3. Graph API 方式 (graph_utils)
 """
 
+from outlook_web.i18n import translate as _tr
+
 import email
 import imaplib
 from email.header import decode_header
@@ -71,32 +73,32 @@ def decode_header_value(header_value: str) -> str:
 def print_email_info(emails: List[Any], method_name: str):
     """打印邮件信息"""
     if not emails:
-        print(f"❌ {method_name}: 未获取到邮件")
+        print(_tr('❌ {__0__}: 未获取到邮件', f'{method_name}'))
         return
 
-    print(f"✅ {method_name}: 成功获取 {len(emails)} 封邮件\n")
+    print(_tr('✅ {__0__}: 成功获取 {__1__} 封邮件\n', f'{method_name}', f'{len(emails)}'))
 
     for i, msg in enumerate(emails[:5]):  # 只显示前5封
-        print(f"  📧 邮件 {i + 1}:")
+        print(_tr('  📧 邮件 {__0__}:', f'{i + 1}'))
 
         # 根据邮件类型获取信息
         if isinstance(msg, dict):
             # Graph API 返回的是字典
-            subject = msg.get("subject", "无主题")
+            subject = msg.get("subject", _tr('无主题'))
             from_info = msg.get("from", {})
-            sender = from_info.get("emailAddress", {}).get("address", "未知发件人")
-            received_time = msg.get("receivedDateTime", "未知时间")
-            print(f"     主题: {subject}")
-            print(f"     发件人: {sender}")
-            print(f"     时间: {received_time}")
+            sender = from_info.get("emailAddress", {}).get("address", _tr('未知发件人'))
+            received_time = msg.get("receivedDateTime", _tr('未知时间'))
+            print(_tr('     主题: {__0__}', f'{subject}'))
+            print(_tr('     发件人: {__0__}', f'{sender}'))
+            print(_tr('     时间: {__0__}', f'{received_time}'))
         else:
             # IMAP 返回的是 email.message.EmailMessage
-            subject = decode_header_value(msg.get("Subject", "无主题"))
-            sender = decode_header_value(msg.get("From", "未知发件人"))
-            date = msg.get("Date", "未知时间")
-            print(f"     主题: {subject}")
-            print(f"     发件人: {sender}")
-            print(f"     时间: {date}")
+            subject = decode_header_value(msg.get("Subject", _tr('无主题')))
+            sender = decode_header_value(msg.get("From", _tr('未知发件人')))
+            date = msg.get("Date", _tr('未知时间'))
+            print(_tr('     主题: {__0__}', f'{subject}'))
+            print(_tr('     发件人: {__0__}', f'{sender}'))
+            print(_tr('     时间: {__0__}', f'{date}'))
         print()
 
 
@@ -107,7 +109,7 @@ def get_access_token_old(account: str, client_id: str, refresh_token: str) -> Op
     旧版方式获取 access_token
     使用 login.live.com 端点
     """
-    print("  🔑 正在获取 access_token (旧版 login.live.com)...")
+    print(_tr('  🔑 正在获取 access_token (旧版 login.live.com)...'))
 
     try:
         data = {
@@ -119,19 +121,19 @@ def get_access_token_old(account: str, client_id: str, refresh_token: str) -> Op
         ret = requests.post(TOKEN_URL_LIVE, data=data, timeout=30)
 
         if ret.status_code != 200:
-            print(f"  ❌ 获取 access_token 失败: {ret.status_code}")
-            print(f"     响应: {ret.text[:200]}...")
+            print(_tr('  ❌ 获取 access_token 失败: {__0__}', f'{ret.status_code}'))
+            print(_tr('     响应: {__0__}...', f'{ret.text[:200]}'))
             if "User account is found to be in service abuse mode" in ret.text:
-                print("  ⚠️ 账号被封禁!")
+                print(_tr('  ⚠️ 账号被封禁!'))
             return None
 
         access_token = ret.json().get('access_token')
         if access_token:
-            print(f"  ✅ 成功获取 access_token，长度: {len(access_token)}")
+            print(_tr('  ✅ 成功获取 access_token，长度: {__0__}', f'{len(access_token)}'))
         return access_token
 
     except Exception as e:
-        print(f"  ❌ 获取 access_token 异常: {e}")
+        print(_tr('  ❌ 获取 access_token 异常: {__0__}', f'{e}'))
         return None
 
 
@@ -140,7 +142,7 @@ def read_emails_imap_old(account: str, client_id: str, refresh_token: str, top: 
     方式1: 旧版 IMAP 方式读取邮件
     使用 outlook.office365.com 服务器
     """
-    print_separator("方式1: 旧版 IMAP 方式 (outlook.office365.com)")
+    print_separator(_tr('方式1: 旧版 IMAP 方式 (outlook.office365.com)'))
 
     # 1. 获取 access_token
     access_token = get_access_token_old(account, client_id, refresh_token)
@@ -150,13 +152,13 @@ def read_emails_imap_old(account: str, client_id: str, refresh_token: str, top: 
     # 2. 连接 IMAP 服务器
     connection = None
     try:
-        print(f"  📡 正在连接 IMAP 服务器: {IMAP_SERVER_OLD}...")
+        print(_tr('  📡 正在连接 IMAP 服务器: {__0__}...', f'{IMAP_SERVER_OLD}'))
         connection = imaplib.IMAP4_SSL(IMAP_SERVER_OLD, IMAP_PORT, timeout=IMAP_TIMEOUT)
 
         # 3. XOAUTH2 认证
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1"
         connection.authenticate('XOAUTH2', lambda x: auth_string)
-        print("  ✅ IMAP 认证成功")
+        print(_tr('  ✅ IMAP 认证成功'))
 
         # 4. 选择收件箱
         connection.select("INBOX")
@@ -164,11 +166,11 @@ def read_emails_imap_old(account: str, client_id: str, refresh_token: str, top: 
         # 5. 搜索邮件
         status, messages = connection.search(None, 'ALL')
         if status != 'OK' or not messages or not messages[0]:
-            print("  ⚠️ 收件箱为空")
+            print(_tr('  ⚠️ 收件箱为空'))
             return []
 
         message_ids = messages[0].split()
-        print(f"  📬 收件箱共有 {len(message_ids)} 封邮件")
+        print(_tr('  📬 收件箱共有 {__0__} 封邮件', f'{len(message_ids)}'))
 
         # 6. 获取最近的邮件
         recent_ids = message_ids[-top:][::-1]  # 倒序，最新的在前
@@ -182,13 +184,13 @@ def read_emails_imap_old(account: str, client_id: str, refresh_token: str, top: 
                     msg = email.message_from_bytes(raw_email)
                     emails.append(msg)
             except Exception as e:
-                print(f"  ⚠️ 解析邮件 {msg_id} 失败: {e}")
+                print(_tr('  ⚠️ 解析邮件 {__0__} 失败: {__1__}', f'{msg_id}', f'{e}'))
                 continue
 
         return emails
 
     except Exception as e:
-        print(f"  ❌ IMAP 连接失败: {e}")
+        print(_tr('  ❌ IMAP 连接失败: {__0__}', f'{e}'))
         return None
     finally:
         if connection:
@@ -205,7 +207,7 @@ def get_access_token_imap(client_id: str, refresh_token: str) -> Optional[str]:
     新版方式获取 IMAP access_token
     使用 login.microsoftonline.com/consumers 端点，IMAP scope
     """
-    print("  🔑 正在获取 access_token (新版 IMAP scope)...")
+    print(_tr('  🔑 正在获取 access_token (新版 IMAP scope)...'))
 
     try:
         proxies = None
@@ -225,19 +227,19 @@ def get_access_token_imap(client_id: str, refresh_token: str) -> Optional[str]:
         )
 
         if res.status_code != 200:
-            print(f"  ❌ 获取 access_token 失败: {res.status_code}")
-            print(f"     响应: {res.text[:200]}...")
+            print(_tr('  ❌ 获取 access_token 失败: {__0__}', f'{res.status_code}'))
+            print(_tr('     响应: {__0__}...', f'{res.text[:200]}'))
             if "User account is found to be in service abuse mode" in res.text:
-                print("  ⚠️ 账号被封禁!")
+                print(_tr('  ⚠️ 账号被封禁!'))
             return None
 
         access_token = res.json().get("access_token")
         if access_token:
-            print(f"  ✅ 成功获取 access_token，长度: {len(access_token)}")
+            print(_tr('  ✅ 成功获取 access_token，长度: {__0__}', f'{len(access_token)}'))
         return access_token
 
     except Exception as e:
-        print(f"  ❌ 获取 access_token 异常: {e}")
+        print(_tr('  ❌ 获取 access_token 异常: {__0__}', f'{e}'))
         return None
 
 
@@ -246,7 +248,7 @@ def read_emails_imap_new(account: str, client_id: str, refresh_token: str, top: 
     方式2: 新版 IMAP 方式读取邮件
     使用 outlook.live.com 服务器
     """
-    print_separator("方式2: 新版 IMAP 方式 (outlook.live.com)")
+    print_separator(_tr('方式2: 新版 IMAP 方式 (outlook.live.com)'))
 
     # 1. 获取 access_token
     access_token = get_access_token_imap(client_id, refresh_token)
@@ -256,13 +258,13 @@ def read_emails_imap_new(account: str, client_id: str, refresh_token: str, top: 
     # 2. 连接 IMAP 服务器
     connection = None
     try:
-        print(f"  📡 正在连接 IMAP 服务器: {IMAP_SERVER_NEW}...")
+        print(_tr('  📡 正在连接 IMAP 服务器: {__0__}...', f'{IMAP_SERVER_NEW}'))
         connection = imaplib.IMAP4_SSL(IMAP_SERVER_NEW, IMAP_PORT, timeout=IMAP_TIMEOUT)
 
         # 3. XOAUTH2 认证
         auth_string = f"user={account}\1auth=Bearer {access_token}\1\1".encode('utf-8')
         connection.authenticate('XOAUTH2', lambda x: auth_string)
-        print("  ✅ IMAP 认证成功")
+        print(_tr('  ✅ IMAP 认证成功'))
 
         # 4. 选择收件箱
         connection.select('"INBOX"')
@@ -270,11 +272,11 @@ def read_emails_imap_new(account: str, client_id: str, refresh_token: str, top: 
         # 5. 搜索邮件
         status, messages = connection.search(None, 'ALL')
         if status != 'OK' or not messages or not messages[0]:
-            print("  ⚠️ 收件箱为空")
+            print(_tr('  ⚠️ 收件箱为空'))
             return []
 
         message_ids = messages[0].split()
-        print(f"  📬 收件箱共有 {len(message_ids)} 封邮件")
+        print(_tr('  📬 收件箱共有 {__0__} 封邮件', f'{len(message_ids)}'))
 
         # 6. 获取最近的邮件
         recent_ids = message_ids[-top:][::-1]
@@ -288,13 +290,13 @@ def read_emails_imap_new(account: str, client_id: str, refresh_token: str, top: 
                     msg = email.message_from_bytes(raw_email)
                     emails.append(msg)
             except Exception as e:
-                print(f"  ⚠️ 解析邮件 {msg_id} 失败: {e}")
+                print(_tr('  ⚠️ 解析邮件 {__0__} 失败: {__1__}', f'{msg_id}', f'{e}'))
                 continue
 
         return emails
 
     except Exception as e:
-        print(f"  ❌ IMAP 连接失败: {e}")
+        print(_tr('  ❌ IMAP 连接失败: {__0__}', f'{e}'))
         return None
     finally:
         if connection:
@@ -311,7 +313,7 @@ def get_access_token_graph(client_id: str, refresh_token: str) -> Optional[str]:
     Graph API 方式获取 access_token
     使用 login.microsoftonline.com/common 端点，Graph scope
     """
-    print("  🔑 正在获取 access_token (Graph API)...")
+    print(_tr('  🔑 正在获取 access_token (Graph API)...'))
 
     try:
         proxies = None
@@ -331,19 +333,19 @@ def get_access_token_graph(client_id: str, refresh_token: str) -> Optional[str]:
         )
 
         if res.status_code != 200:
-            print(f"  ❌ 获取 access_token 失败: {res.status_code}")
-            print(f"     响应: {res.text[:200]}...")
+            print(_tr('  ❌ 获取 access_token 失败: {__0__}', f'{res.status_code}'))
+            print(_tr('     响应: {__0__}...', f'{res.text[:200]}'))
             if "User account is found to be in service abuse mode" in res.text:
-                print("  ⚠️ 账号被封禁!")
+                print(_tr('  ⚠️ 账号被封禁!'))
             return None
 
         access_token = res.json().get("access_token")
         if access_token:
-            print(f"  ✅ 成功获取 access_token，长度: {len(access_token)}")
+            print(_tr('  ✅ 成功获取 access_token，长度: {__0__}', f'{len(access_token)}'))
         return access_token
 
     except Exception as e:
-        print(f"  ❌ 获取 access_token 异常: {e}")
+        print(_tr('  ❌ 获取 access_token 异常: {__0__}', f'{e}'))
         return None
 
 
@@ -352,7 +354,7 @@ def read_emails_graph(client_id: str, refresh_token: str, top: int = 10) -> Opti
     方式3: Graph API 方式读取邮件
     使用 Microsoft Graph API
     """
-    print_separator("方式3: Graph API 方式")
+    print_separator(_tr('方式3: Graph API 方式'))
 
     # 1. 获取 access_token
     access_token = get_access_token_graph(client_id, refresh_token)
@@ -365,7 +367,7 @@ def read_emails_graph(client_id: str, refresh_token: str, top: int = 10) -> Opti
         if PROXY:
             proxies = {"http": f"http://{PROXY}", "https": f"http://{PROXY}"}
 
-        print("  📡 正在调用 Graph API...")
+        print(_tr('  📡 正在调用 Graph API...'))
 
         url = "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages"
         params = {
@@ -382,19 +384,19 @@ def read_emails_graph(client_id: str, refresh_token: str, top: int = 10) -> Opti
         res = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=30)
 
         if res.status_code != 200:
-            print(f"  ❌ Graph API 调用失败: {res.status_code}")
-            print(f"     响应: {res.text[:200]}...")
+            print(_tr('  ❌ Graph API 调用失败: {__0__}', f'{res.status_code}'))
+            print(_tr('     响应: {__0__}...', f'{res.text[:200]}'))
             return None
 
         data = res.json()
         messages = data.get("value", [])
         total = data.get("@odata.count", len(messages))
-        print(f"  📬 收件箱共有 {total} 封邮件")
+        print(_tr('  📬 收件箱共有 {__0__} 封邮件', f'{total}'))
 
         return messages
 
     except Exception as e:
-        print(f"  ❌ Graph API 调用异常: {e}")
+        print(_tr('  ❌ Graph API 调用异常: {__0__}', f'{e}'))
         return None
 
 
@@ -402,18 +404,18 @@ def read_emails_graph(client_id: str, refresh_token: str, top: int = 10) -> Opti
 
 def main():
     """主函数：使用三种方式读取邮件"""
-    print("\n" + "🚀 Outlook 邮件读取测试工具")
+    print("\n" + _tr('🚀 Outlook 邮件读取测试工具'))
     print("=" * 80)
-    print(f"邮箱: {EMAIL}")
+    print(_tr('邮箱: {__0__}', f'{EMAIL}'))
     print(f"Client ID: {CLIENT_ID}")
-    print(f"Refresh Token: {REFRESH_TOKEN[:30]}..." if REFRESH_TOKEN else "未设置")
-    print(f"代理: {PROXY if PROXY else '无'}")
+    print(f"Refresh Token: {REFRESH_TOKEN[:30]}..." if REFRESH_TOKEN else _tr('未设置'))
+    print(_tr('代理: {__0__}', f"{(PROXY if PROXY else '无')}"))
     print("=" * 80)
 
     # 检查配置
     if EMAIL == "" or REFRESH_TOKEN == "":
-        print("\n⚠️ 请先配置邮箱信息！")
-        print("   修改脚本顶部的 EMAIL, REFRESH_TOKEN, CLIENT_ID 变量")
+        print(_tr('\n⚠️ 请先配置邮箱信息！'))
+        print(_tr('   修改脚本顶部的 EMAIL, REFRESH_TOKEN, CLIENT_ID 变量'))
         return
 
     results = {}
@@ -421,37 +423,37 @@ def main():
     # 方式1: 旧版 IMAP
     try:
         emails_old = read_emails_imap_old(EMAIL, CLIENT_ID, REFRESH_TOKEN, top=10)
-        print_email_info(emails_old, "旧版 IMAP")
-        results["旧版 IMAP"] = "✅ 成功" if emails_old else "❌ 失败"
+        print_email_info(emails_old, _tr('旧版 IMAP'))
+        results[_tr('旧版 IMAP')] = _tr('✅ 成功') if emails_old else _tr('❌ 失败')
     except Exception as e:
-        print(f"❌ 旧版 IMAP 异常: {e}")
-        results["旧版 IMAP"] = f"❌ 异常: {e}"
+        print(_tr('❌ 旧版 IMAP 异常: {__0__}', f'{e}'))
+        results[_tr('旧版 IMAP')] = _tr('❌ 异常: {__0__}', f'{e}')
 
     # 方式2: 新版 IMAP
     try:
         emails_new = read_emails_imap_new(EMAIL, CLIENT_ID, REFRESH_TOKEN, top=10)
-        print_email_info(emails_new, "新版 IMAP")
-        results["新版 IMAP"] = "✅ 成功" if emails_new else "❌ 失败"
+        print_email_info(emails_new, _tr('新版 IMAP'))
+        results[_tr('新版 IMAP')] = _tr('✅ 成功') if emails_new else _tr('❌ 失败')
     except Exception as e:
-        print(f"❌ 新版 IMAP 异常: {e}")
-        results["新版 IMAP"] = f"❌ 异常: {e}"
+        print(_tr('❌ 新版 IMAP 异常: {__0__}', f'{e}'))
+        results[_tr('新版 IMAP')] = _tr('❌ 异常: {__0__}', f'{e}')
 
     # 方式3: Graph API
     try:
         emails_graph = read_emails_graph(CLIENT_ID, REFRESH_TOKEN, top=10)
         print_email_info(emails_graph, "Graph API")
-        results["Graph API"] = "✅ 成功" if emails_graph else "❌ 失败"
+        results["Graph API"] = _tr('✅ 成功') if emails_graph else _tr('❌ 失败')
     except Exception as e:
-        print(f"❌ Graph API 异常: {e}")
-        results["Graph API"] = f"❌ 异常: {e}"
+        print(_tr('❌ Graph API 异常: {__0__}', f'{e}'))
+        results["Graph API"] = _tr('❌ 异常: {__0__}', f'{e}')
 
     # 打印汇总
-    print_separator("测试结果汇总")
+    print_separator(_tr('测试结果汇总'))
     for method, result in results.items():
         print(f"  {method}: {result}")
 
     print("\n" + "=" * 80)
-    print("测试完成!")
+    print(_tr('测试完成!'))
     print("=" * 80 + "\n")
 
 

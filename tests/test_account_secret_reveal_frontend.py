@@ -20,8 +20,8 @@ class AccountSecretRevealFrontendTests(unittest.TestCase):
 
         self.assertIn("toggleEditSecretVisibility('editPassword'", html)
         self.assertIn("toggleEditSecretVisibility('editImapPassword'", html)
-        self.assertIn('aria-label="显示密码"', html)
-        self.assertIn('aria-label="显示 IMAP 密码"', html)
+        self.assertIn('aria-label="{{ tr("显示密码") }}"', html)
+        self.assertIn('aria-label="{{ tr("显示 IMAP 密码") }}"', html)
         self.assertNotIn('aria-label="验证显示密码"', html)
         self.assertNotIn('aria-label="验证显示 IMAP 密码"', html)
 
@@ -46,7 +46,7 @@ class AccountSecretRevealFrontendTests(unittest.TestCase):
         source = SETTINGS_JS_PATH.read_text(encoding='utf-8')
 
         self.assertIn(
-            "resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', '可选')",
+            "resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', I18n.t('可选'))",
             source,
         )
         self.assertIn(

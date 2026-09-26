@@ -106,8 +106,8 @@
             }
             if (summary) {
                 summary.textContent = selectedIds.length
-                    ? `已选 ${selectedIds.length} 项`
-                    : '未选择账号';
+                    ? I18n.tpl`已选 ${selectedIds.length} 项`
+                    : I18n.t('未选择账号');
             }
             if (selectAll) {
                 selectAll.checked = visibleIds.length > 0 && visibleSelectedCount === visibleIds.length;
@@ -116,14 +116,14 @@
             if (authorizeBtn && authorizeBtn.dataset.loading !== 'true') {
                 authorizeBtn.disabled = selectedIds.length === 0 || graphAuthState.running || uploadAccountsState.batchAuthRunning;
                 authorizeBtn.textContent = selectedIds.length > 1
-                    ? `批量授权 (${selectedIds.length})`
-                    : '批量授权';
+                    ? I18n.tpl`批量授权 (${selectedIds.length})`
+                    : I18n.t('批量授权');
             }
             if (deleteBtn && deleteBtn.dataset.loading !== 'true') {
                 deleteBtn.disabled = selectedIds.length === 0 || graphAuthState.running || uploadAccountsState.batchAuthRunning;
                 deleteBtn.textContent = selectedIds.length > 1
-                    ? `批量删除 (${selectedIds.length})`
-                    : '批量删除';
+                    ? I18n.tpl`批量删除 (${selectedIds.length})`
+                    : I18n.t('批量删除');
             }
 
             visibleCheckboxes.forEach(cb => {
@@ -194,7 +194,7 @@
             const tags = typeof allTags !== 'undefined' && Array.isArray(allTags) ? allTags : [];
             const selectedItems = selectedIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
             if (typeof updateTagFilterSummaryText === 'function') {
-                updateTagFilterSummaryText(summaryEl, countEl, selectedItems, '未选择标签');
+                updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t('未选择标签'));
             }
         }
 
@@ -245,8 +245,8 @@
 
         function formatUploadAccountAuthorized(isAuthorized) {
             return isAuthorized
-                ? '<span class="upload-accounts-badge upload-accounts-badge--yes">已授权</span>'
-                : '<span class="upload-accounts-badge upload-accounts-badge--no">未授权</span>';
+                ? I18n.t('<span class="upload-accounts-badge upload-accounts-badge--yes">已授权</span>')
+                : I18n.t('<span class="upload-accounts-badge upload-accounts-badge--no">未授权</span>');
         }
 
         function formatUploadAccountTags(tags) {
@@ -306,7 +306,7 @@
             }
             const plainPassword = typeof item.password === 'string' ? item.password : '';
             const maskedPassword = getUploadAccountPasswordMask(item.password_length || plainPassword.length);
-            return `
+            return I18n.tpl`
                 <span class="upload-accounts-password" data-password-visible="false">
                     <span class="upload-accounts-password-text upload-accounts-password-mask">${escapeHtml(maskedPassword)}</span>
                     <button class="upload-accounts-password-toggle" type="button"
@@ -323,12 +323,12 @@
             if (!normalizedProxy) return '';
             try {
                 const parsedProxy = new URL(normalizedProxy);
-                if (!parsedProxy.host) return '已配置代理';
+                if (!parsedProxy.host) return I18n.t('已配置代理');
                 parsedProxy.username = '';
                 parsedProxy.password = '';
                 return `${parsedProxy.protocol}//${parsedProxy.host}`;
             } catch (error) {
-                return '已配置代理';
+                return I18n.t('已配置代理');
             }
         }
 
@@ -344,7 +344,7 @@
             if (!tbody) return;
 
             if (!Array.isArray(items) || items.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="upload-accounts-empty">暂无数据</td></tr>';
+                tbody.innerHTML = I18n.t('<tr><td colspan="9" class="upload-accounts-empty">暂无数据</td></tr>');
                 syncUploadAccountSelectionUi();
                 return;
             }
@@ -358,7 +358,7 @@
                 const selectDisabled = uploadAccountsState.editingRowId !== null
                     || graphAuthState.running
                     || uploadAccountsState.batchAuthRunning;
-                const checkboxCell = `
+                const checkboxCell = I18n.tpl`
                     <td>
                         <input type="checkbox"
                             class="upload-account-select-checkbox"
@@ -371,7 +371,7 @@
 
                 if (isEditing) {
                     // 编辑状态
-                    return `
+                    return I18n.tpl`
                         <tr class="upload-accounts-row--editing" data-editing-id="${escapeHtml(String(itemId))}">
                             ${checkboxCell}
                             <td class="upload-accounts-cell-mono upload-accounts-cell-right">
@@ -403,13 +403,13 @@
                     `;
                 } else {
                     // 正常显示状态
-                    const authBtnLabel = item.is_authorized ? '重新授权' : '授权';
+                    const authBtnLabel = item.is_authorized ? I18n.t('重新授权') : I18n.t('授权');
                     const editDisabled = uploadAccountsState.editingRowId !== null
                         || graphAuthState.running
                         || uploadAccountsState.batchAuthRunning;
                     const authBtn = `<button class="btn btn-sm btn-primary" type="button" style="width: 80px;" ${editDisabled ? 'disabled' : ''} data-graph-auth-account-id="${escapeHtml(String(itemId))}" data-graph-auth-email="${escapeHtml(itemEmail)}" data-graph-auth-password-length="${escapeHtml(String(item.password_length || 0))}">${authBtnLabel}</button>`;
-                    const editBtn = `<button class="btn btn-sm btn-secondary" type="button" ${editDisabled ? 'disabled' : ''} onclick="enterRowEditMode(${escapeHtml(String(itemId))}, '${escapeHtml(itemEmail)}', '${escapeHtml(itemRemark)}')">修改</button>`;
-                    const deleteBtn = `<button class="btn btn-sm btn-danger" type="button" ${editDisabled ? 'disabled' : ''} data-delete-account-id="${escapeHtml(String(itemId))}" data-delete-account-email="${escapeHtml(itemEmail)}">删除</button>`;
+                    const editBtn = I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" ${editDisabled ? 'disabled' : ''} onclick="enterRowEditMode(${escapeHtml(String(itemId))}, '${escapeHtml(itemEmail)}', '${escapeHtml(itemRemark)}')">修改</button>`;
+                    const deleteBtn = I18n.tpl`<button class="btn btn-sm btn-danger" type="button" ${editDisabled ? 'disabled' : ''} data-delete-account-id="${escapeHtml(String(itemId))}" data-delete-account-email="${escapeHtml(itemEmail)}">删除</button>`;
                     return `
                         <tr>
                             ${checkboxCell}
@@ -431,11 +431,11 @@
         function syncUploadAccountsPagination() {
             const info = document.getElementById('uploadAccountsPageInfo');
             if (info) {
-                info.textContent = `共 ${uploadAccountsState.total} 条`;
+                info.textContent = I18n.tpl`共 ${uploadAccountsState.total} 条`;
             }
             const pageText = document.getElementById('uploadAccountsPageText');
             if (pageText) {
-                pageText.textContent = `第 ${uploadAccountsState.page} / ${uploadAccountsState.totalPages} 页`;
+                pageText.textContent = I18n.tpl`第 ${uploadAccountsState.page} / ${uploadAccountsState.totalPages} 页`;
             }
             const prevBtn = document.getElementById('uploadAccountsPrevBtn');
             const nextBtn = document.getElementById('uploadAccountsNextBtn');
@@ -461,8 +461,8 @@
             wrapper.dataset.passwordVisible = isVisible ? 'false' : 'true';
             textEl.textContent = isVisible ? maskedPassword : plainPassword;
             textEl.classList.toggle('upload-accounts-password-mask', isVisible);
-            button.setAttribute('aria-label', isVisible ? '显示密码' : '隐藏密码');
-            button.setAttribute('title', isVisible ? '显示密码' : '隐藏密码');
+            button.setAttribute('aria-label', isVisible ? I18n.t('显示密码') : I18n.t('隐藏密码'));
+            button.setAttribute('title', isVisible ? I18n.t('显示密码') : I18n.t('隐藏密码'));
             button.innerHTML = getUploadAccountEyeIcon(isVisible);
         }
 
@@ -476,7 +476,7 @@
             const requestSequence = ++uploadAccountsState.requestSequence;
             const tbody = document.getElementById('uploadAccountsTableBody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="9" class="upload-accounts-empty">正在加载...</td></tr>';
+                tbody.innerHTML = I18n.t('<tr><td colspan="9" class="upload-accounts-empty">正在加载...</td></tr>');
             }
             uploadAccountsState.loading = true;
             syncUploadAccountsPagination();
@@ -505,13 +505,13 @@
                 } else {
                     uploadAccountsState.currentData = [];
                     renderUploadAccountsRows([]);
-                    handleApiError(data, '加载 Outlook 上传账号失败');
+                    handleApiError(data, I18n.t('加载 Outlook 上传账号失败'));
                 }
             } catch (error) {
                 if (requestSequence !== uploadAccountsState.requestSequence) return;
                 uploadAccountsState.currentData = [];
                 renderUploadAccountsRows([]);
-                showToast('加载 Outlook 上传账号失败: ' + error.message, 'error');
+                showToast(I18n.t('加载 Outlook 上传账号失败: ') + error.message, 'error');
             } finally {
                 if (requestSequence === uploadAccountsState.requestSequence) {
                     uploadAccountsState.loading = false;
@@ -663,11 +663,11 @@
             const tagIds = getAddUploadAccountSelectedTagIds();
 
             if (!emailPrefix) {
-                showToast('请输入邮箱前缀', 'error');
+                showToast(I18n.t('请输入邮箱前缀'), 'error');
                 return;
             }
             if (!password) {
-                showToast('请输入密码', 'error');
+                showToast(I18n.t('请输入密码'), 'error');
                 return;
             }
 
@@ -691,14 +691,14 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('添加成功', 'success');
+                    showToast(I18n.t('添加成功'), 'success');
                     clearAddAccountForm();
                     reloadUploadAccounts();
                 } else {
-                    handleApiError(data, '添加失败');
+                    handleApiError(data, I18n.t('添加失败'));
                 }
             } catch (error) {
-                showToast('添加失败: ' + error.message, 'error');
+                showToast(I18n.t('添加失败: ') + error.message, 'error');
             } finally {
                 if (btn) btn.disabled = false;
             }
@@ -708,7 +708,7 @@
 
         function enterRowEditMode(accountId, email, remark) {
             if (uploadAccountsState.editingRowId !== null) {
-                showToast('请先完成当前编辑', 'warning');
+                showToast(I18n.t('请先完成当前编辑'), 'warning');
                 return;
             }
             uploadAccountsState.editingRowId = accountId;
@@ -732,11 +732,11 @@
             const remark = document.getElementById(`edit-remark-${accountId}`)?.value.trim();
 
             if (!accountId) {
-                showToast('未选中账号，无法修改', 'error');
+                showToast(I18n.t('未选中账号，无法修改'), 'error');
                 return;
             }
             if (!email) {
-                showToast('请输入邮箱', 'error');
+                showToast(I18n.t('请输入邮箱'), 'error');
                 return;
             }
 
@@ -758,14 +758,14 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('修改成功', 'success');
+                    showToast(I18n.t('修改成功'), 'success');
                     uploadAccountsState.editingRowId = null;
                     reloadUploadAccounts();
                 } else {
-                    handleApiError(data, '修改失败');
+                    handleApiError(data, I18n.t('修改失败'));
                 }
             } catch (error) {
-                showToast('修改失败: ' + error.message, 'error');
+                showToast(I18n.t('修改失败: ') + error.message, 'error');
             } finally {
                 if (saveBtn) saveBtn.disabled = false;
             }
@@ -773,9 +773,9 @@
 
         // ==================== Outlook 自动 OAuth 授权（GraphAPI / IMAP） ====================
 
-        const GRAPH_AUTH_LOG_PLACEHOLDER = '点击账号「授权 / 重新授权」后，授权日志会显示在这里。';
+        const GRAPH_AUTH_LOG_PLACEHOLDER = I18n.t('点击账号「授权 / 重新授权」后，授权日志会显示在这里。');
         const GRAPH_AUTH_MODE_LABELS = {
-            imap: 'IMAP授权',
+            imap: I18n.t('IMAP授权'),
             graph: 'GraphAPI',
         };
 
@@ -797,7 +797,7 @@
             graphAuthState.running = false;
             const logEl = document.getElementById('graphAuthLog');
             if (logEl) logEl.textContent = GRAPH_AUTH_LOG_PLACEHOLDER;
-            setGraphAuthStatus('idle', '空闲');
+            setGraphAuthStatus('idle', I18n.t('空闲'));
         }
 
         function setUploadAuthButtonsDisabled(disabled) {
@@ -815,8 +815,8 @@
             if (!next) {
                 uploadAccountsState.batchAuthRunning = false;
                 appendGraphAuthLog('');
-                appendGraphAuthLog('批量授权队列已完成');
-                setGraphAuthStatus('success', '批量完成');
+                appendGraphAuthLog(I18n.t('批量授权队列已完成'));
+                setGraphAuthStatus('success', I18n.t('批量完成'));
                 const authorizeBtn = document.getElementById('batchAuthorizeUploadAccountsBtn');
                 if (authorizeBtn) {
                     authorizeBtn.dataset.loading = 'false';
@@ -827,7 +827,7 @@
             }
             const remaining = uploadAccountsState.batchAuthQueue.length;
             appendGraphAuthLog('');
-            appendGraphAuthLog(`批量授权：开始处理 ${next.email || next.accountId}（剩余 ${remaining}）`);
+            appendGraphAuthLog(I18n.tpl`批量授权：开始处理 ${next.email || next.accountId}（剩余 ${remaining}）`);
             startGraphAuthForAccount(next.accountId, next.email, next.passwordLength, { fromBatch: true });
         }
 
@@ -835,7 +835,7 @@
             const logEl = document.getElementById('graphAuthLog');
             if (!logEl) return;
 
-            const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            const timestamp = new Date().toLocaleTimeString(I18n.language, { hour12: false });
             logEl.textContent += `\n[${timestamp}] ${message}`;
             logEl.scrollTop = logEl.scrollHeight;
         }
@@ -853,11 +853,11 @@
         async function startGraphAuthForAccount(accountId, email, passwordLength, options = {}) {
             const fromBatch = !!options.fromBatch;
             if (graphAuthState.running) {
-                showToast('正在授权中，请等待当前任务完成', 'warning');
+                showToast(I18n.t('正在授权中，请等待当前任务完成'), 'warning');
                 return;
             }
             if (!accountId) {
-                showToast('请选择要授权的账号', 'error');
+                showToast(I18n.t('请选择要授权的账号'), 'error');
                 return;
             }
 
@@ -874,13 +874,13 @@
             const authModeLabel = getGraphAuthModeLabel(authMode);
 
             setUploadAuthButtonsDisabled(true);
-            setGraphAuthStatus('running', fromBatch ? '批量授权中' : '授权中');
+            setGraphAuthStatus('running', fromBatch ? I18n.t('批量授权中') : I18n.t('授权中'));
 
             const logEl = document.getElementById('graphAuthLog');
             if (logEl && !fromBatch) {
-                logEl.textContent = `开始 ${authModeLabel} OAuth 授权流程...`;
-            } else if (logEl && fromBatch && !String(logEl.textContent || '').includes('批量授权')) {
-                logEl.textContent = `开始批量 ${authModeLabel} OAuth 授权...`;
+                logEl.textContent = I18n.tpl`开始 ${authModeLabel} OAuth 授权流程...`;
+            } else if (logEl && fromBatch && !String(logEl.textContent || '').includes(I18n.t('批量授权'))) {
+                logEl.textContent = I18n.tpl`开始批量 ${authModeLabel} OAuth 授权...`;
             }
             const startTime = Date.now();
 
@@ -897,11 +897,11 @@
             };
 
             try {
-                appendGraphAuthLog('邮箱: ' + email);
-                appendGraphAuthLog('密码: ' + '*'.repeat(Math.max(6, graphAuthState.secretLength)));
-                appendGraphAuthLog('授权模式: ' + authModeLabel);
+                appendGraphAuthLog(I18n.t('邮箱: ') + email);
+                appendGraphAuthLog(I18n.t('密码: ') + '*'.repeat(Math.max(6, graphAuthState.secretLength)));
+                appendGraphAuthLog(I18n.t('授权模式: ') + authModeLabel);
                 appendGraphAuthLog('');
-                appendGraphAuthLog('正在创建授权任务...');
+                appendGraphAuthLog(I18n.t('正在创建授权任务...'));
                 appendGraphAuthLog('');
 
                 const response = await fetch('/api/oauth/graph-extract-token', {
@@ -917,13 +917,13 @@
 
                 const data = await response.json();
                 if (!response.ok || !data.success || !data.stream_url) {
-                    appendGraphAuthLog('创建授权任务失败: ' + (data.error || '未知错误'));
-                    showToast(authModeLabel + ' 授权失败: ' + (data.error || '未知错误'), 'error');
-                    finishAuth('error', '失败');
+                    appendGraphAuthLog(I18n.t('创建授权任务失败: ') + (data.error || I18n.t('未知错误')));
+                    showToast(authModeLabel + I18n.t(' 授权失败: ') + (data.error || I18n.t('未知错误')), 'error');
+                    finishAuth('error', I18n.t('失败'));
                     return;
                 }
 
-                appendGraphAuthLog('授权任务已创建，等待后端日志...');
+                appendGraphAuthLog(I18n.t('授权任务已创建，等待后端日志...'));
                 graphAuthState.eventSource = new EventSource(data.stream_url);
                 graphAuthState.eventSource.onmessage = (event) => {
                     let payload;
@@ -940,26 +940,26 @@
                         appendGraphAuthLog(payload.message || '');
                     } else if (payload.type === 'success') {
                         appendGraphAuthLog('');
-                        appendGraphAuthLog('授权成功，已保存到正式账号');
+                        appendGraphAuthLog(I18n.t('授权成功，已保存到正式账号'));
                         appendGraphAuthLog('Client ID: ' + (payload.client_id || '-'));
-                        appendGraphAuthLog(payload.created ? '保存方式: 新增正式账号' : '保存方式: 更新已有正式账号');
-                        showToast(getGraphAuthModeLabel(payload.mode || authMode) + ' 授权成功，已保存到正式账号', 'success');
+                        appendGraphAuthLog(payload.created ? I18n.t('保存方式: 新增正式账号') : I18n.t('保存方式: 更新已有正式账号'));
+                        showToast(getGraphAuthModeLabel(payload.mode || authMode) + I18n.t(' 授权成功，已保存到正式账号'), 'success');
                     } else if (payload.type === 'error') {
                         appendGraphAuthLog('');
-                        appendGraphAuthLog('授权失败: ' + (payload.message || '未知错误'));
+                        appendGraphAuthLog(I18n.t('授权失败: ') + (payload.message || I18n.t('未知错误')));
                         if (payload.details) {
                             appendGraphAuthLog(payload.details);
                         }
-                        showToast(getGraphAuthModeLabel(payload.mode || authMode) + ' 授权失败: ' + (payload.message || '未知错误'), 'error');
+                        showToast(getGraphAuthModeLabel(payload.mode || authMode) + I18n.t(' 授权失败: ') + (payload.message || I18n.t('未知错误')), 'error');
                     } else if (payload.type === 'complete') {
                         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
                         appendGraphAuthLog('');
-                        appendGraphAuthLog('耗时: ' + elapsed + ' 秒');
+                        appendGraphAuthLog(I18n.t('耗时: ') + elapsed + I18n.t(' 秒'));
                         if (graphAuthState.eventSource) {
                             graphAuthState.eventSource.close();
                             graphAuthState.eventSource = null;
                         }
-                        finishAuth(payload.success ? 'success' : 'error', payload.success ? '成功' : '失败');
+                        finishAuth(payload.success ? 'success' : 'error', payload.success ? I18n.t('成功') : I18n.t('失败'));
                         if (payload.success && !fromBatch && !uploadAccountsState.batchAuthRunning) {
                             setTimeout(() => {
                                 loadUploadAccounts();
@@ -968,19 +968,19 @@
                     }
                 };
                 graphAuthState.eventSource.onerror = () => {
-                    appendGraphAuthLog('授权日志连接中断');
+                    appendGraphAuthLog(I18n.t('授权日志连接中断'));
                     if (graphAuthState.eventSource) {
                         graphAuthState.eventSource.close();
                         graphAuthState.eventSource = null;
                     }
-                    finishAuth('error', '连接中断');
+                    finishAuth('error', I18n.t('连接中断'));
                 };
             } catch (error) {
                 appendGraphAuthLog('');
-                appendGraphAuthLog('异常信息: ' + error.message);
+                appendGraphAuthLog(I18n.t('异常信息: ') + error.message);
 
-                showToast('授权请求失败: ' + error.message, 'error');
-                finishAuth('error', '失败');
+                showToast(I18n.t('授权请求失败: ') + error.message, 'error');
+                finishAuth('error', I18n.t('失败'));
             }
         }
 
@@ -988,7 +988,7 @@
             const button = event.target.closest('[data-graph-auth-account-id]');
             if (!button) return;
             if (uploadAccountsState.batchAuthRunning) {
-                showToast('批量授权进行中，请等待完成', 'warning');
+                showToast(I18n.t('批量授权进行中，请等待完成'), 'warning');
                 return;
             }
             startGraphAuthForAccount(
@@ -1000,12 +1000,12 @@
 
         async function authorizeSelectedUploadAccounts() {
             if (graphAuthState.running || uploadAccountsState.batchAuthRunning) {
-                showToast('正在授权中，请等待当前任务完成', 'warning');
+                showToast(I18n.t('正在授权中，请等待当前任务完成'), 'warning');
                 return;
             }
             const selectedIds = getSelectedUploadAccountIds();
             if (!selectedIds.length) {
-                showToast('请先选择要授权的账号', 'error');
+                showToast(I18n.t('请先选择要授权的账号'), 'error');
                 return;
             }
 
@@ -1019,8 +1019,8 @@
             });
 
             if (!(await showConfirmModal(
-                `确定按当前授权模式串行授权所选 ${queue.length} 个账号吗？`,
-                { title: '批量授权', confirmText: '开始授权', danger: false }
+                I18n.tpl`确定按当前授权模式串行授权所选 ${queue.length} 个账号吗？`,
+                { title: I18n.t('批量授权'), confirmText: I18n.t('开始授权'), danger: false }
             ))) {
                 return;
             }
@@ -1031,18 +1031,18 @@
             if (authorizeBtn) {
                 authorizeBtn.dataset.loading = 'true';
                 authorizeBtn.disabled = true;
-                authorizeBtn.textContent = '批量授权中...';
+                authorizeBtn.textContent = I18n.t('批量授权中...');
             }
             syncUploadAccountSelectionUi();
             const logEl = document.getElementById('graphAuthLog');
             if (logEl) {
-                logEl.textContent = `开始批量授权，共 ${queue.length} 个账号（串行）`;
+                logEl.textContent = I18n.tpl`开始批量授权，共 ${queue.length} 个账号（串行）`;
             }
             continueBatchAuthQueue();
         }
 
         async function deleteUploadAccount(accountId, email) {
-            if (!(await showConfirmModal(`确定要删除账号 ${email || ''} 吗？此操作不可恢复。`, { title: '删除上传账号', confirmText: '确认删除' }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要删除账号 ${email || ''} 吗？此操作不可恢复。`, { title: I18n.t('删除上传账号'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -1052,30 +1052,30 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('删除成功', 'success');
+                    showToast(I18n.t('删除成功'), 'success');
                     uploadAccountsState.selectedIds.delete(normalizeUploadAccountId(accountId));
                     loadUploadAccounts();
                 } else {
-                    handleApiError(data, '删除失败');
+                    handleApiError(data, I18n.t('删除失败'));
                 }
             } catch (error) {
-                showToast('删除失败: ' + error.message, 'error');
+                showToast(I18n.t('删除失败: ') + error.message, 'error');
             }
         }
 
         async function deleteSelectedUploadAccounts() {
             if (graphAuthState.running || uploadAccountsState.batchAuthRunning) {
-                showToast('授权进行中，请稍后再删除', 'warning');
+                showToast(I18n.t('授权进行中，请稍后再删除'), 'warning');
                 return;
             }
             const accountIds = getSelectedUploadAccountIds();
             if (!accountIds.length) {
-                showToast('请先选择要删除的账号', 'error');
+                showToast(I18n.t('请先选择要删除的账号'), 'error');
                 return;
             }
             if (!(await showConfirmModal(
-                `确定要删除所选 ${accountIds.length} 个上传账号吗？此操作不可恢复。`,
-                { title: '批量删除上传账号', confirmText: '确认删除' }
+                I18n.tpl`确定要删除所选 ${accountIds.length} 个上传账号吗？此操作不可恢复。`,
+                { title: I18n.t('批量删除上传账号'), confirmText: I18n.t('确认删除') }
             ))) {
                 return;
             }
@@ -1084,7 +1084,7 @@
             if (deleteBtn) {
                 deleteBtn.dataset.loading = 'true';
                 deleteBtn.disabled = true;
-                deleteBtn.textContent = '删除中...';
+                deleteBtn.textContent = I18n.t('删除中...');
             }
 
             try {
@@ -1095,14 +1095,14 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || `已删除 ${data.deleted || accountIds.length} 个账号`, 'success');
+                    showToast(data.message || I18n.tpl`已删除 ${data.deleted || accountIds.length} 个账号`, 'success');
                     accountIds.forEach(id => uploadAccountsState.selectedIds.delete(id));
                     loadUploadAccounts();
                 } else {
-                    handleApiError(data, '批量删除失败');
+                    handleApiError(data, I18n.t('批量删除失败'));
                 }
             } catch (error) {
-                showToast('批量删除失败: ' + error.message, 'error');
+                showToast(I18n.t('批量删除失败: ') + error.message, 'error');
             } finally {
                 if (deleteBtn) {
                     deleteBtn.dataset.loading = 'false';
@@ -1114,7 +1114,7 @@
         function exportSelectedUploadAccounts() {
             const accountIds = getSelectedUploadAccountIds();
             if (!accountIds.length) {
-                showToast('请先选择要导出的账号', 'error');
+                showToast(I18n.t('请先选择要导出的账号'), 'error');
                 return;
             }
             startUploadAccountExport(accountIds);
@@ -1133,7 +1133,7 @@
 
         async function queueAccountForOutlookAutoAuth(accountId, email) {
             if (!Number.isFinite(accountId) || accountId <= 0) {
-                showToast('账号信息无效，无法加入自动授权', 'error');
+                showToast(I18n.t('账号信息无效，无法加入自动授权'), 'error');
                 return;
             }
             try {
@@ -1144,18 +1144,18 @@
                 const data = await response.json();
                 if (data.success) {
                     const msg = data.status === 'updated'
-                        ? `已重新加入自动授权：${data.email || email || ''}`
-                        : `已加入自动授权：${data.email || email || ''}`;
+                        ? I18n.tpl`已重新加入自动授权：${data.email || email || ''}`
+                        : I18n.tpl`已加入自动授权：${data.email || email || ''}`;
                     showToast(msg, 'success');
                     const modal = document.getElementById('outlookUploadAccountsModal');
                     if (modal && modal.classList.contains('show')) {
                         loadUploadAccounts();
                     }
                 } else {
-                    handleApiError(data, '加入自动授权失败');
+                    handleApiError(data, I18n.t('加入自动授权失败'));
                 }
             } catch (error) {
-                showToast('加入自动授权失败: ' + error.message, 'error');
+                showToast(I18n.t('加入自动授权失败: ') + error.message, 'error');
             }
         }
 

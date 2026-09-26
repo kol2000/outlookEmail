@@ -64,6 +64,9 @@ app = Flask(
     template_folder=str(resource_path("templates")),
     static_folder=str(resource_path("static")),
 )
+from outlook_web.i18n import install as install_i18n
+install_i18n(app)
+
 # 优先使用环境变量；打包后的桌面版会在首次启动时生成并持久化 secret_key
 secret_key = resolve_secret_key()
 if not secret_key:
@@ -196,7 +199,7 @@ try:
 except Exception:
     APP_VERSION = '1.0.0'
 
-REPOSITORY_OWNER = os.getenv('REPOSITORY_OWNER', 'assast')
+REPOSITORY_OWNER = os.getenv('REPOSITORY_OWNER', 'kol2000')
 REPOSITORY_NAME = os.getenv('REPOSITORY_NAME', 'outlookEmail')
 CHANGELOG_URL = os.getenv(
     'CHANGELOG_URL',

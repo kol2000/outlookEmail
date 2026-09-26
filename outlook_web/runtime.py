@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 """Runtime helpers for local execution and packaged builds."""
 
+
 from __future__ import annotations
+
+from outlook_web.i18n import translate as _tr
 
 import os
 import secrets
@@ -88,9 +91,7 @@ def record_startup_error(exc: BaseException) -> Path:
 
 def notify_startup_error(log_path: Path) -> None:
     message = (
-        "OutlookEmail 启动失败。\n\n"
-        f"错误日志已写入:\n{log_path}\n\n"
-        "请把这个日志发给开发者。"
+        _tr('OutlookEmail 启动失败。\n\n错误日志已写入:\n{__0__}\n\n请把这个日志发给开发者。', f'{log_path}')
     )
 
     if os.name == "nt":

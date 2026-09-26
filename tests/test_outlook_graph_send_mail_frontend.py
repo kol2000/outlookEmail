@@ -77,8 +77,8 @@ class OutlookGraphSendMailFrontendTests(unittest.TestCase):
         self.assertNotIn('html:', send_source)
 
     def test_success_reauthorization_throttle_and_unknown_result_feedback_are_explicit(self):
-        self.assertIn("showGraphSendMailFeedback('邮件已提交发送', 'success');", self.emails_js)
-        self.assertIn("showToast('邮件已提交发送', 'success');", self.emails_js)
+        self.assertIn("showGraphSendMailFeedback(I18n.t('邮件已提交发送'), 'success');", self.emails_js)
+        self.assertIn("showToast(I18n.t('邮件已提交发送'), 'success');", self.emails_js)
         self.assertIn("code === 'GRAPH_SEND_REAUTH_REQUIRED'", self.emails_js)
         self.assertIn('reauthorizationRequired: true', self.emails_js)
         self.assertIn("code === 'GRAPH_SEND_THROTTLED'", self.emails_js)
@@ -91,6 +91,7 @@ class OutlookGraphSendMailFrontendTests(unittest.TestCase):
         end = self.emails_js.index('function setGraphSendMailValidation', start)
         source = self.emails_js[start:end]
         script = f"""
+const I18n = {{ t: text => text, tpl: (parts, ...values) => parts.map((part, index) => part + (values[index] ?? '')).join('') }};
 const GRAPH_SEND_MAIL_RECIPIENT_PATTERN = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
 {source[source.index('function parseGraphSendMailRecipients'):]}
 const valid = parseGraphSendMailRecipients('A@example.com; b@example.com\\nA@example.com');

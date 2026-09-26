@@ -22,7 +22,7 @@
             const visible = shouldShowGroupDescriptions();
             button.classList.toggle('active', visible);
             button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-            button.title = visible ? '隐藏分组描述' : '显示分组描述';
+            button.title = visible ? I18n.t('隐藏分组描述') : I18n.t('显示分组描述');
         }
 
         function toggleGroupDescriptionVisibility() {
@@ -206,12 +206,12 @@
 
         function getGroupOptionLabel(group) {
             if (isSystemGroup(group) || Number(group.id) === 1) {
-                return normalizeGroupName(group.name);
+                return normalizeGroupName(I18n.groupName(group));
             }
 
             const level = normalizeGroupLevel(group);
             if (level === 1) {
-                return normalizeGroupName(group.name);
+                return normalizeGroupName(I18n.groupName(group));
             }
 
             let prefix = '';
@@ -232,7 +232,7 @@
                 prefix += '├─\u00A0';
             }
 
-            return `${prefix}${normalizeGroupName(group.name)}`;
+            return `${prefix}${normalizeGroupName(I18n.groupName(group))}`;
         }
 
         function renderGroupOptions({ includeTemp = true, placeholder = '' } = {}) {
@@ -307,17 +307,17 @@
 
                     updateMobileContext();
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || '加载失败', {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: 'loadGroups()',
-                        actionTitle: '刷新分组列表'
+                        actionTitle: I18n.t('刷新分组列表')
                     });
                 }
             } catch (error) {
-                container.innerHTML = renderEmptyStateMarkup('⚠️', '加载失败', {
+                container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('加载失败'), {
                     onAction: 'loadGroups()',
-                    actionTitle: '刷新分组列表'
+                    actionTitle: I18n.t('刷新分组列表')
                 });
-                showToast('加载分组失败', 'error');
+                showToast(I18n.t('加载分组失败'), 'error');
             }
         }
 
@@ -328,9 +328,9 @@
 
             groupTree = buildGroupTree(sourceGroups);
             if (!sourceGroups.length) {
-                container.innerHTML = renderEmptyStateMarkup('📁', '暂无分组', {
+                container.innerHTML = renderEmptyStateMarkup('📁', I18n.t('暂无分组'), {
                     onAction: 'loadGroups()',
-                    actionTitle: '刷新分组列表'
+                    actionTitle: I18n.t('刷新分组列表')
                 });
                 return;
             }
@@ -349,7 +349,7 @@
                 const level = normalizeGroupLevel(group);
                 const hasChildren = Array.isArray(group.children) && group.children.length > 0;
                 const collapsed = hasChildren && isGroupCollapsed(group.id);
-                const groupName = normalizeGroupName(group.name);
+                const groupName = normalizeGroupName(I18n.groupName(group));
                 const groupIdBadgeText = formatGroupIdBadgeText(group.id);
                 const count = group.descendant_account_count ?? group.account_count ?? 0;
                 const groupDescription = String(group.description || '').trim();
@@ -362,13 +362,13 @@
                           ${isMovable ? `onpointerdown="handleGroupPointerDown(event, ${group.id})"` : ''}
                           onclick="handleGroupClick(event, ${group.id})">
                         <div class="group-row-1">
-                            ${hasChildren && !isTempGroup ? `<button type="button" class="group-toggle ${collapsed ? 'collapsed' : ''}" onclick="toggleGroupCollapsed(event, ${group.id})" title="${collapsed ? '展开' : '折叠'}">▾</button>` : '<span class="group-toggle-spacer"></span>'}
+                            ${hasChildren && !isTempGroup ? `<button type="button" class="group-toggle ${collapsed ? 'collapsed' : ''}" onclick="toggleGroupCollapsed(event, ${group.id})" title="${collapsed ? I18n.t('展开') : I18n.t('折叠')}">▾</button>` : '<span class="group-toggle-spacer"></span>'}
                             <div class="group-color" style="background-color: ${group.color || '#666'}"></div>
                             <span class="group-name">${escapeHtml(groupName)}${isTempGroup ? ' ⚡' : ''}</span>
                             <span class="group-count">${count || 0}</span>
                             <div class="group-actions">
-                                ${!isSystem ? `<button class="group-action-btn" onclick="event.stopPropagation(); editGroup(${group.id})" title="编辑">✏️</button>` : ''}
-                                ${!isDefault && !isSystem ? `<button class="group-action-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" title="删除">🗑️</button>` : ''}
+                                ${!isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); editGroup(${group.id})" title="编辑">✏️</button>` : ''}
+                                ${!isDefault && !isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" title="删除">🗑️</button>` : ''}
                             </div>
                         </div>
                         ${showGroupDescriptions && groupDescription ? `
@@ -417,11 +417,11 @@
             const optionCount = getGroupSortPositionCount(editingId, parentId);
             let html = '';
             for (let position = 1; position <= optionCount; position += 1) {
-                let label = `第 ${position} 位`;
+                let label = I18n.tpl`第 ${position} 位`;
                 if (position === 1) {
-                    label += '（最前）';
+                    label += I18n.t('（最前）');
                 } else if (position === optionCount) {
-                    label += '（最后）';
+                    label += I18n.t('（最后）');
                 }
                 html += `<option value="${position}">${label}</option>`;
             }
@@ -677,7 +677,7 @@
             resetGroupDragState();
 
             if (!dropAllowed) {
-                showToast(targetMode === 'move' ? '移动后层级深度将超过 3 级' : '只能在同父级内排序', 'error');
+                showToast(targetMode === 'move' ? I18n.t('移动后层级深度将超过 3 级') : I18n.t('只能在同父级内排序'), 'error');
                 return;
             }
 
@@ -736,11 +736,11 @@
                     showToast(data.message, 'success');
                     await loadGroups();
                 } else {
-                    handleApiError(data, '更新分组排序失败');
+                    handleApiError(data, I18n.t('更新分组排序失败'));
                     await loadGroups();
                 }
             } catch (error) {
-                showToast('更新分组排序失败', 'error');
+                showToast(I18n.t('更新分组排序失败'), 'error');
                 await loadGroups();
             }
         }
@@ -768,13 +768,13 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || '分组已移动', 'success');
+                    showToast(data.message || I18n.t('分组已移动'), 'success');
                 } else {
-                    handleApiError(data, '移动分组失败');
+                    handleApiError(data, I18n.t('移动分组失败'));
                 }
                 await loadGroups();
             } catch (error) {
-                showToast('移动分组失败', 'error');
+                showToast(I18n.t('移动分组失败'), 'error');
                 await loadGroups();
             }
         }
@@ -849,7 +849,7 @@
 
         // 刷新按钮（复用 refreshCurrentAccountList 功能）
         function renderAccountRefreshButton() {
-            return `
+            return I18n.tpl`
                 <button class="panel-action-btn" onclick="refreshCurrentAccountList()" title="刷新邮箱列表">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M1 8a7 7 0 0 1 13.22-3.22M15 8a7 7 0 0 1-13.22 3.22"/>
@@ -862,7 +862,7 @@
         // 更新账号面板头部动作按钮
         function renderAccountSelectionModeButton() {
             const activeClass = accountSelectionMode ? ' active' : '';
-            const title = accountSelectionMode ? '退出批量选择' : '批量选择';
+            const title = accountSelectionMode ? I18n.t('退出批量选择') : I18n.t('批量选择');
             return `
                 <button class="panel-action-btn account-selection-mode-btn${activeClass}" id="accountSelectionModeBtn"
                         onclick="toggleAccountSelectionMode()" title="${title}" aria-pressed="${accountSelectionMode ? 'true' : 'false'}">
@@ -877,7 +877,7 @@
         function renderAccountMinimalModeButton() {
             const isMinimal = localStorage.getItem('outlook_account_list_minimal') === 'true';
             const activeClass = isMinimal ? ' active' : '';
-            const title = isMinimal ? '切换详细展示' : '切换极简展示';
+            const title = isMinimal ? I18n.t('切换详细展示') : I18n.t('切换极简展示');
             return `
                 <button class="panel-action-btn${activeClass}" id="accountMinimalBtn" onclick="toggleAccountMinimalMode()" title="${title}" aria-pressed="${isMinimal ? 'true' : 'false'}">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -894,7 +894,7 @@
             const searchInput = document.getElementById('globalSearch');
             if (!actions) return;
             if (isTempEmailGroup) {
-                actions.innerHTML = `
+                actions.innerHTML = I18n.tpl`
                     ${renderAccountRefreshButton()}
                     ${renderAccountSelectionModeButton()}
                     <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
@@ -928,10 +928,10 @@
                     btn.classList.toggle('active', btn.dataset.provider === currentFilter);
                 });
                 if (searchInput) {
-                    searchInput.placeholder = '搜索临时邮箱地址或标签...';
+                    searchInput.placeholder = I18n.t('搜索临时邮箱地址或标签...');
                 }
             } else {
-                actions.innerHTML = `
+                actions.innerHTML = I18n.tpl`
                     ${renderAccountRefreshButton()}
                     ${renderAccountSelectionModeButton()}
                     <button class="panel-action-btn" onclick="showTagManagementModal()" title="管理标签">
@@ -963,7 +963,7 @@
                 syncAccountSortButtons();
                 updateTagFilter();
                 if (searchInput) {
-                    searchInput.placeholder = '邮箱|别名|备注|标签';
+                    searchInput.placeholder = I18n.t('邮箱|别名|备注|标签');
                 }
             }
         }
@@ -1216,13 +1216,13 @@
                 const text = footer.querySelector('.account-pagination-text');
                 if (text) {
                     if (loading) {
-                        text.textContent = '加载中...';
+                        text.textContent = I18n.t('加载中...');
                     } else {
                         const total = Number(accountPaginationState.total) || 0;
                         const loaded = Math.min(Number(accountPaginationState.loaded) || 0, total || Number(accountPaginationState.loaded) || 0);
                         text.textContent = accountPaginationState.hasMore
-                            ? `已加载 ${loaded} / ${total} 个邮箱`
-                            : `已加载全部 ${total} 个邮箱`;
+                            ? I18n.tpl`已加载 ${loaded} / ${total} 个邮箱`
+                            : I18n.tpl`已加载全部 ${total} 个邮箱`;
                     }
                 }
             }
@@ -1240,15 +1240,15 @@
             }
 
             const text = accountPaginationState.hasMore
-                ? `已加载 ${Math.min(loaded, total)} / ${total} 个邮箱`
-                : `已加载全部 ${total} 个邮箱`;
+                ? I18n.tpl`已加载 ${Math.min(loaded, total)} / ${total} 个邮箱`
+                : I18n.tpl`已加载全部 ${total} 个邮箱`;
             const action = accountPaginationState.hasMore
-                ? '<button class="account-pagination-btn" type="button" onclick="loadMoreAccounts()">加载更多</button>'
+                ? I18n.t('<button class="account-pagination-btn" type="button" onclick="loadMoreAccounts()">加载更多</button>')
                 : '';
 
             return `
                 <div class="account-pagination-footer ${accountPaginationState.loading ? 'is-loading' : ''}" id="accountPaginationFooter">
-                    <span class="account-pagination-text">${escapeHtml(accountPaginationState.loading ? '加载中...' : text)}</span>
+                    <span class="account-pagination-text">${escapeHtml(accountPaginationState.loading ? I18n.t('加载中...') : text)}</span>
                     ${action}
                 </div>
             `;
@@ -1337,18 +1337,18 @@
                     updateAccountPaginationState('group', String(groupId), data, nextAccounts.length);
                     renderFilteredAccountList(nextAccounts);
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || '加载失败', {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
-                        actionTitle: '刷新账号列表'
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 }
             } catch (error) {
                 if (append) {
-                    showToast('加载更多账号失败', 'error');
+                    showToast(I18n.t('加载更多账号失败'), 'error');
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', '加载失败', {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('加载失败'), {
                         onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
-                        actionTitle: '刷新账号列表'
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 }
             } finally {
@@ -1360,7 +1360,7 @@
 
         function showForwardStatusLabel(enabled) {
             return enabled
-                ? '<span class="account-status-pill success" title="已开启转发">转</span>'
+                ? I18n.t('<span class="account-status-pill success" title="已开启转发">转</span>')
                 : '';
         }
 
@@ -1389,7 +1389,7 @@
                 event.stopPropagation();
                 event.preventDefault();
             }
-            if (!(await showConfirmModal(`确定要从该邮箱移除标签 "${tagName}" 吗？`, { title: '移除标签', confirmText: '确认移除', danger: true }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要从该邮箱移除标签 "${tagName}" 吗？`, { title: I18n.t('移除标签'), confirmText: I18n.t('确认移除'), danger: true }))) {
                 return;
             }
             try {
@@ -1404,7 +1404,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast('标签已成功移除', 'success');
+                    showToast(I18n.t('标签已成功移除'), 'success');
                     if (typeof invalidateAccountCaches === 'function') {
                         invalidateAccountCaches();
                     }
@@ -1412,10 +1412,10 @@
                         refreshVisibleAccountList(true);
                     }
                 } else {
-                    handleApiError(data, '移除标签失败');
+                    handleApiError(data, I18n.t('移除标签失败'));
                 }
             } catch (error) {
-                showToast('移除标签失败: ' + error.message, 'error');
+                showToast(I18n.t('移除标签失败: ') + error.message, 'error');
             }
         }
 
@@ -1427,16 +1427,16 @@
             const hiddenCount = Math.max(0, safeAliases.length - visibleAliases.length);
             const aliasText = visibleAliases.join(' / ');
             const suffix = hiddenCount > 0 ? ` +${hiddenCount}` : '';
-            return `<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
+            return I18n.tpl`<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
         }
 
         function renderAccountGroupSummary(account, showGroupInfo = false) {
             if (!showGroupInfo) return '';
 
             const groupColor = account.group_color || '#666666';
-            const groupName = normalizeGroupName(account.group_name, '默认分组');
+            const groupName = normalizeGroupName(I18n.groupName({ id: account.group_id, name: account.group_name }), I18n.t('默认分组'));
             const groupIdBadgeText = formatGroupIdBadgeText(account.group_id);
-            return `
+            return I18n.tpl`
                 <div class="account-group-summary" title="所属分组: ${escapeHtml(groupName)}">
                     <span class="account-group-dot" style="background-color: ${escapeHtml(groupColor)}"></span>
                     <span class="account-group-name">${escapeHtml(groupName)}</span>
@@ -1482,10 +1482,10 @@
 
             if (accounts.length === 0) {
                 container.innerHTML = isSearchMode
-                    ? renderEmptyStateMarkup('📭', '未找到匹配邮箱')
-                    : renderEmptyStateMarkup('📭', '该分组暂无邮箱', {
+                    ? renderEmptyStateMarkup('📭', I18n.t('未找到匹配邮箱'))
+                    : renderEmptyStateMarkup('📭', I18n.t('该分组暂无邮箱'), {
                         onAction: refreshAction,
-                        actionTitle: '刷新账号列表'
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 updateBatchActionBar();
                 return;
@@ -1495,7 +1495,7 @@
                 Array.from(container.querySelectorAll('.account-select-checkbox:checked'))
                     .map(checkbox => String(checkbox.value))
             );
-            container.innerHTML = accounts.map(acc => `
+            container.innerHTML = accounts.map(acc => I18n.tpl`
                 <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      data-account-id="${acc.id}"
                      onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}', false, ${Number(acc.id) || 0})">
@@ -1519,8 +1519,8 @@
                                 ${escapeHtml(getProviderLabel(acc.provider || (acc.account_type === 'imap' ? 'custom' : 'outlook')))}
                             </span>
                             ${showForwardStatusLabel(!!acc.forward_enabled)}
-                            ${acc.status === 'inactive' ? '<span class="account-status-pill muted">已停用</span>' : ''}
-                            ${acc.last_refresh_status === 'failed' ? '<span class="account-status-pill danger">刷新失败</span>' : ''}
+                            ${acc.status === 'inactive' ? I18n.t('<span class="account-status-pill muted">已停用</span>') : ''}
+                            ${acc.last_refresh_status === 'failed' ? I18n.t('<span class="account-status-pill danger">刷新失败</span>') : ''}
                         </div>
                         ${renderAccountGroupSummary(acc, showSearchGroupInfo)}
                         ${renderAccountAliasSummary(acc.aliases)}
@@ -1534,8 +1534,8 @@
                             <button class="account-action-btn" type="button" data-account-action="copy" data-account-email="${escapeHtml(acc.email)}">复制邮箱</button>
                             <button class="account-action-btn" type="button" data-account-action="share" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">分享邮箱</button>
                             <button class="account-action-btn" type="button" data-account-action="forwardingLogs" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">转发日志</button>
-                            <button class="account-action-btn" type="button" data-account-action="toggleStatus" data-account-id="${acc.id}" data-account-status="${escapeHtml(acc.status || 'active')}">${acc.status === 'inactive' ? '启用账号' : '停用账号'}</button>
-                            ${(acc.account_type || 'outlook') !== 'imap' ? `<button class="account-action-btn" type="button" data-account-action="outlookAutoAuth" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">加入自动授权</button>` : ''}
+                            <button class="account-action-btn" type="button" data-account-action="toggleStatus" data-account-id="${acc.id}" data-account-status="${escapeHtml(acc.status || 'active')}">${acc.status === 'inactive' ? I18n.t('启用账号') : I18n.t('停用账号')}</button>
+                            ${(acc.account_type || 'outlook') !== 'imap' ? I18n.tpl`<button class="account-action-btn" type="button" data-account-action="outlookAutoAuth" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">加入自动授权</button>` : ''}
                             <button class="account-action-btn" type="button" data-account-action="edit" data-account-id="${acc.id}">编辑账号</button>
                             <button class="account-action-btn delete" type="button" data-account-action="delete" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">删除账号</button>
                         </div>
@@ -1645,13 +1645,13 @@
             const footerParts = [];
             const sortOrder = getAccountSortOrderValue(acc);
             if (shouldShowAccountSortOrder() && sortOrder !== null) {
-                footerParts.push(`<span class="account-sort-order">排序值 ${escapeHtml(String(sortOrder))}</span>`);
+                footerParts.push(I18n.tpl`<span class="account-sort-order">排序值 ${escapeHtml(String(sortOrder))}</span>`);
             }
             if (shouldShowAccountCreatedAt() && acc.created_at) {
                 footerParts.push(`<span class="account-created-at" title="${escapeHtml(acc.created_at || '')}">${escapeHtml(formatAbsoluteDateTime(acc.created_at))}</span>`);
             }
             if (acc.last_refresh_status === 'failed') {
-                footerParts.push('<button class="account-error-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || '未知错误') + '\', \'' + escapeJs(acc.email) + '\', \'' + escapeJs(acc.account_type || 'outlook') + '\')">查看错误</button>');
+                footerParts.push('<button class="account-error-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || I18n.t('未知错误')) + '\', \'' + escapeJs(acc.email) + '\', \'' + escapeJs(acc.account_type || 'outlook') + I18n.t('\')">查看错误</button>'));
             }
             if (!footerParts.length) {
                 return '';
@@ -1774,13 +1774,13 @@
             document.getElementById('methodTag').style.display = 'none';
             document.getElementById('folderTabs').style.display = 'none';
             document.getElementById('emailDetailToolbar').style.display = 'none';
-            document.getElementById('emailList').innerHTML = `
+            document.getElementById('emailList').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📬</div>
                     <div class="empty-state-text">请从左侧选择一个邮箱账号</div>
                 </div>
             `;
-            document.getElementById('emailDetail').innerHTML = `
+            document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
                     <div class="empty-state-text">选择一封邮件查看详情</div>
@@ -1972,7 +1972,7 @@
             }
 
             if (getAccountSearchTerms(query).length > ACCOUNT_SEARCH_MAX_TERMS) {
-                const message = '搜索关键词最多支持 200 个';
+                const message = I18n.t('搜索关键词最多支持 200 个');
                 if (append) {
                     showToast(message, 'warning');
                 } else {
@@ -2020,15 +2020,15 @@
                     updateAccountPaginationState('search', `${getAccountSearchScopeKey()}:${query}`, data, nextAccounts.length);
                     renderFilteredAccountList(nextAccounts);
                 } else {
-                    const message = data.error || '搜索失败';
+                    const message = data.error || I18n.t('搜索失败');
                     container.innerHTML = `<div class="empty-state"><div class="empty-state-text">${escapeHtml(message)}</div></div>`;
                 }
             } catch (error) {
-                console.error('搜索失败:', error);
+                console.error(I18n.t('搜索失败:'), error);
                 if (append) {
-                    showToast('加载更多搜索结果失败', 'error');
+                    showToast(I18n.t('加载更多搜索结果失败'), 'error');
                 } else {
-                    container.innerHTML = '<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>';
+                    container.innerHTML = I18n.t('<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>');
                 }
             } finally {
                 if (requestId === accountListRequestSeq) {
@@ -2094,7 +2094,7 @@
             }
 
             const normalizedSelectedParentId = normalizeGroupParentId(selectedParentId);
-            const options = ['<option value="">无（一级分组）</option>'];
+            const options = [I18n.t('<option value="">无（一级分组）</option>')];
             getAvailableParentGroups(editingId).forEach(group => {
                 options.push(`<option value="${group.id}">${escapeHtml(getGroupOptionLabel(group))}</option>`);
             });
@@ -2118,7 +2118,7 @@
             '126': '126',
             yahoo: 'Yahoo',
             aliyun: 'Aliyun',
-            '2925': '2925邮箱',
+            '2925': I18n.t('2925邮箱'),
             custom: 'Custom IMAP'
         };
 
@@ -2202,13 +2202,13 @@
         }
 
         const SMTP_PROVIDER_PRESETS = {
-            outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: 'Outlook 推荐使用 SMTP + STARTTLS（587）。' },
-            qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: 'QQ 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
-            '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: '163 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
-            '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: '126 邮箱通常使用 SMTP 授权码，默认 SSL 465。' },
-            yahoo: { host: 'smtp.mail.yahoo.com', port: '465', useTls: false, useSsl: true, hint: 'Yahoo 默认 SSL 465。' },
-            aliyun: { host: 'smtp.aliyun.com', port: '465', useTls: false, useSsl: true, hint: '阿里邮箱默认 SSL 465。' },
-            custom: { host: '', port: '465', useTls: false, useSsl: true, hint: '自定义模式下，请手动填写 SMTP 主机、端口和连接方式。' }
+            outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: I18n.t('Outlook 推荐使用 SMTP + STARTTLS（587）。') },
+            qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('QQ 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('163 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('126 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            yahoo: { host: 'smtp.mail.yahoo.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('Yahoo 默认 SSL 465。') },
+            aliyun: { host: 'smtp.aliyun.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('阿里邮箱默认 SSL 465。') },
+            custom: { host: '', port: '465', useTls: false, useSsl: true, hint: I18n.t('自定义模式下，请手动填写 SMTP 主机、端口和连接方式。') }
         };
 
         function ensureForwardingSettingsUI() {
@@ -2239,7 +2239,7 @@
             }
 
             providerHint.textContent = preset.hint;
-            fromHint.textContent = '可选。留空时默认使用 SMTP 用户名作为发件人邮箱。';
+            fromHint.textContent = I18n.t('可选。留空时默认使用 SMTP 用户名作为发件人邮箱。');
         }
 
         function updateEditAccountFields() {
@@ -2307,17 +2307,17 @@
                     loadCloudflareChannelsForImport();
                 }
                 if (channel === 'duckmail') {
-                    hintEl.textContent = '格式：邮箱----密码，每行一个。';
-                    inputEl.placeholder = '邮箱----密码';
+                    hintEl.textContent = I18n.t('格式：邮箱----密码，每行一个。');
+                    inputEl.placeholder = I18n.t('邮箱----密码');
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = '示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2';
+                        exampleEl.textContent = I18n.t('示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2');
                     }
                     return;
                 }
                 if (channel === 'cloudflare') {
                     if (cloudflareMode === 'auto') {
-                        hintEl.textContent = '自动从所选 Cloudflare 渠道拉取邮箱地址并导入，不拉取 JWT。';
+                        hintEl.textContent = I18n.t('自动从所选 Cloudflare 渠道拉取邮箱地址并导入，不拉取 JWT。');
                         inputEl.placeholder = '';
                         if (exampleEl) {
                             exampleEl.style.display = 'none';
@@ -2325,19 +2325,19 @@
                         }
                         return;
                     }
-                    hintEl.textContent = '格式：每行一个邮箱地址。手动导入不再支持 邮箱----JWT。';
+                    hintEl.textContent = I18n.t('格式：每行一个邮箱地址。手动导入不再支持 邮箱----JWT。');
                     inputEl.placeholder = 'user@example.com\nuser2@example.com';
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = '示例：\nuser@example.com\nuser2@example.com';
+                        exampleEl.textContent = I18n.t('示例：\nuser@example.com\nuser2@example.com');
                     }
                     return;
                 }
-                hintEl.textContent = '格式：每行一个邮箱地址。';
-                inputEl.placeholder = '每行一个邮箱地址';
+                hintEl.textContent = I18n.t('格式：每行一个邮箱地址。');
+                inputEl.placeholder = I18n.t('每行一个邮箱地址');
                 if (exampleEl) {
                     exampleEl.style.display = '';
-                    exampleEl.textContent = '示例：\nuser1@gptmail.com\nuser2@gptmail.com';
+                    exampleEl.textContent = I18n.t('示例：\nuser1@gptmail.com\nuser2@gptmail.com');
                 }
                 return;
             }
@@ -2348,36 +2348,36 @@
             if (exampleEl) exampleEl.style.display = '';
 
             if (isOutlook) {
-                hintEl.textContent = 'Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id。';
-                inputEl.placeholder = '邮箱----密码----client_id----refresh_token';
+                hintEl.textContent = I18n.t('Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id。');
+                inputEl.placeholder = I18n.t('邮箱----密码----client_id----refresh_token');
                 if (exampleEl) {
-                    exampleEl.textContent = '示例：\nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a';
+                    exampleEl.textContent = I18n.t('示例：\nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a');
                 }
                 return;
             }
 
             if (provider === 'custom') {
-                hintEl.textContent = '格式：邮箱----IMAP密码。也支持兼容格式：邮箱----IMAP密码----imap_host----imap_port。';
-                inputEl.placeholder = '邮箱----IMAP密码';
+                hintEl.textContent = I18n.t('格式：邮箱----IMAP密码。也支持兼容格式：邮箱----IMAP密码----imap_host----imap_port。');
+                inputEl.placeholder = I18n.t('邮箱----IMAP密码');
                 if (exampleEl) {
                     const host = customHost?.value?.trim() || 'imap.example.com';
                     const port = customPort?.value?.trim() || '993';
-                    exampleEl.textContent = `示例：\nuser@example.com----app-password\nuser@example.com----app-password----${host}----${port}`;
+                    exampleEl.textContent = I18n.tpl`示例：\nuser@example.com----app-password\nuser@example.com----app-password----${host}----${port}`;
                 }
                 return;
             }
 
-            hintEl.textContent = `格式：邮箱----IMAP授权码/应用密码，每行一个。当前类型：${getProviderLabel(provider)}。`;
-            inputEl.placeholder = '邮箱----IMAP授权码/应用密码';
+            hintEl.textContent = I18n.tpl`格式：邮箱----IMAP授权码/应用密码，每行一个。当前类型：${getProviderLabel(provider)}。`;
+            inputEl.placeholder = I18n.t('邮箱----IMAP授权码/应用密码');
             if (exampleEl) {
-                exampleEl.textContent = '示例：\nuser@gmail.com----app-password\nuser2@qq.com----imap-auth-code';
+                exampleEl.textContent = I18n.t('示例：\nuser@gmail.com----app-password\nuser2@qq.com----imap-auth-code');
             }
         }
 
         function showAddGroupModal() {
             closeAllModals();
             editingGroupId = null;
-            document.getElementById('groupModalTitle').textContent = '添加分组';
+            document.getElementById('groupModalTitle').textContent = I18n.t('添加分组');
             document.getElementById('groupName').value = '';
             document.getElementById('groupDescription').value = '';
             const currentGroup = getGroupById(currentGroupId);
@@ -2411,7 +2411,7 @@
 
                 if (data.success) {
                     editingGroupId = groupId;
-                    document.getElementById('groupModalTitle').textContent = '编辑分组';
+                    document.getElementById('groupModalTitle').textContent = I18n.t('编辑分组');
                     document.getElementById('groupName').value = data.group.name;
                     document.getElementById('groupDescription').value = data.group.description || '';
                     updateParentGroupSelect(data.group.parent_id, groupId);
@@ -2441,7 +2441,7 @@
                     showModal('addGroupModal');
                 }
             } catch (error) {
-                showToast('加载分组信息失败', 'error');
+                showToast(I18n.t('加载分组信息失败'), 'error');
             }
         }
 
@@ -2454,7 +2454,7 @@
             const parentId = normalizeGroupParentId(document.getElementById('groupParentSelect')?.value);
 
             if (!name) {
-                showToast('请输入分组名称', 'error');
+                showToast(I18n.t('请输入分组名称'), 'error');
                 return;
             }
 
@@ -2484,10 +2484,10 @@
                     hideAddGroupModal();
                     loadGroups();
                 } else {
-                    handleApiError(data, '保存分组失败');
+                    handleApiError(data, I18n.t('保存分组失败'));
                 }
             } catch (error) {
-                showToast('保存失败', 'error');
+                showToast(I18n.t('保存失败'), 'error');
             }
         }
 
@@ -2495,9 +2495,9 @@
         async function deleteGroup(groupId) {
             const childCount = getGroupDescendantIds(groupId).length;
             const message = childCount > 0
-                ? `该分组下有 ${childCount} 个子分组，删除后子分组将一并删除，所有邮箱将移至默认分组`
-                : '确定要删除该分组吗？分组下的邮箱将移至默认分组。';
-            if (!(await showConfirmModal(message, { title: '删除分组', confirmText: '确认删除' }))) {
+                ? I18n.tpl`该分组下有 ${childCount} 个子分组，删除后子分组将一并删除，所有邮箱将移至默认分组`
+                : I18n.t('确定要删除该分组吗？分组下的邮箱将移至默认分组。');
+            if (!(await showConfirmModal(message, { title: I18n.t('删除分组'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -2516,9 +2516,9 @@
                     }
                     loadGroups();
                 } else {
-                    handleApiError(data, '删除分组失败');
+                    handleApiError(data, I18n.t('删除分组失败'));
                 }
             } catch (error) {
-                showToast('删除失败', 'error');
+                showToast(I18n.t('删除失败'), 'error');
             }
         }
