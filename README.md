@@ -43,7 +43,11 @@ Load `browser-extension/` as an unpacked extension in Chrome or Edge. Its langua
 
 ## Repository history
 
-This fork's commit messages were translated to English. Commit IDs have changed; authors, dates, parent relationships and historical file trees are preserved. Existing clones should be backed up before moving to the rewritten branches.
+This fork preserves the original upstream history, including its original commit messages. English/Russian localization and English source/documentation changes are separate commits based on upstream v3.0.9. The earlier translated history has been replaced to restore a common ancestor with upstream; existing clones should be backed up before switching to the restored branches.
+
+GitHub's **Sync fork** can now compare and merge upstream updates using the shared history. It cannot translate new strings, resolve conflicting edits, or publish a new Windows build. If GitHub reports conflicts, resolve them in an update branch, check both languages, run the tests, and build a new release before distributing the update. Do not use **Discard commits** to update this fork: that would remove the localization commits.
+
+The application remains based on **v3.0.9**. A trial merge of upstream **v3.0.32** has conflicts and has not been applied. Restoring history alone is not an application upgrade. See [the update workflow](docs/upstream-updates.md).
 
 ## Localization details
 
