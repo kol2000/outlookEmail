@@ -1,3 +1,10 @@
+# v3.0.32-en-ru.2 — Translation corrections
+
+- Fix untranslated account action menus after an HTML whitespace change.
+- Restore Russian translations for English HTML aliases across import, forwarding, refresh, tags and email detail placeholders.
+- Add regression checks for populated account menus in both languages, every account-selection placeholder, and untranslated Russian HTML prose.
+- No changes to account storage, credentials or mail-processing behavior.
+
 # v3.0.32-en-ru.1 — 2026-11-20
 
 - Merge upstream v3.0.32 while preserving original ancestry and English/Russian localization.

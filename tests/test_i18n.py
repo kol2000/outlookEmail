@@ -142,3 +142,18 @@ def test_new_update_and_icloud_errors_preserve_user_content():
     assert value['windows_update']['state']['logs'] == [expected]
     assert value['account']['remark'] == value['body'] == 'Login failed'
     assert value['account']['aliases'][0]['label'] == value['account']['aliases'][0]['note'] == 'Login failed'
+
+
+def test_russian_html_catalog_has_no_untranslated_prose():
+    from html.parser import HTMLParser
+    allowed = {'Client ID', 'Client ID: {__0__}', 'Cloudflare', 'Cron', 'DuckMail',
+               'DuckMail API Key', 'GPTMail', 'SMTP', 'SMTP SSL', 'SMTP TLS',
+               'Telegram', 'Trace ID: {__5__}', 'WebDAV Cron'}
+    class VisibleText(HTMLParser):
+        def handle_data(self, value):
+            value = value.strip()
+            if re.search('[A-Za-z]{3}', value) and not re.search('[а-яА-Я]', value) and not value.startswith('{__'):
+                assert value in allowed, value
+    for source, translated in catalog('ru').items():
+        if '<' in source:
+            VisibleText().feed(translated)
