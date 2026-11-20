@@ -1,6 +1,7 @@
 import importlib
 import os
 import pathlib
+import re
 import sys
 import tempfile
 import unittest
@@ -66,6 +67,810 @@ class EmailShareLinkTests(unittest.TestCase):
 
     def _token_from_share_url(self, share_url):
         return urlparse(share_url).path.rstrip('/').split('/')[-1]
+
+    @staticmethod
+    def _share_folder_result(emails, method='Graph API', request_method='graph', has_more=False):
+        return {
+            'success': True,
+            'emails': [dict(email) for email in emails],
+            'method': method,
+            'request_method': request_method,
+            'has_more': has_more,
+        }
+
+    def _make_share_folder_fetch(self, folder_emails, expected_top, request_method='graph'):
+        def fetch(_account, folder, skip, top):
+            self.assertEqual(skip, 0)
+            self.assertEqual(top, expected_top)
+            return self._share_folder_result(
+                folder_emails[folder],
+                method='Graph API' if request_method == 'graph' else 'IMAP (New)',
+                request_method=request_method,
+            )
+
+        return fetch
+
+    def test_email_share_schema_migrates_max_email_count_and_preserves_legacy_rows(self):
+        account_id = self._insert_account()
+        legacy_token = 'legacy-share-token'
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            create_sql = db.execute(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'email_share_links'"
+            ).fetchone()['sql']
+            self.assertIn('max_email_count BETWEEN 1 AND 50', create_sql)
+            db.execute('DROP TABLE email_share_links')
+            db.execute(
+                '''
+                CREATE TABLE email_share_links (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id INTEGER NOT NULL,
+                    token_hash TEXT UNIQUE NOT NULL,
+                    token_encrypted TEXT NOT NULL,
+                    expires_at TIMESTAMP,
+                    never_expires INTEGER NOT NULL DEFAULT 0,
+                    revoked_at TIMESTAMP,
+                    last_accessed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+                )
+                '''
+            )
+            db.execute(
+                '''
+                INSERT INTO email_share_links (
+                    account_id, token_hash, token_encrypted, expires_at, never_expires
+                )
+                VALUES (?, ?, ?, '2099-01-01 00:00:00', 0)
+                ''',
+                (
+                    account_id,
+                    web_outlook_app.hash_email_share_token(legacy_token),
+                    web_outlook_app.encrypt_data(legacy_token),
+                )
+            )
+            db.commit()
+
+            web_outlook_app.init_db()
+            columns = {
+                row['name']
+                for row in db.execute('PRAGMA table_info(email_share_links)').fetchall()
+            }
+            migrated_row = db.execute(
+                'SELECT max_email_count, access_code_hash FROM email_share_links WHERE token_hash = ?',
+                (web_outlook_app.hash_email_share_token(legacy_token),)
+            ).fetchone()
+            self.assertIn('max_email_count', columns)
+            self.assertIn('access_code_hash', columns)
+            self.assertIsNone(migrated_row['max_email_count'])
+            self.assertIsNone(migrated_row['access_code_hash'])
+
+            web_outlook_app.init_db()
+
+        anonymous = self.app.test_client()
+        self.assertEqual(anonymous.get(f'/api/share/email/{legacy_token}/status').status_code, 200)
+
+    def test_access_code_is_hashed_and_not_exposed_by_management_api(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12')
+        self.assertTrue(share['requires_access_code'])
+        self.assertNotIn('access_code', share)
+        self.assertNotIn('access_code_hash', share)
+        with self.app.app_context():
+            row = web_outlook_app.get_email_share_row_by_id(share['id'])
+            self.assertNotEqual(row['access_code_hash'], 'Ab12')
+            self.assertTrue(web_outlook_app.verify_password('Ab12', row['access_code_hash']))
+        listed = self.client.get('/api/email-shares').get_json()['shares'][0]
+        self.assertTrue(listed['requires_access_code'])
+        self.assertNotIn('access_code_hash', listed)
+
+    def test_create_share_validates_optional_access_code(self):
+        account_id = self._insert_account()
+        for code in (None, ''):
+            share = self._create_share(account_id, access_code=code)
+            self.assertFalse(share['requires_access_code'])
+        for code in ('a', 'abc', 'a' * 33, 'ab 12', '中文代码', 1234, True, [], {}):
+            with self.subTest(code=code):
+                response = self.client.post('/api/email-shares', json={
+                    'account_id': account_id, 'access_code': code,
+                })
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.get_json()['success'])
+        self._create_share(account_id, access_code='a' * 32)
+
+    def test_access_code_blocks_all_anonymous_read_routes_without_leaking_email(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12')
+        token = self._token_from_share_url(share['share_url'])
+        anonymous = self.app.test_client()
+        page = anonymous.get(f'/share/email/{token}')
+        self.assertNotIn(b'shared@example.com', page.data)
+        self.assertIn('no-store', page.headers['Cache-Control'])
+        with patch.object(web_outlook_app, 'fetch_account_emails') as list_mock, patch.object(
+            web_outlook_app, 'fetch_email_detail_for_account'
+        ) as detail_mock:
+            for suffix in ('status', 'emails', 'email/msg-1'):
+                response = anonymous.get(f'/api/share/email/{token}/{suffix}')
+                self.assertEqual(response.status_code, 403)
+                self.assertTrue(response.get_json()['requires_access_code'])
+                self.assertNotIn('email', response.get_json())
+                self.assertIn('no-store', response.headers['Cache-Control'])
+            list_mock.assert_not_called()
+            detail_mock.assert_not_called()
+        with self.app.app_context():
+            self.assertIsNone(web_outlook_app.get_email_share_row_by_id(share['id'])['last_accessed_at'])
+
+    def test_verified_access_is_bound_to_link_and_session_and_grants_only_read_access(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12')
+        other = self._create_share(account_id, access_code='Ab12')
+        token = self._token_from_share_url(share['share_url'])
+        other_token = self._token_from_share_url(other['share_url'])
+        anonymous = self.app.test_client()
+        verify_url = f'/api/share/email/{token}/verify'
+        for code in ('ab12', '', None, 1234):
+            response = anonymous.post(verify_url, json={'access_code': code})
+            self.assertEqual(response.status_code, 403)
+        verified = anonymous.post(verify_url, json={'access_code': 'Ab12'})
+        self.assertEqual(verified.status_code, 200)
+        self.assertEqual(anonymous.get(f'/api/share/email/{token}/status').get_json()['email'], 'shared@example.com')
+        self.assertEqual(anonymous.get(f'/api/share/email/{other_token}/status').status_code, 403)
+        self.assertEqual(self.app.test_client().get(f'/api/share/email/{token}/status').status_code, 403)
+        self.assertEqual(anonymous.post(
+            f'/api/share/email/{other_token}/verify', json={'access_code': 'Ab12'}
+        ).status_code, 200)
+        self.assertEqual(anonymous.get(f'/api/share/email/{token}/status').status_code, 200)
+        with patch.object(web_outlook_app, 'fetch_account_emails', return_value={
+            'success': True, 'emails': [],
+        }) as list_mock, patch.object(web_outlook_app, 'fetch_email_detail_for_account', return_value={
+            'success': True, 'email': {'id': 'msg-1'},
+        }) as detail_mock:
+            self.assertEqual(anonymous.get(f'/api/share/email/{token}/emails').status_code, 200)
+            self.assertEqual(anonymous.get(f'/api/share/email/{token}/email/msg-1').status_code, 200)
+            list_mock.assert_called_once()
+            detail_mock.assert_called_once()
+        self.assertEqual(anonymous.get('/api/email-shares').status_code, 401)
+        self.assertEqual(anonymous.post('/api/emails/delete', json={}).status_code, 401)
+        self.assertEqual(anonymous.get(f'/share/email/{token}').status_code, 200)
+
+    def test_verified_access_still_enforces_email_visibility_limit(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12', max_email_count=1)
+        token = self._token_from_share_url(share['share_url'])
+        anonymous = self.app.test_client()
+        self.assertEqual(anonymous.post(
+            f'/api/share/email/{token}/verify', json={'access_code': 'Ab12'}
+        ).status_code, 200)
+        folder_emails = {
+            'inbox': [
+                {'id': 'old', 'date': '2026-01-02T00:00:00Z', 'id_mode': 'graph'},
+                {'id': 'older', 'date': '2026-01-01T00:00:00Z', 'id_mode': 'graph'},
+            ],
+            'junkemail': [{'id': 'new', 'date': '2026-01-03T00:00:00Z', 'id_mode': 'graph'}],
+        }
+        with patch.object(web_outlook_app, 'fetch_account_emails', side_effect=self._make_share_folder_fetch(
+            folder_emails, expected_top=web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE
+        )), patch.object(web_outlook_app, 'fetch_email_detail_for_account', return_value={
+            'success': True, 'email': {'id': 'old'},
+        }) as detail_mock:
+            inbox = anonymous.get(f'/api/share/email/{token}/emails?folder=inbox').get_json()
+            junk = anonymous.get(f'/api/share/email/{token}/emails?folder=junkemail').get_json()
+            self.assertEqual([email['id'] for email in inbox['emails']], ['old'])
+            self.assertEqual([email['id'] for email in junk['emails']], ['new'])
+            allowed = anonymous.get(f'/api/share/email/{token}/email/old?folder=inbox&id_mode=graph')
+            self.assertEqual(allowed.status_code, 200)
+            detail_mock.assert_called_once()
+            detail_mock.reset_mock()
+            outside = anonymous.get(f'/api/share/email/{token}/email/older?folder=inbox&id_mode=graph')
+            self.assertEqual(outside.status_code, 404)
+            detail_mock.assert_not_called()
+
+    def test_access_code_verification_is_rate_limited_separately_from_admin_login(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12')
+        token = self._token_from_share_url(share['share_url'])
+        anonymous = self.app.test_client()
+        url = f'/api/share/email/{token}/verify'
+        for _ in range(web_outlook_app.MAX_LOGIN_ATTEMPTS):
+            self.assertEqual(anonymous.post(url, json={'access_code': 'wrong'}).status_code, 403)
+        blocked = anonymous.post(url, json={'access_code': 'Ab12'})
+        self.assertEqual(blocked.status_code, 429)
+        self.assertGreater(int(blocked.headers['Retry-After']), 0)
+        self.assertEqual(anonymous.get(f'/api/share/email/{token}/status').status_code, 403)
+        self.assertTrue(web_outlook_app.check_rate_limit('127.0.0.1')[0])
+        later = web_outlook_app.time.time() + web_outlook_app.LOCKOUT_DURATION + 1
+        with patch.object(web_outlook_app.time, 'time', return_value=later):
+            self.assertEqual(anonymous.post(url, json={'access_code': 'Ab12'}).status_code, 200)
+
+    def test_verified_share_still_obeys_expiry_revocation_and_deletion(self):
+        account_id = self._insert_account()
+        for invalidation in ('expired', 'revoked', 'deleted'):
+            with self.subTest(invalidation=invalidation):
+                share = self._create_share(account_id, access_code='Ab12', max_email_count=1)
+                token = self._token_from_share_url(share['share_url'])
+                anonymous = self.app.test_client()
+                verify_url = f'/api/share/email/{token}/verify'
+                self.assertEqual(anonymous.post(verify_url, json={'access_code': 'Ab12'}).status_code, 200)
+                if invalidation == 'expired':
+                    with self.app.app_context():
+                        db = web_outlook_app.get_db()
+                        db.execute("UPDATE email_share_links SET expires_at = '2000-01-01' WHERE id = ?", (share['id'],))
+                        db.commit()
+                elif invalidation == 'revoked':
+                    self.client.post(f"/api/email-shares/{share['id']}/cancel")
+                else:
+                    self.client.delete(f"/api/email-shares/{share['id']}")
+                for suffix in ('status', 'emails', 'email/msg-1'):
+                    self.assertEqual(anonymous.get(f'/api/share/email/{token}/{suffix}').status_code, 404)
+                self.assertEqual(anonymous.post(verify_url, json={'access_code': 'Ab12'}).status_code, 404)
+
+    def test_anonymous_access_code_verification_supports_csrf_protection(self):
+        if not web_outlook_app.CSRF_AVAILABLE:
+            self.skipTest('Flask-WTF is unavailable')
+        account_id = self._insert_account()
+        share = self._create_share(account_id, access_code='Ab12')
+        token = self._token_from_share_url(share['share_url'])
+        self.app.config['WTF_CSRF_ENABLED'] = True
+        self.addCleanup(self.app.config.update, WTF_CSRF_ENABLED=False)
+        anonymous = self.app.test_client()
+        page = anonymous.get(f'/share/email/{token}').get_data(as_text=True)
+        csrf_token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page).group(1)
+        url = f'/api/share/email/{token}/verify'
+        self.assertEqual(anonymous.post(url, json={'access_code': 'Ab12'}).status_code, 400)
+        response = anonymous.post(url, json={'access_code': 'Ab12'}, headers={'X-CSRFToken': csrf_token})
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_share_validates_and_serializes_email_visibility_limit(self):
+        account_id = self._insert_account()
+        limited_share = self._create_share(account_id, max_email_count=2)
+        unlimited_share = self._create_share(account_id, max_email_count='')
+
+        self.assertEqual(limited_share['max_email_count'], 2)
+        self.assertIsNone(unlimited_share['max_email_count'])
+
+        token = self._token_from_share_url(limited_share['share_url'])
+        status_response = self.client.get(f'/api/share/email/{token}/status')
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.get_json()['max_email_count'], 2)
+
+        list_response = self.client.get('/api/email-shares')
+        self.assertEqual(list_response.status_code, 200)
+        shares_by_id = {share['id']: share for share in list_response.get_json()['shares']}
+        self.assertEqual(shares_by_id[limited_share['id']]['max_email_count'], 2)
+        self.assertIsNone(shares_by_id[unlimited_share['id']]['max_email_count'])
+
+        for invalid_count in (0, -1, 51, '1.5', True):
+            response = self.client.post('/api/email-shares', json={
+                'account_id': account_id,
+                'duration_minutes': 60,
+                'max_email_count': invalid_count,
+            })
+            self.assertEqual(response.status_code, 400)
+            self.assertFalse(response.get_json()['success'])
+
+    def test_limited_share_per_folder_visibility_blocks_pagination_bypass(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, max_email_count=2)
+        token = self._token_from_share_url(share['share_url'])
+        folder_emails = {
+            'inbox': [
+                {'id': 'inbox-2', 'date': '2026-01-02T12:02:00Z', 'id_mode': 'graph'},
+                {'id': 'inbox-1', 'date': '2026-01-02T12:01:00Z', 'id_mode': 'graph'},
+            ],
+            'junkemail': [
+                {'id': 'junk-old', 'date': '2026-01-02T11:59:00Z', 'id_mode': 'graph'},
+            ],
+        }
+
+        with patch.object(
+            web_outlook_app,
+            'fetch_account_emails',
+            side_effect=self._make_share_folder_fetch(folder_emails, expected_top=web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE),
+        ) as list_mock:
+            first_response = self.client.get(
+                f'/api/share/email/{token}/emails?folder=inbox&skip=0&top=1'
+            )
+            second_response = self.client.get(
+                f'/api/share/email/{token}/emails?folder=inbox&skip=1&top=1'
+            )
+            overflow_response = self.client.get(
+                f'/api/share/email/{token}/emails?folder=inbox&skip=2&top=50'
+            )
+
+        first_data = first_response.get_json()
+        second_data = second_response.get_json()
+        overflow_data = overflow_response.get_json()
+        self.assertEqual([email['id'] for email in first_data['emails']], ['inbox-2'])
+        self.assertTrue(first_data['has_more'])
+        self.assertEqual([email['id'] for email in second_data['emails']], ['inbox-1'])
+        self.assertFalse(second_data['has_more'])
+        self.assertEqual(overflow_data['emails'], [])
+        self.assertFalse(overflow_data['has_more'])
+        self.assertEqual(list_mock.call_count, 2)
+        self.assertTrue(all(
+            call.args[1] == 'inbox'
+            and call.args[2:] == (0, web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE)
+            for call in list_mock.call_args_list
+        ))
+        self.assertNotIn('_share_request_method', first_data['emails'][0])
+
+    def test_limited_share_lists_each_folder_without_fetching_the_other(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, max_email_count=1)
+        token = self._token_from_share_url(share['share_url'])
+        folder_emails = {
+            'inbox': [
+                {'id': 'inbox-visible', 'date': '2026-01-02T12:01:00Z', 'id_mode': 'graph'},
+                {'id': 'inbox-older', 'date': '2026-01-02T12:00:00Z', 'id_mode': 'graph'},
+            ],
+            'junkemail': [
+                {'id': 'junk-visible', 'date': '2026-01-02T12:03:00Z', 'id_mode': 'graph'},
+                {'id': 'junk-older', 'date': '2026-01-02T12:02:00Z', 'id_mode': 'graph'},
+            ],
+        }
+        fetched_folders = []
+
+        def fetch(_account, folder, skip, top):
+            fetched_folders.append(folder)
+            self.assertEqual((skip, top), (0, web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE))
+            return self._share_folder_result(folder_emails[folder])
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', side_effect=fetch):
+            inbox_data = self.client.get(
+                f'/api/share/email/{token}/emails?folder=inbox'
+            ).get_json()
+            junk_data = self.client.get(
+                f'/api/share/email/{token}/emails?folder=junkemail'
+            ).get_json()
+
+        self.assertEqual([email['id'] for email in inbox_data['emails']], ['inbox-visible'])
+        self.assertEqual([email['id'] for email in junk_data['emails']], ['junk-visible'])
+        self.assertEqual(fetched_folders, ['inbox', 'junkemail'])
+
+    def test_limited_share_detail_requires_visible_message_id_and_mode(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, max_email_count=1)
+        token = self._token_from_share_url(share['share_url'])
+        folder_emails = {
+            'inbox': [
+                {'id': 'allowed', 'date': '2026-01-02T12:02:00Z', 'id_mode': 'uid'},
+            ],
+            'junkemail': [
+                {'id': 'junk-visible', 'date': '2026-01-02T12:03:00Z', 'id_mode': 'uid'},
+                {'id': 'outside', 'date': '2026-01-02T12:01:00Z', 'id_mode': 'uid'},
+            ],
+        }
+
+        with patch.object(
+            web_outlook_app,
+            'fetch_account_emails',
+            side_effect=self._make_share_folder_fetch(
+                folder_emails, expected_top=web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE, request_method='imap'
+            ),
+        ), patch.object(
+            web_outlook_app,
+            'fetch_email_detail_for_account',
+            return_value={'success': True, 'email': {'id': 'allowed'}},
+        ) as detail_mock:
+            allowed_response = self.client.get(
+                f'/api/share/email/{token}/email/allowed?folder=inbox&id_mode=uid&method=graph'
+            )
+            self.assertEqual(allowed_response.status_code, 200)
+            self.assertTrue(allowed_response.get_json()['success'])
+            self.assertEqual(detail_mock.call_args.args[1:], ('allowed', 'imap', 'inbox', 'uid'))
+            self.assertEqual(detail_mock.call_args.kwargs, {
+                'strict_id_mode': True,
+                'force_method': True,
+            })
+
+            detail_mock.reset_mock()
+            outside_response = self.client.get(
+                f'/api/share/email/{token}/email/outside?folder=junkemail&id_mode=uid'
+            )
+            mode_bypass_response = self.client.get(
+                f'/api/share/email/{token}/email/allowed?folder=inbox&id_mode=sequence'
+            )
+
+        self.assertEqual(outside_response.status_code, 404)
+        self.assertEqual(mode_bypass_response.status_code, 404)
+        detail_mock.assert_not_called()
+
+    def test_limited_share_visibility_is_dynamic_across_folders_with_stable_ordering(self):
+        account = {'id': 42, 'email': 'shared@example.com'}
+        folder_emails = {
+            'inbox': [
+                {'id': 'inbox-a', 'date': '2026-01-02T12:00:00Z', 'id_mode': 'graph'},
+                {'id': 'inbox-b', 'date': '2026-01-02T12:00:00Z', 'id_mode': 'graph'},
+            ],
+            'junkemail': [
+                {'id': 'junk-old', 'date': '2026-01-02T11:00:00Z', 'id_mode': 'graph'},
+            ],
+        }
+
+        with patch.object(
+            web_outlook_app,
+            'fetch_account_emails',
+            side_effect=self._make_share_folder_fetch(folder_emails, expected_top=web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE),
+        ):
+            initial_visible = web_outlook_app.resolve_email_share_visible_messages(account, 2)
+            folder_emails['junkemail'] = [
+                {'id': 'junk-new', 'date': '2026-01-02T13:00:00Z', 'id_mode': 'graph'},
+            ]
+            updated_visible = web_outlook_app.resolve_email_share_visible_messages(account, 2)
+
+        self.assertEqual(
+            [email['id'] for email in initial_visible['emails']],
+            ['inbox-b', 'inbox-a'],
+        )
+        self.assertEqual(
+            [email['id'] for email in updated_visible['emails']],
+            ['junk-new', 'inbox-b'],
+        )
+
+    def test_limited_share_expands_tied_timestamp_candidates_before_sorting(self):
+        account = {'id': 42, 'email': 'shared@example.com'}
+        tied_date = '2026-01-02T12:00:00Z'
+        inbox_first_page = [
+            {'id': 'a', 'date': tied_date, 'id_mode': 'graph'},
+            *[
+                {'id': f'{index:02d}', 'date': tied_date, 'id_mode': 'graph'}
+                for index in range(web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE - 1)
+            ],
+        ]
+        calls = []
+
+        def fetch(_account, folder, skip, top):
+            calls.append((folder, skip, top))
+            self.assertTrue(web_outlook_app.email_share_stable_ids_context.get())
+            self.assertEqual(top, web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE)
+            if folder == 'inbox' and skip == 0:
+                return self._share_folder_result(inbox_first_page, has_more=True)
+            if folder == 'inbox' and skip == web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE:
+                return self._share_folder_result([
+                    {'id': 'b', 'date': tied_date, 'id_mode': 'graph'},
+                ])
+            if folder == 'junkemail' and skip == 0:
+                return self._share_folder_result([])
+            self.fail(f'Unexpected candidate page: {(folder, skip, top)}')
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', side_effect=fetch):
+            visible_result = web_outlook_app.resolve_email_share_visible_messages(account, 1)
+
+        self.assertTrue(visible_result['success'])
+        self.assertEqual([email['id'] for email in visible_result['emails']], ['b'])
+        self.assertEqual(calls, [
+            ('inbox', 0, web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE),
+            ('junkemail', 0, web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE),
+            ('inbox', web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE,
+             web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE),
+        ])
+        self.assertNotIn('_disable_authorization_type_record', account)
+        self.assertFalse(web_outlook_app.email_share_stable_ids_context.get())
+
+    def test_limited_share_rejects_incomplete_candidate_page(self):
+        account = {'id': 42, 'email': 'shared@example.com'}
+
+        def fetch(_account, folder, skip, top):
+            if folder == 'inbox':
+                return self._share_folder_result([
+                    {'id': 'inbox-new', 'date': '2026-01-02T12:00:00Z', 'id_mode': 'graph'},
+                ], has_more=True)
+            return self._share_folder_result([])
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', side_effect=fetch):
+            visible_result = web_outlook_app.resolve_email_share_visible_messages(account, 1)
+
+        self.assertFalse(visible_result['success'])
+        self.assertEqual(visible_result['error'], '无法验证分享链接可访问邮件范围')
+
+    def test_limited_share_rejects_excessive_tied_timestamp_candidates(self):
+        account = {'id': 42, 'email': 'shared@example.com'}
+        tied_date = '2026-01-02T12:00:00Z'
+
+        def fetch(_account, folder, skip, top):
+            if folder == 'junkemail':
+                return self._share_folder_result([])
+            return self._share_folder_result([
+                {
+                    'id': f'inbox-{skip + index}',
+                    'date': tied_date,
+                    'id_mode': 'graph',
+                }
+                for index in range(top)
+            ], has_more=True)
+
+        with patch.object(web_outlook_app, 'fetch_account_emails', side_effect=fetch):
+            visible_result = web_outlook_app.resolve_email_share_visible_messages(account, 1)
+
+        self.assertFalse(visible_result['success'])
+        self.assertEqual(visible_result['error'], '无法验证分享链接可访问邮件范围')
+
+    def test_limited_share_does_not_record_mixed_mail_channels(self):
+        account = {
+            'id': 42,
+            'email': 'shared@example.com',
+            'client_id': 'client-id',
+            'refresh_token': 'refresh-token',
+            'account_type': 'outlook',
+            'authorization_type': '',
+        }
+        graph_email = {
+            'id': 'graph-inbox',
+            'subject': 'Graph inbox',
+            'from': {'emailAddress': {'address': 'sender@example.com'}},
+            'toRecipients': [],
+            'receivedDateTime': '2026-01-02T12:02:00Z',
+            'isRead': False,
+            'hasAttachments': False,
+            'bodyPreview': '',
+        }
+
+        def graph_fetch(_client_id, _refresh_token, folder, *_args):
+            if folder == 'inbox':
+                return {'success': True, 'emails': [graph_email]}
+            return {'success': False, 'error': 'Graph unavailable'}
+
+        def imap_fetch(*_args, **_kwargs):
+            self.assertTrue(web_outlook_app.email_share_stable_ids_context.get())
+            return {
+                'success': True,
+                'emails': [{
+                    'id': 'imap-junk',
+                    'date': '2026-01-02T12:01:00Z',
+                    'id_mode': 'uid',
+                }],
+                'has_more': False,
+            }
+
+        with patch.object(web_outlook_app, 'get_emails_graph', side_effect=graph_fetch), \
+             patch.object(web_outlook_app, 'get_emails_imap_with_server', side_effect=imap_fetch), \
+             patch.object(web_outlook_app, 'record_account_authorization_type') as record_channel:
+            visible_result = web_outlook_app.resolve_email_share_visible_messages(account, 2)
+
+        self.assertTrue(visible_result['success'])
+        self.assertEqual(
+            [email['id'] for email in visible_result['emails']],
+            ['graph-inbox', 'imap-junk'],
+        )
+        record_channel.assert_not_called()
+        self.assertEqual(account['authorization_type'], '')
+        self.assertNotIn('_disable_authorization_type_record', account)
+        self.assertFalse(web_outlook_app.email_share_stable_ids_context.get())
+
+    def test_limited_share_rejects_nonstable_imap_candidates(self):
+        account_id = self._insert_account()
+        share = self._create_share(account_id, max_email_count=1)
+        token = self._token_from_share_url(share['share_url'])
+        folder_emails = {
+            'inbox': [
+                {'id': '10', 'date': '2026-01-02T12:02:00Z', 'id_mode': 'sequence'},
+            ],
+            'junkemail': [],
+        }
+
+        with patch.object(
+            web_outlook_app,
+            'fetch_account_emails',
+            side_effect=self._make_share_folder_fetch(
+                folder_emails,
+                expected_top=web_outlook_app.EMAIL_SHARE_CANDIDATE_PAGE_SIZE,
+                request_method='imap',
+            ),
+        ) as list_mock:
+            response = self.client.get(f'/api/share/email/{token}/emails?folder=inbox')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.get_json()['success'])
+        self.assertEqual(response.get_json()['error'], '无法验证分享链接可访问邮件范围')
+        self.assertEqual(list_mock.call_count, 1)
+
+    def test_limited_share_imap_candidates_use_uid_arrival_sort(self):
+        class FakeImapConnection:
+            def __init__(self):
+                self.uid_calls = []
+
+            def uid(self, *args):
+                self.uid_calls.append(args)
+                return 'OK', [b'90 89 88']
+
+        connection = FakeImapConnection()
+        message_ids, attempts = web_outlook_app.search_imap_message_uids_by_arrival(connection)
+
+        self.assertEqual(message_ids, [b'90', b'89', b'88'])
+        self.assertEqual(connection.uid_calls, [
+            ('SORT', '(REVERSE ARRIVAL)', 'UTF-8', 'ALL'),
+        ])
+        self.assertEqual(attempts[0]['mode'], 'uid-arrival-sort')
+
+    def test_limited_share_forced_detail_channel_does_not_record_preference(self):
+        account = {
+            'id': 42,
+            'email': 'shared@example.com',
+            'client_id': 'client-id',
+            'refresh_token': 'refresh-token',
+            'account_type': 'outlook',
+            'authorization_type': '',
+        }
+
+        with patch.object(
+            web_outlook_app,
+            'fetch_graph_detail_response',
+            return_value={'success': True, 'email': {'id': 'allowed'}},
+        ), patch.object(web_outlook_app, 'record_account_authorization_type') as record_channel:
+            result = web_outlook_app.fetch_email_detail_for_account(
+                account,
+                'allowed',
+                method='graph',
+                folder='inbox',
+                id_mode='graph',
+                force_method=True,
+            )
+
+        self.assertTrue(result['success'])
+        record_channel.assert_not_called()
+
+    def test_limited_share_outlook_imap_list_uses_uid_arrival_sort(self):
+        raw_email = (
+            b'Subject: shared code\r\n'
+            b'From: sender@example.com\r\n'
+            b'To: shared@example.com\r\n'
+            b'\r\n'
+            b'123456\r\n'
+        )
+
+        class FakeImapConnection:
+            def __init__(self):
+                self.uid_calls = []
+                self.fetch_calls = []
+                self.logged_out = False
+
+            def authenticate(self, *_args):
+                return 'OK', [b'authenticated']
+
+            def uid(self, command, *args):
+                self.uid_calls.append((command, *args))
+                if command == 'SORT':
+                    return 'OK', [b'42']
+                if command == 'FETCH':
+                    return 'OK', [(
+                        b'42 (UID 42 INTERNALDATE "14-Apr-2026 10:00:00 +0000" BODY[HEADER] {64}',
+                        raw_email,
+                    )]
+                return 'NO', []
+
+            def fetch(self, *args):
+                self.fetch_calls.append(args)
+                return 'NO', []
+
+            def logout(self):
+                self.logged_out = True
+                return 'BYE', [b'logout']
+
+        connection = FakeImapConnection()
+        context_token = web_outlook_app.email_share_stable_ids_context.set(True)
+        try:
+            with patch.object(
+                web_outlook_app,
+                'get_access_token_imap_result',
+                return_value={'success': True, 'access_token': 'token'},
+            ), patch.object(
+                web_outlook_app.imaplib,
+                'IMAP4_SSL',
+                return_value=connection,
+            ), patch.object(
+                web_outlook_app,
+                'resolve_imap_folder',
+                return_value=('INBOX', {}),
+            ):
+                result = web_outlook_app.get_emails_imap_with_server(
+                    'shared@example.com',
+                    'client-id',
+                    'refresh-token',
+                    top=1,
+                )
+        finally:
+            web_outlook_app.email_share_stable_ids_context.reset(context_token)
+
+        self.assertTrue(result['success'])
+        self.assertEqual(result['emails'][0]['id'], '42')
+        self.assertEqual(result['emails'][0]['id_mode'], 'uid')
+        self.assertFalse(result['has_more'])
+        self.assertEqual(connection.uid_calls, [
+            ('SORT', '(REVERSE ARRIVAL)', 'UTF-8', 'ALL'),
+            ('FETCH', b'42', '(UID FLAGS INTERNALDATE BODYSTRUCTURE BODY.PEEK[HEADER])'),
+        ])
+        self.assertEqual(connection.fetch_calls, [])
+        self.assertTrue(connection.logged_out)
+
+    def test_limited_share_strict_imap_lookup_never_falls_back_to_sequence(self):
+        class FakeImapConnection:
+            def __init__(self):
+                self.uid_calls = []
+                self.fetch_calls = []
+
+            def uid(self, *args):
+                self.uid_calls.append(args)
+                return 'NO', []
+
+            def fetch(self, *args):
+                self.fetch_calls.append(args)
+                return 'OK', [(b'ignored', b'outside-range-message')]
+
+        connection = FakeImapConnection()
+        status, _data, mode, attempts = web_outlook_app.fetch_imap_message(
+            connection,
+            '10',
+            '(RFC822)',
+            preferred_mode='uid',
+            allow_id_mode_fallback=False,
+        )
+
+        self.assertEqual(status, 'NO')
+        self.assertEqual(mode, '')
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(connection.uid_calls, [('FETCH', '10', '(RFC822)')])
+        self.assertEqual(connection.fetch_calls, [])
+
+    def test_persisted_invalid_email_visibility_limit_fails_closed(self):
+        account_id = self._insert_account()
+        invalid_limits = {
+            'invalid-limit-zero': 0,
+            'invalid-limit-too-large': 51,
+            'invalid-limit-text': 'not-an-integer',
+        }
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute('DROP TABLE email_share_links')
+            db.execute(
+                '''
+                CREATE TABLE email_share_links (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id INTEGER NOT NULL,
+                    token_hash TEXT UNIQUE NOT NULL,
+                    token_encrypted TEXT NOT NULL,
+                    expires_at TIMESTAMP,
+                    never_expires INTEGER NOT NULL DEFAULT 0,
+                    max_email_count INTEGER,
+                    revoked_at TIMESTAMP,
+                    last_accessed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+                )
+                '''
+            )
+            for invalid_token, invalid_limit in invalid_limits.items():
+                db.execute(
+                    '''
+                    INSERT INTO email_share_links (
+                        account_id, token_hash, token_encrypted, expires_at,
+                        never_expires, max_email_count
+                    )
+                    VALUES (?, ?, ?, '2099-01-01 00:00:00', 0, ?)
+                    ''',
+                    (
+                        account_id,
+                        web_outlook_app.hash_email_share_token(invalid_token),
+                        web_outlook_app.encrypt_data(invalid_token),
+                        invalid_limit,
+                    )
+                )
+            db.commit()
+            web_outlook_app.init_db()
+
+        with patch.object(web_outlook_app, 'fetch_account_emails') as fetch_mock:
+            for invalid_token in invalid_limits:
+                status_response = self.client.get(f'/api/share/email/{invalid_token}/status')
+                emails_response = self.client.get(
+                    f'/api/share/email/{invalid_token}/emails?folder=inbox&skip=50'
+                )
+
+                self.assertEqual(status_response.status_code, 404)
+                self.assertEqual(status_response.get_json()['status'], 'invalid')
+                self.assertEqual(emails_response.status_code, 404)
+                self.assertEqual(emails_response.get_json()['status'], 'invalid')
+        fetch_mock.assert_not_called()
 
     def test_create_timed_and_never_expiring_shares_and_list_copy_urls(self):
         account_id = self._insert_account()
@@ -366,6 +1171,21 @@ class EmailShareFrontendContractTests(unittest.TestCase):
         self.assertIn('data-account-action="share"', groups_js)
         self.assertIn('function createEmailShare()', shares_js)
         self.assertIn('function cancelEmailShare', shares_js)
+        self.assertIn('emailShareVisibilityMode', dialogs)
+        self.assertIn('emailShareMaxEmailCount', dialogs)
+        self.assertIn('emailShareRollingWarning', dialogs)
+        self.assertIn('max_email_count: maxEmailCount', shares_js)
+        self.assertIn('formatEmailShareVisibility', shares_js)
+
+    def test_admin_ui_formats_share_times_in_app_timezone(self):
+        # 后端 expires_at/created_at 均为无时区标记的 UTC 字符串，
+        # 前端必须经 formatAbsoluteDateTime 转成应用时区展示（issue #94）
+        shares_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '11-email-shares.js').read_text(encoding='utf-8')
+
+        self.assertIn('formatAbsoluteDateTime', shares_js)
+        self.assertIn('return formatAbsoluteDateTime(share.expires_at);', shares_js)
+        self.assertIn('formatAbsoluteDateTime(share.created_at)', shares_js)
+        self.assertNotIn('return share.expires_at || ', shares_js)
 
     def test_share_page_contains_read_only_shell(self):
         template = pathlib.Path(ROOT_DIR, 'templates', 'email_share.html').read_text(encoding='utf-8')
@@ -374,7 +1194,10 @@ class EmailShareFrontendContractTests(unittest.TestCase):
 
         self.assertIn('shareEmailList', template)
         self.assertIn('shareEmailDetail', template)
+        self.assertIn('shareVisibilityHint', template)
         self.assertIn('/api/share/email/', share_js)
+        self.assertIn('renderShareVisibilityHint(status.max_email_count)', share_js)
+        self.assertIn('收件箱和垃圾邮件分别仅显示各自最新 ${count} 封邮件', share_js)
         self.assertIn('.overlay-screen[hidden]', share_css)
         self.assertNotIn("shareStatusAttr !== 'active'", share_js)
         self.assertNotIn('/api/emails/delete', share_js)

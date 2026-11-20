@@ -1,17 +1,17 @@
-        /* global applyPendingNewMailSync, closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, hasPendingNewMailSync, initAccountListScroll, initAccountPageSizeSelect, initAccountSearchInput, initAccountSearchScopeSelect, initAccountSelectionGestures, initColorPicker, initEmailListScroll, loadGroups, loadMoreCloudflareGlobalMessages, loadTags, renderEmailList, saveAccountSearchQueryPreference, scheduleEmailListLoadCheck, searchAccounts */
+        /* global accountSelectionMode, applyPendingNewMailSync, closeAllModals, debounce, ensureForwardingSettingsUI, handleGlobalGroupPointerMove, handleGlobalGroupPointerUp, hasPendingNewMailSync, initAccountListScroll, initAccountPageSizeSelect, initAccountSearchInput, initAccountSearchScopeSelect, initAccountSelectionGestures, initColorPicker, initEmailListScroll, loadGroups, loadMoreCloudflareGlobalMessages, loadTags, renderEmailList, saveAccountSearchQueryPreference, scheduleEmailListLoadCheck, searchAccounts */
 
-        // Global status
+        // 全局状态
         let csrfToken = null;
         let currentAccount = null;
         let currentAccountSummary = null;
         let currentGroupId = null;
         let currentEmails = [];
         let currentMethod = 'graph';
-        let currentFolder = 'all'; // Current folder: all/inbox/junemail/deleteditems
+        let currentFolder = 'all'; // 当前文件夹：all / inbox / junkemail / deleteditems
         let isListVisible = true;
         let groups = [];
-        let accountsCache = {}; // Cache the mailbox list of each group
-        let currentAccountListSource = []; // The original data source of the current account list (grouping or search results)
+        let accountsCache = {}; // 缓存各分组的邮箱列表
+        let currentAccountListSource = []; // 当前账号列表的原始数据源（分组或搜索结果）
         const ACCOUNT_LIST_DEFAULT_PAGE_SIZE = 200;
         const ACCOUNT_LIST_MAX_PAGE_SIZE = 10000;
         let accountListPageSize = ACCOUNT_LIST_DEFAULT_PAGE_SIZE;
@@ -28,17 +28,17 @@
         let currentForwardingLogAccountEmail = '';
         let editingGroupId = null;
         let selectedColor = '#1a1a1a';
-        let isTempEmailGroup = false; // Whether it is a temporary mailbox group
-        let tempEmailGroupId = null; // Temporary mailbox group ID
-        let isLoadingMore = false; // Is more mail loading?
-        let hasMoreEmails = true; // Are there any more emails?
-        let currentSkip = 0; // Current paging offset
+        let isTempEmailGroup = false; // 是否是临时邮箱分组
+        let tempEmailGroupId = null; // 临时邮箱分组 ID
+        let isLoadingMore = false; // 是否正在加载更多邮件
+        let hasMoreEmails = true; // 是否还有更多邮件
+        let currentSkip = 0; // 当前分页偏移量
 
-        // Caching and trust model
-        let emailListCache = {}; // Structure: { "account_folder": { emails: [], hasMore: bool, skip: int, method: str, count: int } }
-        let currentEmailId = null; // Currently selected email ID
-        let currentEmailDetail = null; // Details of the currently viewed email
-        let isTrustedMode = false; // Whether in trust mode (does not filter HTML)
+        // 缓存与信任模式
+        let emailListCache = {}; // 结构: { "account_folder": { emails: [], hasMore: bool, skip: int, method: str, count: int } }
+        let currentEmailId = null; // 当前选中的邮件 ID
+        let currentEmailDetail = null; // 当前查看的邮件详细数据
+        let isTrustedMode = false; // 是否处于信任模式（不过滤 HTML）
         let oauthPreviewAccount = null;
         let selectedTagFilters = new Set();
         let excludedTagFilters = new Set();
@@ -74,7 +74,12 @@
         const REFRESH_STREAM_STALL_TIMEOUT_MS = 70000;
         const VERSION_STATUS_REQUEST_TIMEOUT_MS = 12000;
         const DOCKER_UPDATE_REQUEST_TIMEOUT_MS = 20000;
+        const WINDOWS_UPDATE_REQUEST_TIMEOUT_MS = 20000;
+        const WINDOWS_UPDATE_POLL_INTERVAL_MS = 500;
+        const WINDOWS_UPDATE_RESTART_TIMEOUT_MS = 75000;
         const UPDATE_NOTICE_SEEN_VERSION_KEY = 'outlook_update_notice_seen_latest_version';
+        const WINDOWS_UPDATE_PENDING_VERSION_KEY = 'outlook_windows_update_pending_version';
+        const WINDOWS_UPDATE_COMPLETED_VERSION_KEY = 'outlook_windows_update_completed_version';
         const DEFAULT_APP_TIME_ZONE = 'Asia/Shanghai';
         const FALLBACK_APP_TIME_ZONES = [
             'Asia/Shanghai',
@@ -87,13 +92,20 @@
         ];
         let versionStatusRequest = null;
         let dockerUpdateStatusRequest = null;
+        let windowsUpdateStatusRequest = null;
         let currentVersionStatusState = 'unknown';
+        let currentVersionStatus = null;
         let dockerUpdateStatus = null;
+        let windowsUpdateStatus = null;
+        let windowsUpdateMonitorTimer = null;
+        let windowsUpdateRestartProbeRunning = false;
+        let windowsUpdateInteractionActive = false;
         let emailListLoadCheckTimer = null;
         let appTimeZone = DEFAULT_APP_TIME_ZONE;
         let showAccountCreatedAt = true;
         let showAccountSortOrder = false;
         let showGroupId = true;
+        let showProjectManagement = false;
         let normalMailLocalRetentionEnabled = false;
 
         function normalizeTagFilterSelectionValue(value) {
@@ -186,6 +198,18 @@
 
         function shouldShowGroupId() {
             return showGroupId !== false;
+        }
+
+        function setShowProjectManagement(enabled) {
+            showProjectManagement = enabled === true;
+            if (typeof applyProjectManagementVisibility === 'function') {
+                applyProjectManagementVisibility();
+            }
+            return showProjectManagement;
+        }
+
+        function shouldShowProjectManagement() {
+            return showProjectManagement === true;
         }
 
         function setNormalMailLocalRetentionEnabled(enabled) {
@@ -535,7 +559,7 @@
         function fetchWithTimeout(url, options = {}) {
             const fetchOptions = { ...(options || {}) };
             const timeoutMs = Number(fetchOptions.timeoutMs || 0);
-            const timeoutMessage = fetchOptions.timeoutMessage || I18n.t("Request timed out, please try again later.");
+            const timeoutMessage = fetchOptions.timeoutMessage || I18n.t('请求超时，请稍后重试');
             delete fetchOptions.timeoutMs;
             delete fetchOptions.timeoutMessage;
 
@@ -579,7 +603,7 @@
                     try {
                         eventSource.close();
                     } catch (error) {
-                        console.warn(I18n.t("Failed to close timeout EventSource:"), error);
+                        console.warn(I18n.t('关闭超时 EventSource 失败:'), error);
                     }
                     if (typeof onTimeout === 'function') {
                         onTimeout();
@@ -593,15 +617,15 @@
 
         function getFolderDisplayName(folder) {
             const names = {
-                all: I18n.t("All emails"),
-                inbox: I18n.t("Inbox"),
-                junkemail: I18n.t("Junk mail"),
-                deleteditems: I18n.t("Deleted mail")
+                all: I18n.t('全部邮件'),
+                inbox: I18n.t('收件箱'),
+                junkemail: I18n.t('垃圾邮件'),
+                deleteditems: I18n.t('已删除邮件')
             };
-            return names[String(folder || '').trim().toLowerCase()] || I18n.t("Messages");
+            return names[String(folder || '').trim().toLowerCase()] || I18n.t('邮件');
         }
 
-        function normalizeGroupName(groupName, fallbackName = I18n.t("Unnamed group")) {
+        function normalizeGroupName(groupName, fallbackName = I18n.t('未命名分组')) {
             const normalizedName = String(groupName || '').trim();
             return normalizedName || fallbackName;
         }
@@ -638,17 +662,17 @@
             if (groupText) {
                 groupText.textContent = currentGroup
                     ? normalizeGroupName(currentGroup.name)
-                    : I18n.t("Not selected");
+                    : I18n.t('未选择');
             }
 
             if (accountText) {
                 accountText.textContent = currentAccount
-                    ? `${currentAccount}${isTempEmailGroup ? I18n.t(" (temporary)") : ''}`
-                    : I18n.t("Not selected");
+                    ? `${currentAccount}${isTempEmailGroup ? I18n.t(' (临时)') : ''}`
+                    : I18n.t('未选择');
             }
 
             if (listText) {
-                listText.textContent = listHidden ? I18n.t("Return to list") : I18n.t("Current list");
+                listText.textContent = listHidden ? I18n.t('返回列表') : I18n.t('当前列表');
             }
 
             document.body.classList.toggle('mobile-email-detail-open', !!mobileActive && !!listHidden);
@@ -737,18 +761,32 @@
             if (!versionText) return;
 
             if (typeof copyTextToClipboard === 'function') {
-                Promise.resolve(copyTextToClipboard(versionText, I18n.t("Version number copied"))).finally(closeVersionPopover);
+                Promise.resolve(copyTextToClipboard(versionText, I18n.t('版本号已复制'))).finally(closeVersionPopover);
                 return;
             }
 
             if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
                 navigator.clipboard.writeText(versionText).then(() => {
-                    showToast(I18n.t("Version number copied"), 'success');
+                    showToast(I18n.t('版本号已复制'), 'success');
                     closeVersionPopover();
                 }).catch(() => {
-                    showToast(I18n.t("Copy failed, please copy manually"), 'error');
+                    showToast(I18n.t('复制失败，请手动复制'), 'error');
                 });
             }
+        }
+
+        function refreshOnlineUpdateHint() {
+            const dockerHint = document.getElementById('releaseNoticeDockerHint');
+            if (!dockerHint) return;
+
+            const updateAvailable = currentVersionStatusState === 'update_available';
+            const dockerAvailable = dockerUpdateStatus?.available === true;
+            const windowsEnabled = windowsUpdateStatus?.enabled === true;
+            const windowsStatusLoaded = windowsUpdateStatus !== null;
+            dockerHint.hidden = !updateAvailable
+                || dockerAvailable
+                || windowsEnabled
+                || !windowsStatusLoaded;
         }
 
         function refreshDockerUpdateButton() {
@@ -764,21 +802,18 @@
             const updateAvailable = currentVersionStatusState === 'update_available';
 
             updateButtons.forEach(updateButton => {
-                const defaultLabel = updateButton.dataset.defaultLabel || I18n.t("Docker updates");
-                const unavailableLabel = updateButton.dataset.unavailableLabel || I18n.t("Cannot be updated online");
+                const defaultLabel = updateButton.dataset.defaultLabel || I18n.t('Docker 更新');
+                const unavailableLabel = updateButton.dataset.unavailableLabel || I18n.t('不可在线更新');
 
                 updateButton.hidden = !(enabled && updateAvailable);
                 updateButton.disabled = !available || running;
-                updateButton.textContent = running ? I18n.t("Updating...") : (available ? defaultLabel : unavailableLabel);
+                updateButton.textContent = running ? I18n.t('更新中...') : (available ? defaultLabel : unavailableLabel);
                 updateButton.title = available
-                    ? I18n.t("Start Docker online update")
-                    : (dockerUpdateStatus?.reason || I18n.t("Docker updates are not available"));
+                    ? I18n.t('启动 Docker 在线更新')
+                    : (dockerUpdateStatus?.reason || I18n.t('Docker 更新不可用'));
             });
 
-            const dockerHint = document.getElementById('releaseNoticeDockerHint');
-            if (dockerHint) {
-                dockerHint.hidden = !updateAvailable || available;
-            }
+            refreshOnlineUpdateHint();
         }
 
         async function loadDockerUpdateStatus(forceRefresh = false) {
@@ -788,14 +823,14 @@
 
             dockerUpdateStatusRequest = fetchWithTimeout('/api/docker-update/status', {
                 timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
-                timeoutMessage: I18n.t("Docker update status acquisition timeout"),
+                timeoutMessage: I18n.t('Docker 更新状态获取超时'),
                 cache: 'no-store',
                 credentials: 'same-origin'
             })
                 .then(async (response) => {
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok || !payload.success || !payload.docker_update) {
-                        throw new Error(payload.error || I18n.t("Docker update status acquisition failed"));
+                        throw new Error(payload.error || I18n.t('Docker 更新状态获取失败'));
                     }
                     dockerUpdateStatus = payload.docker_update;
                     refreshDockerUpdateButton();
@@ -826,19 +861,19 @@
 
             if (state.success === null || typeof state.success === 'undefined') {
                 showToast(
-                    state.message || I18n.t("The service may have been restarted, please refresh and check the current version/image"),
+                    state.message || I18n.t('服务可能已重启，请刷新并核对当前版本/镜像'),
                     'warning'
                 );
                 return;
             }
 
             if (state.success === false) {
-                showToast(state.error || state.message || I18n.t("Docker update is not completed"), 'error');
+                showToast(state.error || state.message || I18n.t('Docker 更新未完成'), 'error');
                 return;
             }
 
             if (state.success === true) {
-                showToast(state.message || I18n.t("Docker update completed"), 'success');
+                showToast(state.message || I18n.t('Docker 更新已完成'), 'success');
             }
         }
 
@@ -846,12 +881,12 @@
             const updateButton = document.getElementById('appVersionDockerUpdateBtn');
             if (updateButton?.disabled) return;
 
-            const confirmed = window.confirm(I18n.t("A Docker online update will be initiated and the container may restart automatically. Confirm to continue?"));
+            const confirmed = window.confirm(I18n.t('将启动 Docker 在线更新，容器可能会自动重启。确认继续？'));
             if (!confirmed) return;
 
             document.querySelectorAll('#appVersionDockerUpdateBtn, #releaseNoticeDockerUpdateBtn').forEach(button => {
                 button.disabled = true;
-                button.textContent = I18n.t("Updating...");
+                button.textContent = I18n.t('更新中...');
             });
 
             try {
@@ -860,22 +895,379 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({}),
                     timeoutMs: DOCKER_UPDATE_REQUEST_TIMEOUT_MS,
-                    timeoutMessage: I18n.t("Docker update startup timeout"),
+                    timeoutMessage: I18n.t('Docker 更新启动超时'),
                     credentials: 'same-origin'
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok || !payload.success) {
-                    throw new Error(payload.error || I18n.t("Docker update startup failed"));
+                    throw new Error(payload.error || I18n.t('Docker 更新启动失败'));
                 }
                 dockerUpdateStatus = payload.docker_update || dockerUpdateStatus;
                 refreshDockerUpdateButton();
-                showToast(payload.message || I18n.t("The Docker update task has been started and the results are awaiting"), 'info');
+                showToast(payload.message || I18n.t('Docker 更新任务已启动，正在等待结果'), 'info');
                 window.setTimeout(() => monitorDockerUpdateResult(0), 2000);
             } catch (error) {
                 await loadDockerUpdateStatus(true);
-                showToast(error?.message || I18n.t("Docker update startup failed"), 'error');
+                showToast(error?.message || I18n.t('Docker 更新启动失败'), 'error');
             }
         }
+
+        function formatWindowsUpdateBytes(value) {
+            const bytes = Math.max(0, Number(value) || 0);
+            if (bytes < 1024) return `${Math.round(bytes)} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+            return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+        }
+
+        function windowsUpdateStageLabel(state = {}) {
+            const labels = {
+                idle: I18n.t('等待开始'),
+                queued: I18n.t('准备升级'),
+                resolving: I18n.t('正在查找更新包'),
+                downloading: I18n.t('正在下载'),
+                extracting: I18n.t('正在解压'),
+                restarting: I18n.t('正在重启'),
+                completed: I18n.t('升级完成'),
+                cancelled: I18n.t('已取消'),
+                failed: I18n.t('升级失败'),
+            };
+            return labels[String(state.stage || 'idle')] || String(state.message || I18n.t('处理中'));
+        }
+
+        function renderWindowsUpdateProgress(state = {}) {
+            const progressPanel = document.getElementById('windowsUpdateProgress');
+            const stageEl = document.getElementById('windowsUpdateStage');
+            const barEl = document.getElementById('windowsUpdateProgressBar');
+            const amountEl = document.getElementById('windowsUpdateAmount');
+            const speedEl = document.getElementById('windowsUpdateSpeed');
+            const messageEl = document.getElementById('windowsUpdateMessage');
+            const cancelButton = document.getElementById('windowsUpdateCancelBtn');
+            if (!progressPanel) return;
+
+            const running = state.running === true;
+            const stage = String(state.stage || 'idle');
+            const shouldShow = windowsUpdateInteractionActive
+                || running
+                || ['restarting', 'completed', 'cancelled', 'failed'].includes(stage);
+            progressPanel.hidden = !shouldShow;
+            if (!shouldShow) return;
+
+            const downloadedBytes = Math.max(0, Number(state.downloaded_bytes) || 0);
+            const totalBytes = Math.max(0, Number(state.total_bytes) || 0);
+            const percentValue = Number(state.percent);
+            const hasPercent = Number.isFinite(percentValue) && totalBytes > 0;
+            const normalizedPercent = hasPercent ? Math.max(0, Math.min(100, percentValue)) : 0;
+
+            if (stageEl) {
+                stageEl.textContent = windowsUpdateStageLabel(state);
+            }
+            if (barEl) {
+                barEl.classList.toggle('is-indeterminate', running && !hasPercent && stage === 'downloading');
+                barEl.style.width = hasPercent ? `${normalizedPercent}%` : '0%';
+                barEl.setAttribute('aria-valuenow', hasPercent ? String(normalizedPercent) : '0');
+            }
+            if (amountEl) {
+                if (stage === 'downloading') {
+                    const totalText = totalBytes > 0 ? ` / ${formatWindowsUpdateBytes(totalBytes)}` : '';
+                    const percentText = hasPercent ? `${normalizedPercent.toFixed(1)}% · ` : '';
+                    amountEl.textContent = `${percentText}${formatWindowsUpdateBytes(downloadedBytes)}${totalText}`;
+                } else {
+                    amountEl.textContent = state.target_version ? I18n.tpl`目标版本 ${state.target_version}` : '';
+                }
+            }
+            if (speedEl) {
+                const bytesPerSecond = Math.max(0, Number(state.bytes_per_second) || 0);
+                speedEl.textContent = stage === 'downloading' && bytesPerSecond > 0
+                    ? `${formatWindowsUpdateBytes(bytesPerSecond)}/s`
+                    : '';
+            }
+            if (messageEl) {
+                messageEl.textContent = String(state.error || state.message || '');
+                messageEl.dataset.state = state.success === false ? 'error' : stage;
+            }
+            if (cancelButton) {
+                cancelButton.hidden = !(running && state.cancelable === true);
+                cancelButton.disabled = !(running && state.cancelable === true);
+            }
+        }
+
+        function scrollWindowsUpdateProgressIntoView() {
+            const progressPanel = document.getElementById('windowsUpdateProgress');
+            if (!progressPanel || progressPanel.hidden) return;
+
+            window.requestAnimationFrame(() => {
+                const modalContent = progressPanel.closest('.release-notice-modal-content');
+                if (modalContent) {
+                    modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+                progressPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        }
+
+        function refreshWindowsUpdateButton() {
+            const buttons = [
+                document.getElementById('appVersionWindowsUpdateBtn'),
+                document.getElementById('releaseNoticeWindowsUpdateBtn'),
+            ].filter(Boolean);
+            const enabled = windowsUpdateStatus?.enabled === true;
+            const available = windowsUpdateStatus?.available === true;
+            const running = windowsUpdateStatus?.state?.running === true;
+            const updateAvailable = currentVersionStatusState === 'update_available';
+
+            buttons.forEach(button => {
+                button.hidden = !(enabled && updateAvailable);
+                button.disabled = !available || running;
+                button.textContent = running ? I18n.t('升级中...') : I18n.t('立即升级');
+                button.title = available
+                    ? I18n.t('下载更新并重启应用')
+                    : (windowsUpdateStatus?.reason || I18n.t('Windows 在线升级不可用'));
+            });
+
+            const manualUpdateLink = document.getElementById('releaseNoticeUpdateLink');
+            if (manualUpdateLink) {
+                manualUpdateLink.textContent = enabled && updateAvailable ? I18n.t('手动下载') : I18n.t('前往下载');
+            }
+            refreshOnlineUpdateHint();
+            renderWindowsUpdateProgress(windowsUpdateStatus?.state || {});
+        }
+
+        async function loadWindowsUpdateStatus(forceRefresh = false) {
+            if (windowsUpdateStatusRequest && !forceRefresh) {
+                return windowsUpdateStatusRequest;
+            }
+            windowsUpdateStatusRequest = fetchWithTimeout('/api/windows-update/status', {
+                timeoutMs: WINDOWS_UPDATE_REQUEST_TIMEOUT_MS,
+                timeoutMessage: I18n.t('Windows 升级状态获取超时'),
+                cache: 'no-store',
+                credentials: 'same-origin'
+            })
+                .then(async response => {
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.success || !payload.windows_update) {
+                        throw new Error(payload.error || I18n.t('Windows 升级状态获取失败'));
+                    }
+                    windowsUpdateStatus = payload.windows_update;
+                    refreshWindowsUpdateButton();
+                    return windowsUpdateStatus;
+                })
+                .finally(() => {
+                    windowsUpdateStatusRequest = null;
+                });
+            return windowsUpdateStatusRequest;
+        }
+
+        function rememberPendingWindowsUpdate(version) {
+            try {
+                localStorage.setItem(WINDOWS_UPDATE_PENDING_VERSION_KEY, String(version || ''));
+            } catch (error) {
+                // localStorage 不可用时仍可完成升级，只是不自动展示成功提示。
+            }
+        }
+
+        function clearPendingWindowsUpdate() {
+            try {
+                localStorage.removeItem(WINDOWS_UPDATE_PENDING_VERSION_KEY);
+            } catch (error) {
+                // 忽略浏览器存储异常。
+            }
+        }
+
+        async function waitForWindowsUpdateRestart(targetVersion) {
+            if (windowsUpdateRestartProbeRunning) return;
+            windowsUpdateRestartProbeRunning = true;
+            const startedAt = Date.now();
+
+            const probe = async () => {
+                try {
+                    const response = await fetchWithTimeout('/api/version-status?refresh=1', {
+                        timeoutMs: 1800,
+                        timeoutMessage: I18n.t('等待应用重启'),
+                        cache: 'no-store',
+                        credentials: 'same-origin'
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    const currentVersion = String(payload?.version_status?.current_version || '').trim();
+                    if (response.ok && currentVersion === String(targetVersion || '').trim()) {
+                        try {
+                            localStorage.setItem(WINDOWS_UPDATE_COMPLETED_VERSION_KEY, currentVersion);
+                        } catch (error) {
+                            // 忽略浏览器存储异常。
+                        }
+                        clearPendingWindowsUpdate();
+                        window.location.reload();
+                        return;
+                    }
+
+                    if (response.ok) {
+                        const updateResponse = await fetchWithTimeout('/api/windows-update/status', {
+                            timeoutMs: 1800,
+                            timeoutMessage: I18n.t('读取升级结果超时'),
+                            cache: 'no-store',
+                            credentials: 'same-origin'
+                        });
+                        const updatePayload = await updateResponse.json().catch(() => ({}));
+                        const state = updatePayload?.windows_update?.state || {};
+                        if (updateResponse.ok && state.success === false && state.running !== true) {
+                            windowsUpdateRestartProbeRunning = false;
+                            clearPendingWindowsUpdate();
+                            windowsUpdateStatus = updatePayload.windows_update;
+                            renderWindowsUpdateProgress(state);
+                            refreshWindowsUpdateButton();
+                            showToast(state.error || state.message || I18n.t('升级失败，已恢复旧版本'), 'error');
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    // 服务重启期间连接失败属于预期行为。
+                }
+
+                if (Date.now() - startedAt >= WINDOWS_UPDATE_RESTART_TIMEOUT_MS) {
+                    windowsUpdateRestartProbeRunning = false;
+                    showToast(I18n.t('应用重启超时，请检查程序目录中的旧版本备份'), 'warning');
+                    return;
+                }
+                window.setTimeout(probe, 1000);
+            };
+
+            window.setTimeout(probe, 700);
+        }
+
+        async function monitorWindowsUpdateResult() {
+            if (windowsUpdateMonitorTimer) {
+                window.clearTimeout(windowsUpdateMonitorTimer);
+                windowsUpdateMonitorTimer = null;
+            }
+            try {
+                const status = await loadWindowsUpdateStatus(true);
+                const state = status?.state || {};
+                renderWindowsUpdateProgress(state);
+                if (state.stage === 'restarting') {
+                    waitForWindowsUpdateRestart(state.target_version || currentVersionStatus?.latest_version || '');
+                    return;
+                }
+                if (state.running) {
+                    windowsUpdateMonitorTimer = window.setTimeout(
+                        monitorWindowsUpdateResult,
+                        WINDOWS_UPDATE_POLL_INTERVAL_MS
+                    );
+                    return;
+                }
+                if (state.success === false) {
+                    showToast(state.error || state.message || I18n.t('Windows 在线升级失败'), 'error');
+                }
+            } catch (error) {
+                const targetVersion = String(
+                    windowsUpdateStatus?.state?.target_version
+                    || currentVersionStatus?.latest_version
+                    || ''
+                ).trim();
+                if (windowsUpdateInteractionActive && targetVersion) {
+                    waitForWindowsUpdateRestart(targetVersion);
+                    return;
+                }
+                showToast(error?.message || I18n.t('Windows 升级状态获取失败'), 'error');
+            }
+        }
+
+        async function startWindowsUpdate() {
+            const updateButton = document.getElementById('appVersionWindowsUpdateBtn');
+            if (updateButton?.disabled) return;
+            const targetVersion = String(currentVersionStatus?.latest_version || '').trim();
+            if (!targetVersion) {
+                showToast(I18n.t('未获取到目标版本'), 'error');
+                return;
+            }
+            if (!window.confirm(I18n.tpl`将下载 ${targetVersion} 并自动重启应用，确认继续？`)) {
+                return;
+            }
+
+            windowsUpdateInteractionActive = true;
+            rememberPendingWindowsUpdate(targetVersion);
+            markCurrentReleaseNoticeSeen();
+            closeVersionPopover();
+            if (currentVersionStatus) {
+                renderReleaseNotice(currentVersionStatus);
+            }
+            showModal('releaseNoticeModal');
+            renderWindowsUpdateProgress({
+                running: true,
+                stage: 'queued',
+                target_version: targetVersion,
+                message: I18n.t('正在启动 Windows 在线升级'),
+            });
+            scrollWindowsUpdateProgressIntoView();
+
+            try {
+                const response = await fetchWithTimeout('/api/windows-update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                    timeoutMs: WINDOWS_UPDATE_REQUEST_TIMEOUT_MS,
+                    timeoutMessage: I18n.t('Windows 在线升级启动超时'),
+                    credentials: 'same-origin'
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || I18n.t('Windows 在线升级启动失败'));
+                }
+                windowsUpdateStatus = payload.windows_update || windowsUpdateStatus;
+                refreshWindowsUpdateButton();
+                monitorWindowsUpdateResult();
+            } catch (error) {
+                clearPendingWindowsUpdate();
+                windowsUpdateInteractionActive = false;
+                renderWindowsUpdateProgress({
+                    running: false,
+                    stage: 'failed',
+                    success: false,
+                    target_version: targetVersion,
+                    error: error?.message || I18n.t('Windows 在线升级启动失败'),
+                });
+                showToast(error?.message || I18n.t('Windows 在线升级启动失败'), 'error');
+            }
+        }
+
+        async function cancelWindowsUpdate() {
+            try {
+                const response = await fetchWithTimeout('/api/windows-update/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                    timeoutMs: WINDOWS_UPDATE_REQUEST_TIMEOUT_MS,
+                    timeoutMessage: I18n.t('取消 Windows 在线升级超时'),
+                    credentials: 'same-origin'
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || I18n.t('当前升级阶段不能取消'));
+                }
+                windowsUpdateStatus = payload.windows_update || windowsUpdateStatus;
+                clearPendingWindowsUpdate();
+                refreshWindowsUpdateButton();
+                monitorWindowsUpdateResult();
+            } catch (error) {
+                showToast(error?.message || I18n.t('取消 Windows 在线升级失败'), 'error');
+            }
+        }
+
+        function showCompletedWindowsUpdateNotice() {
+            let completedVersion = '';
+            try {
+                completedVersion = localStorage.getItem(WINDOWS_UPDATE_COMPLETED_VERSION_KEY) || '';
+                localStorage.removeItem(WINDOWS_UPDATE_COMPLETED_VERSION_KEY);
+            } catch (error) {
+                return;
+            }
+            if (completedVersion) {
+                markReleaseNoticeSeen(completedVersion);
+                showToast(I18n.tpl`已升级到 ${completedVersion}`, 'success');
+            }
+        }
+
+        window.startWindowsUpdate = startWindowsUpdate;
+        window.cancelWindowsUpdate = cancelWindowsUpdate;
 
         function applyVersionStatus(versionStatus = {}) {
             const statusBadge = document.getElementById('appVersionStatus');
@@ -883,11 +1275,12 @@
             const actionLink = document.getElementById('appVersionActionLink');
             const upgradeBadgeEl = document.getElementById('appVersionUpgradeBadge');
             const state = String(versionStatus.status || 'unknown').trim() || 'unknown';
-            const badgeLabel = String(versionStatus.badge_label || I18n.t("Check failed")).trim() || I18n.t("Check failed");
-            const hint = String(versionStatus.hint || I18n.t("Temporarily unable to obtain warehouse version information")).trim() || I18n.t("Temporarily unable to obtain warehouse version information");
+            const badgeLabel = String(versionStatus.badge_label || I18n.t('检查失败')).trim() || I18n.t('检查失败');
+            const hint = String(versionStatus.hint || I18n.t('暂时无法获取仓库版本信息')).trim() || I18n.t('暂时无法获取仓库版本信息');
             const updateUrl = String(versionStatus.update_url || '').trim();
-            const defaultLabel = actionLink?.dataset.defaultLabel || I18n.t("View update log");
+            const defaultLabel = actionLink?.dataset.defaultLabel || I18n.t('查看更新日志');
             currentVersionStatusState = state;
+            currentVersionStatus = versionStatus;
 
             if (statusBadge) {
                 statusBadge.dataset.state = state;
@@ -905,10 +1298,11 @@
 
             if (actionLink) {
                 actionLink.href = updateUrl || actionLink.href;
-                actionLink.textContent = state === 'update_available' ? I18n.t("Go to update") : defaultLabel;
+                actionLink.textContent = state === 'update_available' ? I18n.t('前往更新') : defaultLabel;
             }
 
             refreshDockerUpdateButton();
+            refreshWindowsUpdateButton();
         }
 
         async function loadVersionStatus(forceRefresh = false) {
@@ -918,19 +1312,19 @@
 
             applyVersionStatus({
                 status: 'checking',
-                badge_label: I18n.t("Under inspection"),
-                hint: I18n.t("Checking warehouse version..."),
+                badge_label: I18n.t('检查中'),
+                hint: I18n.t('正在检查仓库版本...'),
             });
 
             const requestUrl = forceRefresh ? '/api/version-status?refresh=1' : '/api/version-status';
             versionStatusRequest = fetchWithTimeout(requestUrl, {
                 timeoutMs: VERSION_STATUS_REQUEST_TIMEOUT_MS,
-                timeoutMessage: I18n.t("Check for update timeout"),
+                timeoutMessage: I18n.t('检查更新超时'),
             })
                 .then(async (response) => {
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok || !payload.success || !payload.version_status) {
-                        throw new Error(payload.error || I18n.t("Failed to obtain version status"));
+                        throw new Error(payload.error || I18n.t('版本状态获取失败'));
                     }
                     applyVersionStatus(payload.version_status);
                     showUpdateNoticeIfNeeded(payload.version_status);
@@ -939,8 +1333,8 @@
                 .catch(() => {
                     const fallbackStatus = {
                         status: 'unknown',
-                        badge_label: I18n.t("Check failed"),
-                        hint: I18n.t("Temporarily unable to obtain warehouse version information"),
+                        badge_label: I18n.t('检查失败'),
+                        hint: I18n.t('暂时无法获取仓库版本信息'),
                     };
                     applyVersionStatus(fallbackStatus);
                     return fallbackStatus;
@@ -988,7 +1382,7 @@
             isListVisible = false;
             const toggleText = document.getElementById('toggleListText');
             if (toggleText) {
-                toggleText.textContent = I18n.t("Show list");
+                toggleText.textContent = I18n.t('显示列表');
             }
             closeMobilePanels();
             closeNavbarActionsMenu();
@@ -1007,7 +1401,7 @@
                 isListVisible = true;
                 const toggleText = document.getElementById('toggleListText');
                 if (toggleText) {
-                    toggleText.textContent = I18n.t("Hide list");
+                    toggleText.textContent = I18n.t('隐藏列表');
                 }
             }
 
@@ -1015,11 +1409,11 @@
             scheduleEmailListLoadCheck(0);
         }
 
-        // ==================== CSRF Protection ====================
+        // ==================== CSRF 防护 ====================
 
         const originalFetch = window.fetch.bind(window);
 
-        // Initialize CSRF Token
+        // 初始化 CSRF Token
         async function initCSRFToken(forceRefresh = false) {
             if (csrfToken && !forceRefresh) {
                 return csrfToken;
@@ -1122,7 +1516,7 @@
             return response;
         }
 
-        // Package fetch request and automatically add CSRF Token
+        // 包装 fetch 请求，自动添加 CSRF Token
         window.fetch = function (url, options = {}) {
             return fetchWithCSRF(url, options);
         };
@@ -1146,6 +1540,7 @@
                 setShowAccountCreatedAt(String(data?.settings?.show_account_created_at) !== 'false');
                 setShowAccountSortOrder(String(data?.settings?.show_account_sort_order) === 'true');
                 setShowGroupId(String(data?.settings?.show_group_id) !== 'false');
+                setShowProjectManagement(String(data?.settings?.show_project_management) === 'true');
                 setNormalMailLocalRetentionEnabled(String(data?.settings?.normal_mail_local_retention_enabled) === 'true');
                 return data?.settings || null;
             } catch (error) {
@@ -1153,11 +1548,11 @@
             }
         }
 
-        // Initialization
+        // 初始化
         document.addEventListener('DOMContentLoaded', async function () {
-            // Initialize theme
+            // 初始化主题
             initTheme();
-            // Initialize CSRF Token
+            // 初始化 CSRF Token
             await initCSRFToken();
             await loadAppTimeZoneFromSettings();
             ensureForwardingSettingsUI();
@@ -1236,9 +1631,23 @@
                 }
             });
 
-            closeAllModals(); // Fix: Close all modal boxes when the application starts to prevent browser caching from causing residual modal box background layers
+            closeAllModals(); // 修复：应用启动时关闭所有模态框，防止浏览器缓存导致残留的模态框背景层
             loadVersionStatus();
             loadDockerUpdateStatus();
+            loadWindowsUpdateStatus().then(status => {
+                let pendingVersion = '';
+                try {
+                    pendingVersion = localStorage.getItem(WINDOWS_UPDATE_PENDING_VERSION_KEY) || '';
+                } catch (error) {
+                    pendingVersion = '';
+                }
+                if (pendingVersion && status?.state?.running) {
+                    windowsUpdateInteractionActive = true;
+                    showModal('releaseNoticeModal');
+                    monitorWindowsUpdateResult();
+                }
+            }).catch(() => {});
+            showCompletedWindowsUpdateNotice();
             loadGroups();
             if (typeof loadTags === 'function') {
                 loadTags();
@@ -1256,7 +1665,7 @@
             window.addEventListener('pointerup', handleGlobalGroupPointerUp);
             window.addEventListener('pointercancel', handleGlobalGroupPointerUp);
 
-            // Bind search box event
+            // 绑定搜索框事件
             const searchInput = document.getElementById('globalSearch');
             if (searchInput) {
                 const debouncedSearch = debounce((value) => {
@@ -1268,7 +1677,7 @@
                 });
             }
 
-            // Initialize folded state and minimalist mode state
+            // 初始化折叠状态和极简模式状态
             initGroupPanelCollapseState();
             initAccountMinimalModeState();
 
@@ -1316,7 +1725,7 @@
             try {
                 localStorage.setItem(UPDATE_NOTICE_SEEN_VERSION_KEY, String(version || ''));
             } catch (error) {
-                // Do not block the main interface when localStorage is unavailable.
+                // localStorage 不可用时不阻断主界面。
             }
         }
 
@@ -1334,28 +1743,28 @@
             const noteEntries = Array.isArray(releaseNotes.entries) && releaseNotes.entries.length > 0
                 ? releaseNotes.entries.slice(0, 3)
                 : [{
-                    title: releaseNotes.title || latestVersion || I18n.t("Update content"),
+                    title: releaseNotes.title || latestVersion || I18n.t('更新内容'),
                     items: Array.isArray(releaseNotes.items) ? releaseNotes.items : [],
                 }];
-            const hint = String(versionStatus.hint || I18n.t("New version found")).trim();
+            const hint = String(versionStatus.hint || I18n.t('发现新版本')).trim();
 
             modal.dataset.latestVersion = latestVersion;
 
             const summaryEl = document.getElementById('releaseNoticeVersionSummary');
             if (summaryEl) {
-                summaryEl.textContent = I18n.tpl`Current version: ${currentVersion || '-'} / Latest version: ${latestVersion || '-'}`;
+                summaryEl.textContent = I18n.tpl`当前版本：${currentVersion || '-'} / 最新版本：${latestVersion || '-'}`;
             }
 
             const listEl = document.getElementById('releaseNoticeNotesList');
             if (listEl) {
                 const cards = noteEntries
                     .map((entry, index) => {
-                        const entryTitle = String(entry?.title || (index === 0 ? latestVersion : I18n.t("Update content"))).trim();
+                        const entryTitle = String(entry?.title || (index === 0 ? latestVersion : I18n.t('更新内容'))).trim();
                         const entryItems = Array.isArray(entry?.items) ? entry.items : [];
                         const itemsMarkup = entryItems.length > 0
                             ? entryItems.map(item => `<li>${escapeHtml(String(item || ''))}</li>`).join('')
-                            : I18n.t("<li>The update content is temporarily unavailable, please view the complete update log.</li>");
-                        const badgeMarkup = index === 0 ? I18n.t("<span class=\"release-notice-badge\">Latest</span>") : '';
+                            : I18n.t('<li>暂时无法获取更新内容，可查看完整更新日志。</li>');
+                        const badgeMarkup = index === 0 ? I18n.t('<span class="release-notice-badge">最新</span>') : '';
                         return `
                             <div class="release-notice-card release-notice-entry">
                                 <div class="release-notice-entry-header">
@@ -1370,17 +1779,17 @@
                 listEl.innerHTML = cards || I18n.tpl`
                     <div class="release-notice-card release-notice-entry">
                         <div class="release-notice-entry-header">
-                            <div class="release-notice-card-title">Update content</div>
-                            <span class="release-notice-badge">Latest</span>
+                            <div class="release-notice-card-title">更新内容</div>
+                            <span class="release-notice-badge">最新</span>
                         </div>
-                        <ul><li>The update content is temporarily unavailable, please view the complete update log.</li></ul>
+                        <ul><li>暂时无法获取更新内容，可查看完整更新日志。</li></ul>
                     </div>
                 `;
             }
 
             const hintEl = document.getElementById('releaseNoticeHint');
             if (hintEl) {
-                hintEl.textContent = I18n.tpl`${hint}. This prompt will only appear once per new version.`;
+                hintEl.textContent = I18n.tpl`${hint}。此提示每个新版本只会显示一次。`;
             }
 
             const changelogLink = document.getElementById('releaseNoticeChangelogLink');
@@ -1518,7 +1927,7 @@
             }
         }
 
-        // Initialize color picker
+        // 初始化颜色选择器
         function initColorPicker() {
             document.querySelectorAll('.color-option').forEach(option => {
                 if (option.dataset.colorPickerBound === 'true') {
@@ -1530,14 +1939,14 @@
                     document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
                     this.classList.add('selected');
                     selectedColor = this.dataset.color;
-                    // Synchronously update the custom color input box
+                    // 同步更新自定义颜色输入框
                     document.getElementById('customColorInput').value = selectedColor;
                     document.getElementById('customColorHex').value = selectedColor;
                 });
             });
         }
 
-        // Initialize mailing list scrolling monitoring
+        // 初始化邮件列表滚动监听
         function initEmailListScroll() {
             const emailList = document.getElementById('emailList');
             if (!emailList) return;
@@ -1545,7 +1954,7 @@
             emailList.addEventListener('scroll', maybeLoadMoreEmails, { passive: true });
         }
 
-        // Load more emails
+        // 加载更多邮件
         function buildLoadMoreEmailsUrl(nextSkip) {
             const query = new URLSearchParams({
                 method: currentMethod,
@@ -1579,7 +1988,7 @@
             const nextSkip = Math.max(Number(currentSkip) || 0, Array.isArray(currentEmails) ? currentEmails.length : 0);
             currentSkip = nextSkip;
 
-            // Show loading status at bottom of list
+            // 在列表底部显示加载状态
             const emailList = document.getElementById('emailList');
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'loading loading-small';
@@ -1587,7 +1996,7 @@
             loadingDiv.innerHTML = '<div class="loading-spinner"></div>';
             emailList.appendChild(loadingDiv);
 
-            // Disable button
+            // 禁用按钮
             const refreshBtn = document.querySelector('.refresh-btn');
             const folderTabs = document.querySelectorAll('.folder-tab');
             if (refreshBtn) {
@@ -1600,28 +2009,28 @@
                     buildLoadMoreEmailsUrl(nextSkip),
                     {
                         timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
-                        timeoutMessage: I18n.t("Timeout loading more emails, please try again later.")
+                        timeoutMessage: I18n.t('加载更多邮件超时，请稍后重试')
                     }
                 );
                 const data = await response.json();
 
                 if (data.success && data.emails.length > 0) {
-                    // Append new email to list
+                    // 追加新邮件到列表
                     currentEmails = currentEmails.concat(data.emails);
                     hasMoreEmails = data.has_more;
                     currentSkip = currentEmails.length;
 
-                    // Remove loading state
+                    // 移除加载状态
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) loadingEl.remove();
 
-                    // Re-render mailing list
+                    // 重新渲染邮件列表
                     renderEmailList(currentEmails);
 
-                    // Update the number of emails
+                    // 更新邮件数量
                     document.getElementById('emailCount').textContent = `(${currentEmails.length})`;
 
-                    // Update cache
+                    // 更新缓存
                     if (currentAccount && !isTempEmailGroup) {
                         const cacheKey = `${currentAccount}_${currentFolder}`;
                         if (emailListCache[cacheKey]) {
@@ -1665,19 +2074,19 @@
                 } else {
                     hasMoreEmails = false;
                     currentSkip = Array.isArray(currentEmails) ? currentEmails.length : nextSkip;
-                    // Show "No more messages"
+                    // 显示"没有更多邮件"
                     const loadingEl = document.getElementById('loadingMore');
                     if (loadingEl) {
-                        loadingEl.innerHTML = I18n.t("<div style=\"text-align:center;padding:20px;color:#999;font-size:13px;\">No more messages</div>");
+                        loadingEl.innerHTML = I18n.t('<div style="text-align:center;padding:20px;color:#999;font-size:13px;">没有更多邮件了</div>');
                     }
                 }
             } catch (error) {
                 const loadingEl = document.getElementById('loadingMore');
                 if (loadingEl) loadingEl.remove();
-                showToast(isTimeoutAbortError(error) ? I18n.t("Timeout loading more emails") : I18n.t("Loading failed"), 'error');
+                showToast(isTimeoutAbortError(error) ? I18n.t('加载更多邮件超时') : I18n.t('加载失败'), 'error');
             } finally {
                 isLoadingMore = false;
-                // Enable button
+                // 启用按钮
                 if (refreshBtn) {
                     refreshBtn.disabled = false;
                 }
@@ -1685,7 +2094,7 @@
             }
         }
 
-        // Switch folder (automatically trigger query)
+        // 切换文件夹（自动触发查询）
         function switchFolder(folder) {
             if (currentFolder === folder) return;
 
@@ -1693,28 +2102,28 @@
             currentEmailId = null;
             currentEmailDetail = null;
 
-            // Update button status
+            // 更新按钮状态
             document.querySelectorAll('.folder-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.folder === folder);
             });
 
             const cache = getEmailListCacheEntry(currentAccount, folder);
 
-            // Check if there is cache
+            // 检查是否有缓存
             if (cache) {
                 applyEmailListCache(cache, { scheduleLoadCheck: false });
             } else {
-                // Clear the mailing list and display prompts
+                // 清空邮件列表，显示提示
                 document.getElementById('emailList').innerHTML = I18n.tpl`
                     <div class="empty-state">
                         <div class="empty-state-icon">📬</div>
-                        <div class="empty-state-text">Automatically refreshing ${getFolderDisplayName(folder)}...</div>
+                        <div class="empty-state-text">正在自动刷新${getFolderDisplayName(folder)}...</div>
                     </div>
                 `;
                 document.getElementById('emailCount').textContent = '';
                 document.getElementById('methodTag').style.display = 'none';
 
-                // Reset paging status
+                // 重置分页状态
                 currentEmails = [];
                 currentSkip = 0;
                 hasMoreEmails = true;
@@ -1723,40 +2132,40 @@
             document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
-                    <div class="empty-state-text">Select an email to view details</div>
+                    <div class="empty-state-text">选择一封邮件查看详情</div>
                 </div>
             `;
             document.getElementById('emailDetailToolbar').style.display = 'none';
 
-            // Automatically refresh the corresponding list after switching folders
+            // 切换文件夹后自动刷新对应列表
             if (currentAccount && !isTempEmailGroup && !cache) {
                 loadEmails(currentAccount);
             }
         }
 
-        // Select a custom color (color picker)
+        // 选择自定义颜色（颜色选择器）
         function selectCustomColor(color) {
             selectedColor = color;
             document.getElementById('customColorHex').value = color;
-            // Uncheck the preset color
+            // 取消预设颜色的选中状态
             document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
         }
 
-        // Select custom color (hex input)
+        // 选择自定义颜色（十六进制输入）
         function selectCustomColorHex(value) {
-            // Validate hex color format
+            // 验证十六进制颜色格式
             const hexPattern = /^#[0-9A-Fa-f]{6}$/;
             if (hexPattern.test(value)) {
                 selectedColor = value;
                 document.getElementById('customColorInput').value = value;
-                // Uncheck the preset color
+                // 取消预设颜色的选中状态
                 document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
             } else {
-                showToast(I18n.t("Please enter a valid hex color (e.g. #FF5500)"), 'error');
+                showToast(I18n.t('请输入有效的十六进制颜色（如 #FF5500）'), 'error');
             }
         }
 
-        // Display message prompt
+        // 显示消息提示
         function showToast(message, type = 'info', errorDetail = null) {
             const toast = document.getElementById('toast');
             toast.innerHTML = '';
@@ -1769,7 +2178,7 @@
             if (errorDetail && type === 'error') {
                 const detailLink = document.createElement('a');
                 detailLink.href = 'javascript:void(0)';
-                detailLink.textContent = I18n.t(" [Details]");
+                detailLink.textContent = I18n.t(' [详情]');
                 detailLink.style.color = '#ffdddd';
                 detailLink.style.textDecoration = 'underline';
                 detailLink.style.marginLeft = '8px';
@@ -1812,10 +2221,10 @@
             return setModalVisible(modalId, false);
         }
 
-        // Universal confirmation modal box - replaces native confirm()
+        // 通用确认模态框 - 替代原生 confirm()
         let _genericConfirmResolve = null;
 
-        function showConfirmModal(message, { title = I18n.t("Confirm operation"), confirmText = I18n.t("Confirm"), danger = true } = {}) {
+        function showConfirmModal(message, { title = I18n.t("确认操作"), confirmText = I18n.t("确认"), danger = true } = {}) {
             return new Promise((resolve) => {
                 _genericConfirmResolve = resolve;
                 document.getElementById('genericConfirmTitle').textContent = title;
@@ -1851,10 +2260,10 @@
             return setModalVisible(modalId, true);
         }
 
-        // Display refresh error message
+        // 显示刷新错误信息
         function showRefreshError(accountId, errorMessage, accountEmail, accountType = 'outlook') {
             showModal('refreshErrorModal');
-            document.getElementById('refreshErrorEmail').textContent = I18n.tpl`Account: ${accountEmail || I18n.t("Unknown")}`;
+            document.getElementById('refreshErrorEmail').textContent = I18n.tpl`账号：${accountEmail || I18n.t('未知')}`;
             document.getElementById('refreshErrorMessage').textContent = errorMessage;
             const reauthorizeBtn = document.getElementById('reauthorizeAccountFromErrorBtn');
             const canReauthorize = !!accountId && String(accountType || 'outlook').toLowerCase() !== 'imap';
@@ -1877,7 +2286,7 @@
 
             const originalText = triggerBtn.textContent;
             triggerBtn.disabled = true;
-            triggerBtn.textContent = I18n.t("Triggering...");
+            triggerBtn.textContent = I18n.t('触发中...');
 
             try {
                 if (!csrfToken) {
@@ -1892,14 +2301,14 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showToast(data.message || I18n.t("A forwarding check has been triggered"), 'success');
+                    showToast(data.message || I18n.t('已触发一次转发检查'), 'success');
                     loadForwardingLogs();
                     loadFailedForwardingLogs();
                 } else {
-                    showToast(data.error || data.message || I18n.t("Trigger forwarding check failed"), 'error');
+                    showToast(data.error || data.message || I18n.t('触发转发检查失败'), 'error');
                 }
             } catch (error) {
-                showToast(I18n.t("Trigger forwarding check failed"), 'error');
+                showToast(I18n.t('触发转发检查失败'), 'error');
             } finally {
                 triggerBtn.disabled = false;
                 triggerBtn.textContent = originalText;
@@ -1910,7 +2319,7 @@
             currentForwardingLogAccountId = accountId;
             currentForwardingLogAccountEmail = accountEmail || '';
             const title = document.getElementById('accountForwardingLogsTitle');
-            title.textContent = I18n.tpl`${accountEmail || I18n.t("This account")}’s forwarding log`;
+            title.textContent = I18n.tpl`${accountEmail || I18n.t('该账号')} 的转发日志`;
             showModal('accountForwardingLogsModal');
             await loadAccountForwardingLogs();
         }
@@ -1921,21 +2330,21 @@
             const cursorValueEl = document.getElementById('accountForwardingCursorValue');
             const cursorHintEl = document.getElementById('accountForwardingCursorHint');
             if (!currentForwardingLogAccountId) {
-                listEl.innerHTML = I18n.t("<div style=\"padding: 20px; text-align: center; color: #666;\">No account selected</div>");
+                listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">未选择账号</div>');
                 if (cursorValueEl) {
                     cursorValueEl.textContent = '-';
                 }
                 return;
             }
 
-            listEl.innerHTML = I18n.t("<div style=\"padding: 20px; text-align: center; color: #666;\">Loading…</div>");
+            listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>');
 
             try {
                 const suffix = failedOnly ? '&failed_only=1' : '';
                 const response = await fetch(`/api/accounts/${currentForwardingLogAccountId}/forwarding-logs?limit=100${suffix}`);
                 const data = await response.json();
                 if (!data.success || !Array.isArray(data.logs)) {
-                    throw new Error(I18n.t("Loading failed"));
+                    throw new Error(I18n.t('加载失败'));
                 }
                 let account = data.account || {};
                 if (!Object.keys(account).length) {
@@ -1946,28 +2355,26 @@
                             account = accountData.account;
                         }
                     } catch (fallbackError) {
-                        console.warn(I18n.t("Failed to load account forwarding meta information:"), fallbackError);
+                        console.warn(I18n.t('加载账号转发元信息失败:'), fallbackError);
                     }
                 }
                 if (cursorValueEl) {
                     cursorValueEl.textContent = account.forward_last_checked_at
                         ? formatDateTime(account.forward_last_checked_at)
-                        : I18n.t("Not set");
+                        : I18n.t('未设置');
                 }
                 if (cursorHintEl) {
-                    cursorHintEl.textContent = account.forward_enabled
-                        ? I18n.t("After rolling back the cursor, the most recent emails will be rescanned according to the current forwarding time range; emails that have been successfully forwarded will still be deduplicated.")
-                        : I18n.t("This account currently does not have forwarding enabled. You still need to enable account forwarding first after rolling back the cursor.");
+                    cursorHintEl.textContent = I18n.t('回退游标后，按当前通知来源规则与时间范围补扫最近邮件；已成功投递的邮件仍会去重。');
                 }
                 if (data.logs.length === 0) {
-                    listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">${failedOnly ? I18n.t("There is no failed forwarding log for this account.") : I18n.t("This account has no forwarding logs yet")}</div>`;
+                    listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #666;">${failedOnly ? I18n.t('该账号暂无失败转发日志') : I18n.t('该账号暂无转发日志')}</div>`;
                     return;
                 }
 
                 let html = '';
                 data.logs.forEach(log => {
                     const statusColor = log.status === 'success' ? '#28a745' : '#dc3545';
-                    const statusText = log.status === 'success' ? I18n.t("Success") : I18n.t("Failure");
+                    const statusText = log.status === 'success' ? I18n.t('成功') : I18n.t('失败');
                     html += I18n.tpl`
                         <div style="padding: 12px; border-bottom: 1px solid #e5e5e5;">
                             <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
@@ -1975,9 +2382,9 @@
                                 <div style="font-size: 12px; color: ${statusColor}; font-weight: 600;">${statusText}</div>
                             </div>
                             <div style="font-size: 12px; color: #666; line-height: 1.7;">
-                                <div>Channel: ${escapeHtml(log.channel || '-')}</div>
-                                <div>Email ID: ${escapeHtml(log.message_id || '-')}</div>
-                                <div>Time: ${formatDateTime(log.created_at)}</div>
+                                <div>渠道：${escapeHtml(log.channel || '-')}</div>
+                                <div>邮件 ID：${escapeHtml(log.message_id || '-')}</div>
+                                <div>时间：${formatDateTime(log.created_at)}</div>
                             </div>
                             ${log.error_message ? `<div style="font-size: 12px; color: #dc3545; margin-top: 6px; padding: 6px; background-color: #fff5f5; border-radius: 4px;">${escapeHtml(log.error_message)}</div>` : ''}
                         </div>
@@ -1986,9 +2393,9 @@
                 listEl.innerHTML = html;
             } catch (error) {
                 if (cursorValueEl) {
-                    cursorValueEl.textContent = I18n.t("Loading failed");
+                    cursorValueEl.textContent = I18n.t('加载失败');
                 }
-                listEl.innerHTML = I18n.t("<div style=\"padding: 20px; text-align: center; color: #dc3545;\">Failed to load account forwarding log</div>");
+                listEl.innerHTML = I18n.t('<div style="padding: 20px; text-align: center; color: #dc3545;">加载账号转发日志失败</div>');
             }
         }
 
@@ -1996,17 +2403,15 @@
             if (!currentForwardingLogAccountId) return;
 
             const btn = document.getElementById('resetAccountForwardingCursorBtn');
-            const originalText = btn?.textContent || I18n.t("Roll back the cursor and scan again");
+            const originalText = btn?.textContent || I18n.t('回退游标并重扫');
 
-            if (!(await showConfirmModal(I18n.tpl`Are you sure you want to roll back the forwarding cursor of ${currentForwardingLogAccountEmail || I18n.t("This account")} and rescan recent emails immediately? 
-
- Emails that have been successfully forwarded will still be skipped due to deduplication records.`, { title: I18n.t("Rollback forwarding cursor"), confirmText: I18n.t("Confirm rollback") }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要回退 ${currentForwardingLogAccountEmail || I18n.t('该账号')} 的转发游标，并立即重扫最近邮件吗？\n\n已成功转发过的邮件仍会因为去重记录被跳过。`, { title: I18n.t('回退转发游标'), confirmText: I18n.t('确认回退') }))) {
                 return;
             }
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = I18n.t("Processing...");
+                btn.textContent = I18n.t('处理中...');
             }
 
             try {
@@ -2024,15 +2429,15 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    throw new Error(data.error || I18n.t("Failed to reset forwarding cursor"));
+                    throw new Error(data.error || I18n.t('重置转发游标失败'));
                 }
 
-                showToast(data.message || I18n.t("Forward cursor rolled back and check triggered"), 'success');
+                showToast(data.message || I18n.t('已回退转发游标并触发检查'), 'success');
                 await loadAccountForwardingLogs();
                 loadForwardingLogs();
                 loadFailedForwardingLogs();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to reset forwarding cursor"), 'error');
+                showToast(error.message || I18n.t('重置转发游标失败'), 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -2050,12 +2455,12 @@
             hideModal('accountForwardingLogsModal');
         }
 
-        // Hide refresh error modal box
+        // 隐藏刷新错误模态框
         function hideRefreshErrorModal() {
             hideModal('refreshErrorModal');
         }
 
-        // ==================== Unified error handling related ====================
+        // ==================== 统一错误处理相关 ====================
 
         function escapeHtml(value) {
             return String(value || '')
@@ -2069,8 +2474,8 @@
         function renderEmptyStateMarkup(icon, text, options = {}) {
             const {
                 allowHtml = false,
-                actionLabel = I18n.t("Refresh"),
-                actionTitle = I18n.t("Refresh list"),
+                actionLabel = I18n.t('刷新'),
+                actionTitle = I18n.t('刷新列表'),
                 onAction = ''
             } = options;
 
@@ -2185,10 +2590,10 @@
             return expanded;
         }
 
-        // Display unified error details modal box
+        // 显示统一错误详情模态框
         function showErrorDetailModal(error) {
             showModal('errorDetailModal');
-            document.getElementById('errorModalUserMessage').textContent = error.message || I18n.t("An unknown error occurred");
+            document.getElementById('errorModalUserMessage').textContent = error.message || I18n.t('发生未知错误');
             document.getElementById('errorModalCode').textContent = error.code || '-';
             document.getElementById('errorModalType').textContent = error.type || '-';
             document.getElementById('errorModalStatus').textContent = error.status || '-';
@@ -2198,37 +2603,37 @@
             const detailsContainer = document.getElementById('errorModalDetailsContainer');
             const toggleBtn = document.getElementById('toggleTraceBtn');
 
-            detailsEl.textContent = formatFetchErrorDetails(error && error.details) || I18n.t("No detailed technology stack information yet");
+            detailsEl.textContent = formatFetchErrorDetails(error && error.details) || I18n.t('暂无详细技术堆栈信息');
 
-            // Reset stack display status
+            // 重置堆栈显示状态
             detailsContainer.style.display = 'none';
-            toggleBtn.textContent = I18n.t("Show stack/details");
+            toggleBtn.textContent = I18n.t('显示堆栈/细节');
         }
 
-        // Hide unified error details modal box
+        // 隐藏统一错误详情模态框
         function hideErrorDetailModal() {
             hideModal('errorDetailModal');
         }
 
-        // Email retrieval failure details popup box
+        // 邮件获取失败详情弹框
         function showEmailFetchErrorModal(details) {
             if (!details) return;
 
             const methodNames = {
                 'graph': 'Graph API',
-                'imap_new': I18n.t("IMAP (new server)"),
-                'imap_old': I18n.t("IMAP (old server)"),
-                'imap_generic': I18n.t("Standard IMAP"),
-                'browser': I18n.t("Browser to server"),
-                'inbox': I18n.t("Inbox"),
-                'junkemail': I18n.t("Junk mail"),
-                'deleteditems': I18n.t("Deleted mail"),
-                'all': I18n.t("All emails")
+                'imap_new': I18n.t('IMAP（新服务器）'),
+                'imap_old': I18n.t('IMAP（旧服务器）'),
+                'imap_generic': I18n.t('标准 IMAP'),
+                'browser': I18n.t('浏览器到服务端'),
+                'inbox': I18n.t('收件箱'),
+                'junkemail': I18n.t('垃圾邮件'),
+                'deleteditems': I18n.t('已删除邮件'),
+                'all': I18n.t('全部邮件')
             };
 
             function translateError(err) {
-                if (!err) return I18n.t("Unknown error");
-                // err can be a string or an object
+                if (!err) return I18n.t('未知错误');
+                // err 可能是 string 或 object
                 if (typeof err === 'string') return err;
 
                 const code = err.code || '';
@@ -2236,50 +2641,50 @@
                 const details = formatFetchErrorDetails(err.details);
                 const msg = err.message || '';
 
-                // Common mistakes in translation
+                // 翻译常见错误
                 if (reasonCode === 'MAIL_PROXY_FAILED') {
-                    return msg || I18n.t("Proxy connection failed: Please check the proxy address, port, authentication information and fallback proxy settings");
+                    return msg || I18n.t('代理连接失败：请检查代理地址、端口、认证信息和回退代理设置');
                 }
                 if (reasonCode === 'MAIL_NETWORK_TIMEOUT' || code === 'EMAIL_FETCH_TIMEOUT') {
-                    return msg || I18n.t("Network connection timed out: Please check network, proxy and mail service addresses");
+                    return msg || I18n.t('网络连接超时：请检查网络、代理和邮件服务地址');
                 }
                 if (reasonCode === 'MAIL_NETWORK_FAILED') {
-                    return msg || I18n.t("Network connection failed: please check DNS, firewall, proxy and mail service addresses");
+                    return msg || I18n.t('网络连接失败：请检查 DNS、防火墙、代理和邮件服务地址');
                 }
                 if (reasonCode === 'MAIL_TLS_FAILED') {
-                    return msg || I18n.t("TLS/SSL connection failed: please check the mail service address, port and system certificate");
+                    return msg || I18n.t('TLS/SSL 连接失败：请检查邮件服务地址、端口和系统证书');
                 }
                 if (code === 'GRAPH_TOKEN_EXCEPTION' && details.includes('ProxyError')) {
-                    return I18n.t("Proxy connection failed: Unable to connect to the proxy server, please check whether the proxy address is correct and whether the proxy is running");
+                    return I18n.t('代理连接失败：无法连接到代理服务器，请检查代理地址是否正确以及代理是否在运行');
                 }
                 if (code === 'GRAPH_TOKEN_FAILED' || code === 'IMAP_TOKEN_FAILED') {
                     if (details.includes('invalid_grant')) {
-                        return I18n.t("Token has expired or permissions are insufficient: please re-authorize login or replace refresh_token");
+                        return I18n.t('Token 已失效或权限不足：请重新授权登录或更换 refresh_token');
                     }
                     if (details.includes('invalid_client')) {
-                        return I18n.t("Client ID is invalid: please check whether the client_id configuration is correct");
+                        return I18n.t('Client ID 无效：请检查 client_id 配置是否正确');
                     }
-                    return I18n.tpl`Token acquisition failed: ${msg}`;
+                    return I18n.tpl`令牌获取失败：${msg}`;
                 }
                 if (code === 'EMAIL_FETCH_FAILED') {
-                    return I18n.tpl`Failed to obtain email: ${msg}`;
+                    return I18n.tpl`获取邮件失败：${msg}`;
                 }
                 if (code === 'IMAP_CONNECTION_FAILED') {
-                    return I18n.t("IMAP connection failed: Unable to connect to mail server");
+                    return I18n.t('IMAP 连接失败：无法连接到邮件服务器');
                 }
                 if (code === 'IMAP_FOLDER_NOT_FOUND') {
-                    return I18n.tpl`IMAP folder does not exist or does not have access rights: ${msg || I18n.t("Please check the actual folder name of the mailbox server")}`;
+                    return I18n.tpl`IMAP 文件夹不存在或无权访问：${msg || I18n.t('请检查邮箱服务端的实际文件夹名称')}`;
                 }
                 if (code === 'IMAP_AUTH_FAILED') {
-                    return I18n.tpl`IMAP authentication failed: ${msg || I18n.t("Please check your email password or authorization code")}`;
+                    return I18n.tpl`IMAP 认证失败：${msg || I18n.t('请检查邮箱密码或授权码')}`;
                 }
                 if (code === 'IMAP_UNSAFE_LOGIN_BLOCKED') {
-                    return msg || I18n.t("The email service provider has blocked the current IMAP login (Unsafe Login). Please check the IMAP switch, authorization code and current network environment.");
+                    return msg || I18n.t('邮箱服务商拦截了当前 IMAP 登录（Unsafe Login），请检查 IMAP 开关、授权码和当前网络环境');
                 }
                 if (code === 'IMAP_CONNECT_FAILED') {
-                    return I18n.tpl`IMAP connection failed: ${msg || I18n.t("Please check IMAP host, port and network connectivity")}`;
+                    return I18n.tpl`IMAP 连接失败：${msg || I18n.t('请检查 IMAP 主机、端口和网络连通性')}`;
                 }
-                return msg || details || I18n.t("Unknown error");
+                return msg || details || I18n.t('未知错误');
             }
 
             const expandedDetails = expandFolderProtocolFetchErrors(details);
@@ -2297,8 +2702,8 @@
             const summaryEl = document.getElementById('emailFetchErrorSummary');
             if (summaryEl) {
                 summaryEl.textContent = methods.length > 1
-                    ? I18n.t("All acquisition methods failed. The following is the detailed error information of each method:")
-                    : I18n.t("Failed to obtain email, the following is the detailed error message:");
+                    ? I18n.t('所有获取方式均失败，以下是各方式的详细错误信息：')
+                    : I18n.t('获取邮件失败，以下是详细错误信息：');
             }
 
             let html = '';
@@ -2319,9 +2724,9 @@
                             <div style="font-weight: 600; color: #dc3545; margin-bottom: 6px; font-size: 14px;">${escapeHtml(name)}</div>
                             <div style="color: #333; font-size: 13px; line-height: 1.6;">${escapeHtml(reason)}</div>
                             <div style="color: #999; font-size: 12px; margin-top: 6px; line-height: 1.6;">
-                                Error code: ${escapeHtml(String(codeText))}<br>
-                                Type: ${escapeHtml(String(typeText))}<br>
-                                Status code: ${escapeHtml(String(statusText))}<br>
+                                错误代码: ${escapeHtml(String(codeText))}<br>
+                                类型: ${escapeHtml(String(typeText))}<br>
+                                状态码: ${escapeHtml(String(statusText))}<br>
                                 Trace ID: ${escapeHtml(String(traceIdText))}
                             </div>
                             ${detailText ? `<pre style="margin-top:10px; padding:10px 12px; background:#fff; border:1px solid #f3caca; border-radius:6px; color:#444; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-word; max-height:240px; overflow:auto;">${escapeHtml(detailText)}</pre>` : ''}
@@ -2331,7 +2736,7 @@
             });
 
             if (!html) {
-                html = I18n.t("<div style=\"color:#666;\">No detailed error message</div>");
+                html = I18n.t('<div style="color:#666;">无详细错误信息</div>');
             }
 
             document.getElementById('emailFetchErrorContent').innerHTML = html;
@@ -2342,21 +2747,21 @@
             hideModal('emailFetchErrorModal');
         }
 
-        // Toggle display/hide of stack information
+        // 切换堆栈信息的显示/隐藏
         function toggleStackTrace() {
             const container = document.getElementById('errorModalDetailsContainer');
             const btn = document.getElementById('toggleTraceBtn');
 
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                btn.textContent = I18n.t("Hide stack/details");
+                btn.textContent = I18n.t('隐藏堆栈/细节');
             } else {
                 container.style.display = 'none';
-                btn.textContent = I18n.t("Show stack/details");
+                btn.textContent = I18n.t('显示堆栈/细节');
             }
         }
 
-        // Copy error details to clipboard
+        // 复制错误详情到剪贴板
         function copyErrorDetails() {
             const userMessage = document.getElementById('errorModalUserMessage').textContent;
             const details = document.getElementById('errorModalDetails').textContent;
@@ -2366,46 +2771,46 @@
             const traceId = document.getElementById('errorModalTraceId').textContent;
 
             const fullErrorText = I18n.tpl`
-[User error message] 
+【用户错误信息】
 ${userMessage}
 
- [Error details] 
+【错误详情】
 Code: ${code}
 Type: ${type}
 Status: ${status}
 Trace ID: ${traceId}
 
- [Technology Stack/Details] 
+【技术堆栈/细节】
 ${details}
             `.trim();
 
             navigator.clipboard.writeText(fullErrorText).then(() => {
-                showToast(I18n.t("Error details copied"), 'success');
+                showToast(I18n.t('错误详情已复制'), 'success');
             }).catch(() => {
-                // Downgrade plan
+                // 降级方案
                 const textarea = document.createElement('textarea');
                 textarea.value = fullErrorText;
                 document.body.appendChild(textarea);
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast(I18n.t("Error details copied"), 'success');
+                showToast(I18n.t('错误详情已复制'), 'success');
             });
         }
 
-        // Unified handling of API response errors
-        function handleApiError(data, defaultMessage = I18n.t("Request failed")) {
+        // 统一处理 API 响应错误
+        function handleApiError(data, defaultMessage = I18n.t('请求失败')) {
             if (!data.success) {
-                // Check whether it is a unified error format
+                // 检查是否是统一错误格式
                 if (data.error && data.error.message) {
                     const error = data.error;
-                    // Use the message provided by the backend as user-friendly information
+                    // 使用后端提供的 message 作为用户友好信息
                     const userMessage = error.message;
 
-                    // Call showToast to carry the complete error object
+                    // 调用 showToast 携带完整的错误对象
                     showToast(userMessage, 'error', error);
                 } else {
-                    // Compatibility with old or non-standard error formats
+                    // 兼容旧的或非标准错误格式
                     const errorMessage = data.error || defaultMessage;
                     showToast(errorMessage, 'error');
                 }
@@ -2422,13 +2827,8 @@ ${details}
         function updateCurrentGroupHeader(group = null, titleOverride = '') {
             const nameEl = document.getElementById('currentGroupName');
             const idBadgeEl = document.getElementById('currentGroupIdBadge');
-            const refreshBtn = document.getElementById('refreshAccountListBtn');
             if (!nameEl || !idBadgeEl) {
                 return;
-            }
-
-            if (refreshBtn) {
-                refreshBtn.style.display = (group || titleOverride) ? 'inline-flex' : 'none';
             }
 
             if (titleOverride) {
@@ -2439,7 +2839,7 @@ ${details}
             }
 
             if (!group) {
-                nameEl.textContent = I18n.t("Select group");
+                nameEl.textContent = I18n.t('选择分组');
                 idBadgeEl.textContent = '';
                 idBadgeEl.style.display = 'none';
                 return;
@@ -2450,7 +2850,7 @@ ${details}
             idBadgeEl.style.display = 'none';
         }
 
-        // ------------------ Collapse group bar & minimalist mode ------------------
+        // ------------------ 折叠分组栏 & 极简模式 ------------------
         function initGroupPanelCollapseState() {
             const isCollapsed = localStorage.getItem('outlook_group_panel_collapsed') === 'true';
             document.body.classList.toggle('group-panel-collapsed', isCollapsed);
@@ -2476,37 +2876,51 @@ ${details}
             }
         }
 
+        function syncAccountMoreActiveDot() {
+            const btn = document.getElementById('accountMoreBtn');
+            if (!btn) return;
+            const panel = document.getElementById('accountPanel');
+            const minimalActive = !!panel && panel.classList.contains('minimal-mode');
+            const selectionActive = typeof accountSelectionMode !== 'undefined' && accountSelectionMode === true;
+            btn.classList.toggle('has-active', selectionActive || minimalActive);
+        }
+
+        function syncAccountMinimalMenuItem(isMinimal) {
+            const label = isMinimal ? I18n.t('切换详细展示') : I18n.t('切换极简展示');
+            document.querySelectorAll('.account-menu-item--minimal').forEach(item => {
+                item.classList.toggle('active', isMinimal);
+                item.setAttribute('aria-pressed', isMinimal ? 'true' : 'false');
+                item.title = label;
+                const labelEl = item.querySelector('.account-menu-item-label');
+                if (labelEl) {
+                    labelEl.textContent = label;
+                }
+            });
+        }
+
         function initAccountMinimalModeState() {
             const isMinimal = localStorage.getItem('outlook_account_list_minimal') === 'true';
             const panel = document.getElementById('accountPanel');
-            const btn = document.getElementById('accountMinimalBtn');
             if (panel) {
                 panel.classList.toggle('minimal-mode', isMinimal);
             }
-            if (btn) {
-                btn.classList.toggle('active', isMinimal);
-                btn.setAttribute('aria-pressed', isMinimal ? 'true' : 'false');
-                btn.title = isMinimal ? I18n.t("Switch to detailed display") : I18n.t("Toggle compact view");
-            }
+            syncAccountMinimalMenuItem(isMinimal);
+            syncAccountMoreActiveDot();
         }
 
         function toggleAccountMinimalMode() {
             const panel = document.getElementById('accountPanel');
-            const btn = document.getElementById('accountMinimalBtn');
             if (!panel) return;
 
             const isMinimal = !panel.classList.contains('minimal-mode');
             panel.classList.toggle('minimal-mode', isMinimal);
             localStorage.setItem('outlook_account_list_minimal', String(isMinimal));
 
-            if (btn) {
-                btn.classList.toggle('active', isMinimal);
-                btn.setAttribute('aria-pressed', isMinimal ? 'true' : 'false');
-                btn.title = isMinimal ? I18n.t("Switch to detailed display") : I18n.t("Toggle compact view");
-            }
+            syncAccountMinimalMenuItem(isMinimal);
+            syncAccountMoreActiveDot();
         }
 
-        // ==================== The theme is related to list refresh ====================
+        // ==================== 主题与列表刷新相关 ====================
         function initTheme() {
             const savedTheme = localStorage.getItem('theme');
             const currentTheme = savedTheme || 'light';

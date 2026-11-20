@@ -235,7 +235,7 @@ console.log(JSON.stringify({{
         self.assertIn('data-tag-name=', tags_source)
         self.assertIn('filterTagOptions(tagFilterKeyword);', tags_source)
         self.assertNotIn('UNTAGGED_TAG_FILTER', tags_source)
-        self.assertNotIn('No tags</span>', tags_source)
+        self.assertNotIn('无标签</span>', tags_source)
         self.assertNotIn('include_untagged', groups_source)
 
 

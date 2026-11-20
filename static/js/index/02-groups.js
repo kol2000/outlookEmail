@@ -1,6 +1,6 @@
-        /* global ACCOUNT_LIST_DEFAULT_PAGE_SIZE, ACCOUNT_LIST_MAX_PAGE_SIZE, accountListPageSize, accountListRequestSeq, accountPaginationState, accountSelectionMode, accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentAccountSummary, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, excludedTagFilters, formatAbsoluteDateTime, generateTempEmail, groups, handleAccountRowSelectionClick, handleAccountSelectionCheckboxClick, handleApiError, hasActiveTagFilters, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadCloudflareChannelsForImport, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, shouldShowAccountSortOrder, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, syncAccountTagFilterOptions, tempEmailGroupId, toggleAccountSelectionMode, updateCurrentGroupHeader, updateGraphSendMailAvailability, updateMobileContext, updateTagFilterSummary */
+        /* global ACCOUNT_LIST_DEFAULT_PAGE_SIZE, ACCOUNT_LIST_MAX_PAGE_SIZE, accountListPageSize, accountListRequestSeq, accountPaginationState, accountSelectionMode, accountsCache, closeAllModals, currentAccount, currentAccountListSource, currentAccountSummary, currentEmailDetail, currentEmailId, currentEmails, currentGroupId, currentSkip, currentSortBy, currentSortOrder, deleteAccount, editingGroupId, escapeHtml, excludedTagFilters, formatAbsoluteDateTime, generateTempEmail, groups, handleAccountRowSelectionClick, handleAccountSelectionCheckboxClick, handleApiError, hasActiveTagFilters, hasMoreEmails, hideModal, isMobileLayout, isTempEmailGroup, loadCloudflareChannelsForImport, loadTempEmails, localStorage, matchesSelectedTagFilters, normalizeTagFilterSelectionValue, openMobilePanel, renderEmptyStateMarkup, renderTempEmailList, resetSelectedAccountView, selectedColor, selectedTagFilters, setModalVisible, shouldShowAccountCreatedAt, shouldShowAccountSortOrder, showAddAccountModal, showGetRefreshTokenModal, showModal, showRefreshError, showTagManagementModal, showToast, suppressGroupClickUntil, syncAccountMoreActiveDot, syncAccountTagFilterOptions, tempEmailGroupId, toggleAccountSelectionMode, updateCurrentGroupHeader, updateGraphSendMailAvailability, updateMobileContext, updateTagFilterSummary */
 
-        // ==================== Group related ====================
+        // ==================== 分组相关 ====================
 
         const ACCOUNT_SEARCH_MAX_TERMS = 200;
         const ACCOUNT_SEARCH_QUERY_STORAGE_KEY = 'outlook_account_search_query';
@@ -22,7 +22,7 @@
             const visible = shouldShowGroupDescriptions();
             button.classList.toggle('active', visible);
             button.setAttribute('aria-pressed', visible ? 'true' : 'false');
-            button.title = visible ? I18n.t("Hide group description") : I18n.t("Show group description");
+            button.title = visible ? I18n.t('隐藏分组描述') : I18n.t('显示分组描述');
         }
 
         function toggleGroupDescriptionVisibility() {
@@ -43,7 +43,7 @@
         }
 
         function isSystemGroup(group) {
-            return !!(group && (group.is_system === 1 || group.name === "\u4e34\u65f6\u90ae\u7bb1"));
+            return !!(group && (group.is_system === 1 || group.name === '临时邮箱'));
         }
 
         function getGroupById(groupId) {
@@ -51,8 +51,8 @@
         }
 
         function sortGroupsForTree(left, right) {
-            if (left.name === "\u4e34\u65f6\u90ae\u7bb1" && right.name !== "\u4e34\u65f6\u90ae\u7bb1") return -1;
-            if (right.name === "\u4e34\u65f6\u90ae\u7bb1" && left.name !== "\u4e34\u65f6\u90ae\u7bb1") return 1;
+            if (left.name === '临时邮箱' && right.name !== '临时邮箱') return -1;
+            if (right.name === '临时邮箱' && left.name !== '临时邮箱') return 1;
             const leftOrder = Number(left.sort_order || 0);
             const rightOrder = Number(right.sort_order || 0);
             if (leftOrder !== rightOrder) return leftOrder - rightOrder;
@@ -246,7 +246,7 @@
             return options.join('');
         }
 
-        // Load group list
+        // 加载分组列表
         async function loadGroups() {
             const container = document.getElementById('groupList');
             syncGroupDescriptionVisibilityButton();
@@ -260,20 +260,20 @@
                     groups = data.groups;
                     groupTree = buildGroupTree(groups);
 
-                    // Find the temporary mailbox group
-                    const tempGroup = groups.find(g => g.name === "\u4e34\u65f6\u90ae\u7bb1");
+                    // 找到临时邮箱分组
+                    const tempGroup = groups.find(g => g.name === '临时邮箱');
                     if (tempGroup) {
                         tempEmailGroupId = tempGroup.id;
                     }
 
-                    // Get the locally cached group ID (if any)
+                    // 获取本地缓存的分组 ID（如果有的话）
                     if (!currentGroupId) {
                         const savedGroupId = localStorage.getItem('outlook_last_group_id');
                         if (savedGroupId) {
                             currentGroupId = parseInt(savedGroupId);
                         } else if (groups.length > 0) {
-                            // If there is no cache, "temporary mailbox" or the first group will be selected by default.
-                            const tempMatch = groups.find(g => g.name === "\u4e34\u65f6\u90ae\u7bb1");
+                            // 如果没有缓存，默认选中"临时邮箱"或者首个分组
+                            const tempMatch = groups.find(g => g.name === '临时邮箱');
                             currentGroupId = tempMatch ? tempMatch.id : groups[0].id;
                         }
                     }
@@ -291,10 +291,10 @@
                         updateGroupSortPositionOptions(editingGroupId, Number.isNaN(currentSortValue) ? null : currentSortValue, parentId);
                     }
 
-                    // If there is a selected group, highlight the group and refresh the mailbox panel
+                    // 如果有了选中的分组，高亮分组并刷新邮箱面板
                     if (currentGroupId) {
                         let group = groups.find(g => g.id === currentGroupId);
-                        // Bottom line: If the cached group has been deleted, fall back to the first group
+                        // 兜底：如果缓存的组已经被删了，回退到第一个组
                         if (!group && groups.length > 0) {
                             currentGroupId = groups[0].id;
                             group = groups[0];
@@ -307,30 +307,30 @@
 
                     updateMobileContext();
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t("Loading failed"), {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: 'loadGroups()',
-                        actionTitle: I18n.t("Refresh group list")
+                        actionTitle: I18n.t('刷新分组列表')
                     });
                 }
             } catch (error) {
-                container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t("Loading failed"), {
+                container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('加载失败'), {
                     onAction: 'loadGroups()',
-                    actionTitle: I18n.t("Refresh group list")
+                    actionTitle: I18n.t('刷新分组列表')
                 });
-                showToast(I18n.t("Failed to load group"), 'error');
+                showToast(I18n.t('加载分组失败'), 'error');
             }
         }
 
-        // Render group list
+        // 渲染分组列表
         function renderGroupList(flatGroups) {
             const container = document.getElementById('groupList');
             const sourceGroups = Array.isArray(flatGroups) ? flatGroups : groups;
 
             groupTree = buildGroupTree(sourceGroups);
             if (!sourceGroups.length) {
-                container.innerHTML = renderEmptyStateMarkup('📁', I18n.t("No grouping yet"), {
+                container.innerHTML = renderEmptyStateMarkup('📁', I18n.t('暂无分组'), {
                     onAction: 'loadGroups()',
-                    actionTitle: I18n.t("Refresh group list")
+                    actionTitle: I18n.t('刷新分组列表')
                 });
                 return;
             }
@@ -342,7 +342,7 @@
         function renderGroupTree(nodes, showGroupDescriptions = shouldShowGroupDescriptions()) {
             return nodes.map(group => {
                 const isSystem = isSystemGroup(group);
-                const isTempGroup = group.name === "\u4e34\u65f6\u90ae\u7bb1";
+                const isTempGroup = group.name === '临时邮箱';
                 const isDefault = group.id === 1;
                 const isMovable = !isSystem && !isDefault;
                 const isDragging = groupDragState.isDragging && groupDragState.groupId === group.id;
@@ -362,13 +362,13 @@
                           ${isMovable ? `onpointerdown="handleGroupPointerDown(event, ${group.id})"` : ''}
                           onclick="handleGroupClick(event, ${group.id})">
                         <div class="group-row-1">
-                            ${hasChildren && !isTempGroup ? `<button type="button" class="group-toggle ${collapsed ? 'collapsed' : ''}" onclick="toggleGroupCollapsed(event, ${group.id})" title="${collapsed ? I18n.t("Expand") : I18n.t("fold")}">▾</button>` : '<span class="group-toggle-spacer"></span>'}
+                            ${hasChildren && !isTempGroup ? `<button type="button" class="group-toggle ${collapsed ? 'collapsed' : ''}" onclick="toggleGroupCollapsed(event, ${group.id})" title="${collapsed ? I18n.t('展开') : I18n.t('折叠')}">▾</button>` : '<span class="group-toggle-spacer"></span>'}
                             <div class="group-color" style="background-color: ${group.color || '#666'}"></div>
                             <span class="group-name">${escapeHtml(groupName)}${isTempGroup ? ' ⚡' : ''}</span>
                             <span class="group-count">${count || 0}</span>
                             <div class="group-actions">
-                                ${!isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); editGroup(${group.id})" title="Edit">✏️</button>` : ''}
-                                ${!isDefault && !isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" title="Delete">🗑️</button>` : ''}
+                                ${!isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); editGroup(${group.id})" title="编辑">✏️</button>` : ''}
+                                ${!isDefault && !isSystem ? I18n.tpl`<button class="group-action-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" title="删除">🗑️</button>` : ''}
                             </div>
                         </div>
                         ${showGroupDescriptions && groupDescription ? `
@@ -417,11 +417,11 @@
             const optionCount = getGroupSortPositionCount(editingId, parentId);
             let html = '';
             for (let position = 1; position <= optionCount; position += 1) {
-                let label = I18n.tpl`No. ${position}`;
+                let label = I18n.tpl`第 ${position} 位`;
                 if (position === 1) {
-                    label += I18n.t("(front)");
+                    label += I18n.t('（最前）');
                 } else if (position === optionCount) {
-                    label += I18n.t("(last)");
+                    label += I18n.t('（最后）');
                 }
                 html += `<option value="${position}">${label}</option>`;
             }
@@ -677,7 +677,7 @@
             resetGroupDragState();
 
             if (!dropAllowed) {
-                showToast(targetMode === 'move' ? I18n.t("After the move, the level depth will exceed 3 levels") : I18n.t("Can only be sorted within the same parent level"), 'error');
+                showToast(targetMode === 'move' ? I18n.t('移动后层级深度将超过 3 级') : I18n.t('只能在同父级内排序'), 'error');
                 return;
             }
 
@@ -736,11 +736,11 @@
                     showToast(data.message, 'success');
                     await loadGroups();
                 } else {
-                    handleApiError(data, I18n.t("Failed to update group sorting"));
+                    handleApiError(data, I18n.t('更新分组排序失败'));
                     await loadGroups();
                 }
             } catch (error) {
-                showToast(I18n.t("Failed to update group sorting"), 'error');
+                showToast(I18n.t('更新分组排序失败'), 'error');
                 await loadGroups();
             }
         }
@@ -768,18 +768,18 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || I18n.t("Group moved"), 'success');
+                    showToast(data.message || I18n.t('分组已移动'), 'success');
                 } else {
-                    handleApiError(data, I18n.t("Failed to move grouping"));
+                    handleApiError(data, I18n.t('移动分组失败'));
                 }
                 await loadGroups();
             } catch (error) {
-                showToast(I18n.t("Failed to move grouping"), 'error');
+                showToast(I18n.t('移动分组失败'), 'error');
                 await loadGroups();
             }
         }
 
-        // Select group
+        // 选择分组
         async function selectGroup(groupId) {
             if (Date.now() < suppressGroupClickUntil) {
                 return;
@@ -788,13 +788,13 @@
             currentGroupId = groupId;
             localStorage.setItem('outlook_last_group_id', groupId);
 
-            // Check whether it is a temporary mailbox group
+            // 检查是否是临时邮箱分组
             const group = groups.find(g => g.id === groupId);
-            isTempEmailGroup = group && group.name === "\u4e34\u65f6\u90ae\u7bb1";
+            isTempEmailGroup = group && group.name === '临时邮箱';
 
             const expandedAncestors = expandAncestors(groupId);
 
-            // Update group list UI
+            // 更新分组列表 UI
             if (expandedAncestors) {
                 renderGroupList(groups);
             } else {
@@ -803,20 +803,20 @@
                 });
             }
 
-            // Update mailbox panel title
+            // 更新邮箱面板标题
             if (group) {
                 updateCurrentGroupHeader(group);
                 document.getElementById('currentGroupColor').style.backgroundColor = group.color || '#666';
 
-                // Update the default grouping when importing mailboxes
+                // 更新导入邮箱时的默认分组
                 const importSelect = document.getElementById('importGroupSelect');
                 if (importSelect) {
                     importSelect.value = groupId;
                 }
             }
-            // Temporary mailbox: first apply the last saved filter channel, and then update the panel (button style depends on the filter value)
+            // 临时邮箱：先应用上次保存的筛选渠道，再更新面板（按钮样式依赖 filter 值）
             if (isTempEmailGroup) {
-                // Read cache, if there is no or invalid (set to all), give the default value gptmail 
+                // 读取缓存，如果没有或者无效（被设为all），则给默认值 gptmail
                 let storedFilter = localStorage.getItem('outlook_temp_email_filter');
                 if (!storedFilter || storedFilter === 'all') {
                     storedFilter = 'gptmail';
@@ -824,12 +824,12 @@
                 window.tempEmailProviderFilter = storedFilter;
                 localStorage.setItem('outlook_temp_email_filter', storedFilter);
             }
-            // Update account panel head movement
+            // 更新账号面板头部动作
             updateAccountPanelActions();
             const shouldAdvanceToAccounts = isMobileLayout()
                 && document.getElementById('groupPanel')?.classList.contains('show');
 
-            // Load the mailbox of this group
+            // 加载该分组的邮箱
             if (isTempEmailGroup) {
                 await loadTempEmails();
             } else {
@@ -847,10 +847,10 @@
             updateMobileContext();
         }
 
-        // Refresh button (reuse refreshCurrentAccountList function)
+        // 刷新按钮（复用 refreshCurrentAccountList 功能）
         function renderAccountRefreshButton() {
             return I18n.tpl`
-                <button class="panel-action-btn" onclick="refreshCurrentAccountList()" title="Refresh mailboxes">
+                <button class="panel-action-btn" id="refreshAccountListBtn" onclick="refreshCurrentAccountList()" title="刷新邮箱列表">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M1 8a7 7 0 0 1 13.22-3.22M15 8a7 7 0 0 1-13.22 3.22"/>
                         <path d="M14 1v3.5H10.5M2 15v-3.5h3.5"/>
@@ -859,33 +859,85 @@
             `;
         }
 
-        // Update the account panel head action button
-        function renderAccountSelectionModeButton() {
-            const activeClass = accountSelectionMode ? ' active' : '';
-            const title = accountSelectionMode ? I18n.t("Exit batch selection") : I18n.t("Select multiple");
+        function closeAccountMoreMenu() {
+            document.querySelectorAll('.account-more-dropdown').forEach(dropdown => {
+                dropdown.classList.remove('is-open');
+            });
+        }
+
+        function renderAccountSelectionMenuItem() {
+            const active = accountSelectionMode === true;
+            const label = active ? I18n.t('退出批量选择') : I18n.t('批量选择');
             return `
-                <button class="panel-action-btn account-selection-mode-btn${activeClass}" id="accountSelectionModeBtn"
-                        onclick="toggleAccountSelectionMode()" title="${title}" aria-pressed="${accountSelectionMode ? 'true' : 'false'}">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="2" width="12" height="12" rx="2"></rect>
-                        <path d="M5 8l2 2 4-4"></path>
-                    </svg>
+                <button class="dropdown-item account-menu-item account-menu-item--selection${active ? ' active' : ''}" role="menuitem"
+                        onclick="toggleAccountSelectionMode(); closeAccountMoreMenu()"
+                        title="${label}" aria-pressed="${active ? 'true' : 'false'}">
+                    <span class="account-menu-item-icon">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="12" height="12" rx="2"></rect>
+                            <path d="M5 8l2 2 4-4"></path>
+                        </svg>
+                    </span>
+                    <span class="account-menu-item-label">${label}</span>
+                    <span class="account-menu-item-check">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 8.5l3.5 3.5L13 5"></path>
+                        </svg>
+                    </span>
                 </button>
             `;
         }
 
-        function renderAccountMinimalModeButton() {
+        function renderAccountMinimalMenuItem() {
             const isMinimal = localStorage.getItem('outlook_account_list_minimal') === 'true';
-            const activeClass = isMinimal ? ' active' : '';
-            const title = isMinimal ? I18n.t("Switch to detailed display") : I18n.t("Toggle compact view");
+            const label = isMinimal ? I18n.t('切换详细展示') : I18n.t('切换极简展示');
             return `
-                <button class="panel-action-btn${activeClass}" id="accountMinimalBtn" onclick="toggleAccountMinimalMode()" title="${title}" aria-pressed="${isMinimal ? 'true' : 'false'}">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="2.5" width="12" height="2.5" rx="0.5"></rect>
-                        <rect x="2" y="6.75" width="12" height="2.5" rx="0.5"></rect>
-                        <rect x="2" y="11" width="12" height="2.5" rx="0.5"></rect>
-                    </svg>
+                <button class="dropdown-item account-menu-item account-menu-item--minimal${isMinimal ? ' active' : ''}" role="menuitem"
+                        onclick="toggleAccountMinimalMode(); closeAccountMoreMenu()"
+                        title="${label}" aria-pressed="${isMinimal ? 'true' : 'false'}">
+                    <span class="account-menu-item-icon">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2.5" width="12" height="2.5" rx="0.5"></rect>
+                            <rect x="2" y="6.75" width="12" height="2.5" rx="0.5"></rect>
+                            <rect x="2" y="11" width="12" height="2.5" rx="0.5"></rect>
+                        </svg>
+                    </span>
+                    <span class="account-menu-item-label">${label}</span>
+                    <span class="account-menu-item-check">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 8.5l3.5 3.5L13 5"></path>
+                        </svg>
+                    </span>
                 </button>
+            `;
+        }
+
+        // 更多操作下拉（批量选择/管理标签/切换极简展示）
+        function renderAccountMoreDropdown() {
+            return I18n.tpl`
+                <div class="navbar-dropdown account-more-dropdown">
+                    <button class="panel-action-btn account-more-btn dropdown-toggle" id="accountMoreBtn" title="更多操作" aria-haspopup="menu">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <circle cx="3" cy="8" r="1.6"></circle>
+                            <circle cx="8" cy="8" r="1.6"></circle>
+                            <circle cx="13" cy="8" r="1.6"></circle>
+                        </svg>
+                    </button>
+                    <div class="navbar-dropdown-menu" role="menu">
+                        ${renderAccountSelectionMenuItem()}
+                        <button class="dropdown-item account-menu-item account-menu-item--tags" role="menuitem"
+                                onclick="showTagManagementModal(); closeAccountMoreMenu()" title="管理标签">
+                            <span class="account-menu-item-icon">
+                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M7 1.5h6v6L6.5 14 2 9.5 7 1.5z"></path>
+                                    <circle cx="9.5" cy="5" r="1.2" fill="currentColor"></circle>
+                                </svg>
+                            </span>
+                            <span class="account-menu-item-label">管理标签</span>
+                        </button>
+                        ${renderAccountMinimalMenuItem()}
+                    </div>
+                </div>
             `;
         }
 
@@ -896,65 +948,53 @@
             if (isTempEmailGroup) {
                 actions.innerHTML = I18n.tpl`
                     ${renderAccountRefreshButton()}
-                    ${renderAccountSelectionModeButton()}
-                    <button class="panel-action-btn" onclick="showTagManagementModal()" title="Manage tags">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M7 1.5h6v6L6.5 14 2 9.5 7 1.5z"></path>
-                            <circle cx="9.5" cy="5" r="1.2" fill="currentColor"></circle>
-                        </svg>
-                    </button>
-                    ${renderAccountMinimalModeButton()}
-                    <button class="panel-action-btn panel-action-btn-accent" onclick="generateTempEmail()" title="Generate temporary mailbox">
+                    <button class="panel-action-btn panel-action-btn-accent" onclick="generateTempEmail()" title="生成临时邮箱">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="9 1 2 9 8 9 7 15 14 7 8 7 9 1"></polygon>
                         </svg>
                     </button>
-                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="Import email account">
+                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="导入邮箱账号">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path fill-rule="evenodd"
                                 d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
                         </svg>
                     </button>
+                    ${renderAccountMoreDropdown()}
                 `;
-                // Show channel filtering, hide sorting
+                const manualHelp = document.getElementById('accountManualSortHelp');
+                if (manualHelp) manualHelp.hidden = true;
+                // 显示渠道筛选、隐藏排序
                 document.getElementById('tempEmailProviderFilter').style.display = 'flex';
                 document.querySelector('.sort-control').style.display = 'none';
                 document.getElementById('accountPageSizeContainer').style.display = 'none';
                 syncAccountSearchScopeVisibility();
                 updateTagFilter();
-                // Synchronize filter button style
+                // 同步筛选按钮样式
                 const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
                 document.querySelectorAll('.provider-filter-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.provider === currentFilter);
                 });
                 if (searchInput) {
-                    searchInput.placeholder = I18n.t("Search for a temporary email address or label...");
+                    searchInput.placeholder = I18n.t('搜索临时邮箱地址或标签...');
                 }
             } else {
                 actions.innerHTML = I18n.tpl`
                     ${renderAccountRefreshButton()}
-                    ${renderAccountSelectionModeButton()}
-                    <button class="panel-action-btn" onclick="showTagManagementModal()" title="Manage tags">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M7 1.5h6v6L6.5 14 2 9.5 7 1.5z"></path>
-                            <circle cx="9.5" cy="5" r="1.2" fill="currentColor"></circle>
-                        </svg>
-                    </button>
-                    ${renderAccountMinimalModeButton()}
-                    <button class="panel-action-btn panel-action-btn-accent" onclick="showGetRefreshTokenModal()" title="Authorize and save Outlook account">
+                    <button class="panel-action-btn panel-action-btn-accent" onclick="showGetRefreshTokenModal()" title="授权并保存 Outlook 账号">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="5.5" cy="10.5" r="3.5"></circle>
                             <path d="M8 8l5-5M13 3h2v2M11 5h2v2"></path>
                         </svg>
                     </button>
-                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="Import email account">
+                    <button class="panel-action-btn panel-action-btn-primary" onclick="showAddAccountModal()" title="导入邮箱账号">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path fill-rule="evenodd"
                                 d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
                         </svg>
                     </button>
+                    ${renderAccountMoreDropdown()}
                 `;
-                // Hidden channel filtering, display sorting, recovery label filtering
+                // 隐藏渠道筛选、显示排序、恢复标签筛选
                 document.getElementById('tempEmailProviderFilter').style.display = 'none';
                 document.querySelector('.sort-control').style.display = 'flex';
                 document.getElementById('accountPageSizeContainer').style.display = 'flex';
@@ -963,23 +1003,26 @@
                 syncAccountSortButtons();
                 updateTagFilter();
                 if (searchInput) {
-                    searchInput.placeholder = I18n.t("Email|Alias|Remarks|Label");
+                    searchInput.placeholder = I18n.t('邮箱|别名|备注|标签');
                 }
+            }
+            if (typeof syncAccountMoreActiveDot === 'function') {
+                syncAccountMoreActiveDot();
             }
         }
 
-        // Filter temporary email channels (click the activated button to cancel filtering)
+        // 筛选临时邮箱渠道（点击已激活的按钮取消筛选）
         function filterTempEmailByProvider(provider) {
             if (provider === 'all') {
                 localStorage.setItem('outlook_temp_email_filter', 'all');
             } else if (localStorage.getItem('outlook_temp_email_filter') === provider) {
-                // Click on the activated button to cancel filtering (show all)
+                // 点击已激活的按钮取消筛选（显示全部）
                 localStorage.setItem('outlook_temp_email_filter', 'all');
             } else {
                 localStorage.setItem('outlook_temp_email_filter', provider);
             }
 
-            // Update button style
+            // 更新按钮样式
             const currentFilter = localStorage.getItem('outlook_temp_email_filter') || 'all';
             document.querySelectorAll('.provider-filter-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.provider === currentFilter);
@@ -1020,7 +1063,7 @@
                     try {
                         localStorage.setItem(storageKey, JSON.stringify(normalizedValues));
                     } catch (error) {
-                        // The in-memory normalized state is still available for the current session.
+                        // 内存中的规范化状态仍可用于当前会话。
                     }
                 }
                 return new Set(normalizedValues);
@@ -1216,13 +1259,13 @@
                 const text = footer.querySelector('.account-pagination-text');
                 if (text) {
                     if (loading) {
-                        text.textContent = I18n.t("Loading…");
+                        text.textContent = I18n.t('加载中...');
                     } else {
                         const total = Number(accountPaginationState.total) || 0;
                         const loaded = Math.min(Number(accountPaginationState.loaded) || 0, total || Number(accountPaginationState.loaded) || 0);
                         text.textContent = accountPaginationState.hasMore
-                            ? I18n.tpl`${loaded} / ${total} mailboxes loaded`
-                            : I18n.tpl`All ${total} mailboxes loaded`;
+                            ? I18n.tpl`已加载 ${loaded} / ${total} 个邮箱`
+                            : I18n.tpl`已加载全部 ${total} 个邮箱`;
                     }
                 }
             }
@@ -1240,21 +1283,22 @@
             }
 
             const text = accountPaginationState.hasMore
-                ? I18n.tpl`${Math.min(loaded, total)} / ${total} mailboxes loaded`
-                : I18n.tpl`All ${total} mailboxes loaded`;
+                ? I18n.tpl`已加载 ${Math.min(loaded, total)} / ${total} 个邮箱`
+                : I18n.tpl`已加载全部 ${total} 个邮箱`;
             const action = accountPaginationState.hasMore
-                ? I18n.t("<button class=\"account-pagination-btn\" type=\"button\" onclick=\"loadMoreAccounts()\">Load more</button>")
+                ? I18n.t('<button class="account-pagination-btn" type="button" onclick="loadMoreAccounts()">加载更多</button>')
                 : '';
 
             return `
                 <div class="account-pagination-footer ${accountPaginationState.loading ? 'is-loading' : ''}" id="accountPaginationFooter">
-                    <span class="account-pagination-text">${escapeHtml(accountPaginationState.loading ? I18n.t("Loading…") : text)}</span>
+                    <span class="account-pagination-text">${escapeHtml(accountPaginationState.loading ? I18n.t('加载中...') : text)}</span>
                     ${action}
                 </div>
             `;
         }
 
         function maybeLoadMoreAccounts() {
+            if (accountDragState || accountSortSaving) return;
             const container = document.getElementById('accountList');
             if (!container || accountPaginationState.loading || !accountPaginationState.hasMore) {
                 return;
@@ -1273,6 +1317,7 @@
         }
 
         async function loadMoreAccounts() {
+            if (accountDragState || accountSortSaving) return;
             if (accountPaginationState.loading || !accountPaginationState.hasMore) {
                 return;
             }
@@ -1285,12 +1330,12 @@
             }
         }
 
-        // Load accounts under groups
+        // 加载分组下的账号
         async function loadAccountsByGroup(groupId, forceRefresh = false, append = false) {
             const container = document.getElementById('accountList');
             const cacheAllowed = !hasAccountServerSideFilters();
 
-            // If there is a cache and no forced refresh is required, use the cache directly.
+            // 如果有缓存且不强制刷新，直接使用缓存
             if (!append && !forceRefresh && cacheAllowed && accountsCache[groupId]) {
                 updateAccountPaginationState('group', String(groupId), {
                     total: accountsCache[groupId].length,
@@ -1337,18 +1382,18 @@
                     updateAccountPaginationState('group', String(groupId), data, nextAccounts.length);
                     renderFilteredAccountList(nextAccounts);
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t("Loading failed"), {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', data.error || I18n.t('加载失败'), {
                         onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
-                        actionTitle: I18n.t("Refresh account list")
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 }
             } catch (error) {
                 if (append) {
-                    showToast(I18n.t("Failed to load more accounts"), 'error');
+                    showToast(I18n.t('加载更多账号失败'), 'error');
                 } else {
-                    container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t("Loading failed"), {
+                    container.innerHTML = renderEmptyStateMarkup('⚠️', I18n.t('加载失败'), {
                         onAction: `loadAccountsByGroup(${Number(groupId)}, true)`,
-                        actionTitle: I18n.t("Refresh account list")
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 }
             } finally {
@@ -1356,12 +1401,6 @@
                     setAccountPaginationLoading(false);
                 }
             }
-        }
-
-        function showForwardStatusLabel(enabled) {
-            return enabled
-                ? I18n.t("<span class=\"account-status-pill success\" title=\"Forwarding enabled\">turn</span>")
-                : '';
         }
 
         function renderAccountTagSummary(tags, accountId) {
@@ -1389,7 +1428,7 @@
                 event.stopPropagation();
                 event.preventDefault();
             }
-            if (!(await showConfirmModal(I18n.tpl`Are you sure you want to remove the label "${tagName}" from this mailbox?`, { title: I18n.t("Remove tag"), confirmText: I18n.t("Confirm removal"), danger: true }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要从该邮箱移除标签 "${tagName}" 吗？`, { title: I18n.t('移除标签'), confirmText: I18n.t('确认移除'), danger: true }))) {
                 return;
             }
             try {
@@ -1404,7 +1443,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(I18n.t("Tag removed successfully"), 'success');
+                    showToast(I18n.t('标签已成功移除'), 'success');
                     if (typeof invalidateAccountCaches === 'function') {
                         invalidateAccountCaches();
                     }
@@ -1412,10 +1451,10 @@
                         refreshVisibleAccountList(true);
                     }
                 } else {
-                    handleApiError(data, I18n.t("Failed to remove tag"));
+                    handleApiError(data, I18n.t('移除标签失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Failed to remove tag: ") + error.message, 'error');
+                showToast(I18n.t('移除标签失败: ') + error.message, 'error');
             }
         }
 
@@ -1427,17 +1466,17 @@
             const hiddenCount = Math.max(0, safeAliases.length - visibleAliases.length);
             const aliasText = visibleAliases.join(' / ');
             const suffix = hiddenCount > 0 ? ` +${hiddenCount}` : '';
-            return I18n.tpl`<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">Alias: ${escapeHtml(aliasText)}${suffix}</div>`;
+            return I18n.tpl`<div class="account-aliases" title="${escapeHtml(safeAliases.join('\n'))}">别名: ${escapeHtml(aliasText)}${suffix}</div>`;
         }
 
         function renderAccountGroupSummary(account, showGroupInfo = false) {
             if (!showGroupInfo) return '';
 
             const groupColor = account.group_color || '#666666';
-            const groupName = normalizeGroupName(I18n.groupName({ id: account.group_id, name: account.group_name }), I18n.t("Default group"));
+            const groupName = normalizeGroupName(account.group_name, I18n.t('默认分组'));
             const groupIdBadgeText = formatGroupIdBadgeText(account.group_id);
             return I18n.tpl`
-                <div class="account-group-summary" title="Group affiliation: ${escapeHtml(groupName)}">
+                <div class="account-group-summary" title="所属分组: ${escapeHtml(groupName)}">
                     <span class="account-group-dot" style="background-color: ${escapeHtml(groupColor)}"></span>
                     <span class="account-group-name">${escapeHtml(groupName)}</span>
                     ${groupIdBadgeText ? `<span class="group-id-badge account-group-id-badge">${escapeHtml(groupIdBadgeText)}</span>` : ''}
@@ -1455,6 +1494,10 @@
         }
 
         function handleAccountItemClick(event, email, isTemp = false, accountId = 0) {
+            if (Date.now() < suppressAccountClickUntil) {
+                event?.preventDefault();
+                return;
+            }
             if (isAccountRowInteractiveTarget(event?.target)) {
                 return;
             }
@@ -1469,8 +1512,9 @@
             }
         }
 
-        // Render mailbox list
+        // 渲染邮箱列表
         function renderAccountList(accounts) {
+            cancelAccountDrag();
             const container = document.getElementById('accountList');
             const isSearchMode = !!(document.getElementById('globalSearch')?.value || '').trim();
             const hasTagFilters = hasAccountServerSideFilters();
@@ -1482,10 +1526,10 @@
 
             if (accounts.length === 0) {
                 container.innerHTML = isSearchMode
-                    ? renderEmptyStateMarkup('📭', I18n.t("No matching email found"))
-                    : renderEmptyStateMarkup('📭', I18n.t("This group currently has no email address"), {
+                    ? renderEmptyStateMarkup('📭', I18n.t('未找到匹配邮箱'))
+                    : renderEmptyStateMarkup('📭', I18n.t('该分组暂无邮箱'), {
                         onAction: refreshAction,
-                        actionTitle: I18n.t("Refresh account list")
+                        actionTitle: I18n.t('刷新账号列表')
                     });
                 updateBatchActionBar();
                 return;
@@ -1496,10 +1540,10 @@
                     .map(checkbox => String(checkbox.value))
             );
             container.innerHTML = accounts.map(acc => I18n.tpl`
-                <div class="account-item ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
+                <div class="account-item ${currentSortBy === 'manual' ? 'account-manual-sort' : ''} ${currentAccount === acc.email ? 'active' : ''} ${acc.status === 'inactive' ? 'inactive' : ''}"
                      data-account-id="${acc.id}"
                      onclick="handleAccountItemClick(event, '${escapeJs(acc.email)}', false, ${Number(acc.id) || 0})">
-                    <input type="checkbox" class="account-select-checkbox" value="${acc.id}" 
+                    <input type="checkbox" class="account-select-checkbox" value="${acc.id}"
                            data-account-email="${escapeHtml(acc.email)}"
                            data-account-type="${escapeHtml(acc.account_type || 'outlook')}"
                            data-refreshable="${acc.account_type !== 'imap' ? 'true' : 'false'}"
@@ -1508,7 +1552,7 @@
                     <div class="account-body">
                         <div class="account-title-row">
                             <div class="account-email-wrap">
-                                <div class="account-email" title="${escapeHtml(acc.email)}" style="${acc.last_refresh_status === 'failed' ? 'color: #b42318;' : ''}">
+                                <div class="account-email" ${renderAccountSortNameAttributes(acc)} title="${escapeHtml(acc.email)}" style="${acc.last_refresh_status === 'failed' ? 'color: #b42318;' : ''}">
                                     ${escapeHtml(acc.email)}
                                 </div>
                             </div>
@@ -1518,9 +1562,8 @@
                                 style="--pill-accent: ${acc.account_type === 'imap' ? '#0ea5e9' : '#2563eb'}">
                                 ${escapeHtml(getProviderLabel(acc.provider || (acc.account_type === 'imap' ? 'custom' : 'outlook')))}
                             </span>
-                            ${showForwardStatusLabel(!!acc.forward_enabled)}
-                            ${acc.status === 'inactive' ? I18n.t("<span class=\"account-status-pill muted\">Disabled</span>") : ''}
-                            ${acc.last_refresh_status === 'failed' ? I18n.t("<span class=\"account-status-pill danger\">Refresh failed</span>") : ''}
+                            ${acc.status === 'inactive' ? I18n.t('<span class="account-status-pill muted">已停用</span>') : ''}
+                            ${acc.last_refresh_status === 'failed' ? I18n.t('<span class="account-status-pill danger">刷新失败</span>') : ''}
                         </div>
                         ${renderAccountGroupSummary(acc, showSearchGroupInfo)}
                         ${renderAccountAliasSummary(acc.aliases)}
@@ -1529,15 +1572,19 @@
                         ${renderAccountFooter(acc)}
                     </div>
                     <div class="account-menu-wrap">
-                        <button class="account-menu-trigger" type="button" data-account-menu-toggle="true" title="More actions">⋯</button>
+                        <button class="account-menu-trigger" type="button" data-account-menu-toggle="true" title="更多操作">⋯</button>
                         <div class="account-menu-panel">
-                            <button class="account-action-btn" type="button" data-account-action="copy" data-account-email="${escapeHtml(acc.email)}">Copy mailbox</button>
-                            <button class="account-action-btn" type="button" data-account-action="share" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">Share email</button>
-                            <button class="account-action-btn" type="button" data-account-action="forwardingLogs" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">Forward log</button>
-                            <button class="account-action-btn" type="button" data-account-action="toggleStatus" data-account-id="${acc.id}" data-account-status="${escapeHtml(acc.status || 'active')}">${acc.status === 'inactive' ? I18n.t("Activate account") : I18n.t("Deactivate account")}</button>
-                            ${(acc.account_type || 'outlook') !== 'imap' ? I18n.tpl`<button class="account-action-btn" type="button" data-account-action="outlookAutoAuth" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">Add automatic authorization</button>` : ''}
-                            <button class="account-action-btn" type="button" data-account-action="edit" data-account-id="${acc.id}">Edit account</button>
-                            <button class="account-action-btn delete" type="button" data-account-action="delete" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">Delete account</button>
+                            ${currentSortBy === 'manual' ? I18n.tpl`
+                                <button class="account-action-btn" type="button" onclick="event.stopPropagation(); moveAccountByOffset(${Number(acc.id)}, -1)">上移</button>
+                                <button class="account-action-btn" type="button" onclick="event.stopPropagation(); moveAccountByOffset(${Number(acc.id)}, 1)">下移</button>
+                            ` : ''}
+                            <button class="account-action-btn" type="button" data-account-action="copy" data-account-email="${escapeHtml(acc.email)}">复制邮箱</button>
+                            <button class="account-action-btn" type="button" data-account-action="share" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">分享邮箱</button>
+                            <button class="account-action-btn" type="button" data-account-action="forwardingLogs" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">转发日志</button>
+                            <button class="account-action-btn" type="button" data-account-action="toggleStatus" data-account-id="${acc.id}" data-account-status="${escapeHtml(acc.status || 'active')}">${acc.status === 'inactive' ? I18n.t('启用账号') : I18n.t('停用账号')}</button>
+                            ${(acc.account_type || 'outlook') !== 'imap' ? I18n.tpl`<button class="account-action-btn" type="button" data-account-action="outlookAutoAuth" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">加入自动授权</button>` : ''}
+                            <button class="account-action-btn" type="button" data-account-action="edit" data-account-id="${acc.id}">编辑账号</button>
+                            <button class="account-action-btn delete" type="button" data-account-action="delete" data-account-id="${acc.id}" data-account-email="${escapeHtml(acc.email)}">删除账号</button>
                         </div>
                     </div>
                 </div>
@@ -1551,10 +1598,11 @@
             maybeLoadMoreAccounts();
         }
 
-        // Sorting related variables
+        // 排序相关变量
         const ACCOUNT_SORT_DEFAULT_BY = 'sort_order';
         const ACCOUNT_SORT_DEFAULT_ORDERS = {
             sort_order: 'asc',
+            manual: 'asc',
             created_at: 'desc',
             email: 'asc'
         };
@@ -1567,6 +1615,7 @@
         }
 
         function normalizeAccountSortOrder(value, sortBy = ACCOUNT_SORT_DEFAULT_BY) {
+            if (sortBy === 'manual') return 'asc';
             if (value === 'asc' || value === 'desc') {
                 return value;
             }
@@ -1599,6 +1648,11 @@
         }
 
         function syncAccountSortButtons() {
+            const manualHelp = document.getElementById('accountManualSortHelp');
+            if (manualHelp && (currentSortBy !== 'manual' || isTempEmailGroup)) {
+                clearTimeout(accountSortHelpTimer);
+                manualHelp.hidden = true;
+            }
             document.querySelectorAll('.sort-btn').forEach(btn => {
                 btn.classList.remove('active');
                 btn.style.backgroundColor = '#ffffff';
@@ -1645,13 +1699,13 @@
             const footerParts = [];
             const sortOrder = getAccountSortOrderValue(acc);
             if (shouldShowAccountSortOrder() && sortOrder !== null) {
-                footerParts.push(I18n.tpl`<span class="account-sort-order">Sort value ${escapeHtml(String(sortOrder))}</span>`);
+                footerParts.push(I18n.tpl`<span class="account-sort-order">排序值 ${escapeHtml(String(sortOrder))}</span>`);
             }
             if (shouldShowAccountCreatedAt() && acc.created_at) {
                 footerParts.push(`<span class="account-created-at" title="${escapeHtml(acc.created_at || '')}">${escapeHtml(formatAbsoluteDateTime(acc.created_at))}</span>`);
             }
             if (acc.last_refresh_status === 'failed') {
-                footerParts.push('<button class="account-error-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || I18n.t("Unknown error")) + '\', \'' + escapeJs(acc.email) + '\', \'' + escapeJs(acc.account_type || 'outlook') + I18n.t("')\"&gt;View errors</button>"));
+                footerParts.push('<button class="account-error-btn" onclick="event.stopPropagation(); showRefreshError(' + acc.id + ', \'' + escapeJs(acc.last_refresh_error || I18n.t('未知错误')) + '\', \'' + escapeJs(acc.email) + '\', \'' + escapeJs(acc.account_type || 'outlook') + I18n.t('\')">查看错误</button>'));
             }
             if (!footerParts.length) {
                 return '';
@@ -1683,10 +1737,235 @@
                 : emailB.localeCompare(emailA);
         }
 
-        // Sort account list
+        let accountDragState = null;
+        let accountSortSaving = false;
+        let accountSortHelpTimer = null;
+        let suppressAccountClickUntil = 0;
+
+        function showAccountSortHelp() {
+            const help = document.getElementById('accountManualSortHelp');
+            if (!help || currentSortBy !== 'manual' || isTempEmailGroup) return;
+            clearTimeout(accountSortHelpTimer);
+            const optionsRow = document.getElementById('accountListOptionsRow');
+            const panel = help.closest('.account-panel');
+            help.hidden = false;
+            if (optionsRow && panel) {
+                const rowBounds = optionsRow.getBoundingClientRect();
+                help.style.top = `${rowBounds.top - panel.getBoundingClientRect().top + (rowBounds.height - help.offsetHeight) / 2}px`;
+            }
+            accountSortHelpTimer = setTimeout(() => { help.hidden = true; }, 3000);
+        }
+
+        function renderAccountSortNameAttributes(account) {
+            if (currentSortBy !== 'manual' || isTempEmailGroup) return '';
+            return I18n.tpl`data-account-sort-name="true" tabindex="0" role="button"
+                aria-label="${escapeHtml(account.email)}，长按拖动排序，也可按上下方向键调整"
+                aria-disabled="${accountSortSaving}" aria-describedby="accountManualSortHelp"
+                onpointerdown="startAccountDrag(event, ${Number(account.id)})"
+                onkeydown="handleAccountSortKey(event, ${Number(account.id)})"
+                oncontextmenu="event.preventDefault()"`;
+        }
+
+        function cancelAccountDrag() {
+            const state = accountDragState;
+            if (!state) return;
+            accountDragState = null;
+            clearTimeout(state.pressTimer);
+            state.controller.abort();
+            cancelAnimationFrame(state.frame);
+            state.source.classList.remove('account-sort-dragging');
+            state.target?.classList.remove('account-sort-before', 'account-sort-after');
+            if (state.active) suppressAccountClickUntil = Date.now() + 400;
+            if (state.nameEl.hasPointerCapture(state.pointerId)) {
+                state.nameEl.releasePointerCapture(state.pointerId);
+            }
+        }
+
+        function updateAccountDropTarget() {
+            const state = accountDragState;
+            if (!state?.active || !state.moved) return;
+            state.target?.classList.remove('account-sort-before', 'account-sort-after');
+            state.target = null;
+            const bounds = state.container.getBoundingClientRect();
+            if (state.x < bounds.left || state.x > bounds.right
+                || state.y < Math.max(0, bounds.top) || state.y > Math.min(window.innerHeight, bounds.bottom)) return;
+            const rows = Array.from(state.container.querySelectorAll('.account-item[data-account-id]'))
+                .filter(row => row !== state.source);
+            const nextRow = rows.find(row => {
+                const rect = row.getBoundingClientRect();
+                return state.y < rect.top + rect.height / 2;
+            });
+            state.target = nextRow || rows[rows.length - 1];
+            if (!state.target) return;
+            state.position = nextRow ? 'before' : 'after';
+            state.target.classList.add(`account-sort-${state.position}`);
+        }
+
+        function scrollAccountDrag() {
+            const state = accountDragState;
+            if (!state?.active) return;
+            if (state.moved) {
+                const rect = state.container.getBoundingClientRect();
+                if (state.x >= rect.left && state.x <= rect.right) {
+                    const top = Math.max(0, rect.top);
+                    const bottom = Math.min(window.innerHeight, rect.bottom);
+                    let delta = 0;
+                    if (state.y >= top && state.y < top + 40) delta = -12;
+                    if (state.y <= bottom && state.y > bottom - 40) delta = 12;
+                    state.container.scrollTop += delta;
+                    updateAccountDropTarget();
+                }
+            }
+            state.frame = requestAnimationFrame(scrollAccountDrag);
+        }
+
+        function startAccountDrag(event, accountId) {
+            if (currentSortBy !== 'manual' || isTempEmailGroup || accountSortSaving
+                || accountPaginationState.loading || event.isPrimary === false
+                || (event.pointerType === 'mouse' && event.button !== 0)) return;
+            event.stopPropagation();
+            cancelAccountDrag();
+            const nameEl = event.currentTarget;
+            const source = nameEl.closest('.account-item');
+            const container = document.getElementById('accountList');
+            if (!source || !container) return;
+            const controller = new AbortController();
+            const state = {
+                accountId, nameEl, source, container, controller,
+                pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+                startX: event.clientX, startY: event.clientY, moved: false, active: false,
+                target: null, position: 'before', frame: 0, pressTimer: null
+            };
+            accountDragState = state;
+            state.pressTimer = setTimeout(() => {
+                if (accountDragState !== state || !nameEl.isConnected) return;
+                state.active = true;
+                nameEl.focus({ preventScroll: true });
+                nameEl.setPointerCapture(state.pointerId);
+                source.classList.add('account-sort-dragging');
+                state.frame = requestAnimationFrame(scrollAccountDrag);
+            }, 400);
+            const options = { signal: controller.signal };
+            document.addEventListener('pointermove', move => {
+                if (accountDragState !== state || move.pointerId !== state.pointerId) return;
+                state.x = move.clientX;
+                state.y = move.clientY;
+                const distance = Math.hypot(state.x - state.startX, state.y - state.startY);
+                if (!state.active) {
+                    if (distance >= 8) cancelAccountDrag();
+                    return;
+                }
+                move.preventDefault();
+                state.moved = state.moved || distance >= 5;
+                updateAccountDropTarget();
+            }, { ...options, passive: false });
+            document.addEventListener('pointerup', up => {
+                if (accountDragState !== state || up.pointerId !== state.pointerId) return;
+                state.x = up.clientX;
+                state.y = up.clientY;
+                updateAccountDropTarget();
+                const targetId = Number(state.target?.dataset.accountId);
+                const position = state.position;
+                cancelAccountDrag();
+                if (targetId) persistAccountMove(accountId, targetId, position);
+            }, options);
+            document.addEventListener('pointercancel', cancelled => {
+                if (cancelled.pointerId === accountDragState?.pointerId) cancelAccountDrag();
+            }, options);
+            document.addEventListener('keydown', key => {
+                if (key.key === 'Escape') cancelAccountDrag();
+            }, options);
+            window.addEventListener('blur', cancelAccountDrag, options);
+            nameEl.addEventListener('lostpointercapture', cancelAccountDrag, options);
+        }
+
+        function handleAccountSortKey(event, accountId) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.currentTarget.click();
+                return;
+            }
+            if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (currentSortBy !== 'manual' || accountSortSaving || accountDragState) return;
+            moveAccountByOffset(accountId, event.key === 'ArrowUp' ? -1 : 1);
+        }
+
+        function moveAccountByOffset(accountId, offset) {
+            if (currentSortBy !== 'manual' || accountSortSaving || accountDragState) return;
+            const rows = Array.from(document.querySelectorAll('#accountList .account-item[data-account-id]'));
+            const index = rows.findIndex(row => Number(row.dataset.accountId) === accountId);
+            const target = index >= 0 ? rows[index + offset] : null;
+            if (target) persistAccountMove(accountId, Number(target.dataset.accountId),
+                offset < 0 ? 'before' : 'after', true);
+        }
+
+        async function persistAccountMove(accountId, targetId, position, keepInView = false) {
+            if (accountSortSaving || currentSortBy !== 'manual') return;
+            const container = document.getElementById('accountList');
+            const scrollTop = container.scrollTop;
+            const groupId = currentGroupId;
+            accountSortSaving = true;
+            container.setAttribute('aria-busy', 'true');
+            let saved = false;
+            const sourceRow = container.querySelector(`.account-item[data-account-id="${accountId}"]`);
+            const targetRow = container.querySelector(`.account-item[data-account-id="${targetId}"]`);
+            if (sourceRow && targetRow && sourceRow !== targetRow) {
+                container.insertBefore(sourceRow, position === 'before' ? targetRow : targetRow.nextSibling);
+                container.scrollTop = scrollTop;
+            }
+            container.querySelectorAll('[data-account-sort-name]').forEach(name => name.setAttribute('aria-disabled', 'true'));
+            try {
+                const response = await fetch('/api/accounts/reorder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId, target_id: targetId, position })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    handleApiError(data, I18n.t('保存自定义排序失败'));
+                    return;
+                }
+                saved = true;
+                const order = new Map((data.manual_order || []).map(item => [Number(item.id), item.manual_sort_order]));
+                currentAccountListSource = currentAccountListSource.map(account => order.has(Number(account.id))
+                    ? { ...account, manual_sort_order: order.get(Number(account.id)) } : account);
+                invalidateAccountCaches();
+                renderFilteredAccountList(currentAccountListSource);
+                if (currentGroupId === groupId && currentSortBy === 'manual') {
+                    container.scrollTop = scrollTop;
+                }
+                showToast(I18n.t('自定义排序已保存'), 'success');
+            } catch (error) {
+                showToast(I18n.t('保存自定义排序失败，请刷新确认后重试'), 'error');
+            } finally {
+                accountSortSaving = false;
+                container.removeAttribute('aria-busy');
+                if (!saved && currentGroupId === groupId && currentSortBy === 'manual') {
+                    renderFilteredAccountList(currentAccountListSource);
+                    container.scrollTop = scrollTop;
+                }
+                container.querySelectorAll('[data-account-sort-name]').forEach(name => name.setAttribute('aria-disabled', 'false'));
+                if (currentGroupId === groupId && currentSortBy === 'manual') {
+                    const name = container.querySelector(`.account-item[data-account-id="${accountId}"] [data-account-sort-name]`);
+                    name?.focus({ preventScroll: true });
+                    if (keepInView) name?.scrollIntoView({ block: 'nearest' });
+                }
+                maybeLoadMoreAccounts();
+            }
+        }
+
+        // 排序账号列表
         function sortAccounts(sortBy) {
             sortBy = normalizeAccountSortBy(sortBy);
-            // If you click the same sort button, switch the sort order
+            // 如果点击同一个排序按钮，切换排序顺序
+            if (accountSortSaving) return;
+            cancelAccountDrag();
+            if (currentSortBy === sortBy && sortBy === 'manual') {
+                showAccountSortHelp();
+                return;
+            }
             if (currentSortBy === sortBy) {
                 currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
             } else {
@@ -1696,6 +1975,7 @@
 
             saveAccountSortPreference();
             syncAccountSortButtons();
+            if (sortBy === 'manual') showAccountSortHelp();
 
             invalidateAccountCaches();
             if (isTempEmailGroup) {
@@ -1777,13 +2057,13 @@
             document.getElementById('emailList').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📬</div>
-                    <div class="empty-state-text">Please select an email account from the left</div>
+                    <div class="empty-state-text">请从左侧选择一个邮箱账号</div>
                 </div>
             `;
             document.getElementById('emailDetail').innerHTML = I18n.tpl`
                 <div class="empty-state">
                     <div class="empty-state-icon">📄</div>
-                    <div class="empty-state-text">Select an email to view details</div>
+                    <div class="empty-state-text">选择一封邮件查看详情</div>
                 </div>
             `;
             showEmailList();
@@ -1817,7 +2097,7 @@
             return terms.some(term => normalizedFields.some(value => value.includes(term)));
         }
 
-        // Apply filtering and sorting
+        // 应用筛选和排序
         function applyFiltersAndSort(accounts) {
             let result = [...accounts];
 
@@ -1836,13 +2116,25 @@
                 });
             }
 
-            // 1. Tag filtering
+            // 1. Tag 筛选
             if (hasActiveTagFilters()) {
                 result = result.filter(acc => matchesSelectedTagFilters(acc.tags));
             }
 
-            // 2. Sorting
+            // 2. 排序
             return result.sort((a, b) => {
+                if (currentSortBy === 'manual') {
+                    const manualA = Number(a.manual_sort_order) || 0;
+                    const manualB = Number(b.manual_sort_order) || 0;
+                    if (!!manualA !== !!manualB) return manualA ? -1 : 1;
+                    if (manualA !== manualB) return manualA - manualB;
+                    const sortA = getAccountSortOrderValue(a);
+                    const sortB = getAccountSortOrderValue(b);
+                    if ((sortA !== null) !== (sortB !== null)) return sortA !== null ? -1 : 1;
+                    if (sortA !== null && sortB !== null && sortA !== sortB) return sortA - sortB;
+                    return compareAccountsByCreatedAt(a, b, 'desc')
+                        || compareAccountsByEmail(a, b, 'asc') || Number(b.id) - Number(a.id);
+                }
                 if (currentSortBy === 'sort_order') {
                     const sortA = getAccountSortOrderValue(a);
                     const sortB = getAccountSortOrderValue(b);
@@ -1935,7 +2227,7 @@
             applyAccountTagFilterChange();
         }
 
-        // Anti-shake function
+        // 防抖函数
         function debounce(func, wait) {
             let timeout;
             return function (...args) {
@@ -1944,7 +2236,7 @@
             };
         }
 
-        // Global search function
+        // 全局搜索函数
         async function searchAccounts(query, forceRefresh = false, append = false) {
             const container = document.getElementById('accountList');
             if (!append) {
@@ -1972,7 +2264,7 @@
             }
 
             if (getAccountSearchTerms(query).length > ACCOUNT_SEARCH_MAX_TERMS) {
-                const message = I18n.t("Search keywords support up to 200");
+                const message = I18n.t('搜索关键词最多支持 200 个');
                 if (append) {
                     showToast(message, 'warning');
                 } else {
@@ -2020,15 +2312,15 @@
                     updateAccountPaginationState('search', `${getAccountSearchScopeKey()}:${query}`, data, nextAccounts.length);
                     renderFilteredAccountList(nextAccounts);
                 } else {
-                    const message = data.error || I18n.t("Search failed");
+                    const message = data.error || I18n.t('搜索失败');
                     container.innerHTML = `<div class="empty-state"><div class="empty-state-text">${escapeHtml(message)}</div></div>`;
                 }
             } catch (error) {
-                console.error(I18n.t("Search failed:"), error);
+                console.error(I18n.t('搜索失败:'), error);
                 if (append) {
-                    showToast(I18n.t("Failed to load more search results"), 'error');
+                    showToast(I18n.t('加载更多搜索结果失败'), 'error');
                 } else {
-                    container.innerHTML = I18n.t("<div class=\"empty-state\"><div class=\"empty-state-text\">Search failed, please try again</div></div>");
+                    container.innerHTML = I18n.t('<div class="empty-state"><div class="empty-state-text">搜索失败，请重试</div></div>');
                 }
             } finally {
                 if (requestId === accountListRequestSeq) {
@@ -2037,7 +2329,7 @@
             }
         }
 
-        // Update group drop-down selection box
+        // 更新分组下拉选择框
         function updateGroupSelects() {
             const selects = ['importGroupSelect', 'editGroupSelect', 'tokenSaveGroupSelect', 'addUploadAccountGroupSelect'];
             selects.forEach(selectId => {
@@ -2050,7 +2342,7 @@
                     const filteredGroups = includeTemp ? groups : groups.filter(g => !isSystemGroup(g));
 
                     select.innerHTML = renderGroupOptions({ includeTemp });
-                    // Restore previous selections
+                    // 恢复之前的选择
                     if (currentValue && filteredGroups.find(g => g.id === parseInt(currentValue))) {
                         select.value = currentValue;
                     } else if (selectId === 'tokenSaveGroupSelect' || selectId === 'addUploadAccountGroupSelect') {
@@ -2066,7 +2358,7 @@
                 }
             });
 
-            // Bind import group switching events and dynamically update prompts
+            // 绑定导入分组切换事件，动态更新提示
             const importSelect = document.getElementById('importGroupSelect');
             if (importSelect) {
                 importSelect.onchange = function () {
@@ -2094,7 +2386,7 @@
             }
 
             const normalizedSelectedParentId = normalizeGroupParentId(selectedParentId);
-            const options = [I18n.t("<option value=\"\">None (first-level grouping)</option>")];
+            const options = [I18n.t('<option value="">无（一级分组）</option>')];
             getAvailableParentGroups(editingId).forEach(group => {
                 options.push(`<option value="${group.id}">${escapeHtml(getGroupOptionLabel(group))}</option>`);
             });
@@ -2109,8 +2401,9 @@
             updateGroupSortPositionOptions(editingGroupId, null, parentId);
         }
 
-        // Display the add group modal box
+        // 显示添加分组模态框
         const MAIL_PROVIDER_LABELS = {
+            icloud: 'iCloud',
             outlook: 'Outlook',
             gmail: 'Gmail',
             qq: 'QQ',
@@ -2118,7 +2411,7 @@
             '126': '126',
             yahoo: 'Yahoo',
             aliyun: 'Aliyun',
-            '2925': I18n.t("Email 2925"),
+            '2925': I18n.t('2925邮箱'),
             custom: 'Custom IMAP'
         };
 
@@ -2129,7 +2422,7 @@
         function isTempImportGroup() {
             const importSelect = document.getElementById('importGroupSelect');
             const selectedGroup = groups.find(g => g.id === parseInt(importSelect?.value || '0'));
-            return !!(selectedGroup && selectedGroup.name === "\u4e34\u65f6\u90ae\u7bb1");
+            return !!(selectedGroup && selectedGroup.name === '临时邮箱');
         }
 
         function normalizeForwardChannels(rawChannels) {
@@ -2140,7 +2433,8 @@
                 telegram: 'telegram',
                 wecom: 'wecom',
                 wechatwork: 'wecom',
-                qywx: 'wecom'
+                qywx: 'wecom',
+                feishu: 'feishu'
             };
             const values = Array.isArray(rawChannels)
                 ? rawChannels
@@ -2153,25 +2447,25 @@
             )];
         }
 
+        const FORWARD_CHANNEL_CHECKBOX_IDS = {
+            smtp: 'forwardChannelSmtp',
+            telegram: 'forwardChannelTelegram',
+            wecom: 'forwardChannelWecom',
+            feishu: 'forwardChannelFeishu',
+        };
+
         function getSelectedForwardChannels() {
-            const checkboxMap = {
-                smtp: 'forwardChannelSmtp',
-                telegram: 'forwardChannelTelegram',
-                wecom: 'forwardChannelWecom',
-            };
-            return Object.keys(checkboxMap).filter(channel =>
-                document.getElementById(checkboxMap[channel])?.checked
+            return Object.keys(FORWARD_CHANNEL_CHECKBOX_IDS).filter(channel =>
+                document.getElementById(FORWARD_CHANNEL_CHECKBOX_IDS[channel])?.checked
             );
         }
 
         function setSelectedForwardChannels(rawChannels) {
             const channels = normalizeForwardChannels(rawChannels);
-            const smtpCheckbox = document.getElementById('forwardChannelSmtp');
-            const telegramCheckbox = document.getElementById('forwardChannelTelegram');
-            const wecomCheckbox = document.getElementById('forwardChannelWecom');
-            if (smtpCheckbox) smtpCheckbox.checked = channels.includes('smtp');
-            if (telegramCheckbox) telegramCheckbox.checked = channels.includes('telegram');
-            if (wecomCheckbox) wecomCheckbox.checked = channels.includes('wecom');
+            Object.entries(FORWARD_CHANNEL_CHECKBOX_IDS).forEach(([channel, id]) => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) checkbox.checked = channels.includes(channel);
+            });
             syncForwardChannelUI();
         }
 
@@ -2202,13 +2496,13 @@
         }
 
         const SMTP_PROVIDER_PRESETS = {
-            outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: I18n.t("Outlook recommends SMTP + STARTTLS (587).") },
-            qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: I18n.t("QQ mailbox usually uses SMTP authorization code, and the default is SSL 465.") },
-            '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: I18n.t("163 mailboxes usually use SMTP authorization code, and the default is SSL 465.") },
-            '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: I18n.t("126 mailboxes usually use SMTP authorization code, and the default is SSL 465.") },
-            yahoo: { host: 'smtp.mail.yahoo.com', port: '465', useTls: false, useSsl: true, hint: I18n.t("Yahoo defaults to SSL 465.") },
-            aliyun: { host: 'smtp.aliyun.com', port: '465', useTls: false, useSsl: true, hint: I18n.t("Alibaba Mailbox defaults to SSL 465.") },
-            custom: { host: '', port: '465', useTls: false, useSsl: true, hint: I18n.t("In custom mode, please manually fill in the SMTP host, port and connection method.") }
+            outlook: { host: 'smtp-mail.outlook.com', port: '587', useTls: true, useSsl: false, hint: I18n.t('Outlook 推荐使用 SMTP + STARTTLS（587）。') },
+            qq: { host: 'smtp.qq.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('QQ 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            '163': { host: 'smtp.163.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('163 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            '126': { host: 'smtp.126.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('126 邮箱通常使用 SMTP 授权码，默认 SSL 465。') },
+            yahoo: { host: 'smtp.mail.yahoo.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('Yahoo 默认 SSL 465。') },
+            aliyun: { host: 'smtp.aliyun.com', port: '465', useTls: false, useSsl: true, hint: I18n.t('阿里邮箱默认 SSL 465。') },
+            custom: { host: '', port: '465', useTls: false, useSsl: true, hint: I18n.t('自定义模式下，请手动填写 SMTP 主机、端口和连接方式。') }
         };
 
         function ensureForwardingSettingsUI() {
@@ -2239,7 +2533,7 @@
             }
 
             providerHint.textContent = preset.hint;
-            fromHint.textContent = I18n.t("Optional. When left blank, the SMTP username is used as the sender email by default.");
+            fromHint.textContent = I18n.t('可选。留空时默认使用 SMTP 用户名作为发件人邮箱。');
         }
 
         function updateEditAccountFields() {
@@ -2250,6 +2544,7 @@
             const refreshTokenGroup = document.getElementById('editRefreshToken')?.closest('.form-group');
             const authorizationTypeGroup = document.getElementById('editAuthorizationType')?.closest('.form-group');
             const authorizationTypeSelect = document.getElementById('editAuthorizationType');
+            const graphScopeGroup = document.getElementById('editGraphScopeGroup');
             const imapFields = document.getElementById('editImapFields');
             const customImapFields = document.getElementById('editCustomImapFields');
             const reauthorizeGroup = document.getElementById('editReauthorizeGroup');
@@ -2259,6 +2554,7 @@
             if (refreshTokenGroup) refreshTokenGroup.style.display = isOutlook ? '' : 'none';
             if (authorizationTypeGroup) authorizationTypeGroup.style.display = isOutlook ? '' : 'none';
             if (authorizationTypeSelect) authorizationTypeSelect.disabled = !isOutlook;
+            if (graphScopeGroup) graphScopeGroup.style.display = isOutlook ? '' : 'none';
             if (imapFields) imapFields.style.display = isOutlook ? 'none' : '';
             if (customImapFields) customImapFields.style.display = provider === 'custom' ? '' : 'none';
             if (reauthorizeGroup) reauthorizeGroup.style.display = isOutlook ? '' : 'none';
@@ -2280,6 +2576,7 @@
             const customHost = document.getElementById('importImapHost');
             const customPort = document.getElementById('importImapPort');
             const accountDefaultFields = document.querySelectorAll('#addAccountModal .import-account-default-field');
+            const graphScopeGroup = document.getElementById('importGraphScopeGroup');
             if (!hintEl || !inputEl) return;
 
             const isTempGroup = isTempImportGroup();
@@ -2296,6 +2593,7 @@
             });
 
             if (isTempGroup) {
+                if (graphScopeGroup) graphScopeGroup.style.display = 'none';
                 if (customImapSettings) customImapSettings.style.display = 'none';
                 const channel = channelSelect ? channelSelect.value : 'gptmail';
                 const isCloudflare = channel === 'cloudflare';
@@ -2307,17 +2605,17 @@
                     loadCloudflareChannelsForImport();
                 }
                 if (channel === 'duckmail') {
-                    hintEl.textContent = I18n.t("Format: Email ---- Password, one per line.");
-                    inputEl.placeholder = I18n.t("Email----Password");
+                    hintEl.textContent = I18n.t('格式：邮箱----密码，每行一个。');
+                    inputEl.placeholder = I18n.t('邮箱----密码');
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = I18n.t("Example: \nuser@duck.com----mypassword\nuser2@duck.com----password2");
+                        exampleEl.textContent = I18n.t('示例：\nuser@duck.com----mypassword\nuser2@duck.com----password2');
                     }
                     return;
                 }
                 if (channel === 'cloudflare') {
                     if (cloudflareMode === 'auto') {
-                        hintEl.textContent = I18n.t("Automatically pull email addresses from the selected Cloudflare channel and import them, without pulling JWT.");
+                        hintEl.textContent = I18n.t('自动从所选 Cloudflare 渠道拉取邮箱地址并导入，不拉取 JWT。');
                         inputEl.placeholder = '';
                         if (exampleEl) {
                             exampleEl.style.display = 'none';
@@ -2325,61 +2623,60 @@
                         }
                         return;
                     }
-                    hintEl.textContent = I18n.t("Format: One email address per line. Manual import no longer supports email----JWT.");
+                    hintEl.textContent = I18n.t('格式：每行一个邮箱地址。手动导入不再支持 邮箱----JWT。');
                     inputEl.placeholder = 'user@example.com\nuser2@example.com';
                     if (exampleEl) {
                         exampleEl.style.display = '';
-                        exampleEl.textContent = I18n.t("Example: \nuser@example.com\nuser2@example.com");
+                        exampleEl.textContent = I18n.t('示例：\nuser@example.com\nuser2@example.com');
                     }
                     return;
                 }
-                hintEl.textContent = I18n.t("Format: One email address per line.");
-                inputEl.placeholder = I18n.t("One email address per line");
+                hintEl.textContent = I18n.t('格式：每行一个邮箱地址。');
+                inputEl.placeholder = I18n.t('每行一个邮箱地址');
                 if (exampleEl) {
                     exampleEl.style.display = '';
-                    exampleEl.textContent = I18n.t("Example: \nuser1@gptmail.com\nuser2@gptmail.com");
+                    exampleEl.textContent = I18n.t('示例：\nuser1@gptmail.com\nuser2@gptmail.com');
                 }
                 return;
             }
 
             const provider = providerSelect ? providerSelect.value : 'outlook';
             const isOutlook = provider === 'outlook';
+            if (graphScopeGroup) graphScopeGroup.style.display = isOutlook ? '' : 'none';
             if (customImapSettings) customImapSettings.style.display = provider === 'custom' ? '' : 'none';
             if (exampleEl) exampleEl.style.display = '';
 
             if (isOutlook) {
-                hintEl.textContent = I18n.t("Outlook supports two formats and automatically recognizes them: Email----Password----client_id----refresh_token or Email----Password----refresh_token----client_id.");
-                inputEl.placeholder = I18n.t("Email----Password----client_id----refresh_token");
+                hintEl.textContent = I18n.t('Outlook 支持两种格式并自动识别：邮箱----密码----client_id----refresh_token 或 邮箱----密码----refresh_token----client_id。');
+                inputEl.placeholder = I18n.t('邮箱----密码----client_id----refresh_token');
                 if (exampleEl) {
-                    exampleEl.textContent = I18n.t("Example: \nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA. ..\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a");
+                    exampleEl.textContent = I18n.t('示例：\nuser@outlook.com----password123----24d9a0ed-8787-4584-883c-2fd79308940a----0.AXEA...\nuser@outlook.com----password123----0.AXEA...----24d9a0ed-8787-4584-883c-2fd79308940a');
                 }
                 return;
             }
 
             if (provider === 'custom') {
-                hintEl.textContent = I18n.t("Format: Email----IMAP password. Compatible formats are also supported: email----IMAP password----imap_host----imap_port.");
-                inputEl.placeholder = I18n.t("Email----IMAP password");
+                hintEl.textContent = I18n.t('格式：邮箱----IMAP密码。也支持兼容格式：邮箱----IMAP密码----imap_host----imap_port。');
+                inputEl.placeholder = I18n.t('邮箱----IMAP密码');
                 if (exampleEl) {
                     const host = customHost?.value?.trim() || 'imap.example.com';
                     const port = customPort?.value?.trim() || '993';
-                    exampleEl.textContent = I18n.tpl`Example: 
-user@example.com----app-password
-user@example.com----app-password----${host}----${port}`;
+                    exampleEl.textContent = I18n.tpl`示例：\nuser@example.com----app-password\nuser@example.com----app-password----${host}----${port}`;
                 }
                 return;
             }
 
-            hintEl.textContent = I18n.tpl`Format: Email----IMAP authorization code/application password, one per line. Current type: ${getProviderLabel(provider)}.`;
-            inputEl.placeholder = I18n.t("Email----IMAP authorization code/application password");
+            hintEl.textContent = I18n.tpl`格式：邮箱----IMAP授权码/应用密码，每行一个。当前类型：${getProviderLabel(provider)}。`;
+            inputEl.placeholder = I18n.t('邮箱----IMAP授权码/应用密码');
             if (exampleEl) {
-                exampleEl.textContent = I18n.t("Example: \nuser@gmail.com----app-password\nuser2@qq.com----imap-auth-code");
+                exampleEl.textContent = I18n.t('示例：\nuser@gmail.com----app-password\nuser2@qq.com----imap-auth-code');
             }
         }
 
         function showAddGroupModal() {
             closeAllModals();
             editingGroupId = null;
-            document.getElementById('groupModalTitle').textContent = I18n.t("Add group");
+            document.getElementById('groupModalTitle').textContent = I18n.t('添加分组');
             document.getElementById('groupName').value = '';
             document.getElementById('groupDescription').value = '';
             const currentGroup = getGroupById(currentGroupId);
@@ -2400,12 +2697,12 @@ user@example.com----app-password----${host}----${port}`;
             setModalVisible('addGroupModal', true);
         }
 
-        // Hide the add group modal box
+        // 隐藏添加分组模态框
         function hideAddGroupModal() {
             hideModal('addGroupModal');
         }
 
-        // Edit group
+        // 编辑分组
         async function editGroup(groupId) {
             try {
                 const response = await fetch(`/api/groups/${groupId}`);
@@ -2413,14 +2710,14 @@ user@example.com----app-password----${host}----${port}`;
 
                 if (data.success) {
                     editingGroupId = groupId;
-                    document.getElementById('groupModalTitle').textContent = I18n.t("Edit group");
+                    document.getElementById('groupModalTitle').textContent = I18n.t('编辑分组');
                     document.getElementById('groupName').value = data.group.name;
                     document.getElementById('groupDescription').value = data.group.description || '';
                     updateParentGroupSelect(data.group.parent_id, groupId);
                     updateGroupSortPositionOptions(groupId, data.group.sort_position, data.group.parent_id);
                     selectedColor = data.group.color || '#1a1a1a';
 
-                    // Check if it is the default color
+                    // 检查是否是预设颜色
                     let isPresetColor = false;
                     document.querySelectorAll('.color-option').forEach(o => {
                         if (o.dataset.color === selectedColor) {
@@ -2431,11 +2728,11 @@ user@example.com----app-password----${host}----${port}`;
                         }
                     });
 
-                    // Update custom color input box
+                    // 更新自定义颜色输入框
                     document.getElementById('customColorInput').value = selectedColor;
                     document.getElementById('customColorHex').value = selectedColor;
 
-                    // Populate proxy settings
+                    // 填充代理设置
                     document.getElementById('groupProxyUrl').value = data.group.proxy_url || '';
                     document.getElementById('groupFallbackProxyUrl1').value = data.group.fallback_proxy_url_1 || '';
                     document.getElementById('groupFallbackProxyUrl2').value = data.group.fallback_proxy_url_2 || '';
@@ -2443,11 +2740,11 @@ user@example.com----app-password----${host}----${port}`;
                     showModal('addGroupModal');
                 }
             } catch (error) {
-                showToast(I18n.t("Failed to load group information"), 'error');
+                showToast(I18n.t('加载分组信息失败'), 'error');
             }
         }
 
-        // Save group
+        // 保存分组
         async function saveGroup() {
             const name = document.getElementById('groupName').value.trim();
             const description = document.getElementById('groupDescription').value.trim();
@@ -2456,7 +2753,7 @@ user@example.com----app-password----${host}----${port}`;
             const parentId = normalizeGroupParentId(document.getElementById('groupParentSelect')?.value);
 
             if (!name) {
-                showToast(I18n.t("Please enter the group name"), 'error');
+                showToast(I18n.t('请输入分组名称'), 'error');
                 return;
             }
 
@@ -2486,20 +2783,20 @@ user@example.com----app-password----${host}----${port}`;
                     hideAddGroupModal();
                     loadGroups();
                 } else {
-                    handleApiError(data, I18n.t("Failed to save group"));
+                    handleApiError(data, I18n.t('保存分组失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Save failed"), 'error');
+                showToast(I18n.t('保存失败'), 'error');
             }
         }
 
-        // Delete group
+        // 删除分组
         async function deleteGroup(groupId) {
             const childCount = getGroupDescendantIds(groupId).length;
             const message = childCount > 0
-                ? I18n.tpl`There are ${childCount} subgroups under this group. After deletion, the subgroups will be deleted together and all mailboxes will be moved to the default group.`
-                : I18n.t("Are you sure you want to delete this group? Mailboxes under the group will be moved to the default group.");
-            if (!(await showConfirmModal(message, { title: I18n.t("Delete group"), confirmText: I18n.t("Confirm deletion") }))) {
+                ? I18n.tpl`该分组下有 ${childCount} 个子分组，删除后子分组将一并删除，所有邮箱将移至默认分组`
+                : I18n.t('确定要删除该分组吗？分组下的邮箱将移至默认分组。');
+            if (!(await showConfirmModal(message, { title: I18n.t('删除分组'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -2509,18 +2806,18 @@ user@example.com----app-password----${host}----${port}`;
 
                 if (data.success) {
                     showToast(data.message, 'success');
-                    // Clear cache
+                    // 清除缓存
                     delete accountsCache[groupId];
-                    // If the currently selected group is deleted, switch to the default group
+                    // 如果删除的是当前选中的分组，切换到默认分组
                     if (currentGroupId === groupId) {
                         currentGroupId = 1;
                         localStorage.setItem('outlook_last_group_id', 1);
                     }
                     loadGroups();
                 } else {
-                    handleApiError(data, I18n.t("Failed to delete group"));
+                    handleApiError(data, I18n.t('删除分组失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Delete failed"), 'error');
+                showToast(I18n.t('删除失败'), 'error');
             }
         }

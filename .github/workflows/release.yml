@@ -13,6 +13,8 @@ on:
 
 jobs:
   resolve-release:
+    # Upstream's multi-platform publisher does not package this fork's portable build.
+    if: github.repository == 'assast/outlookEmail'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}

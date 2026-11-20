@@ -1,0 +1,98 @@
+<div id="sourceForwardingConsole" class="source-forwarding-console">
+    <div class="forwarding-tabs" role="tablist" aria-label="{{ tr("邮件通知管理") }}">
+        <button type="button" role="tab" data-forward-tab="policies" onclick="showForwardingTab('policies')">{{ tr("转发规则") }}</button>
+        <button type="button" role="tab" data-forward-tab="channels" onclick="showForwardingTab('channels')">{{ tr("通知渠道") }}</button>
+        <button type="button" role="tab" data-forward-tab="history" onclick="showForwardingTab('history')">{{ tr("投递历史") }}</button>
+        <button type="button" role="tab" data-forward-tab="runtime" onclick="showForwardingTab('runtime')">{{ tr("运行设置") }}</button>
+    </div>
+    <p id="sourceForwardingStatus" class="form-hint" role="status"></p>
+    <section data-forward-panel="channels" hidden>
+        <div class="forwarding-section-head"><div><h2>{{ tr("通知渠道") }}</h2><p>{{ tr("同类型可添加多个通知目标，供不同来源复用。") }}</p></div><button class="btn btn-primary" type="button" onclick="editNotificationChannel()">{{ tr("新增渠道") }}</button></div>
+        <div class="forwarding-table-wrap" tabindex="0" aria-label="{{ tr("通知渠道表格，可左右滚动") }}"><table class="forwarding-table"><thead><tr><th scope="col">{{ tr("渠道名称") }}</th><th scope="col">{{ tr("状态") }}</th><th scope="col">{{ tr("引用与待处理") }}</th><th scope="col">{{ tr("操作") }}</th></tr></thead><tbody id="notificationChannelList"></tbody></table></div>
+        <div id="notificationChannelEditor" class="forwarding-editor" hidden>
+            <div class="forward-grid">
+                <div class="form-group"><label class="form-label" for="notificationChannelName">{{ tr("渠道名称") }}</label><input id="notificationChannelName" class="form-input" maxlength="100" placeholder="{{ tr("例如：工作飞书群") }}"></div>
+                <div class="form-group"><label class="form-label" for="notificationChannelType">{{ tr("通知类型") }}</label><select id="notificationChannelType" class="form-select" onchange="renderNotificationFields()"><option value="feishu">{{ tr("飞书") }}</option><option value="telegram">Telegram</option><option value="wecom">{{ tr("企业微信") }}</option><option value="smtp">{{ tr("SMTP 邮件") }}</option></select></div>
+            </div>
+            <div id="notificationChannelFields" class="forward-grid"></div>
+            <p class="form-hint">{{ tr("凭据留空保留已保存值。测试使用当前输入，保存不会自动发送消息。") }}</p>
+            <div class="settings-action-row">
+                <button class="btn btn-primary" type="button" onclick="saveNotificationChannel(this)">{{ tr("保存渠道") }}</button>
+                <button class="btn btn-secondary" type="button" onclick="testNotificationChannel(this)">{{ tr("发送测试消息") }}</button>
+                <button class="btn btn-secondary" type="button" onclick="document.getElementById('notificationChannelEditor').hidden=true">{{ tr("取消") }}</button>
+            </div>
+        </div>
+    </section>
+    <section data-forward-panel="policies">
+        <div class="forwarding-section-head"><div><h2>{{ tr("转发规则") }}</h2><p>{{ tr("按邮箱、分组或 CF 来源通知，未独立配置时自动使用上层。") }}</p></div><button class="btn btn-primary" type="button" onclick="showForwardingPolicyEditor()">{{ tr("新增关联") }}</button></div>
+        <div class="forwarding-rule-filters" role="search" aria-label="{{ tr("筛选转发规则") }}">
+            <div class="form-group"><label class="form-label" for="forwardRuleSearch">{{ tr("搜索规则") }}</label><input id="forwardRuleSearch" class="form-input" type="search" placeholder="{{ tr("邮箱、分组、域名或邮件条件") }}" oninput="changeForwardingPolicyFilters()"></div>
+            <div class="form-group"><label class="form-label" for="forwardRuleScopeFilter">{{ tr("来源范围") }}</label><select id="forwardRuleScopeFilter" class="form-select" onchange="changeForwardingPolicyFilters()"><option value="">{{ tr("全部来源") }}</option><option value="normal_default">{{ tr("普通邮箱默认") }}</option><option value="group">{{ tr("普通邮箱分组") }}</option><option value="account">{{ tr("具体普通邮箱") }}</option><option value="cloudflare_worker">{{ tr("CF Worker 默认") }}</option><option value="cloudflare_domain">{{ tr("CF 完整域名") }}</option><option value="cloudflare_address">{{ tr("CF 具体邮箱") }}</option></select></div>
+            <div class="form-group"><label class="form-label" for="forwardRuleChannelFilter">{{ tr("通知渠道") }}</label><select id="forwardRuleChannelFilter" class="form-select" onchange="changeForwardingPolicyFilters()"><option value="">{{ tr("全部渠道") }}</option></select></div>
+            <div class="form-group"><label class="form-label" for="forwardRuleModeFilter">{{ tr("通知方式") }}</label><select id="forwardRuleModeFilter" class="form-select" onchange="changeForwardingPolicyFilters()"><option value="">{{ tr("全部方式") }}</option><option value="custom">{{ tr("指定渠道") }}</option><option value="off">{{ tr("关闭通知") }}</option></select></div>
+        </div>
+        <div class="forwarding-rule-selection-bar"><p id="forwardRuleSelectionStatus" class="form-hint" role="status"></p><div class="settings-action-row"><button class="btn btn-secondary" type="button" onclick="resetForwardingPolicyFilters()">{{ tr("清除筛选") }}</button><button id="editSelectedForwardingPoliciesBtn" class="btn btn-secondary" type="button" onclick="editSelectedForwardingPolicies()" disabled>{{ tr("批量编辑") }}</button><button id="deleteSelectedForwardingPoliciesBtn" class="btn btn-secondary forwarding-danger" type="button" onclick="deleteSelectedForwardingPolicies(this)" disabled>{{ tr("批量删除") }}</button></div></div>
+        <div class="forwarding-table-wrap" tabindex="0" aria-label="{{ tr("转发规则表格，可左右滚动") }}"><table class="forwarding-table forwarding-rules-table"><thead><tr><th scope="col" class="forwarding-selection-cell"><label class="forwarding-selection-control"><input id="forwardRuleSelectAll" type="checkbox" aria-label="{{ tr("全选当前筛选结果") }}" onchange="selectForwardingPolicyRows(this.checked)"></label></th><th scope="col">{{ tr("邮件来源") }}</th><th scope="col">{{ tr("通知目标") }}</th><th scope="col">{{ tr("邮件条件") }}</th><th scope="col">{{ tr("操作") }}</th></tr></thead><tbody id="forwardPolicyList"></tbody></table></div>
+        <p class="forwarding-table-note">{{ tr("规则支持编辑；勾选同一来源范围可批量修改。删除后使用上层配置，关闭通知可在编辑中设置。") }}</p>
+        <div id="forwardPolicyEditor" class="forwarding-editor" hidden>
+        <div class="forwarding-section-head"><h3 id="forwardPolicyEditorTitle">{{ tr("新增来源关联") }}</h3><button class="btn btn-secondary" type="button" onclick="closeForwardingPolicyEditor()">{{ tr("收起") }}</button></div>
+        <div id="forwardPolicyEditingSources" class="settings-note" hidden></div>
+        <div id="forwardPolicyBulkFields" class="settings-action-row" hidden>
+            <label class="forward-checkbox"><input id="forwardPolicyApplyNotification" type="checkbox" onchange="syncForwardingPolicyMode()">{{ tr("修改通知方式与渠道") }}</label>
+            <label class="forward-checkbox"><input id="forwardPolicyApplyKeywords" type="checkbox" onchange="syncForwardingPolicyMode()">{{ tr("修改关键词") }}</label>
+            <label class="forward-checkbox"><input id="forwardPolicyApplySenders" type="checkbox" onchange="syncForwardingPolicyMode()">{{ tr("修改发件人") }}</label>
+        </div>
+        <div class="forward-grid">
+            <div class="form-group"><label class="form-label" for="forwardPolicyScope">{{ tr("来源范围") }}</label><select id="forwardPolicyScope" class="form-select" onchange="changeForwardingScope()"><option value="normal_default">{{ tr("普通邮箱默认") }}</option><option value="group">{{ tr("普通邮箱分组") }}</option><option value="account">{{ tr("具体普通邮箱") }}</option><option value="cloudflare_worker">{{ tr("CF Worker 默认") }}</option><option value="cloudflare_domain">{{ tr("CF 完整域名") }}</option><option value="cloudflare_address">{{ tr("CF 具体邮箱") }}</option></select></div>
+            <div id="forwardPolicySourceField" class="form-group">
+                <div id="forwardPolicySourceLabel" class="form-label">{{ tr("来源（可多选）") }}</div>
+                <select id="forwardPolicySource" multiple hidden aria-label="{{ tr("已选来源") }}"></select>
+                <details id="forwardPolicySourcePicker" class="forward-source-picker">
+                    <summary id="forwardPolicySourceToggle" class="form-select" aria-labelledby="forwardPolicySourceLabel forwardPolicySourceSummary"><span id="forwardPolicySourceSummary">{{ tr("请选择来源") }}</span></summary>
+                    <div class="forward-source-menu">
+                        <input id="forwardPolicySourceFilter" class="form-input" type="search" aria-label="{{ tr("筛选来源") }}" placeholder="{{ tr("输入关键词筛选") }}" autocomplete="off" oninput="renderForwardingSourcePicker()">
+                        <div class="settings-action-row"><button class="btn btn-secondary" type="button" onclick="selectForwardingSources(true)">{{ tr("全选筛选结果") }}</button><button class="btn btn-secondary" type="button" onclick="selectForwardingSources(false)">{{ tr("清空全部") }}</button></div>
+                        <div id="forwardPolicySourceStatus" class="form-hint" role="status"></div>
+                        <div id="forwardPolicySourceOptions" class="forward-source-options" role="group" aria-label="{{ tr("可选来源") }}"></div>
+                    </div>
+                </details>
+                <div class="form-hint">{{ tr("支持搜索和多项勾选，筛选不会清除已选来源。") }}</div>
+            </div>
+            <div id="forwardPolicyMatchField" class="form-group" hidden><label id="forwardPolicyMatchLabel" class="form-label" for="forwardPolicyMatch">{{ tr("完整地址或域名") }}</label><input id="forwardPolicyMatch" class="form-input" onchange="loadForwardingPolicy()" placeholder="example.com"></div>
+            <div class="form-group"><label class="form-label" for="forwardPolicyMode">{{ tr("通知方式") }}</label><select id="forwardPolicyMode" class="form-select" onchange="syncForwardingPolicyMode()"><option value="custom">{{ tr("指定渠道") }}</option><option value="off">{{ tr("关闭通知") }}</option></select></div>
+        </div>
+        <p id="forwardPolicyConfigurationHint" class="form-hint" role="status"></p>
+        <p id="forwardPolicyAccountStatus" class="form-hint"></p>
+        <div id="forwardPolicyTargets" class="source-forwarding-targets"></div>
+        <div id="forwardPolicyFilters" class="forward-grid">
+            <div class="form-group"><label class="form-label" for="forwardPolicyKeywords">{{ tr("邮件关键词") }}</label><textarea id="forwardPolicyKeywords" class="form-input" rows="3" placeholder="{{ tr("每行一个关键词，留空不限") }}"></textarea><p class="form-hint">{{ tr("主题或完整正文包含任一关键词即匹配，不区分大小写。仅使用当前生效规则的条件。") }}</p></div>
+            <div class="form-group"><label class="form-label" for="forwardPolicySenders">{{ tr("来信发件人") }}</label><textarea id="forwardPolicySenders" class="form-input" rows="3" placeholder="{{ tr("每行一个完整邮箱地址，留空不限") }}"></textarea><p class="form-hint">{{ tr("精确匹配任一发件邮箱，忽略大小写。与关键词同时填写时，两项都须命中；SMTP 发件地址仍使用渠道配置。") }}</p></div>
+        </div>
+        <div class="settings-action-row">
+            <button id="saveForwardingPolicyBtn" class="btn btn-primary" type="button" onclick="saveForwardingPolicy(this)">{{ tr("新增关联") }}</button>
+        </div>
+        <div class="forward-grid">
+            <div id="forwardPreviewAccountField" class="form-group"><label class="form-label" for="forwardPreviewAccount">{{ tr("预览邮箱") }}</label><select id="forwardPreviewAccount" class="form-select"></select></div>
+            <div id="forwardPreviewWorkerField" class="form-group" hidden><label class="form-label" for="forwardPreviewWorker">{{ tr("预览 Worker") }}</label><select id="forwardPreviewWorker" class="form-select"></select></div>
+            <div id="forwardPreviewAddressField" class="form-group" hidden><label class="form-label" for="forwardPreviewAddress">{{ tr("预览 CF 完整收件地址") }}</label><input id="forwardPreviewAddress" class="form-input" placeholder="user@example.com"></div>
+        </div>
+        <div class="settings-action-row"><button class="btn btn-secondary" type="button" onclick="previewForwardingPolicy(this)">{{ tr("预览已保存配置") }}</button></div>
+        <div id="forwardPolicyPreview" class="settings-note" role="status"></div>
+        <p class="form-hint">{{ tr("普通邮箱依次匹配账号、分组和默认配置；CF 依次匹配完整地址、域名和 Worker 默认。指定渠道覆盖上层，关闭通知终止回退。") }}</p>
+        <p class="form-hint">{{ tr("CF 地址无需导入本地。新增关联仅处理后续新邮件，同一封邮件对同一渠道只投递一次。") }}</p>
+        </div>
+    </section>
+    <section data-forward-panel="history" hidden>
+        <div class="forwarding-section-head"><div><h2>{{ tr("投递历史") }}</h2><p>{{ tr("查看每个来源和通知渠道的独立投递结果。") }}</p></div></div>
+        <div class="forward-grid">
+            <div class="form-group"><label class="form-label" for="forwardHistorySource">{{ tr("邮件来源") }}</label><select id="forwardHistorySource" class="form-select"><option value="">{{ tr("全部") }}</option><option value="account">{{ tr("普通邮箱") }}</option><option value="cloudflare">{{ tr("CF 邮箱") }}</option></select></div>
+            <div class="form-group"><label class="form-label" for="forwardHistoryChannel">{{ tr("通知渠道") }}</label><select id="forwardHistoryChannel" class="form-select"></select></div>
+            <div class="form-group"><label class="form-label" for="forwardHistoryAddress">{{ tr("完整邮箱地址") }}</label><input id="forwardHistoryAddress" class="form-input" placeholder="{{ tr("留空查看全部") }}"></div>
+            <div class="form-group"><label class="form-label" for="forwardHistoryState">{{ tr("状态") }}</label><select id="forwardHistoryState" class="form-select"><option value="">{{ tr("全部") }}</option><option value="succeeded">{{ tr("成功") }}</option><option value="failed">{{ tr("失败") }}</option><option value="pending">{{ tr("待发送") }}</option><option value="blocked">{{ tr("已阻塞") }}</option><option value="cancelled">{{ tr("已取消") }}</option></select></div>
+        </div>
+        <div class="settings-action-row"><button class="btn btn-secondary" type="button" onclick="loadForwardingHistory(0)">{{ tr("查询") }}</button><button id="forwardHistoryPrevious" class="btn btn-secondary" type="button" onclick="changeForwardingHistoryPage(-1)">{{ tr("上一页") }}</button><button id="forwardHistoryNext" class="btn btn-secondary" type="button" onclick="changeForwardingHistoryPage(1)">{{ tr("下一页") }}</button></div>
+        <div id="forwardScanStatus" class="form-hint" role="status"></div>
+        <div class="forwarding-table-wrap" tabindex="0" aria-label="{{ tr("投递历史表格，可左右滚动") }}"><table class="forwarding-table"><thead><tr><th scope="col">{{ tr("时间") }}</th><th scope="col">{{ tr("邮件来源") }}</th><th scope="col">{{ tr("通知渠道") }}</th><th scope="col">{{ tr("投递结果") }}</th></tr></thead><tbody id="sourceForwardingHistory"></tbody></table></div>
+    </section>
+    <section data-forward-panel="runtime" hidden>{% include "partials/index/forwarding-runtime-settings.html" %}</section>
+</div>

@@ -77,21 +77,21 @@ class OutlookGraphSendMailFrontendTests(unittest.TestCase):
         self.assertNotIn('html:', send_source)
 
     def test_success_reauthorization_throttle_and_unknown_result_feedback_are_explicit(self):
-        self.assertIn('showGraphSendMailFeedback(I18n.t("The email has been submitted for sending"), \'success\');', self.emails_js)
-        self.assertIn('showToast(I18n.t("The email has been submitted for sending"), \'success\');', self.emails_js)
+        self.assertIn("showGraphSendMailFeedback(I18n.t('邮件已提交发送'), 'success');", self.emails_js)
+        self.assertIn("showToast(I18n.t('邮件已提交发送'), 'success');", self.emails_js)
         self.assertIn("code === 'GRAPH_SEND_REAUTH_REQUIRED'", self.emails_js)
         self.assertIn('reauthorizationRequired: true', self.emails_js)
         self.assertIn("code === 'GRAPH_SEND_THROTTLED'", self.emails_js)
         self.assertIn('retry_after', self.emails_js)
         self.assertIn("code === 'GRAPH_SEND_RESULT_UNKNOWN'", self.emails_js)
-        self.assertIn('The result of email submission is uncertain, please confirm before deciding whether to resend.', self.emails_js)
+        self.assertIn('邮件提交结果不确定，请确认后再决定是否重新发送', self.emails_js)
 
     def test_recipient_parser_accepts_multiple_addresses_and_rejects_invalid_values(self):
         start = self.emails_js.index('const GRAPH_SEND_MAIL_RECIPIENT_PATTERN')
         end = self.emails_js.index('function setGraphSendMailValidation', start)
         source = self.emails_js[start:end]
         script = f"""
-const I18n = {{ t: text => text, tpl: (parts, ...values) => parts.map((part, index) => part + (values[index] ?? '')).join('') }};
+require({json.dumps(str(ROOT_DIR / "static/js/i18n.js"))});
 const GRAPH_SEND_MAIL_RECIPIENT_PATTERN = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
 {source[source.index('function parseGraphSendMailRecipients'):]}
 const valid = parseGraphSendMailRecipients('A@example.com; b@example.com\\nA@example.com');

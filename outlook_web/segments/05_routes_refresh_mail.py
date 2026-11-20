@@ -1,4 +1,5 @@
 from __future__ import annotations
+from outlook_web.icloud_mail import belongs_to, recipient_addresses
 
 from concurrent.futures import ThreadPoolExecutor, wait
 import secrets
@@ -16,9 +17,9 @@ if TYPE_CHECKING:
 TOKEN_REFRESH_SCOPE_KEY = 'all_outlook'
 VALID_ACCOUNT_REFRESH_STATUSES = {'success', 'failed', 'never'}
 VALID_REFRESH_STATUS_FILTERS = {'all', 'success', 'failed', 'never'}
-TOKEN_REFRESH_CONFLICT_MESSAGE = 'The Token full refresh task is already being executed, please try again later.'
-TOKEN_REFRESH_STOP_REQUESTED_MESSAGE = 'Stop has been requested. The task will end after the current account is processed.'
-TOKEN_REFRESH_STOPPED_MESSAGE = 'The full refresh task has been manually stopped'
+TOKEN_REFRESH_CONFLICT_MESSAGE = '已有 Token 全量刷新任务在执行，请稍后再试'
+TOKEN_REFRESH_STOP_REQUESTED_MESSAGE = '已请求停止，当前账号处理完成后会结束任务'
+TOKEN_REFRESH_STOPPED_MESSAGE = '已手动停止全量刷新任务'
 SELECTED_REFRESH_TASK_TTL_SECONDS = 300
 LOG_PAGINATION_DEFAULT_LIMIT = 100
 LOG_PAGINATION_MAX_LIMIT = 1000
@@ -330,7 +331,7 @@ def build_refresh_stats(db_conn=None) -> Dict[str, Any]:
 
 
 class TokenRefreshInProgressError(RuntimeError):
-    'A full refresh task is currently being executed.'
+    """当前已有全量刷新任务执行中。"""
 
 
 def cleanup_refresh_logs(db_conn=None) -> int:
@@ -380,7 +381,7 @@ def release_token_refresh_run_lock(acquired: bool) -> None:
 
 def build_refresh_error_summary(failed_list: List[Dict[str, Any]], fallback_message: str = '') -> str:
     parts = [
-        f"{item.get('email') or 'unknown'}: {item.get('error') or 'Unknown error'}"
+        f"{item.get('email') or 'unknown'}: {item.get('error') or '未知错误'}"
         for item in failed_list[:5]
     ]
     if not parts and fallback_message:
@@ -464,7 +465,7 @@ def finalize_aborted_full_refresh(conn, snapshot_trigger_type: str, log_refresh_
                                   failed_list: List[Dict[str, Any]], current_account=None,
                                   current_account_counted: bool = False,
                                   error: Exception | None = None) -> Dict[str, Any]:
-    failure_message = sanitize_error_details(str(error or 'Unknown error')) or 'Unknown error'
+    failure_message = sanitize_error_details(str(error or '未知错误')) or '未知错误'
     active_total = max(0, int(total or 0))
 
     if current_account is not None and not current_account_counted:
@@ -490,7 +491,7 @@ def finalize_aborted_full_refresh(conn, snapshot_trigger_type: str, log_refresh_
                 conn.rollback()
             except Exception:
                 pass
-            print(f'Record exception refresh result failed: {str(log_error)}')
+            print(f"记录异常刷新结果失败: {str(log_error)}")
         if active_total <= 0:
             active_total = success_count + failed_count
 
@@ -523,7 +524,7 @@ def finalize_aborted_retry_refresh(conn, log_refresh_type: str,
                                    failed_list: List[Dict[str, Any]], current_account=None,
                                    current_account_counted: bool = False,
                                    error: Exception | None = None) -> Dict[str, Any]:
-    failure_message = sanitize_error_details(str(error or 'Unknown error')) or 'Unknown error'
+    failure_message = sanitize_error_details(str(error or '未知错误')) or '未知错误'
     active_total = max(0, int(total or 0))
 
     if current_account is not None and not current_account_counted:
@@ -549,7 +550,7 @@ def finalize_aborted_retry_refresh(conn, log_refresh_type: str,
                 conn.rollback()
             except Exception:
                 pass
-            print(f'Failed to record exception retry result: {str(log_error)}')
+            print(f"记录异常重试结果失败: {str(log_error)}")
         if active_total <= 0:
             active_total = success_count + failed_count
 
@@ -564,31 +565,54 @@ def finalize_aborted_retry_refresh(conn, log_refresh_type: str,
     }
 
 
+def build_refresh_success_message(token_rotated: Optional[bool]) -> str:
+    if token_rotated is True:
+        return '刷新成功，Token 已更新'
+    if token_rotated is False:
+        return '验证成功，Token 未轮换，继续使用原 Token'
+    return '刷新成功（轮换结果未记录）'
+
+
+def get_account_refresh_timestamps(account_id: int, db_conn=None) -> Dict[str, Any]:
+    db = db_conn or get_db()
+    row = db.execute(
+        'SELECT last_refresh_at, last_refresh_success_at, refresh_token_updated_at '
+        'FROM accounts WHERE id = ?', (account_id,),
+    ).fetchone()
+    return dict(row) if row is not None else {}
+
+
 def log_refresh_result(account_id: int, account_email: str, refresh_type: str, status: str,
-                       error_message: str = None, db_conn=None):
-    'Record the refresh results to the database'
+                       error_message: str = None, db_conn=None, token_rotated: Optional[bool] = None):
+    """记录刷新结果到数据库"""
     db = db_conn or get_db()
     should_commit = db_conn is None
     normalized_status = 'success' if str(status or '').strip().lower() == 'success' else 'failed'
     sanitized_error = sanitize_error_details(error_message)[:500] if error_message else None
+    rotation_value = int(token_rotated) if token_rotated is not None else None
     try:
         db.execute('''
-            INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (account_id, account_email, refresh_type, normalized_status, sanitized_error))
+            INSERT INTO account_refresh_logs (account_id, account_email, refresh_type, status, error_message, token_rotated)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (account_id, account_email, refresh_type, normalized_status, sanitized_error, rotation_value))
 
         db.execute(
             '''
             UPDATE accounts
             SET last_refresh_at = CURRENT_TIMESTAMP,
+                last_refresh_success_at = CASE WHEN ? = 'success'
+                    THEN CURRENT_TIMESTAMP ELSE last_refresh_success_at END,
                 last_refresh_status = ?,
                 last_refresh_error = ?,
+                last_refresh_token_rotated = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             ''',
             (
                 normalized_status,
+                normalized_status,
                 sanitized_error if normalized_status == 'failed' else None,
+                rotation_value,
                 account_id,
             )
         )
@@ -602,12 +626,12 @@ def log_refresh_result(account_id: int, account_email: str, refresh_type: str, s
                 db.rollback()
             except Exception:
                 pass
-        print(f'Record refresh result failed: {str(e)}')
+        print(f"记录刷新结果失败: {str(e)}")
         return False
 
 
 def persist_rotated_refresh_token(account_id: int, refresh_token: str, db_conn=None) -> bool:
-    'Save the new refresh_token returned by Microsoft.'
+    """保存微软返回的新 refresh_token。"""
     token_value = str(refresh_token or '').strip()
     if not token_value:
         return False
@@ -615,7 +639,7 @@ def persist_rotated_refresh_token(account_id: int, refresh_token: str, db_conn=N
     db = db_conn or get_db()
     should_commit = db_conn is None
     try:
-        db.execute(
+        cursor = db.execute(
             '''
             UPDATE accounts
             SET refresh_token = ?, refresh_token_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -625,18 +649,18 @@ def persist_rotated_refresh_token(account_id: int, refresh_token: str, db_conn=N
         )
         if should_commit:
             db.commit()
-        return True
+        return cursor.rowcount == 1
     except Exception as e:
         if should_commit:
             try:
                 db.rollback()
             except Exception:
                 pass
-        print(f'Failed to save rotation refresh_token: {str(e)}')
+        print(f"保存轮换 refresh_token 失败: {str(e)}")
         return False
 
 
-def extract_token_response_error(response, fallback: str = 'Unknown error') -> str:
+def extract_token_response_error(response, fallback: str = '未知错误') -> str:
     try:
         error_data = response.json()
     except Exception:
@@ -646,7 +670,7 @@ def extract_token_response_error(response, fallback: str = 'Unknown error') -> s
 
 def log_forwarding_result(account_id: int, account_email: str, message_id: str, channel: str,
                           status: str, error_message: str = None, db_conn=None):
-    'Record the forwarding results to the database'
+    """记录转发结果到数据库"""
     db = db_conn or get_db()
     should_commit = db_conn is None
     try:
@@ -670,14 +694,14 @@ def log_forwarding_result(account_id: int, account_email: str, message_id: str, 
                 db.rollback()
             except Exception:
                 pass
-        print(f'Record forwarding result failed: {str(e)}')
+        print(f"记录转发结果失败: {str(e)}")
         return False
 
 
 def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None,
                        fallback_proxy_urls: List[str] = None,
                        authorization_type: str = '') -> tuple:
-    'Test the refresh token and return (success, error, new token, actual channel).'
+    """测试 refresh token，返回 (成功, 错误, 新 token, 实际通道)。"""
     preferred = normalize_outlook_authorization_type(authorization_type)
     channel_order = ('imap', 'graph') if preferred == 'imap' else ('graph', 'imap')
     errors = []
@@ -693,15 +717,11 @@ def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None
                     include_original_scope_fallback=True,
                 )
             except Exception as exc:
-                errors.append(f'Graph refresh request exception: {str(exc)}')
+                errors.append(f'Graph 刷新请求异常: {str(exc)}')
                 continue
             if response.status_code == 200:
-                try:
-                    payload = response.json()
-                except Exception:
-                    payload = {}
-                return True, None, str(payload.get('refresh_token') or '').strip(), 'graph'
-            errors.append(f'Graph refresh failed: {extract_token_response_error(response)}')
+                return True, None, extract_refresh_token_from_response(response), 'graph'
+            errors.append(f'Graph 刷新失败: {extract_token_response_error(response)}')
             continue
 
         try:
@@ -712,29 +732,25 @@ def test_refresh_token(client_id: str, refresh_token: str, proxy_url: str = None
                 fallback_proxy_urls=fallback_proxy_urls,
             )
         except Exception as exc:
-            errors.append(f'IMAP refresh request exception: {str(exc)}')
+            errors.append(f'IMAP 刷新请求异常: {str(exc)}')
             continue
         if response.status_code == 200:
-            try:
-                payload = response.json()
-            except Exception:
-                payload = {}
-            return True, None, str(payload.get('refresh_token') or '').strip(), 'imap'
-        errors.append(f'IMAP refresh failed: {extract_token_response_error(response)}')
+            return True, None, extract_refresh_token_from_response(response), 'imap'
+        errors.append(f'IMAP 刷新失败: {extract_token_response_error(response)}')
 
-    return False, '; '.join(errors) or 'Graph/IMAP refresh failed', '', ''
+    return False, '; '.join(errors) or 'Graph/IMAP 刷新失败', '', ''
 
 
 def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'manual',
                                   db_conn=None) -> Dict[str, Any]:
-    'Refresh the refresh token of a single Outlook account and record the results.'
+    """刷新单个 Outlook 账号的 refresh token 并记录结果。"""
     account_id = account['id']
     account_email = account['email']
     client_id = account['client_id']
     encrypted_refresh_token = account['refresh_token']
 
-    # Consistent with mail pulling: account override → group inheritance → {mail} expand
-    # Scheduled refresh may not have Flask app context, and db_conn must be passed to the agent for analysis.
+    # 与邮件拉取一致：账号 override → 分组继承 → {mail} 展开
+    # 定时刷新可能无 Flask app context，必须把 db_conn 传给代理解析
     proxy_config = get_account_resolved_proxy_config(dict(account), db=db_conn)
     proxy_url = proxy_config.get('proxy_url', '') or ''
     fallback_proxy_urls = [
@@ -742,30 +758,33 @@ def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'man
         proxy_config.get('fallback_proxy_url_2', '') or '',
     ]
     log_outbound_proxy_usage(
-        f'Token refresh {account_email}',
+        f'Token刷新 {account_email}',
         proxy_url or '',
         label='primary',
     )
     for index, fallback in enumerate(fallback_proxy_urls, start=1):
         if str(fallback or '').strip():
             log_outbound_proxy_usage(
-                f'Token refresh {account_email}',
+                f'Token刷新 {account_email}',
                 fallback,
                 label=f'fallback{index}',
             )
 
-    # Decrypt refresh_token
+    # 解密 refresh_token
     try:
         refresh_token = decrypt_data(encrypted_refresh_token) if encrypted_refresh_token else encrypted_refresh_token
     except Exception as e:
-        error_msg = sanitize_error_details(f'Decryption token failed: {str(e)}')
-        log_refresh_result(account_id, account_email, refresh_type, 'failed', error_msg, db_conn=db_conn)
+        error_msg = sanitize_error_details(f"解密 token 失败: {str(e)}")
+        log_refresh_result(account_id, account_email, refresh_type, 'failed', error_msg,
+                           db_conn=db_conn, token_rotated=False)
         return {
             'success': False,
+            'token_rotated': False,
+            **get_account_refresh_timestamps(account_id, db_conn),
             'error_message': error_msg,
             'error_payload': build_error_payload(
                 "TOKEN_DECRYPT_FAILED",
-                'Token decryption failed',
+                "Token 解密失败",
                 "DecryptionError",
                 500,
                 error_msg
@@ -787,41 +806,51 @@ def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'man
     actual_channel = normalize_outlook_authorization_type(actual_channel)
     sanitized_error = sanitize_error_details(error_msg) if error_msg else ''
 
+    token_rotated = False
     if success and rotated_refresh_token and rotated_refresh_token != refresh_token:
-        persist_rotated_refresh_token(account_id, rotated_refresh_token, db_conn)
+        token_rotated = persist_rotated_refresh_token(account_id, rotated_refresh_token, db_conn)
+        if not token_rotated:
+            success = False
+            sanitized_error = '已获取新 Token，但保存失败，请重试'
     if success and actual_channel:
         try:
             update_account_authorization_type(account_id, actual_channel, db=db_conn)
         except Exception:
             pass
 
-    # Record refresh results
+    # 记录刷新结果
     log_refresh_result(
         account_id,
         account_email,
         refresh_type,
         'success' if success else 'failed',
         sanitized_error or None,
-        db_conn=db_conn
+        db_conn=db_conn,
+        token_rotated=token_rotated,
     )
+    refresh_timestamps = get_account_refresh_timestamps(account_id, db_conn)
 
     if success:
         return {
             'success': True,
-            'message': 'Token refreshed successfully',
+            'message': build_refresh_success_message(token_rotated),
+            'token_rotated': token_rotated,
+            **refresh_timestamps,
             'authorization_type': actual_channel,
         }
 
     return {
         'success': False,
-        'error_message': sanitized_error or 'Unknown error',
+        'token_rotated': token_rotated,
+        **refresh_timestamps,
+        'error_message': sanitized_error or '未知错误',
         'authorization_type': actual_channel,
         'error_payload': build_error_payload(
             "TOKEN_REFRESH_FAILED",
-            'Token refresh failed',
+            "Token 刷新失败",
             "RefreshTokenError",
             400,
-            sanitized_error or 'Unknown error'
+            sanitized_error or "未知错误"
         )
     }
 
@@ -829,7 +858,7 @@ def refresh_outlook_account_token(account: sqlite3.Row, refresh_type: str = 'man
 @app.route('/api/accounts/<int:account_id>/refresh', methods=['POST'])
 @login_required
 def api_refresh_account(account_id):
-    'Refresh the token of a single account'
+    """刷新单个账号的 token"""
     db = get_db()
     cursor = db.execute(
         'SELECT id, email, client_id, refresh_token, group_id, account_type, provider, authorization_type, '
@@ -842,7 +871,7 @@ def api_refresh_account(account_id):
     if not account:
         error_payload = build_error_payload(
             "ACCOUNT_NOT_FOUND",
-            'Account does not exist',
+            "账号不存在",
             "NotFoundError",
             404,
             f"account_id={account_id}"
@@ -850,24 +879,33 @@ def api_refresh_account(account_id):
         return jsonify({'success': False, 'error': error_payload})
 
     if (account['account_type'] or '').strip().lower() == 'imap':
-        return jsonify({'success': False, 'error': 'IMAP account does not need to refresh Token'})
+        return jsonify({'success': False, 'error': 'IMAP 账号无需刷新 Token'})
 
     cleanup_refresh_logs()
     result = refresh_outlook_account_token(account, 'manual')
+    payload = {
+        'success': result['success'],
+        'token_rotated': result.get('token_rotated'),
+        'last_refresh_at': result.get('last_refresh_at'),
+        'last_refresh_success_at': result.get('last_refresh_success_at'),
+        'refresh_token_updated_at': result.get('refresh_token_updated_at'),
+    }
     if result['success']:
-        return jsonify({'success': True, 'message': result['message']})
-    return jsonify({'success': False, 'error': result['error_payload']})
+        payload['message'] = result['message']
+    else:
+        payload['error'] = result['error_payload']
+    return jsonify(payload)
 
 
 @app.route('/api/accounts/refresh-selected', methods=['POST'])
 @login_required
 def api_refresh_selected_accounts():
-    'Refresh the token of the selected account.'
+    """刷新选中账号的 token。"""
     data = request.get_json(silent=True) or {}
     raw_account_ids = data.get('account_ids') or []
 
     if not isinstance(raw_account_ids, list):
-        return jsonify({'success': False, 'error': 'Account list format error'})
+        return jsonify({'success': False, 'error': '账号列表格式错误'})
 
     account_ids = []
     seen_ids = set()
@@ -882,7 +920,7 @@ def api_refresh_selected_accounts():
         account_ids.append(normalized_id)
 
     if not account_ids:
-        return jsonify({'success': False, 'error': 'Please select the account to refresh'})
+        return jsonify({'success': False, 'error': '请选择要刷新的账号'})
 
     cleanup_refresh_logs()
     db = get_db()
@@ -898,6 +936,8 @@ def api_refresh_selected_accounts():
 
     found_ids = {row['id'] for row in accounts}
     success_count = 0
+    rotated_count = 0
+    unrotated_count = 0
     failed_count = 0
     skipped_count = 0
     failed_list = []
@@ -908,8 +948,8 @@ def api_refresh_selected_accounts():
         skipped_count += 1
         skipped_list.append({
             'id': missing_id,
-            'email': f'Account #{missing_id}',
-            'reason': 'The account does not exist or has been deleted'
+            'email': f'账号 #{missing_id}',
+            'reason': '账号不存在或已删除'
         })
 
     for account in accounts:
@@ -918,36 +958,42 @@ def api_refresh_selected_accounts():
             skipped_list.append({
                 'id': account['id'],
                 'email': account['email'],
-                'reason': 'IMAP account does not need to refresh Token'
+                'reason': 'IMAP 账号无需刷新 Token'
             })
             continue
 
         result = refresh_outlook_account_token(account, 'manual')
         if result['success']:
             success_count += 1
+            if result.get('token_rotated') is True:
+                rotated_count += 1
+            elif result.get('token_rotated') is False:
+                unrotated_count += 1
             continue
 
         failed_count += 1
         failed_list.append({
             'id': account['id'],
             'email': account['email'],
-            'error': result.get('error_message') or 'Unknown error'
+            'error': result.get('error_message') or '未知错误'
         })
 
     requested_count = len(account_ids)
     processed_count = success_count + failed_count
-    message_parts = [f'Success {success_count}']
+    message_parts = [f'成功 {success_count}']
     if failed_count:
-        message_parts.append(f'Failure {failed_count}')
+        message_parts.append(f'失败 {failed_count}')
     if skipped_count:
-        message_parts.append(f'Skip {skipped_count}')
+        message_parts.append(f'跳过 {skipped_count}')
 
     return jsonify({
         'success': True,
-        'message': f'{requested_count} accounts processed,' + '，'.join(message_parts),
+        'message': f'已处理 {requested_count} 个账号，' + '，'.join(message_parts),
         'requested_count': requested_count,
         'processed_count': processed_count,
         'success_count': success_count,
+        'rotated_count': rotated_count,
+        'unrotated_count': unrotated_count,
         'failed_count': failed_count,
         'skipped_count': skipped_count,
         'failed_list': failed_list,
@@ -1013,6 +1059,26 @@ def get_refresh_delay_seconds(db_conn) -> int:
         return max(0, min(60, int(row['value']) if row and row['value'] is not None else 5))
     except (TypeError, ValueError):
         return 5
+
+
+def build_refresh_account_result_event(account, result: Dict[str, Any], current: int, total: int,
+                                       success_count: int, failed_count: int) -> Dict[str, Any]:
+    return {
+        'type': 'account_result',
+        'current': current,
+        'total': total,
+        'account_id': account['id'],
+        'email': account['email'],
+        'status': 'success' if result.get('success') else 'failed',
+        'error_message': result.get('error_message') or '',
+        'message': result.get('message') or '',
+        'token_rotated': result.get('token_rotated'),
+        'last_refresh_at': result.get('last_refresh_at'),
+        'last_refresh_success_at': result.get('last_refresh_success_at'),
+        'refresh_token_updated_at': result.get('refresh_token_updated_at'),
+        'success_count': success_count,
+        'failed_count': failed_count,
+    }
 
 
 def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
@@ -1091,21 +1157,13 @@ def run_full_refresh(snapshot_trigger_type: str, log_refresh_type: str,
                 failed_list.append({
                     'id': account['id'],
                     'email': account['email'],
-                    'error': result.get('error_message') or 'Unknown error',
+                    'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
             if progress_callback:
-                progress_callback({
-                    'type': 'account_result',
-                    'current': index,
-                    'total': total,
-                    'account_id': account['id'],
-                    'email': account['email'],
-                    'status': 'success' if result.get('success') else 'failed',
-                    'error_message': result.get('error_message') or '',
-                    'success_count': success_count,
-                    'failed_count': failed_count,
-                })
+                progress_callback(build_refresh_account_result_event(
+                    account, result, index, total, success_count, failed_count,
+                ))
             if is_token_refresh_stop_requested():
                 stopped_payload = finalize_stopped_full_refresh(
                     conn,
@@ -1248,10 +1306,11 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
                 failed_list.append({
                     'id': account['id'],
                     'email': account['email'],
-                    'error': result.get('error_message') or 'Unknown error',
+                    'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
-            yield f"data: {json.dumps({'type': 'account_result', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'status': 'success' if result.get('success') else 'failed', 'error_message': result.get('error_message') or '', 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+            event = build_refresh_account_result_event(account, result, index, total, success_count, failed_count)
+            yield f"data: {json.dumps(event)}\n\n"
             if is_token_refresh_stop_requested():
                 stopped_payload = finalize_stopped_full_refresh(
                     conn,
@@ -1311,7 +1370,7 @@ def stream_full_refresh_events(snapshot_trigger_type: str, log_refresh_type: str
             )
             yield f"data: {json.dumps(error_payload)}\n\n"
         else:
-            failure_message = sanitize_error_details(str(exc)) or 'Unknown error'
+            failure_message = sanitize_error_details(str(exc)) or '未知错误'
             yield f"data: {json.dumps({'type': 'error', 'message': failure_message, 'refresh_type': snapshot_trigger_type})}\n\n"
     finally:
         if conn is not None:
@@ -1370,11 +1429,12 @@ def stream_failed_refresh_events():
                 failed_list.append({
                     'id': account['id'],
                     'email': account['email'],
-                    'error': result.get('error_message') or 'Unknown error',
+                    'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
 
-            yield f"data: {json.dumps({'type': 'account_result', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'status': 'success' if result.get('success') else 'failed', 'error_message': result.get('error_message') or '', 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+            event = build_refresh_account_result_event(account, result, index, total, success_count, failed_count)
+            yield f"data: {json.dumps(event)}\n\n"
 
             if is_token_refresh_stop_requested():
                 yield f"data: {json.dumps(build_stopped_refresh_payload(total, success_count, failed_count, failed_list, delay_seconds=delay_seconds, refresh_type='retry_failed'))}\n\n"
@@ -1406,7 +1466,7 @@ def stream_failed_refresh_events():
             )
             yield f"data: {json.dumps(error_payload)}\n\n"
         else:
-            failure_message = sanitize_error_details(str(exc)) or 'Unknown error'
+            failure_message = sanitize_error_details(str(exc)) or '未知错误'
             yield f"data: {json.dumps({'type': 'error', 'message': failure_message, 'refresh_type': 'retry_failed'})}\n\n"
     finally:
         if conn is not None:
@@ -1485,7 +1545,7 @@ def stream_selected_refresh_task_events(task_id: str):
     if account_ids is None:
         payload = {
             'type': 'error',
-            'message': 'The refresh task does not exist or has expired',
+            'message': '刷新任务不存在或已过期',
             'refresh_type': 'manual_selected',
         }
         yield f"data: {json.dumps(payload)}\n\n"
@@ -1509,7 +1569,7 @@ def stream_selected_refresh_events(account_ids: List[int]):
     current_account_counted = False
 
     if not account_ids:
-        yield f"data: {json.dumps({'type': 'error', 'message': 'Please select the account to refresh', 'refresh_type': 'manual_selected'})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'message': '请选择要刷新的账号', 'refresh_type': 'manual_selected'})}\n\n"
         return
 
     try:
@@ -1548,11 +1608,12 @@ def stream_selected_refresh_events(account_ids: List[int]):
                 failed_list.append({
                     'id': account['id'],
                     'email': account['email'],
-                    'error': result.get('error_message') or 'Unknown error',
+                    'error': result.get('error_message') or '未知错误',
                 })
             current_account_counted = True
 
-            yield f"data: {json.dumps({'type': 'account_result', 'current': index, 'total': total, 'account_id': account['id'], 'email': account['email'], 'status': 'success' if result.get('success') else 'failed', 'error_message': result.get('error_message') or '', 'success_count': success_count, 'failed_count': failed_count})}\n\n"
+            event = build_refresh_account_result_event(account, result, index, total, success_count, failed_count)
+            yield f"data: {json.dumps(event)}\n\n"
 
             if is_token_refresh_stop_requested():
                 yield f"data: {json.dumps(build_stopped_refresh_payload(total, success_count, failed_count, failed_list, delay_seconds=delay_seconds, refresh_type='manual_selected'))}\n\n"
@@ -1570,7 +1631,7 @@ def stream_selected_refresh_events(account_ids: List[int]):
     except TokenRefreshInProgressError as exc:
         yield f"data: {json.dumps({'type': 'conflict', 'message': str(exc), 'refresh_type': 'manual_selected'})}\n\n"
     except Exception as exc:
-        failure_message = sanitize_error_details(str(exc)) or 'Unknown error'
+        failure_message = sanitize_error_details(str(exc)) or '未知错误'
         if conn is not None and current_account is not None and not current_account_counted:
             failed_count += 1
             failed_list.append({
@@ -1593,7 +1654,7 @@ def stream_selected_refresh_events(account_ids: List[int]):
                     conn.rollback()
                 except Exception:
                     pass
-                print(f'Failed to record abnormal batch refresh result: {str(log_error)}')
+                print(f"记录异常批量刷新结果失败: {str(log_error)}")
         yield f"data: {json.dumps({'type': 'error', 'message': failure_message, 'total': total, 'success_count': success_count, 'failed_count': failed_count, 'failed_list': failed_list, 'refresh_type': 'manual_selected'})}\n\n"
     finally:
         if conn is not None:
@@ -1605,32 +1666,32 @@ def stream_selected_refresh_events(account_ids: List[int]):
 @app.route('/api/accounts/refresh-all', methods=['GET'])
 @login_required
 def api_refresh_all_accounts():
-    'Refresh the tokens of all accounts (streaming response, real-time return of progress)'
+    """刷新所有账号的 token（流式响应，实时返回进度）"""
     return Response(stream_full_refresh_events('manual_all', 'manual'), mimetype='text/event-stream')
 
 
 @app.route('/api/accounts/<int:account_id>/retry-refresh', methods=['POST'])
 @login_required
 def api_retry_refresh_account(account_id):
-    'Retry the refresh of a single failed account'
+    """重试单个失败账号的刷新"""
     return api_refresh_account(account_id)
 
 
 @app.route('/api/accounts/refresh-failed-stream', methods=['GET'])
 @login_required
 def api_refresh_failed_accounts_stream():
-    'Streaming retry for all failed accounts'
+    """流式重试所有失败账号"""
     return Response(stream_failed_refresh_events(), mimetype='text/event-stream')
 
 
 @app.route('/api/accounts/refresh-selected-stream', methods=['POST'])
 @login_required
 def api_create_refresh_selected_accounts_stream_task():
-    'Initialize the selected account streaming refresh task.'
+    """初始化选中账号流式刷新任务。"""
     data = request.get_json(silent=True) or {}
     account_ids = normalize_refresh_account_ids(data.get('account_ids') or [])
     if not account_ids:
-        return jsonify({'success': False, 'error': 'Please select the account to refresh'})
+        return jsonify({'success': False, 'error': '请选择要刷新的账号'})
 
     task_id = create_selected_refresh_task(account_ids)
     return jsonify({
@@ -1643,21 +1704,21 @@ def api_create_refresh_selected_accounts_stream_task():
 @app.route('/api/accounts/refresh-selected-stream/<task_id>', methods=['GET'])
 @login_required
 def api_refresh_selected_accounts_task_stream(task_id):
-    'Subscribe to the streaming refresh task of the selected account.'
+    """订阅选中账号流式刷新任务。"""
     return Response(stream_selected_refresh_task_events(task_id), mimetype='text/event-stream')
 
 
 @app.route('/api/accounts/refresh-selected-stream', methods=['GET'])
 @login_required
 def api_refresh_selected_accounts_stream():
-    'Selecting account streaming refresh requires first initializing the task through POST.'
+    """选中账号流式刷新需先通过 POST 初始化任务。"""
     return Response(stream_selected_refresh_task_events(''), mimetype='text/event-stream')
 
 
 @app.route('/api/accounts/refresh-failed', methods=['POST'])
 @login_required
 def api_refresh_failed_accounts():
-    'Retry all failed accounts'
+    """重试所有失败的账号"""
     cleanup_refresh_logs()
     db = get_db()
     accounts = load_failed_outlook_accounts_for_refresh(db)
@@ -1675,7 +1736,7 @@ def api_refresh_failed_accounts():
             failed_list.append({
                 'id': account['id'],
                 'email': account['email'],
-                'error': result.get('error_message') or 'Unknown error'
+                'error': result.get('error_message') or '未知错误'
             })
 
     return jsonify({
@@ -1690,30 +1751,30 @@ def api_refresh_failed_accounts():
 @app.route('/api/accounts/trigger-scheduled-refresh', methods=['GET'])
 @login_required
 def api_trigger_scheduled_refresh():
-    'Manually trigger scheduled refresh (supports forced refresh)'
+    """手动触发定时刷新（支持强制刷新）"""
     import json
     from datetime import datetime, timedelta
 
     force = request.args.get('force', 'false').lower() == 'true'
 
-    # Get configuration
+    # 获取配置
     refresh_interval_days = int(get_setting('refresh_interval_days', '30'))
 
     last_refresh = build_refresh_stats(get_db()).get('last_refresh_time')
 
-    # Determine whether refresh is required (skip the check when force=true)
+    # 判断是否需要刷新（force=true 时跳过检查）
     if not force and last_refresh:
         last_refresh_time = datetime.fromisoformat(last_refresh)
         next_refresh_time = last_refresh_time + timedelta(days=refresh_interval_days)
         if datetime.now() < next_refresh_time:
             return jsonify({
                 'success': False,
-                'message': f"It has been less than {refresh_interval_days} days since the last refresh, and the next refresh time is: {next_refresh_time.strftime('%Y-%m-%d %H:%M:%S')}",
+                'message': f'距离上次刷新未满 {refresh_interval_days} 天，下次刷新时间：{next_refresh_time.strftime("%Y-%m-%d %H:%M:%S")}',
                 'last_refresh': last_refresh,
                 'next_refresh': next_refresh_time.isoformat()
             })
 
-    # Perform a refresh (using streaming responses)
+    # 执行刷新（使用流式响应）
     snapshot_type = 'manual_all' if force else 'scheduled'
     log_type = 'manual' if force else 'scheduled'
     return Response(stream_full_refresh_events(snapshot_type, log_type), mimetype='text/event-stream')
@@ -1722,12 +1783,12 @@ def api_trigger_scheduled_refresh():
 @app.route('/api/accounts/stop-full-refresh', methods=['POST'])
 @login_required
 def api_stop_full_refresh():
-    'Request to stop the current full refresh task.'
+    """请求停止当前全量刷新任务。"""
     if not token_refresh_run_lock.locked():
         clear_token_refresh_stop_request()
         return jsonify({
             'success': False,
-            'message': 'There is currently no full refresh task in progress'
+            'message': '当前没有进行中的全量刷新任务'
         }), 409
 
     request_token_refresh_stop()
@@ -1740,12 +1801,16 @@ def api_stop_full_refresh():
 
 def serialize_refresh_log_row(row):
     account_email = row['current_account_email'] or row['log_account_email']
+    token_rotated = bool(row['token_rotated']) if row['token_rotated'] is not None else None
     return {
         'id': row['id'],
         'account_id': row['account_id'],
         'account_email': account_email,
         'refresh_type': row['refresh_type'],
         'status': row['status'],
+        'token_rotated': token_rotated,
+        'message': (build_refresh_success_message(token_rotated) if row['status'] == 'success'
+                    else row['error_message'] or '刷新失败'),
         'error_message': row['error_message'],
         'created_at': row['created_at']
     }
@@ -1754,7 +1819,7 @@ def serialize_refresh_log_row(row):
 @app.route('/api/accounts/refresh-logs', methods=['GET'])
 @login_required
 def api_get_refresh_logs():
-    'Get the refresh history of all accounts (only return full refreshes: manual and scheduled, in the past six months)'
+    """获取所有账号的刷新历史（只返回全量刷新：manual 和 scheduled，近半年）"""
     db = get_db()
     limit, offset = parse_log_pagination(
         request.args.get('limit'),
@@ -1769,13 +1834,14 @@ def api_get_refresh_logs():
             a.email AS current_account_email,
             l.refresh_type,
             l.status,
+            l.token_rotated,
             l.error_message,
             l.created_at
         FROM account_refresh_logs l
         LEFT JOIN accounts a ON l.account_id = a.id
         WHERE l.refresh_type IN ('manual', 'scheduled')
         AND l.created_at >= datetime('now', '-6 months')
-        ORDER BY l.created_at DESC
+        ORDER BY l.created_at DESC, l.id DESC
         LIMIT ? OFFSET ?
     ''', (limit, offset))
 
@@ -1789,7 +1855,7 @@ def api_get_refresh_logs():
 @app.route('/api/accounts/<int:account_id>/refresh-logs', methods=['GET'])
 @login_required
 def api_get_account_refresh_logs(account_id):
-    'Get the refresh history of a single account'
+    """获取单个账号的刷新历史"""
     db = get_db()
     limit, offset = parse_log_pagination(
         request.args.get('limit'),
@@ -1805,12 +1871,13 @@ def api_get_account_refresh_logs(account_id):
             a.email AS current_account_email,
             l.refresh_type,
             l.status,
+            l.token_rotated,
             l.error_message,
             l.created_at
         FROM account_refresh_logs l
         LEFT JOIN accounts a ON l.account_id = a.id
         WHERE l.account_id = ?
-        ORDER BY l.created_at DESC
+        ORDER BY l.created_at DESC, l.id DESC
         LIMIT ? OFFSET ?
     ''', (account_id, limit, offset))
 
@@ -1824,7 +1891,7 @@ def api_get_account_refresh_logs(account_id):
 @app.route('/api/accounts/refresh-logs/failed', methods=['GET'])
 @login_required
 def api_get_failed_refresh_logs():
-    'Get all failed refresh records'
+    """获取所有失败的刷新记录"""
     db = get_db()
 
     cursor = db.execute('''
@@ -1861,7 +1928,7 @@ def api_get_failed_refresh_logs():
 @app.route('/api/accounts/forwarding-logs', methods=['GET'])
 @login_required
 def api_get_forwarding_logs():
-    'Get the latest forwarding record'
+    """获取最近的转发记录"""
     db = get_db()
     limit, offset = parse_log_pagination(
         request.args.get('limit'),
@@ -1894,7 +1961,7 @@ def api_get_forwarding_logs():
 @app.route('/api/accounts/forwarding-logs/failed', methods=['GET'])
 @login_required
 def api_get_failed_forwarding_logs():
-    'Get the latest failed forwarding record'
+    """获取最近失败的转发记录"""
     db = get_db()
     limit, offset = parse_log_pagination(
         request.args.get('limit'),
@@ -1928,11 +1995,11 @@ def api_get_failed_forwarding_logs():
 @app.route('/api/accounts/<int:account_id>/forwarding-logs', methods=['GET'])
 @login_required
 def api_get_account_forwarding_logs(account_id):
-    'Get the forwarding record of a single account'
+    """获取单个账号的转发记录"""
     db = get_db()
     account = get_account_by_id(account_id)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'}), 404
+        return jsonify({'success': False, 'error': '账号不存在'}), 404
     limit, offset = parse_log_pagination(
         request.args.get('limit'),
         request.args.get('offset'),
@@ -1984,14 +2051,14 @@ def api_get_account_forwarding_logs(account_id):
 @app.route('/api/accounts/refresh-stats', methods=['GET'])
 @login_required
 def api_get_refresh_stats():
-    'Get refresh statistics (count the number of mailboxes in the current failed state)'
+    """获取刷新统计信息（统计当前失败状态的邮箱数量）"""
     return jsonify({'success': True, 'stats': build_refresh_stats()})
 
 
 @app.route('/api/accounts/refresh-status-list', methods=['GET'])
 @login_required
 def api_get_refresh_status_list():
-    'Obtain the account status list required for Token refresh management.'
+    """获取 Token 刷新管理所需的账号状态列表。"""
     q = request.args.get('q', '')
     status = request.args.get('status', 'all')
     page = request.args.get('page', 1, type=int)
@@ -2008,16 +2075,44 @@ def api_get_refresh_status_list():
     return jsonify({'success': True, **payload})
 
 
-# ==================== Mail API ====================
+# ==================== 邮件 API ====================
 
 
 
 # ==================== Email Deletion Helpers ====================
 
+_GRAPH_DELETE_REAUTH_MARKERS = (
+    'authorization_requestdenied',
+    'erroraccessdenied',
+    'access is denied',
+    'insufficient privileges',
+    'authorization has been denied',
+    'mail.readwrite',
+)
+
+
+def is_graph_delete_reauthorization_error(status_code: Any, error_body: Any) -> bool:
+    """判断删除失败是否因为缺少邮件写权限或授权失效，需要重新授权。"""
+    try:
+        code = int(status_code or 0)
+    except (TypeError, ValueError):
+        code = 0
+    if code in {401, 403}:
+        return True
+    try:
+        details_text = json.dumps(error_body, ensure_ascii=True).lower()
+    except Exception:
+        details_text = str(error_body or '').lower()
+    return any(marker in details_text for marker in _GRAPH_DELETE_REAUTH_MARKERS)
+
+
 def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[str], proxy_url: str = None,
                         fallback_proxy_urls: List[str] = None) -> Dict[str, Any]:
-    'Delete messages in bulk via Graph API (permanent deletion)'
-    access_token = get_access_token_graph(client_id, refresh_token, proxy_url, fallback_proxy_urls)
+    """通过 Graph API 批量删除邮件（永久删除）"""
+    access_token = get_access_token_graph(
+        client_id, refresh_token, proxy_url, fallback_proxy_urls,
+        required_scope='https://graph.microsoft.com/Mail.ReadWrite',
+    )
     if not access_token:
         return {
             "success": False,
@@ -2025,8 +2120,8 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
             "failed_count": len(message_ids or []),
             "deleted_ids": [],
             "updated_ids": [],
-            "error": 'Failed to obtain Access Token',
-            "errors": ['Failed to obtain Access Token'],
+            "error": "获取 Access Token 失败",
+            "errors": ["获取 Access Token 失败"],
         }
 
     headers = {
@@ -2034,11 +2129,11 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
         'Content-Type': 'application/json'
     }
 
-    # Graph API does not support deleting all emails in batches at one time and needs to be deleted one by one.
-    # But batch requests can be used to optimize
+    # Graph API 不支持一次性批量删除所有邮件，需要逐个删除
+    # 但可以使用 batch 请求来优化
     # https://learn.microsoft.com/en-us/graph/json-batching
 
-    # Limit the number of requests per batch (Graph API limit is 20)
+    # 限制每批次请求数量（Graph API 限制为 20）
     BATCH_SIZE = 20
     success_count = 0
     failed_count = 0
@@ -2048,7 +2143,7 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
     for i in range(0, len(message_ids), BATCH_SIZE):
         batch = message_ids[i:i + BATCH_SIZE]
 
-        # Construct batch request body
+        # 构造 batch 请求 body
         batch_requests = []
         for idx, msg_id in enumerate(batch):
             batch_requests.append({
@@ -2067,25 +2162,56 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
                 proxy_url=proxy_url,
                 fallback_proxy_urls=fallback_proxy_urls,
             )
-
-            if response.status_code == 200:
-                results = response.json().get("responses", [])
-                for res in results:
-                    msg_id = batch[int(res['id'])]
-                    if res.get("status") in [200, 204]:
-                        success_count += 1
-                        deleted_ids.append(str(msg_id))
-                    else:
-                        failed_count += 1
-                        # Record specific errors
-                        errors.append(f"Msg ID: {msg_id}, Status: {res.get('status')}")
-            else:
-                failed_count += len(batch)
-                errors.append(f"Batch request failed: {response.text}")
-
-        except Exception as e:
+        except Exception as exc:
             failed_count += len(batch)
-            errors.append(f"Network error: {str(e)}")
+            error_payload = build_error_payload(
+                'EMAIL_DELETE_FAILED',
+                '删除邮件失败',
+                type(exc).__name__,
+                500,
+                str(exc),
+            )
+            errors.extend({'id': str(message_id), 'error': error_payload} for message_id in batch)
+            continue
+
+        if response.status_code != 200:
+            failed_count += len(batch)
+            error_payload = build_error_payload(
+                'EMAIL_DELETE_FAILED',
+                '删除邮件失败',
+                'GraphAPIError',
+                response.status_code,
+                get_response_details(response),
+            )
+            errors.extend({'id': str(message_id), 'error': error_payload} for message_id in batch)
+            continue
+
+        results = response.json().get("responses", [])
+        for res in results:
+            msg_id = batch[int(res['id'])]
+            status_code = int(res.get('status') or 0)
+            if status_code in (200, 204):
+                success_count += 1
+                deleted_ids.append(str(msg_id))
+            else:
+                failed_count += 1
+                error_body = res.get('body') or ''
+                if is_graph_delete_reauthorization_error(status_code, error_body):
+                    message = '删除邮件失败：账号缺少邮件写权限（Mail.ReadWrite）或授权已失效，请对该账号重新授权后重试'
+                    code = 'EMAIL_DELETE_REAUTH_REQUIRED'
+                else:
+                    message = '删除邮件失败'
+                    code = 'EMAIL_DELETE_FAILED'
+                errors.append({
+                    'id': str(msg_id),
+                    'error': build_error_payload(
+                        code,
+                        message,
+                        'GraphAPIError',
+                        status_code or 500,
+                        error_body or '批处理返回空响应',
+                    )
+                })
 
     return {
         "success": failed_count == 0,
@@ -2100,7 +2226,7 @@ def delete_emails_graph(client_id: str, refresh_token: str, message_ids: List[st
 def delete_emails_imap(email_addr: str, client_id: str, refresh_token: str, message_ids: List[str], server: str,
                        proxy_url: str = None, fallback_proxy_urls: List[str] = None,
                        items: List[Dict[str, Any]] = None) -> Dict[str, Any]:
-    'Delete message via OAuth IMAP (permanent deletion).'
+    """通过 OAuth IMAP 删除邮件（永久删除）。"""
     normalized_items = list(items or [])
     if not normalized_items:
         for message_id in message_ids or []:
@@ -2182,6 +2308,17 @@ def normalize_email_action_items(raw_items: Any, fallback_folder: str = 'inbox')
     return normalized_items
 
 
+def unwrap_email_action_error(entry: Any) -> Any:
+    """从 {'id': ..., 'error': ...} 包装条目中提取用户可见的错误信息。"""
+    if isinstance(entry, dict):
+        inner = entry.get('error')
+        if isinstance(inner, dict) and inner.get('message'):
+            return inner
+        if isinstance(inner, str) and inner.strip():
+            return inner
+    return entry
+
+
 def merge_email_action_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     merged_updated_ids: List[str] = []
     merged_deleted_ids: List[str] = []
@@ -2207,7 +2344,7 @@ def merge_email_action_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
         'errors': merged_errors,
     }
     if merged_errors:
-        merged_result['error'] = merged_errors[0]
+        merged_result['error'] = unwrap_email_action_error(merged_errors[0])
     return merged_result
 
 
@@ -2452,8 +2589,8 @@ def delete_oauth_imap_items(account: Dict[str, Any], items: List[Dict[str, str]]
 
 def normalize_email_list_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
     row = dict(item or {})
-    row['subject'] = row.get('subject', 'No topic')
-    row['from'] = row.get('from', 'Unknown')
+    row['subject'] = row.get('subject', '无主题')
+    row['from'] = row.get('from', '未知')
     row['to'] = str(row.get('to', '') or '')
     row['date'] = row.get('date', '')
     row['is_read'] = bool(row.get('is_read', False))
@@ -2507,9 +2644,10 @@ def build_retained_normal_mail_list_row(account_id: int, item: Dict[str, Any],
         'folder': normalized['folder'],
         'provider_message_id': provider_message_id,
         'id_mode': str(normalized.get('id_mode') or '').strip().lower(),
-        'subject': coerce_retained_mail_text(normalized.get('subject')) or 'No topic',
-        'sender': coerce_retained_mail_text(normalized.get('from')) or 'Unknown',
+        'subject': coerce_retained_mail_text(normalized.get('subject')) or '无主题',
+        'sender': coerce_retained_mail_text(normalized.get('from')) or '未知',
         'recipients': coerce_retained_mail_text(normalized.get('to')),
+        'recipient_evidence': json.dumps(sorted(recipient_addresses(source))),
         'received_at': coerce_retained_mail_text(normalized.get('date')),
         'received_at_sort': retained_mail_received_at_sort(normalized.get('date')),
         'is_read': coerce_retained_mail_bool(normalized.get('is_read')),
@@ -2644,13 +2782,13 @@ def upsert_retained_normal_mail_list_items(account: Dict[str, Any], folder: str,
         '''
         INSERT INTO retained_normal_mail_messages (
             account_id, folder, provider_message_id, id_mode,
-            subject, sender, recipients, received_at, received_at_sort,
+            subject, sender, recipients, recipient_evidence, received_at, received_at_sort,
             is_read, has_attachments, body_preview,
             list_cached, list_cached_at, last_synced_at, updated_at
         )
         VALUES (
             :account_id, :folder, :provider_message_id, :id_mode,
-            :subject, :sender, :recipients, :received_at, :received_at_sort,
+            :subject, :sender, :recipients, :recipient_evidence, :received_at, :received_at_sort,
             :is_read, :has_attachments, :body_preview,
             1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
@@ -2659,11 +2797,13 @@ def upsert_retained_normal_mail_list_items(account: Dict[str, Any], folder: str,
             subject = excluded.subject,
             sender = excluded.sender,
             recipients = excluded.recipients,
+            recipient_evidence = excluded.recipient_evidence,
             received_at = excluded.received_at,
             received_at_sort = excluded.received_at_sort,
             is_read = excluded.is_read,
             has_attachments = excluded.has_attachments,
-            body_preview = excluded.body_preview,
+            body_preview = CASE WHEN excluded.body_preview = ''
+                THEN retained_normal_mail_messages.body_preview ELSE excluded.body_preview END,
             list_cached = 1,
             list_cached_at = CURRENT_TIMESTAMP,
             last_synced_at = CURRENT_TIMESTAMP,
@@ -2841,9 +2981,10 @@ def build_retained_normal_mail_detail_row(account: Dict[str, Any], folder: str,
         'folder': storage_folder,
         'provider_message_id': key['provider_message_id'],
         'id_mode': key['id_mode'],
-        'subject': coerce_retained_mail_text(detail.get('subject')) or 'No topic',
-        'sender': coerce_retained_mail_text(detail.get('from')) or 'Unknown',
+        'subject': coerce_retained_mail_text(detail.get('subject')) or '无主题',
+        'sender': coerce_retained_mail_text(detail.get('from')) or '未知',
         'recipients': coerce_retained_mail_text(detail.get('to')),
+        'recipient_evidence': json.dumps(sorted(recipient_addresses(detail))),
         'cc': coerce_retained_mail_text(detail.get('cc')),
         'received_at': coerce_retained_mail_text(detail.get('date')),
         'received_at_sort': retained_mail_received_at_sort(detail.get('date')),
@@ -2870,13 +3011,13 @@ def upsert_retained_normal_mail_detail(account: Dict[str, Any], folder: str,
         '''
         INSERT INTO retained_normal_mail_messages (
             account_id, folder, provider_message_id, id_mode,
-            subject, sender, recipients, cc, received_at, received_at_sort,
+            subject, sender, recipients, cc, recipient_evidence, received_at, received_at_sort,
             has_attachments, body, body_type, attachments_json,
             body_cached, body_cached_at, last_synced_at, updated_at
         )
         VALUES (
             :account_id, :folder, :provider_message_id, :id_mode,
-            :subject, :sender, :recipients, :cc, :received_at, :received_at_sort,
+            :subject, :sender, :recipients, :cc, :recipient_evidence, :received_at, :received_at_sort,
             :has_attachments, :body, :body_type, :attachments_json,
             1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
@@ -2885,6 +3026,7 @@ def upsert_retained_normal_mail_detail(account: Dict[str, Any], folder: str,
             subject = excluded.subject,
             sender = excluded.sender,
             recipients = excluded.recipients,
+            recipient_evidence = excluded.recipient_evidence,
             cc = excluded.cc,
             received_at = excluded.received_at,
             received_at_sort = excluded.received_at_sort,
@@ -2906,8 +3048,9 @@ def upsert_retained_normal_mail_detail(account: Dict[str, Any], folder: str,
 def format_graph_email_detail(detail: Dict[str, Any], attachments: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         'id': detail.get('id'),
-        'subject': detail.get('subject', 'No topic'),
-        'from': detail.get('from', {}).get('emailAddress', {}).get('address', 'Unknown'),
+        'internetMessageHeaders': detail.get('internetMessageHeaders', []),
+        'subject': detail.get('subject', '无主题'),
+        'from': detail.get('from', {}).get('emailAddress', {}).get('address', '未知'),
         'to': ', '.join([
             r.get('emailAddress', {}).get('address', '')
             for r in detail.get('toRecipients', [])
@@ -2938,7 +3081,8 @@ def build_retained_detail_success_response(account: Dict[str, Any], folder: str,
 
 def fetch_imap_account_detail_response(account: Dict[str, Any], folder: str,
                                        message_id: str, method: str,
-                                       id_mode: str, proxy_url: str) -> Dict[str, Any]:
+                                       id_mode: str, proxy_url: str,
+                                       strict_id_mode: bool = False) -> Dict[str, Any]:
     detail_result = get_email_detail_imap_generic_result(
         account['email'],
         account.get('imap_password', ''),
@@ -2947,13 +3091,15 @@ def fetch_imap_account_detail_response(account: Dict[str, Any], folder: str,
         message_id,
         folder,
         account.get('provider', 'custom'),
-        proxy_url
+        proxy_url,
+        strict_id_mode=strict_id_mode,
+        preferred_id_mode=id_mode or 'uid',
     )
     if detail_result.get('success'):
         return build_retained_detail_success_response(
             account, folder, message_id, detail_result.get('email', {}), method, 'imap', id_mode
         )
-    return {'success': False, 'error': detail_result.get('error', 'Failed to obtain email details')}
+    return {'success': False, 'error': detail_result.get('error', '获取邮件详情失败')}
 
 
 def fetch_graph_detail_response(account: Dict[str, Any], folder: str,
@@ -2967,7 +3113,7 @@ def fetch_graph_detail_response(account: Dict[str, Any], folder: str,
             'success': False,
             'error': detail_result.get('error') or build_error_payload(
                 'EMAIL_DETAIL_FETCH_FAILED',
-                'Failed to obtain email details',
+                '获取邮件详情失败',
                 'GraphAPIError',
                 502,
                 '',
@@ -2990,7 +3136,8 @@ def fetch_graph_detail_response(account: Dict[str, Any], folder: str,
 
 def fetch_oauth_imap_detail_response(account: Dict[str, Any], folder: str,
                                      message_id: str, method: str, id_mode: str,
-                                     proxy_url: str, fallback_proxy_urls: List[str]) -> Dict[str, Any]:
+                                     proxy_url: str, fallback_proxy_urls: List[str],
+                                     strict_id_mode: bool = False) -> Dict[str, Any]:
     requested_mode = str(id_mode or '').strip().lower()
     preferred_id_mode = requested_mode if requested_mode in {'uid', 'sequence'} else 'uid'
     detail_result = get_email_detail_imap_result(
@@ -3002,13 +3149,14 @@ def fetch_oauth_imap_detail_response(account: Dict[str, Any], folder: str,
         proxy_url,
         fallback_proxy_urls,
         preferred_id_mode,
+        strict_id_mode,
     )
     if not detail_result.get('success'):
         return {
             'success': False,
             'error': detail_result.get('error') or build_error_payload(
                 'EMAIL_DETAIL_FETCH_FAILED',
-                'Failed to obtain email details',
+                '获取邮件详情失败',
                 'IMAPFetchError',
                 502,
                 '',
@@ -3045,9 +3193,10 @@ def is_prefer_local_detail_request() -> bool:
 def retained_mail_row_to_list_item(row) -> Dict[str, Any]:
     item = {
         'id': row['provider_message_id'],
-        'subject': row['subject'] or 'No topic',
-        'from': row['sender'] or 'Unknown',
+        'subject': row['subject'] or '无主题',
+        'from': row['sender'] or '未知',
         'to': row['recipients'] or '',
+        'recipient_evidence': json.loads(row['recipient_evidence'] or '[]'),
         'date': row['received_at'] or '',
         'is_read': bool(row['is_read']),
         'has_attachments': bool(row['has_attachments']),
@@ -3087,9 +3236,10 @@ def retained_mail_row_to_detail_response(row) -> Dict[str, Any]:
         'success': True,
         'email': {
             'id': row['provider_message_id'],
-            'subject': row['subject'] or 'No topic',
-            'from': row['sender'] or 'Unknown',
+            'subject': row['subject'] or '无主题',
+            'from': row['sender'] or '未知',
             'to': row['recipients'] or '',
+            'recipient_evidence': json.loads(row['recipient_evidence'] or '[]'),
             'cc': row['cc'] or '',
             'date': row['received_at'] or '',
             'body': row['body'] or '',
@@ -3128,7 +3278,7 @@ def fetch_retained_normal_mail_detail(account: Dict[str, Any], folder: str,
     row = get_db().execute(
         f'''
         SELECT provider_message_id, id_mode, folder, subject, sender,
-               recipients, cc, received_at, body, body_type,
+               recipients, cc, recipient_evidence, received_at, body, body_type,
                attachments_json, has_attachments
         FROM retained_normal_mail_messages
         WHERE account_id = ?
@@ -3262,9 +3412,9 @@ def retain_normal_mail_bodies(account: Dict[str, Any], items: List[Dict[str, str
         failed_count += 1
         error_obj = response.get('error')
         if isinstance(error_obj, dict):
-            error = str(error_obj.get('message') or 'Failed to obtain email details')
+            error = str(error_obj.get('message') or '获取邮件详情失败')
         else:
-            error = str(error_obj or 'Failed to obtain email details')
+            error = str(error_obj or '获取邮件详情失败')
         errors.append({'id': item['id'], 'error': error})
         results.append({'id': item['id'], 'status': 'failed', 'error': error})
 
@@ -3338,11 +3488,16 @@ def fetch_retained_normal_mail_list(account: Dict[str, Any], folder: str,
                                     subject_contains: str = '',
                                     from_contains: str = '',
                                     keyword: str = '') -> Dict[str, Any]:
+    if account.get('icloud_address'):
+        return fetch_icloud_isolated_emails(account, folder, skip, top, {
+            'include_body': include_body, 'subject_contains': subject_contains,
+            'from_contains': from_contains, 'keyword': keyword,
+        })
     folder_name = normalize_folder_name(folder)
     if folder_name not in VALID_MAIL_FOLDERS:
         return {
             'success': False,
-            'error': f"The folder parameter is invalid, supported: {', '.join(sorted(VALID_MAIL_FOLDERS))}"
+            'error': f'folder 参数无效，支持: {", ".join(sorted(VALID_MAIL_FOLDERS))}'
         }
 
     params: List[Any] = [int(account['id'])]
@@ -3366,7 +3521,7 @@ def fetch_retained_normal_mail_list(account: Dict[str, Any], folder: str,
     )
     cte_sql = f'''
         WITH ranked_retained AS (
-            SELECT provider_message_id, subject, sender, recipients, received_at,
+            SELECT provider_message_id, subject, sender, recipients, recipient_evidence, received_at,
                    is_read, has_attachments, body_preview, body, folder, id_mode,
                    received_at_sort, id,
                    ROW_NUMBER() OVER (
@@ -3394,7 +3549,7 @@ def fetch_retained_normal_mail_list(account: Dict[str, Any], folder: str,
     body_column = ', body' if include_body else ''
     rows = db.execute(
         cte_sql + f'''
-        SELECT provider_message_id, subject, sender, recipients, received_at,
+        SELECT provider_message_id, subject, sender, recipients, recipient_evidence, received_at,
                is_read, has_attachments, body_preview{body_column}, folder, id_mode
         FROM filtered_retained
         ORDER BY received_at_sort DESC, id DESC
@@ -3420,8 +3575,10 @@ def fetch_retained_normal_mail_list(account: Dict[str, Any], folder: str,
 def format_graph_email_item(item: Dict[str, Any], folder: str) -> Dict[str, Any]:
     return normalize_email_list_item({
         'id': item.get('id'),
-        'subject': item.get('subject', 'No topic'),
-        'from': item.get('from', {}).get('emailAddress', {}).get('address', 'Unknown'),
+        'internetMessageHeaders': item.get('internetMessageHeaders', []),
+        'cc': ', '.join(r.get('emailAddress', {}).get('address', '') for r in item.get('ccRecipients', [])),
+        'subject': item.get('subject', '无主题'),
+        'from': item.get('from', {}).get('emailAddress', {}).get('address', '未知'),
         'to': ', '.join([
             recipient.get('emailAddress', {}).get('address', '')
             for recipient in (item.get('toRecipients') or [])
@@ -3465,7 +3622,11 @@ _PROTOCOL_ERROR_DETAIL_KEYS = (
 
 
 def build_folder_failure_detail(result: Any) -> Any:
-    'Organize single folder failure results into structured errors that can be displayed by the front end.\n\n    If folder=all only transparently transmits the result[\'error\'] string when merging, the graph/imap details will be lost.\n    As a result, the pop-up window only contains "Unable to obtain mail, all methods failed" and code/type/status are all -.\n    '
+    """把单文件夹失败结果整理成前端可展示的结构化错误。
+
+    folder=all 合并时若只透传 result['error'] 字符串，会丢掉 graph/imap 细节，
+    导致弹窗只剩「无法获取邮件，所有方式均失败」且 code/type/status 全为 -。
+    """
     if not isinstance(result, dict):
         return result
 
@@ -3505,7 +3666,7 @@ def build_folder_failure_detail(result: Any) -> Any:
     if isinstance(primary, dict):
         primary_message = str(primary.get('message') or '').strip()
         fallback_message = top_error if isinstance(top_error, str) and top_error.strip() else ''
-        message = primary_message or fallback_message or 'Unable to get mail, all methods failed'
+        message = primary_message or fallback_message or '无法获取邮件，所有方式均失败'
         payload = {
             'code': primary.get('code') or 'EMAIL_FETCH_FAILED',
             'message': message,
@@ -3519,7 +3680,7 @@ def build_folder_failure_detail(result: Any) -> Any:
             payload['reason_code'] = primary.get('reason_code')
         return payload
 
-    message = top_error if isinstance(top_error, str) and top_error.strip() else 'Unable to get mail, all methods failed'
+    message = top_error if isinstance(top_error, str) and top_error.strip() else '无法获取邮件，所有方式均失败'
     return {
         'code': 'EMAIL_FETCH_FAILED',
         'message': message,
@@ -3540,7 +3701,7 @@ def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int
         }
         return {
             'success': False,
-            'error': 'Unable to get mail, all methods failed',
+            'error': '无法获取邮件，所有方式均失败',
             'details': details
         }
 
@@ -3594,12 +3755,12 @@ def merge_folder_results(results: Dict[str, Dict[str, Any]], skip: int, top: int
 
 
 def get_outlook_mail_channel_order(account: Dict[str, Any]) -> tuple[str, ...]:
-    'Returns the preferred/fallback channel order for Outlook OAuth message acquisition.'
+    """返回 Outlook OAuth 邮件获取的首选/回退通道顺序。"""
     return ('imap', 'graph') if get_account_authorization_type(account) == 'imap' else ('graph', 'imap')
 
 
 def record_outlook_mail_channel(account: Dict[str, Any], channel: str) -> None:
-    'Record the actual successful Outlook OAuth email channel; failure to write to the database does not affect the result of fetching the email.'
+    """记录实际成功的 Outlook OAuth 邮件通道；写库失败不影响取信结果。"""
     if account.get('_disable_authorization_type_record'):
         return
     try:
@@ -3614,10 +3775,11 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
     if folder_name not in VALID_MAIL_FOLDERS or folder_name == 'all':
         return {
             'success': False,
-            'error': f"The folder parameter is invalid, supported: {', '.join(sorted(VALID_MAIL_FOLDERS - {'all'} | {'all'}))}"
+            'error': f'folder 参数无效，支持: {", ".join(sorted(VALID_MAIL_FOLDERS - {"all"} | {"all"}))}'
         }
 
     if account.get('account_type') == 'imap':
+        recipient_options = {'recipient_address': account['_icloud_scan_address']} if account.get('_icloud_scan_address') else {}
         result = get_emails_imap_generic(
             account['email'],
             account.get('imap_password', ''),
@@ -3627,7 +3789,8 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             account.get('provider', 'custom'),
             skip,
             top,
-            proxy_url
+            proxy_url,
+            **recipient_options,
         )
         if result.get('success'):
             return {
@@ -3639,7 +3802,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             }
         return {
             'success': False,
-            'error': result.get('error', 'Failed to get mail'),
+            'error': result.get('error', '获取邮件失败'),
             'details': {'imap_generic': result.get('error')}
         }
 
@@ -3671,7 +3834,7 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
             connection_error_message = (
                 graph_error.get('message')
                 if isinstance(graph_error, dict) and graph_error.get('message')
-                else 'Network connection failed: Unable to connect to Microsoft services, please check server network, DNS and proxy settings'
+                else '网络连接失败：无法连接 Microsoft 服务，请检查服务器网络、DNS 和代理设置'
             )
             return {
                 'success': False,
@@ -3715,19 +3878,21 @@ def fetch_account_folder_emails(account: Dict[str, Any], folder: str, skip: int,
 
     return {
         'success': False,
-        'error': 'Unable to get mail, all methods failed',
+        'error': '无法获取邮件，所有方式均失败',
         'details': all_errors
     }
 
 
 def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: int) -> Dict[str, Any]:
+    if account.get('icloud_address'):
+        return fetch_icloud_isolated_emails(account, folder, skip, top)
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
     folder_name = normalize_folder_name(folder)
     if folder_name not in VALID_MAIL_FOLDERS:
         return {
             'success': False,
-            'error': f"The folder parameter is invalid, supported: {', '.join(sorted(VALID_MAIL_FOLDERS))}"
+            'error': f'folder 参数无效，支持: {", ".join(sorted(VALID_MAIL_FOLDERS))}'
         }
 
     if folder_name == 'all':
@@ -3760,7 +3925,7 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
                             'success': False,
                             'error': build_error_payload(
                                 'EMAIL_FETCH_FAILED',
-                                'Failed to obtain email, please check account configuration',
+                                '获取邮件失败，请检查账号配置',
                                 type(exc).__name__,
                                 500,
                                 str(exc)
@@ -3773,7 +3938,7 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
                     'success': False,
                     'error': build_error_payload(
                         'EMAIL_FETCH_TIMEOUT',
-                        'Retrieval of email timed out, please try again later.',
+                        '获取邮件超时，请稍后重试',
                         'TimeoutError',
                         504,
                         f'folder={folder_job}, timeout={mail_fetch_timeout_seconds}s'
@@ -3808,13 +3973,13 @@ def fetch_account_emails(account: Dict[str, Any], folder: str, skip: int, top: i
 @app.route('/api/emails/<email_addr>')
 @login_required
 def api_get_emails(email_addr):
-    'Get mailing list (supports paging, does not use caching)'
+    """获取邮件列表（支持分页，不使用缓存）"""
     account = get_account_by_email(email_addr)
 
     if not account:
         error_payload = build_error_payload(
             "ACCOUNT_NOT_FOUND",
-            'Account does not exist',
+            "账号不存在",
             "NotFoundError",
             404,
             f"email={email_addr}"
@@ -3834,7 +3999,7 @@ def api_get_emails(email_addr):
 
 
 def get_graph_send_mail_account_error(account: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    'Confirm that the account can only send messages as its own Graph delegate.'
+    """确认账号可仅以自身 Graph 委托身份发信。"""
     account_type = str(account.get('account_type') or '').strip().lower()
     provider = str(account.get('provider') or '').strip().lower()
     status = str(account.get('status') or '').strip().lower()
@@ -3842,19 +4007,19 @@ def get_graph_send_mail_account_error(account: Dict[str, Any]) -> Optional[Dict[
     if account_type != 'outlook' or provider != 'outlook' or status != 'active':
         return build_graph_send_error_result(
             'GRAPH_SEND_UNSUPPORTED_ACCOUNT',
-            'Only supports sending emails from normally enabled Outlook/Hotmail Graph accounts',
+            '仅支持正常启用的 Outlook/Hotmail Graph 账号发信',
             400,
         )
     if authorization_type == 'imap':
         return build_graph_send_error_result(
             'GRAPH_SEND_REAUTH_REQUIRED',
-            'This account is currently using IMAP authorization. Please complete the Graph authorization again and try again.',
+            '此账号当前使用 IMAP 授权，请重新完成 Graph 授权后再试',
             403,
         )
     if not str(account.get('client_id') or '').strip() or not str(account.get('refresh_token') or '').strip():
         return build_graph_send_error_result(
             'GRAPH_SEND_REAUTH_REQUIRED',
-            'This account lacks available Graph authorization. Please complete the Graph authorization again and try again.',
+            '此账号缺少可用的 Graph 授权，请重新完成 Graph 授权后再试',
             403,
         )
     return None
@@ -3863,12 +4028,12 @@ def get_graph_send_mail_account_error(account: Dict[str, Any]) -> Optional[Dict[
 @app.route('/api/outlook/send-mail', methods=['POST'])
 @login_required
 def api_send_outlook_graph_mail():
-    'Submit a basic plain text email as the selected Outlook account itself.'
+    """以选中 Outlook 账号自身身份提交一封基础纯文本邮件。"""
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         result = build_graph_send_error_result(
             'GRAPH_SEND_INVALID_REQUEST',
-            'Invalid request data format',
+            '请求数据格式无效',
             400,
         )
         return jsonify(result), 400
@@ -3878,7 +4043,7 @@ def api_send_outlook_graph_mail():
     if unsupported_fields:
         result = build_graph_send_error_result(
             'GRAPH_SEND_UNSUPPORTED_FIELD',
-            'Basic writing does not support specifying fields such as sender, attachment or rich text.',
+            '基础写信不支持指定发件人、附件或富文本等字段',
             400,
             {'fields': unsupported_fields},
         )
@@ -3894,7 +4059,7 @@ def api_send_outlook_graph_mail():
     if account_id <= 0:
         result = build_graph_send_error_result(
             'GRAPH_SEND_INVALID_REQUEST',
-            'Please select a valid Outlook account',
+            '请选择有效的 Outlook 账号',
             400,
         )
         return jsonify(result), 400
@@ -3903,7 +4068,7 @@ def api_send_outlook_graph_mail():
     if not account:
         result = build_graph_send_error_result(
             'ACCOUNT_NOT_FOUND',
-            'Account does not exist',
+            '账号不存在',
             404,
         )
         return jsonify(result), 404
@@ -3931,7 +4096,7 @@ def api_send_outlook_graph_mail():
 @app.route('/api/emails/mark-read', methods=['POST'])
 @login_required
 def api_mark_emails_read():
-    'Mark emails as read in batches'
+    """批量标记邮件为已读"""
     data = request.json or {}
     email_addr = str(data.get('email') or '').strip()
     method = str(data.get('method') or 'graph').strip().lower()
@@ -3939,11 +4104,11 @@ def api_mark_emails_read():
     raw_items = data.get('items') if data.get('items') is not None else data.get('ids', [])
     items = normalize_email_action_items(raw_items, fallback_folder)
     if not email_addr or not items:
-        return jsonify({'success': False, 'error': 'Incomplete parameters'})
+        return jsonify({'success': False, 'error': '参数不完整'})
 
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
@@ -3962,7 +4127,7 @@ def api_mark_emails_read():
 @app.route('/api/emails/retain-bodies', methods=['POST'])
 @login_required
 def api_retain_email_bodies():
-    'Complete the text of reserved general mailbox list rows according to the server-side upper limit.'
+    """按服务器端上限为已保留的普通邮箱列表行补齐正文。"""
     data = request.json or {}
     email_addr = str(data.get('email') or '').strip()
     fallback_folder = normalize_folder_name(data.get('folder', 'inbox'))
@@ -3972,15 +4137,15 @@ def api_retain_email_bodies():
         raw_items = data.get('ids', [])
     items = normalize_body_retention_items(raw_items, fallback_folder, fallback_method)
     if not email_addr or not items:
-        return jsonify({'success': False, 'error': 'Incomplete parameters'})
+        return jsonify({'success': False, 'error': '参数不完整'})
 
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
     if not is_normal_mail_local_retention_enabled():
         return jsonify({
             'success': False,
-            'error': 'Ordinary mailbox local retention is not enabled',
+            'error': '普通邮箱本地保留未启用',
             'local_retention_enabled': False,
             'cached_count': 0,
             'skipped_count': len(items),
@@ -3996,7 +4161,7 @@ def api_retain_email_bodies():
 @app.route('/api/emails/delete', methods=['POST'])
 @login_required
 def api_delete_emails():
-    'Delete emails in batches (permanent deletion)'
+    """批量删除邮件（永久删除）"""
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         data = {}
@@ -4006,11 +4171,11 @@ def api_delete_emails():
     raw_items = data.get('items') if data.get('items') is not None else data.get('ids', [])
     items = normalize_email_action_items(raw_items, fallback_folder)
     if not email_addr or not items:
-        return jsonify({'success': False, 'error': 'Incomplete parameters'})
+        return jsonify({'success': False, 'error': '参数不完整'})
 
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
@@ -4023,7 +4188,7 @@ def api_delete_emails():
         graph_res = delete_graph_items(account, graph_items, proxy_url, fallback_proxy_urls)
         results.append(graph_res)
         graph_error = graph_res.get('error', '')
-        # Do not fall back to IMAP when a proxy error occurs to avoid meaningless secondary failures.
+        # 代理错误时不回退 IMAP，避免无意义的二次失败
         if (
             not graph_res.get('success')
             and graph_res.get('success_count', 0) == 0
@@ -4041,13 +4206,16 @@ def api_delete_emails():
 @app.route('/api/email/<email_addr>/<path:message_id>/raw')
 @login_required
 def api_get_raw_email(email_addr, message_id):
-    'Get the original MIME email source code.'
+    """获取原始 MIME 邮件源码。"""
     account = get_account_by_email(email_addr)
 
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     method = request.args.get('method', 'graph')
+    id_mode = str(request.args.get('id_mode') or '').strip().lower()
+    if id_mode == 'sequence':
+        return jsonify(imap_identity_error_result(ImapMessageIdentityError()))
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
@@ -4062,7 +4230,8 @@ def api_get_raw_email(email_addr, message_id):
             message_id,
             folder,
             account.get('provider', 'custom'),
-            proxy_url
+            proxy_url,
+            preferred_id_mode=id_mode or 'uid',
         )
     elif method == 'graph':
         raw_content = get_raw_email_graph(
@@ -4094,7 +4263,10 @@ def api_get_raw_email(email_addr, message_id):
         )
 
     if raw_content is None:
-        return jsonify({'success': False, 'error': 'Failed to obtain original email'})
+        return jsonify({'success': False, 'error': '获取原始邮件失败'})
+
+    if account.get('icloud_address') and not belongs_to(raw_content.encode() if isinstance(raw_content, str) else raw_content, account['icloud_address']):
+        return jsonify({'success': False, 'error': '邮件不属于该隐藏地址或缺少收件证据'}), 404
 
     if isinstance(raw_content, str):
         raw_text = raw_content
@@ -4106,11 +4278,11 @@ def api_get_raw_email(email_addr, message_id):
         'success': True,
         'raw': raw_text,
         'filename': f'{safe_message_id}.eml',
-        'warning': 'The original email contains complete email headers and routing information, please share with caution.'
+        'warning': '原始邮件包含完整邮件头和路由信息，请谨慎分享。'
     })
 
 
-def normalize_email_detail_error(error: Any, fallback_message: str = 'Failed to obtain email details') -> Dict[str, Any]:
+def normalize_email_detail_error(error: Any, fallback_message: str = '获取邮件详情失败') -> Dict[str, Any]:
     if isinstance(error, dict) and error.get('message'):
         return error
     if isinstance(error, str) and error.strip():
@@ -4127,7 +4299,21 @@ def normalize_email_detail_error(error: Any, fallback_message: str = 'Failed to 
 
 
 def fetch_email_detail_for_account(account, message_id, method='graph', folder='inbox',
-                                   id_mode='', prefer_local=False):
+                                   id_mode='', prefer_local=False, strict_id_mode=False,
+                                   force_method=False):
+    if str(id_mode or '').strip().lower() == 'sequence':
+        return imap_identity_error_result(ImapMessageIdentityError())
+    if account.get('icloud_address'):
+        primary = dict(account)
+        address = primary.pop('icloud_address')
+        result = fetch_email_detail_for_account(primary, message_id, method, folder, id_mode,
+            prefer_local=prefer_local, strict_id_mode=strict_id_mode, force_method=force_method)
+        if result.get('success') and belongs_to(result.get('email', {}), address):
+            return result
+        if prefer_local and result.get('source') == 'local_retention':
+            return fetch_email_detail_for_account(account, message_id, method, folder, id_mode,
+                prefer_local=False, strict_id_mode=strict_id_mode, force_method=force_method)
+        return {'success': False, 'error': '邮件不属于该隐藏地址或缺少收件证据', 'code': 'ICLOUD_MESSAGE_NOT_FOUND'}
     proxy_url = get_account_proxy_url(account)
     fallback_proxy_urls = get_account_proxy_failover_urls(account)
 
@@ -4138,7 +4324,8 @@ def fetch_email_detail_for_account(account, message_id, method='graph', folder='
 
     if account.get('account_type') == 'imap':
         result = fetch_imap_account_detail_response(
-            account, folder, message_id, method, id_mode, proxy_url
+            account, folder, message_id, method, id_mode, proxy_url,
+            strict_id_mode=strict_id_mode,
         )
         if result.get('success'):
             return result
@@ -4152,10 +4339,12 @@ def fetch_email_detail_for_account(account, message_id, method='graph', folder='
     attempts: Dict[str, Any] = {}
     stored_channel = get_account_authorization_type(account)
     method_name = str(method or 'graph').strip().lower()
-    if stored_channel:
+    if force_method and method_name in {'graph', 'imap'}:
+        channel_order = (method_name,)
+    elif stored_channel:
         channel_order = get_outlook_mail_channel_order(account)
     elif method_name == 'imap':
-        # The explicit IMAP ID may be a UID/sequence and cannot be passed to Graph by mistake.
+        # 显式的 IMAP ID 可能是 UID/sequence，不能误传给 Graph。
         channel_order = ('imap',)
     else:
         channel_order = ('graph', 'imap')
@@ -4166,16 +4355,19 @@ def fetch_email_detail_for_account(account, message_id, method='graph', folder='
                 account, folder, message_id, 'graph', id_mode, proxy_url, fallback_proxy_urls
             )
             if graph_result.get('success'):
-                record_outlook_mail_channel(account, 'graph')
+                if not force_method:
+                    record_outlook_mail_channel(account, 'graph')
                 return graph_result
             attempts['graph'] = graph_result.get('error')
             continue
 
         imap_result = fetch_oauth_imap_detail_response(
-            account, folder, message_id, 'imap', id_mode, proxy_url, fallback_proxy_urls
+            account, folder, message_id, 'imap', id_mode, proxy_url, fallback_proxy_urls,
+            strict_id_mode=strict_id_mode,
         )
         if imap_result.get('success'):
-            record_outlook_mail_channel(account, 'imap')
+            if not force_method:
+                record_outlook_mail_channel(account, 'imap')
             return imap_result
         attempts['imap_new'] = imap_result.get('error')
 
@@ -4194,10 +4386,10 @@ def fetch_email_detail_for_account(account, message_id, method='graph', folder='
 @app.route('/api/email/<email_addr>/<path:message_id>')
 @login_required
 def api_get_email_detail(email_addr, message_id):
-    'Get email details'
+    """获取邮件详情"""
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     method = request.args.get('method', 'graph')
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
@@ -4214,6 +4406,10 @@ def api_get_email_detail(email_addr, message_id):
 
 
 def download_email_attachment_for_account(account, method, message_id, attachment_id, folder, proxy_url, fallback_proxy_urls, id_mode=''):
+    if account.get('icloud_address'):
+        checked = fetch_email_detail_for_account(account, message_id, method, folder, id_mode)
+        if not checked.get('success'):
+            return checked
     if account.get('account_type') == 'imap':
         return download_email_attachment_imap_generic_result(
             account['email'],
@@ -4224,7 +4420,8 @@ def download_email_attachment_for_account(account, method, message_id, attachmen
             attachment_id,
             folder,
             account.get('provider', 'custom'),
-            proxy_url
+            proxy_url,
+            preferred_id_mode=id_mode or 'uid',
         )
 
     if method == 'graph':
@@ -4251,6 +4448,10 @@ def download_email_attachment_for_account(account, method, message_id, attachmen
 
 
 def get_email_attachment_metadata_for_download(account, method, message_id, folder, proxy_url, fallback_proxy_urls, id_mode=''):
+    if account.get('icloud_address'):
+        checked = fetch_email_detail_for_account(account, message_id, method, folder, id_mode)
+        if not checked.get('success'):
+            return checked
     if account.get('account_type') == 'imap':
         detail_result = get_email_detail_imap_generic_result(
             account['email'],
@@ -4260,11 +4461,12 @@ def get_email_attachment_metadata_for_download(account, method, message_id, fold
             message_id,
             folder,
             account.get('provider', 'custom'),
-            proxy_url
+            proxy_url,
+            preferred_id_mode=id_mode or 'uid',
         )
         if detail_result.get('success'):
             return {'success': True, 'attachments': detail_result.get('email', {}).get('attachments', [])}
-        return {'success': False, 'error': detail_result.get('error', 'Failed to obtain attachment list')}
+        return {'success': False, 'error': detail_result.get('error', '获取附件列表失败')}
 
     if method == 'graph':
         attachments = get_email_attachments_graph(
@@ -4275,7 +4477,7 @@ def get_email_attachment_metadata_for_download(account, method, message_id, fold
             fallback_proxy_urls,
         )
         if attachments is None:
-            return {'success': False, 'error': 'Failed to obtain attachment list'}
+            return {'success': False, 'error': '获取附件列表失败'}
         return {'success': True, 'attachments': attachments}
 
     detail = get_email_detail_imap(
@@ -4290,7 +4492,7 @@ def get_email_attachment_metadata_for_download(account, method, message_id, fold
     )
     if detail:
         return {'success': True, 'attachments': detail.get('attachments', [])}
-    return {'success': False, 'error': 'Failed to obtain attachment list'}
+    return {'success': False, 'error': '获取附件列表失败'}
 
 
 def build_zip_attachment_name(filename, used_names):
@@ -4358,7 +4560,7 @@ def drain_streaming_zip_buffer(zip_buffer):
 def stringify_attachment_download_error(error):
     if isinstance(error, dict):
         return str(error.get('message') or error.get('code') or error)
-    return str(error or 'Failed to obtain attachment')
+    return str(error or '获取附件失败')
 
 
 def stream_email_attachments_zip(account, method, message_id, attachments, folder, proxy_url, fallback_proxy_urls, id_mode=''):
@@ -4416,10 +4618,10 @@ def stream_email_attachments_zip(account, method, message_id, attachments, folde
 @app.route('/api/email/<email_addr>/<path:message_id>/attachments/download-all')
 @login_required
 def api_download_all_email_attachments(email_addr, message_id):
-    'Package and download all attachments of emails'
+    """打包下载邮件所有附件"""
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     method = request.args.get('method', 'graph')
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
@@ -4436,11 +4638,11 @@ def api_download_all_email_attachments(email_addr, message_id):
         id_mode,
     )
     if not metadata_result.get('success'):
-        return jsonify({'success': False, 'error': metadata_result.get('error', 'Failed to obtain attachment list')})
+        return jsonify({'success': False, 'error': metadata_result.get('error', '获取附件列表失败')})
 
     attachments = [attachment for attachment in metadata_result.get('attachments', []) if attachment.get('id')]
     if not attachments:
-        return jsonify({'success': False, 'error': 'No downloadable attachments'})
+        return jsonify({'success': False, 'error': '没有可下载附件'})
 
     response = Response(
         stream_email_attachments_zip(
@@ -4463,10 +4665,10 @@ def api_download_all_email_attachments(email_addr, message_id):
 @app.route('/api/email/<email_addr>/<path:message_id>/attachments/<path:attachment_id>')
 @login_required
 def api_download_email_attachment(email_addr, message_id, attachment_id):
-    'Download email attachments'
+    """下载邮件附件"""
     account = get_account_by_email(email_addr)
     if not account:
-        return jsonify({'success': False, 'error': 'Account does not exist'})
+        return jsonify({'success': False, 'error': '账号不存在'})
 
     method = request.args.get('method', 'graph')
     folder = normalize_folder_name(request.args.get('folder', 'inbox'))
@@ -4485,7 +4687,7 @@ def api_download_email_attachment(email_addr, message_id, attachment_id):
     )
 
     if not result.get('success'):
-        return jsonify({'success': False, 'error': result.get('error', 'Failed to obtain attachment')})
+        return jsonify({'success': False, 'error': result.get('error', '获取附件失败')})
 
     filename = sanitize_attachment_filename(result.get('filename', ''), 'attachment')
     encoded_filename = quote(filename)

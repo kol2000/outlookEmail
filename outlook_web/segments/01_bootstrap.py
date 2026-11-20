@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'\nOutlook Mail Web App\nFlask-based web interface supports multiple mailbox management and email viewing\nUse SQLite database to store mailbox information and support group management\nSupport GPTMail temporary mailbox service\n'
+"""
+Outlook 邮件 Web 应用
+基于 Flask 的 Web 界面，支持多邮箱管理和邮件查看
+使用 SQLite 数据库存储邮箱信息，支持分组管理
+支持 GPTMail 临时邮箱服务
+"""
 
 import email
 import imaplib
@@ -24,6 +29,7 @@ import subprocess
 import tempfile
 import zipfile
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.header import decode_header
@@ -40,8 +46,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from outlook_web.runtime import default_database_path, resource_path, resolve_secret_key, runtime_root
 from outlook_web.mail_datetime import parse_mail_datetime
+import outlook_web.forwarding_store as forwarding_store
 
-# Try to import Flask-WTF CSRF protection
+# 尝试导入 Flask-WTF CSRF 保护
 try:
     from flask_wtf.csrf import CSRFProtect, generate_csrf
     CSRF_AVAILABLE = True
@@ -59,10 +66,10 @@ app = Flask(
     template_folder=str(resource_path("templates")),
     static_folder=str(resource_path("static")),
 )
+# 优先使用环境变量；打包后的桌面版会在首次启动时生成并持久化 secret_key
 from outlook_web.i18n import install as install_i18n
 install_i18n(app)
 
-# Prioritize the use of environment variables; the packaged desktop version will generate and persist secret_key when starting for the first time
 secret_key = resolve_secret_key()
 if not secret_key:
     raise RuntimeError(
@@ -70,16 +77,16 @@ if not secret_key:
         "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
     )
 app.secret_key = secret_key
-# Set the transport layer upper limit for limited-term Session Cookies; the actual login validity period is controlled by each Session, and permanent sessions use an independent maximum Cookie period.
-app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 180  # 180 days
+# 设置有限期限 Session Cookie 的传输层上限；实际登录有效期由每个 Session 控制，永久会话使用独立的最长 Cookie 期限。
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 180  # 180 天
 
-# Session Cookie configuration (for HTTPS proxy environment)
+# Session Cookie 配置（适用于 HTTPS 代理环境）
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 
 def resolve_log_level(raw: Optional[str] = None) -> int:
-    'Parse the LOG_LEVEL environment variable, and return INFO for illegal values.'
+    """解析 LOG_LEVEL 环境变量，非法值回退 INFO。"""
     name = (raw if raw is not None else os.getenv('LOG_LEVEL', 'INFO') or 'INFO').strip().upper()
     level = getattr(logging, name, None)
     if not isinstance(level, int):
@@ -88,7 +95,7 @@ def resolve_log_level(raw: Optional[str] = None) -> int:
 
 
 def configure_app_logging(target_app=None, level: Optional[int] = None) -> int:
-    'Press LOG_LEVEL to configure the global log level of the application and related logger.'
+    """按 LOG_LEVEL 配置应用与相关 logger 的全局日志级别。"""
     flask_app = target_app or app
     resolved_level = resolve_log_level() if level is None else level
     root_logger = logging.getLogger()
@@ -111,12 +118,12 @@ def configure_app_logging(target_app=None, level: Optional[int] = None) -> int:
 
 LOG_LEVEL = configure_app_logging(app)
 
-# Trust proxy header (applicable to reverse proxy environment)
-# This ensures that Flask correctly recognizes HTTPS requests
+# 信任代理头（适用于反向代理环境）
+# 这确保 Flask 正确识别 HTTPS 请求
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-# CORS support: Enable cross-origin access only for external APIs (/api/external/*)
+# CORS 支持：仅对外部 API (/api/external/*) 启用跨域访问
 @app.after_request
 def add_cors_headers_for_external_api(response):
     if request.path.startswith('/api/external/'):
@@ -132,40 +139,41 @@ token_refresh_run_lock = threading.Lock()
 webdav_backup_run_lock = threading.Lock()
 forwarding_run_lock = threading.Lock()
 proxy_socket_lock = threading.RLock()
+email_share_stable_ids_context = ContextVar('email_share_stable_ids_context', default=False)
 
 
-# Initialize CSRF protection (if available)
+# 初始化 CSRF 保护（如果可用）
 if CSRF_AVAILABLE:
     csrf = CSRFProtect(app)
-    # Configure CSRF
-    app.config['WTF_CSRF_TIME_LIMIT'] = None  # CSRF token does not expire
-    app.config['WTF_CSRF_SSL_STRICT'] = False  # Allow non-HTTPS environments (development environments)
+    # 配置 CSRF
+    app.config['WTF_CSRF_TIME_LIMIT'] = None  # CSRF token 不过期
+    app.config['WTF_CSRF_SSL_STRICT'] = False  # 允许非HTTPS环境（开发环境）
     print("CSRF protection enabled")
 
-    # Create CSRF exclusion decorator
+    # 创建CSRF排除装饰器
     def csrf_exempt(f):
         return csrf.exempt(f)
 else:
     csrf = None
-    # Explicitly disable CSRF protection
+    # 显式禁用CSRF保护
     app.config['WTF_CSRF_ENABLED'] = False
     app.config['WTF_CSRF_CHECK_DEFAULT'] = False
     print("CSRF protection disabled")
 
-    # Create empty decorator
+    # 创建空装饰器
     def csrf_exempt(f):
         return f
 
-# Login password configuration (can be modified to the password you want)
+# 登录密码配置（可以修改为你想要的密码）
 LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "admin123")
 
-# ==================== Configuration ====================
-# Token endpoint
+# ==================== 配置 ====================
+# Token 端点
 TOKEN_URL_LIVE = "https://login.live.com/oauth20_token.srf"
 TOKEN_URL_GRAPH = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 TOKEN_URL_IMAP = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 
-# IMAP server configuration
+# IMAP 服务器配置
 IMAP_SERVER_OLD = "outlook.office365.com"
 IMAP_SERVER_NEW = "outlook.live.com"
 IMAP_PORT = 993
@@ -477,8 +485,8 @@ def build_version_status_payload() -> Dict[str, Any]:
         'latest_release_version': release_version,
         'latest_repository_version': repository_version,
         'status': 'unknown',
-        'badge_label': 'Check failed',
-        'hint': 'Temporarily unable to obtain warehouse version information',
+        'badge_label': '检查失败',
+        'hint': '暂时无法获取仓库版本信息',
         'source': latest_source,
         'update_url': latest_url or CHANGELOG_URL,
         'release_url': snapshot['release_url'] or REPOSITORY_URL,
@@ -490,7 +498,7 @@ def build_version_status_payload() -> Dict[str, Any]:
     }
 
     if current_parts is None:
-        payload['hint'] = f'The current version number {current_version} cannot participate in comparison'
+        payload['hint'] = f'当前版本号 {current_version} 无法参与比较'
         return payload
 
     if not latest_version:
@@ -501,14 +509,14 @@ def build_version_status_payload() -> Dict[str, Any]:
     current_vs_repository = compare_version_labels(current_version, repository_version) if repository_version else None
 
     if current_vs_latest is None:
-        payload['hint'] = f'The current version number {current_version} cannot participate in comparison'
+        payload['hint'] = f'当前版本号 {current_version} 无法参与比较'
         return payload
 
     if current_vs_latest < 0:
         payload['status'] = 'update_available'
-        payload['badge_label'] = 'Updatable'
+        payload['badge_label'] = '可更新'
         if latest_source == 'release':
-            payload['hint'] = f'Found new version {latest_version}'
+            payload['hint'] = f'发现新版本 {latest_version}'
             payload['release_notes'] = build_release_notes_payload(
                 'release',
                 snapshot.get('release_title') or latest_version,
@@ -517,7 +525,7 @@ def build_version_status_payload() -> Dict[str, Any]:
                 latest_version,
             )
         else:
-            payload['hint'] = f'Latest repository version: {latest_version}'
+            payload['hint'] = f'仓库最新版本为 {latest_version}'
         try:
             changelog_release_notes = fetch_changelog_release_notes(latest_version)
             if changelog_release_notes['items']:
@@ -528,30 +536,30 @@ def build_version_status_payload() -> Dict[str, Any]:
 
     if current_vs_release is not None and current_vs_release > 0:
         payload['status'] = 'ahead'
-        payload['badge_label'] = 'Development version'
-        payload['hint'] = 'The current version is higher than the released version'
+        payload['badge_label'] = '开发版'
+        payload['hint'] = '当前版本高于已发布版本'
         payload['update_url'] = CHANGELOG_URL
         return payload
 
     if current_vs_repository is not None and current_vs_repository > 0:
         payload['status'] = 'ahead'
-        payload['badge_label'] = 'Development version'
-        payload['hint'] = 'This version is newer than the main branch'
+        payload['badge_label'] = '开发版'
+        payload['hint'] = '当前版本高于仓库主分支版本'
         payload['update_url'] = CHANGELOG_URL
         return payload
 
     payload['status'] = 'up_to_date'
-    payload['badge_label'] = 'Stable version'
+    payload['badge_label'] = '稳定版'
     if current_vs_release == 0:
-        payload['hint'] = 'Synchronize with warehouse release version'
+        payload['hint'] = '与仓库发布版本同步'
         payload['source'] = 'release'
         payload['update_url'] = CHANGELOG_URL
     elif current_vs_repository == 0:
-        payload['hint'] = 'Up to date with the repository'
+        payload['hint'] = '与仓库当前版本同步'
         payload['source'] = 'repository'
         payload['update_url'] = CHANGELOG_URL
     else:
-        payload['hint'] = 'The current version is the latest'
+        payload['hint'] = '当前版本已是最新'
         payload['update_url'] = CHANGELOG_URL
     return payload
 
@@ -577,6 +585,9 @@ IMAP_IDENTITY_FIELDS = {
 }
 
 MAIL_PROVIDERS = {
+    "icloud": {
+        "label": "iCloud", "imap_host": "imap.mail.me.com", "imap_port": 993, "account_type": "imap",
+    },
     "outlook": {
         "label": "Outlook",
         "imap_host": IMAP_SERVER_NEW,
@@ -590,19 +601,19 @@ MAIL_PROVIDERS = {
         "account_type": "imap",
     },
     "qq": {
-        "label": 'QQ mailbox',
+        "label": "QQ邮箱",
         "imap_host": "imap.qq.com",
         "imap_port": 993,
         "account_type": "imap",
     },
     "163": {
-        "label": '163 Email',
+        "label": "163邮箱",
         "imap_host": "imap.163.com",
         "imap_port": 993,
         "account_type": "imap",
     },
     "126": {
-        "label": '126 mailbox',
+        "label": "126邮箱",
         "imap_host": "imap.126.com",
         "imap_port": 993,
         "account_type": "imap",
@@ -614,19 +625,19 @@ MAIL_PROVIDERS = {
         "account_type": "imap",
     },
     "aliyun": {
-        "label": 'Ali mailbox',
+        "label": "阿里邮箱",
         "imap_host": "imap.aliyun.com",
         "imap_port": 993,
         "account_type": "imap",
     },
     "2925": {
-        "label": 'Email 2925',
+        "label": "2925邮箱",
         "imap_host": "imap.2925.com",
         "imap_port": 993,
         "account_type": "imap",
     },
     "custom": {
-        "label": 'Custom IMAP',
+        "label": "自定义 IMAP",
         "imap_host": "",
         "imap_port": 993,
         "account_type": "imap",
@@ -634,6 +645,7 @@ MAIL_PROVIDERS = {
 }
 
 DOMAIN_PROVIDER_MAP = {
+    "icloud.com": "icloud", "me.com": "icloud", "mac.com": "icloud",
     "outlook.com": "outlook",
     "hotmail.com": "outlook",
     "live.com": "outlook",
@@ -655,8 +667,8 @@ DOMAIN_PROVIDER_MAP = {
 PROVIDER_FOLDER_MAP = {
     "gmail": {
         "inbox": ["INBOX", "Inbox"],
-        "junkemail": ["[Gmail]/Spam", "[Gmail]/\u5783\u573e\u90ae\u4ef6"],
-        "deleteditems": ["[Gmail]/Trash", "[Gmail]/\u5df2\u5220\u9664\u90ae\u4ef6"],
+        "junkemail": ["[Gmail]/Spam", "[Gmail]/垃圾邮件"],
+        "deleteditems": ["[Gmail]/Trash", "[Gmail]/已删除邮件"],
     },
     "qq": {
         "inbox": ["INBOX", "Inbox"],
@@ -691,20 +703,22 @@ PROVIDER_FOLDER_MAP = {
 }
 
 IMAP_FOLDER_MATCH_ALIASES = {
-    "inbox": {"inbox", "\u6536\u4ef6\u7bb1"},
-    "junkemail": {"junk", "junk email", "spam", "bulk mail", "\u5783\u573e\u90ae\u4ef6", "\u5783\u573e\u7bb1"},
-    "deleteditems": {"trash", "deleted", "deleted items", "deleted messages", "\u5df2\u5220\u9664\u90ae\u4ef6", "\u5783\u573e\u7bb1"},
+    "inbox": {"inbox", "收件箱"},
+    "junkemail": {"junk", "junk email", "spam", "bulk mail", "垃圾邮件", "垃圾箱"},
+    "deleteditems": {"trash", "deleted", "deleted items", "deleted messages", "已删除邮件", "垃圾箱"},
 }
 
 FORWARD_CHANNEL_EMAIL = "email"
 FORWARD_CHANNEL_TELEGRAM = "telegram"
 FORWARD_CHANNEL_WECOM = "wecom"
+FORWARD_CHANNEL_FEISHU = "feishu"
 FORWARD_CHANNEL_SMTP_SETTING = "smtp"
 FORWARD_CHANNEL_TG_SETTING = "telegram"
 FORWARD_CHANNEL_WECOM_SETTING = "wecom"
+FORWARD_CHANNEL_FEISHU_SETTING = "feishu"
 SMTP_FORWARD_PROVIDERS = ('outlook', 'qq', '163', '126', 'yahoo', 'aliyun', 'custom')
 
-# Database file
+# 数据库文件
 DATABASE = os.getenv("DATABASE_PATH", str(default_database_path()))
 
 SKIN_CLASSIC_ID = 'classic'
@@ -722,6 +736,7 @@ SKIN_BLOCKED_EXTRA_EXTENSIONS = {
     '.js', '.mjs', '.cjs', '.sh', '.bash', '.zsh', '.py',
     '.html', '.htm', '.exe', '.bat', '.cmd', '.ps1',
 }
+DOMPURIFY_JS_FILE = 'vendor/dompurify/purify.min.js'
 INDEX_CSS_FILES = (
     'css/index/01-base.css',
     'css/index/02-navbar.css',
@@ -731,6 +746,10 @@ INDEX_CSS_FILES = (
     'css/index/06-modals-toast.css',
     'css/index/07-meta.css',
     'css/index/08-responsive.css',
+    'css/index/09-icloud.css',
+    'css/index/forwarding/tokens.css',
+    'css/index/forwarding/base.css',
+    'css/index/10-forwarding.css',
 )
 INDEX_JS_FILES = (
     'js/index/01-core.js',
@@ -745,17 +764,20 @@ INDEX_JS_FILES = (
     'js/index/10-batch-actions.js',
     'js/index/11-email-shares.js',
     'js/index/12-outlook-upload-accounts.js',
+    'js/index/13-projects.js',
+    'js/index/14-icloud.js',
+    'js/index/15-forwarding.js',
 )
 
-# GPTMail API configuration
+# GPTMail API 配置
 GPTMAIL_BASE_URL = os.getenv("GPTMAIL_BASE_URL", "https://mail.chatgpt.org.uk")
-GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # Test API Key, can be modified to official Key
+GPTMAIL_API_KEY = os.getenv("GPTMAIL_API_KEY", "gpt-test")  # 测试 API Key，可以修改为正式 Key
 
-# DuckMail API configuration
+# DuckMail API 配置
 DUCKMAIL_BASE_URL = os.getenv("DUCKMAIL_BASE_URL", "https://api.duckmail.sbs")
-DUCKMAIL_API_KEY = os.getenv("DUCKMAIL_API_KEY", "")  # Optional, dk_ prefix, used for private domain names
+DUCKMAIL_API_KEY = os.getenv("DUCKMAIL_API_KEY", "")  # 可选，dk_ 前缀，用于私有域名
 
-# Cloudflare Temp Email Configuration
+# Cloudflare Temp Email 配置
 CLOUDFLARE_WORKER_DOMAIN = os.getenv("CLOUDFLARE_WORKER_DOMAIN") or os.getenv("WORKER_DOMAIN", "")
 CLOUDFLARE_EMAIL_DOMAINS = os.getenv("CLOUDFLARE_EMAIL_DOMAINS") or os.getenv("EMAIL_DOMAIN", "")
 CLOUDFLARE_ADMIN_PASSWORD = os.getenv("CLOUDFLARE_ADMIN_PASSWORD") or os.getenv("ADMIN_PASSWORD", "")
@@ -765,24 +787,24 @@ CLOUDFLARE_AI_USERNAME_DEFAULT_PROMPT = os.getenv(
     "Return only a JSON array of lowercase usernames. Seed: {seed}",
 )
 
-# Temporary mailbox group ID (reserved by the system)
+# 临时邮箱分组 ID（系统保留）
 TEMP_EMAIL_GROUP_ID = -1
 
-# Export verification Token storage (memory storage, used in single worker mode)
-# Format: {user_session_id: {'token': verify_token, 'expires': timestamp}}
+# 导出验证 Token 存储（内存存储，单 worker 模式下使用）
+# 格式: {user_session_id: {'token': verify_token, 'expires': timestamp}}
 export_verify_tokens = {}
 
-# OAuth configuration
+# OAuth 配置
 OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "9e5f94bc-e8a4-4e73-b8be-63364c29d753")
 OAUTH_REDIRECT_URI = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8080")
-# Graph delegation permissions (reading mail/mail management and sending mail/basic user information)
+# Graph 委托权限（读信 / 邮件管理和发信 / 基本用户信息）
 OAUTH_GRAPH_SCOPES = [
     "https://graph.microsoft.com/Mail.Read",
     "https://graph.microsoft.com/Mail.ReadWrite",
     "https://graph.microsoft.com/Mail.Send",
     "https://graph.microsoft.com/User.Read",
 ]
-# The manual OAuth assistant uses GraphAPI by default (single resource to avoid mixing with IMAP to trigger AADSTS70011)
+# 手动 OAuth 助手默认走 GraphAPI（单资源，避免与 IMAP 混用触发 AADSTS70011）
 OAUTH_SCOPES = [
     "offline_access",
     "https://graph.microsoft.com/Mail.Read",
@@ -792,18 +814,18 @@ OAUTH_SCOPES = [
 ]
 
 OUTLOOK_AUTHORIZATION_TYPES = frozenset({'graph', 'imap'})
-_OUTLOOK_AUTHORIZATION_UNSET_ALIASES = frozenset({'unset', 'unknown', 'none', 'empty', 'Not set', 'Unknown'})
+_OUTLOOK_AUTHORIZATION_UNSET_ALIASES = frozenset({'unset', 'unknown', 'none', 'empty', '未设置', '未知'})
 
 
 def normalize_outlook_authorization_type(value: Any, *, strict: bool = False) -> str:
-    'Normalizes the Outlook OAuth email authorization channel; an empty string means not set.'
+    """规范化 Outlook OAuth 邮件授权通道；空字符串表示未设置。"""
     text = str(value or '').strip().lower()
     if not text or text in _OUTLOOK_AUTHORIZATION_UNSET_ALIASES:
         return ''
     if text in OUTLOOK_AUTHORIZATION_TYPES:
         return text
     if strict:
-        raise ValueError(f'Illegal Outlook authorization type: {value}')
+        raise ValueError(f'非法 Outlook 授权类型: {value}')
     return ''
 
 
@@ -970,19 +992,22 @@ def rank_imap_listed_mailboxes(folder: str, candidates: List[str], available_fol
     return ranked
 
 
-# ==================== Login rate limit ====================
+# ==================== 登录速率限制 ====================
 
-# Store login failure records {ip: {'count': int, 'last_attempt': timestamp, 'locked_until': timestamp}}
+# 存储登录失败记录 {ip: {'count': int, 'last_attempt': timestamp, 'locked_until': timestamp}}
 login_attempts = {}
 
-# Rate limit configuration
-MAX_LOGIN_ATTEMPTS = 5  # Maximum number of failures
-LOCKOUT_DURATION = 300  # Lock duration (seconds) - 5 minutes
-ATTEMPT_WINDOW = 600    # Failure count window (seconds) - 10 minutes
+# 速率限制配置
+MAX_LOGIN_ATTEMPTS = 5  # 最大失败次数
+LOCKOUT_DURATION = 300  # 锁定时长（秒）- 5分钟
+ATTEMPT_WINDOW = 600    # 失败计数窗口（秒）- 10分钟
 
 
 def check_rate_limit(ip: str) -> tuple[bool, Optional[int]]:
-    '\n    Check if the IP is rate limited\n    Return: (whether login is allowed, remaining lock seconds)\n    '
+    """
+    检查 IP 是否被速率限制
+    返回: (是否允许登录, 剩余锁定秒数)
+    """
     current_time = time.time()
 
     if ip not in login_attempts:
@@ -990,20 +1015,20 @@ def check_rate_limit(ip: str) -> tuple[bool, Optional[int]]:
 
     attempt_data = login_attempts[ip]
 
-    # Check if it is within the lock period
+    # 检查是否在锁定期内
     if 'locked_until' in attempt_data and current_time < attempt_data['locked_until']:
         remaining = int(attempt_data['locked_until'] - current_time)
         return False, remaining
 
-    # Check if the failure count has expired
+    # 检查失败计数是否过期
     if current_time - attempt_data.get('last_attempt', 0) > ATTEMPT_WINDOW:
-        # Reset count
+        # 重置计数
         login_attempts[ip] = {'count': 0, 'last_attempt': current_time}
         return True, None
 
-    # Number of check failures
+    # 检查失败次数
     if attempt_data.get('count', 0) >= MAX_LOGIN_ATTEMPTS:
-        # Lock account
+        # 锁定账号
         attempt_data['locked_until'] = current_time + LOCKOUT_DURATION
         remaining = LOCKOUT_DURATION
         return False, remaining
@@ -1012,39 +1037,39 @@ def check_rate_limit(ip: str) -> tuple[bool, Optional[int]]:
 
 
 def record_login_failure(ip: str):
-    'Record login failure'
+    """记录登录失败"""
     current_time = time.time()
 
     if ip not in login_attempts:
         login_attempts[ip] = {'count': 1, 'last_attempt': current_time}
     else:
         attempt_data = login_attempts[ip]
-        # If within window period, increment count
+        # 如果在窗口期内，增加计数
         if current_time - attempt_data.get('last_attempt', 0) <= ATTEMPT_WINDOW:
             attempt_data['count'] = attempt_data.get('count', 0) + 1
         else:
-            # Reset count
+            # 重置计数
             attempt_data['count'] = 1
         attempt_data['last_attempt'] = current_time
 
 
 def reset_login_attempts(ip: str):
-    'Reset login failure record (called when login is successful)'
+    """重置登录失败记录（登录成功时调用）"""
     if ip in login_attempts:
         del login_attempts[ip]
 
 
-# ==================== Password Security Tool ====================
+# ==================== 密码安全工具 ====================
 
 def hash_password(password: str) -> str:
-    'Hashing passwords using bcrypt'
+    """使用 bcrypt 哈希密码"""
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed.decode('utf-8')
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    'Verify that the password matches the hash value'
+    """验证密码是否匹配哈希值"""
     try:
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
     except Exception:
@@ -1052,24 +1077,27 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 def is_password_hashed(password: str) -> bool:
-    'Check if the password is already a bcrypt hash'
+    """检查密码是否已经是 bcrypt 哈希值"""
     return password.startswith('$2b$') or password.startswith('$2a$') or password.startswith('$2y$')
 
 
-# ==================== Data encryption tool ====================
+# ==================== 数据加密工具 ====================
 
-# Global Encryptor Example
+# 全局加密器实例
 _cipher_suite = None
 
 
 def get_encryption_key() -> bytes:
-    '\n    Derive the encryption key from SECRET_KEY\n    Derive 32-byte key from SECRET_KEY using PBKDF2\n    '
+    """
+    从 SECRET_KEY 派生加密密钥
+    使用 PBKDF2 从 SECRET_KEY 派生 32 字节密钥
+    """
     secret_key = resolve_secret_key()
     if not secret_key:
         raise RuntimeError("SECRET_KEY is required for encryption")
 
-    # Use fixed salt (because we need to ensure decryption after restart)
-    # Note: The fixed salt is used here to ensure key consistency, and security depends on the strength of SECRET_KEY
+    # 使用固定盐（因为我们需要确保重启后能解密）
+    # 注意：这里使用固定盐是为了确保密钥一致性，安全性依赖于 SECRET_KEY 的强度
     salt = b'outlook_email_encryption_salt_v1'
 
     kdf = PBKDF2HMAC(
@@ -1083,7 +1111,7 @@ def get_encryption_key() -> bytes:
 
 
 def get_cipher() -> Fernet:
-    'Get the encryptor instance (singleton mode)'
+    """获取加密器实例（单例模式）"""
     global _cipher_suite
     if _cipher_suite is None:
         key = get_encryption_key()
@@ -1092,11 +1120,14 @@ def get_cipher() -> Fernet:
 
 
 def encrypt_data(data: str) -> str:
-    "\n    Encrypt sensitive data\n    Returns a base64-encoded encrypted string, identified by the 'enc:' prefix\n    "
+    """
+    加密敏感数据
+    返回 base64 编码的加密字符串，带有 'enc:' 前缀标识
+    """
     if not data:
         return data
 
-    # If it has been encrypted, return directly
+    # 如果已经加密，直接返回
     if data.startswith('enc:'):
         return data
 
@@ -1106,21 +1137,24 @@ def encrypt_data(data: str) -> str:
 
 
 def decrypt_data(encrypted_data: str) -> str:
-    "\n    Decrypt sensitive data\n    If the data is not encrypted (without 'enc:' prefix), return the original data directly\n    "
+    """
+    解密敏感数据
+    如果数据未加密（没有 'enc:' 前缀），直接返回原始数据
+    """
     if not encrypted_data:
         return encrypted_data
 
-    # If there is no encryption identifier, return the original data (backwards compatible)
+    # 如果没有加密标识，返回原始数据（向后兼容）
     if not encrypted_data.startswith('enc:'):
         return encrypted_data
 
     try:
         cipher = get_cipher()
-        encrypted_bytes = encrypted_data[4:].encode('utf-8')  # Remove 'enc:' prefix
+        encrypted_bytes = encrypted_data[4:].encode('utf-8')  # 移除 'enc:' 前缀
         decrypted = cipher.decrypt(encrypted_bytes)
         return decrypted.decode('utf-8')
     except Exception as e:
-        # Decryption failed, possibly due to key change or data corruption.
+        # 解密失败，可能是密钥变更或数据损坏
         import sys
         error_msg = f"Failed to decrypt data: {str(e)}"
         print(f"[ERROR] {error_msg}", file=sys.stderr)
@@ -1130,11 +1164,11 @@ def decrypt_data(encrypted_data: str) -> str:
 
 
 def is_encrypted(data: str) -> bool:
-    'Check if the data is encrypted'
+    """检查数据是否已加密"""
     return data and data.startswith('enc:')
 
 
-# ==================== Error handling tools ====================
+# ==================== 错误处理工具 ====================
 
 def generate_trace_id() -> str:
     return uuid.uuid4().hex
@@ -1202,10 +1236,10 @@ def get_response_details(response: requests.Response) -> Any:
         return response.text or response.reason
 
 
-# ==================== Database operations ====================
+# ==================== 数据库操作 ====================
 
 def get_db():
-    'Get database connection'
+    """获取数据库连接"""
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE)
@@ -1216,7 +1250,7 @@ def get_db():
 
 @app.teardown_appcontext
 def close_connection(exception):
-    'Close database connection'
+    """关闭数据库连接"""
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
@@ -1232,7 +1266,7 @@ def get_index_columns(cursor, index_name: str) -> List[str]:
 
 def ensure_index_columns(cursor, index_name: str, table_name: str,
                          expected_columns: List[str], create_sql: str) -> None:
-    '\u4ec5\u5f53\u7d22\u5f15\u7f3a\u5931\u6216\u5217\u987a\u5e8f\u53d8\u5316\u65f6\u91cd\u5efa\u7d22\u5f15，\u907f\u514d\u6bcf\u6b21\u542f\u52a8\u90fd DROP/CREATE。'
+    """仅当索引缺失或列顺序变化时重建索引，避免每次启动都 DROP/CREATE。"""
     indexes = {
         row[1]
         for row in cursor.execute(f'PRAGMA index_list({table_name})').fetchall()
@@ -1244,7 +1278,7 @@ def ensure_index_columns(cursor, index_name: str, table_name: str,
 
 
 def normalize_group_sort_orders_on_startup(cursor) -> None:
-    'Normalize the grouping order at startup, but retain the existing custom order.'
+    """启动时归一化分组顺序，但保留已有自定义顺序。"""
     cursor.execute(
         '''
         SELECT DISTINCT parent_id
@@ -1262,15 +1296,27 @@ def normalize_group_sort_orders_on_startup(cursor) -> None:
             params = (parent_id,)
 
         cursor.execute(
-            f"\n            SELECT id, name, sort_order\n            FROM groups\n            WHERE {parent_filter}\n            ORDER BY\n                CASE WHEN name = '\u4e34\u65f6\u90ae\u7bb1' THEN 0 ELSE 1 END,\n                CASE\n                    WHEN name = '\u4e34\u65f6\u90ae\u7bb1' THEN 0\n                    WHEN COALESCE(sort_order, 0) > 0 THEN sort_order\n                    ELSE 2147483647\n                END,\n                id\n            ",
+            f'''
+            SELECT id, name, sort_order
+            FROM groups
+            WHERE {parent_filter}
+            ORDER BY
+                CASE WHEN name = '临时邮箱' THEN 0 ELSE 1 END,
+                CASE
+                    WHEN name = '临时邮箱' THEN 0
+                    WHEN COALESCE(sort_order, 0) > 0 THEN sort_order
+                    ELSE 2147483647
+                END,
+                id
+            ''',
             params
         )
         group_rows = cursor.fetchall()
 
         next_sort_order = 1
         for group_id, group_name, sort_order in group_rows:
-            target_sort_order = 0 if group_name == '\u4e34\u65f6\u90ae\u7bb1' else next_sort_order
-            if group_name != '\u4e34\u65f6\u90ae\u7bb1':
+            target_sort_order = 0 if group_name == '临时邮箱' else next_sort_order
+            if group_name != '临时邮箱':
                 next_sort_order += 1
             if sort_order != target_sort_order:
                 cursor.execute(
@@ -1279,17 +1325,21 @@ def normalize_group_sort_orders_on_startup(cursor) -> None:
                 )
 
     cursor.execute(
-        "\n        UPDATE groups\n        SET parent_id = NULL, level = 1\n        WHERE name = '\u4e34\u65f6\u90ae\u7bb1' OR is_system = 1\n        "
+        '''
+        UPDATE groups
+        SET parent_id = NULL, level = 1
+        WHERE name = '临时邮箱' OR is_system = 1
+        '''
     )
 
 
 def init_db():
-    'Initialize database'
+    """初始化数据库"""
     conn = sqlite3.connect(DATABASE)
     conn.execute('PRAGMA foreign_keys = ON')
     cursor = conn.cursor()
     
-    # Create settings table
+    # 创建设置表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -1298,7 +1348,7 @@ def init_db():
         )
     ''')
     
-    # Create grouping table
+    # 创建分组表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS groups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1314,7 +1364,7 @@ def init_db():
         )
     ''')
     
-    # Create email account table
+    # 创建邮箱账号表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1324,11 +1374,13 @@ def init_db():
             refresh_token TEXT DEFAULT '',
             group_id INTEGER,
             sort_order INTEGER DEFAULT 0,
+            manual_sort_order INTEGER,
             remark TEXT,
             status TEXT DEFAULT 'active',
             account_type TEXT DEFAULT 'outlook',
             provider TEXT DEFAULT 'outlook',
             authorization_type TEXT NOT NULL DEFAULT '',
+            graph_token_scope TEXT NOT NULL DEFAULT '',
             imap_host TEXT,
             imap_port INTEGER DEFAULT 993,
             imap_password TEXT,
@@ -1338,8 +1390,10 @@ def init_db():
             fallback_proxy_url_1 TEXT DEFAULT '',
             fallback_proxy_url_2 TEXT DEFAULT '',
             last_refresh_at TIMESTAMP,
+            last_refresh_success_at TIMESTAMP,
             last_refresh_status TEXT DEFAULT 'never',
             last_refresh_error TEXT,
+            last_refresh_token_rotated INTEGER,
             refresh_token_updated_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1347,7 +1401,7 @@ def init_db():
         )
     ''')
     
-    # Create a temporary mailbox table
+    # 创建临时邮箱表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS temp_emails (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1447,7 +1501,7 @@ def init_db():
         ON cloudflare_channels(LOWER(name))
     ''')
     
-    # Create a temporary mail table (to store emails obtained from GPTMail)
+    # 创建临时邮件表（存储从 GPTMail 获取的邮件）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS temp_email_messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1465,7 +1519,7 @@ def init_db():
         )
     ''')
 
-    # Create account refresh record table
+    # 创建账号刷新记录表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS account_refresh_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1474,10 +1528,16 @@ def init_db():
             refresh_type TEXT DEFAULT 'manual',
             status TEXT NOT NULL,
             error_message TEXT,
+            token_rotated INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )
     ''')
+
+    cursor.execute('PRAGMA table_info(account_refresh_logs)')
+    refresh_log_columns = [column[1] for column in cursor.fetchall()]
+    if 'token_rotated' not in refresh_log_columns:
+        cursor.execute('ALTER TABLE account_refresh_logs ADD COLUMN token_rotated INTEGER')
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS token_refresh_state (
@@ -1506,8 +1566,36 @@ def init_db():
         )
     ''')
 
-    # Create a local retention mail table for ordinary mailboxes (list metadata + cached text)
-    cursor.execute("\n        CREATE TABLE IF NOT EXISTS retained_normal_mail_messages (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            account_id INTEGER NOT NULL,\n            folder TEXT NOT NULL DEFAULT 'inbox',\n            provider_message_id TEXT NOT NULL,\n            id_mode TEXT NOT NULL DEFAULT '',\n            subject TEXT DEFAULT '\u65e0\u4e3b\u9898',\n            sender TEXT DEFAULT '\u672a\u77e5',\n            recipients TEXT DEFAULT '',\n            cc TEXT DEFAULT '',\n            received_at TEXT DEFAULT '',\n            received_at_sort REAL DEFAULT 0,\n            is_read INTEGER NOT NULL DEFAULT 0,\n            has_attachments INTEGER NOT NULL DEFAULT 0,\n            body_preview TEXT DEFAULT '',\n            body TEXT,\n            body_type TEXT DEFAULT 'text',\n            attachments_json TEXT DEFAULT '[]',\n            list_cached INTEGER NOT NULL DEFAULT 1,\n            body_cached INTEGER NOT NULL DEFAULT 0,\n            list_cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n            body_cached_at TIMESTAMP,\n            last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n            FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE\n        )\n    ")
+    # 创建普通邮箱本地保留邮件表（列表元数据 + 已缓存正文）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS retained_normal_mail_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL,
+            folder TEXT NOT NULL DEFAULT 'inbox',
+            provider_message_id TEXT NOT NULL,
+            id_mode TEXT NOT NULL DEFAULT '',
+            subject TEXT DEFAULT '无主题',
+            sender TEXT DEFAULT '未知',
+            recipients TEXT DEFAULT '',
+            cc TEXT DEFAULT '',
+            received_at TEXT DEFAULT '',
+            received_at_sort REAL DEFAULT 0,
+            is_read INTEGER NOT NULL DEFAULT 0,
+            has_attachments INTEGER NOT NULL DEFAULT 0,
+            body_preview TEXT DEFAULT '',
+            body TEXT,
+            body_type TEXT DEFAULT 'text',
+            attachments_json TEXT DEFAULT '[]',
+            list_cached INTEGER NOT NULL DEFAULT 1,
+            body_cached INTEGER NOT NULL DEFAULT 0,
+            list_cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            body_cached_at TIMESTAMP,
+            last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+        )
+    ''')
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS forwarding_logs (
@@ -1529,8 +1617,12 @@ def init_db():
             account_id INTEGER NOT NULL,
             token_hash TEXT UNIQUE NOT NULL,
             token_encrypted TEXT NOT NULL,
+            access_code_hash TEXT,
             expires_at TIMESTAMP,
             never_expires INTEGER NOT NULL DEFAULT 0,
+            max_email_count INTEGER CHECK (
+                max_email_count IS NULL OR (max_email_count BETWEEN 1 AND 50)
+            ),
             revoked_at TIMESTAMP,
             last_accessed_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1546,8 +1638,14 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_email_share_links_status
         ON email_share_links(revoked_at, expires_at, never_expires)
     ''')
+    cursor.execute("PRAGMA table_info(email_share_links)")
+    email_share_columns = [col[1] for col in cursor.fetchall()]
+    if 'max_email_count' not in email_share_columns:
+        cursor.execute('ALTER TABLE email_share_links ADD COLUMN max_email_count INTEGER')
+    if 'access_code_hash' not in email_share_columns:
+        cursor.execute('ALTER TABLE email_share_links ADD COLUMN access_code_hash TEXT')
 
-    # Create audit log table
+    # 创建审计日志表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1560,7 +1658,7 @@ def init_db():
         )
     ''')
 
-    # Create tag table
+    # 创建标签表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tags (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1570,7 +1668,7 @@ def init_db():
         )
     ''')
 
-    # Create account tag association table
+    # 创建账号标签关联表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS account_tags (
             account_id INTEGER NOT NULL,
@@ -1582,7 +1680,7 @@ def init_db():
         )
     ''')
 
-    # Create a temporary mailbox label association table
+    # 创建临时邮箱标签关联表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS temp_email_tags (
             temp_email_id INTEGER NOT NULL,
@@ -1594,7 +1692,7 @@ def init_db():
         )
     ''')
 
-    # Create account alias table
+    # 创建账号别名表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS account_aliases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1606,7 +1704,7 @@ def init_db():
         )
     ''')
 
-    # Create project table
+    # 创建项目表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1622,7 +1720,7 @@ def init_db():
         )
     ''')
 
-    # Create project grouping range table
+    # 创建项目分组范围表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS project_group_scopes (
             project_id INTEGER NOT NULL,
@@ -1632,7 +1730,7 @@ def init_db():
         )
     ''')
 
-    # Create project account relationship table
+    # 创建项目账号关系表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS project_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1660,7 +1758,7 @@ def init_db():
         )
     ''')
 
-    # Create project account event table
+    # 创建项目账号事件表
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS project_account_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1704,7 +1802,7 @@ def init_db():
         ON project_account_events(project_id, created_at)
     ''')
 
-    # Externally uploaded Outlook account temporary table (account/password/authorization, independent of accounts)
+    # 外部上传的 Outlook 账号暂存表（账号/密码/是否授权，独立于 accounts）
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS outlook_upload_accounts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1734,7 +1832,7 @@ def init_db():
     if 'tag_ids' not in upload_columns:
         cursor.execute("ALTER TABLE outlook_upload_accounts ADD COLUMN tag_ids TEXT DEFAULT ''")
 
-    # Check and add missing columns (database migration)
+    # 检查并添加缺失的列（数据库迁移）
     cursor.execute("PRAGMA table_info(accounts)")
     columns = [col[1] for col in cursor.fetchall()]
 
@@ -1742,6 +1840,8 @@ def init_db():
         cursor.execute('ALTER TABLE accounts ADD COLUMN group_id INTEGER DEFAULT 1')
     if 'sort_order' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 0')
+    if 'manual_sort_order' not in columns:
+        cursor.execute('ALTER TABLE accounts ADD COLUMN manual_sort_order INTEGER')
     if 'remark' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN remark TEXT')
     if 'status' not in columns:
@@ -1754,6 +1854,24 @@ def init_db():
         cursor.execute("ALTER TABLE accounts ADD COLUMN last_refresh_status TEXT DEFAULT 'never'")
     if 'last_refresh_error' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN last_refresh_error TEXT')
+    if 'last_refresh_token_rotated' not in columns:
+        cursor.execute('ALTER TABLE accounts ADD COLUMN last_refresh_token_rotated INTEGER')
+    if 'last_refresh_success_at' not in columns:
+        cursor.execute('ALTER TABLE accounts ADD COLUMN last_refresh_success_at TIMESTAMP')
+        cursor.execute('''
+            UPDATE accounts
+            SET last_refresh_success_at = (
+                SELECT MAX(l.created_at)
+                FROM account_refresh_logs l
+                WHERE l.account_id = accounts.id AND l.status = 'success'
+            )
+        ''')
+        cursor.execute('''
+            UPDATE accounts
+            SET last_refresh_success_at = last_refresh_at
+            WHERE last_refresh_status = 'success' AND last_refresh_at IS NOT NULL
+              AND (last_refresh_success_at IS NULL OR last_refresh_at > last_refresh_success_at)
+        ''')
     if 'refresh_token_updated_at' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN refresh_token_updated_at TIMESTAMP')
     if 'account_type' not in columns:
@@ -1762,6 +1880,8 @@ def init_db():
         cursor.execute("ALTER TABLE accounts ADD COLUMN provider TEXT DEFAULT 'outlook'")
     if 'authorization_type' not in columns:
         cursor.execute("ALTER TABLE accounts ADD COLUMN authorization_type TEXT NOT NULL DEFAULT ''")
+    if 'graph_token_scope' not in columns:
+        cursor.execute("ALTER TABLE accounts ADD COLUMN graph_token_scope TEXT NOT NULL DEFAULT ''")
     if 'imap_host' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN imap_host TEXT')
     if 'imap_port' not in columns:
@@ -1779,7 +1899,7 @@ def init_db():
     if 'fallback_proxy_url_2' not in columns:
         cursor.execute('ALTER TABLE accounts ADD COLUMN fallback_proxy_url_2 TEXT')
     
-    # Check whether the groups table has an is_system column
+    # 检查 groups 表是否有 is_system 列
     cursor.execute("PRAGMA table_info(groups)")
     group_columns = [col[1] for col in cursor.fetchall()]
     if 'sort_order' not in group_columns:
@@ -1803,7 +1923,7 @@ def init_db():
         WHERE parent_id IS NULL
     ''')
 
-    # Check whether the temp_emails table has DuckMail related columns
+    # 检查 temp_emails 表是否有 DuckMail 相关列
     cursor.execute("PRAGMA table_info(temp_emails)")
     temp_columns = [col[1] for col in cursor.fetchall()]
     if 'provider' not in temp_columns:
@@ -1825,6 +1945,17 @@ def init_db():
     retained_normal_mail_columns = {row[1] for row in cursor.fetchall()}
     if 'received_at_sort' not in retained_normal_mail_columns:
         cursor.execute('ALTER TABLE retained_normal_mail_messages ADD COLUMN received_at_sort REAL DEFAULT 0')
+
+    if not cursor.execute("SELECT 1 FROM settings WHERE key = 'imap_uid_identity_cache_migrated'").fetchone():
+        # 旧 IMAP 缓存可能已错配：失效后重新同步，保留原始正文记录供恢复。
+        cursor.execute('''
+            UPDATE retained_normal_mail_messages
+            SET list_cached = 0, body_cached = 0, body_preview = ''
+            WHERE id_mode = 'sequence'
+               OR (id_mode = 'uid' AND provider_message_id NOT LIKE 'imap:%')
+               OR (id_mode = '' AND account_id IN (SELECT id FROM accounts WHERE account_type = 'imap'))
+        ''')
+        cursor.execute("INSERT INTO settings (key, value) VALUES ('imap_uid_identity_cache_migrated', '1')")
 
     cursor.execute("PRAGMA table_info(project_accounts)")
     project_account_columns = [col[1] for col in cursor.fetchall()]
@@ -1900,23 +2031,29 @@ def init_db():
         if 'created_at' not in project_event_columns:
             cursor.execute('ALTER TABLE project_account_events ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
     
-    # Create default group
-    cursor.execute("\n        INSERT OR IGNORE INTO groups (name, description, color)\n        VALUES ('\u9ed8\u8ba4\u5206\u7ec4', '\u672a\u5206\u7ec4\u7684\u90ae\u7bb1', '#666666')\n    ")
+    # 创建默认分组
+    cursor.execute('''
+        INSERT OR IGNORE INTO groups (name, description, color)
+        VALUES ('默认分组', '未分组的邮箱', '#666666')
+    ''')
     
-    # Create temporary mailbox group (system group)
-    cursor.execute("\n        INSERT OR IGNORE INTO groups (name, description, color, is_system)\n        VALUES ('\u4e34\u65f6\u90ae\u7bb1', 'GPTMail \u4e34\u65f6\u90ae\u7bb1\u670d\u52a1', '#00bcf2', 1)\n    ")
-    cursor.execute("UPDATE groups SET parent_id = NULL, level = 1 WHERE name IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+    # 创建临时邮箱分组（系统分组）
+    cursor.execute('''
+        INSERT OR IGNORE INTO groups (name, description, color, is_system)
+        VALUES ('临时邮箱', 'GPTMail 临时邮箱服务', '#00bcf2', 1)
+    ''')
+    cursor.execute("UPDATE groups SET parent_id = NULL, level = 1 WHERE name IN ('默认分组', '临时邮箱')")
 
-    # Normalized group sorting value, the temporary mailbox is fixed at the front, and other groups retain their relative order.
+    # 归一化分组排序值，临时邮箱固定在最前，其他分组保留已有相对顺序。
     normalize_group_sort_orders_on_startup(cursor)
     
-    # Initialize default settings
-    # Check if a password has been set
+    # 初始化默认设置
+    # 检查是否已有密码设置
     cursor.execute("SELECT value FROM settings WHERE key = 'login_password'")
     existing_password = cursor.fetchone()
 
     if existing_password:
-        # If password exists but in clear text, migrate to hash
+        # 如果存在密码但是明文，则迁移为哈希
         password_value = existing_password[0]
         if not is_password_hashed(password_value):
             hashed_password = hash_password(password_value)
@@ -1924,7 +2061,7 @@ def init_db():
                 UPDATE settings SET value = ? WHERE key = 'login_password'
             ''', (hashed_password,))
     else:
-        # First initialization, hashed default password
+        # 首次初始化，哈希默认密码
         hashed_password = hash_password(LOGIN_PASSWORD)
         cursor.execute('''
             INSERT INTO settings (key, value)
@@ -2032,7 +2169,7 @@ def init_db():
         )
 
 
-    # Initialize refresh configuration
+    # 初始化刷新配置
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
         VALUES ('refresh_interval_days', '30')
@@ -2187,6 +2324,14 @@ def init_db():
     ''')
     cursor.execute('''
         INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('feishu_webhook_url', '')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('feishu_sign_secret', '')
+    ''')
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (key, value)
         VALUES ('webdav_backup_enabled', 'false')
     ''')
     cursor.execute('''
@@ -2222,7 +2367,7 @@ def init_db():
         VALUES ('webdav_backup_last_filename', '')
     ''')
 
-    # Create indexes to optimize query performance
+    # 创建索引以优化查询性能
     cursor.execute('''
         CREATE INDEX IF NOT EXISTS idx_accounts_last_refresh_at
         ON accounts(last_refresh_at)
@@ -2407,11 +2552,21 @@ def init_db():
         ON account_aliases(alias_email)
     ''')
 
-    # Backfill history preserves the normalized sorting time of emails and keeps the paging order stable after the old database is upgraded.
+    # 回填历史保留邮件的规范化排序时间，保持旧数据库升级后分页顺序稳定。
     backfill_retained_normal_mail_received_at_sort(conn)
 
-    # Migrate existing plaintext data to encrypted data
+    # 迁移现有明文数据为加密数据
     migrate_sensitive_data(conn)
+
+    from outlook_web.icloud_store import init_icloud_schema
+    init_icloud_schema(conn)
+
+    try:
+        forwarding_store.init_schema(conn, encrypt_data, decrypt_data)
+    except Exception:
+        conn.rollback()
+        conn.close()
+        raise
 
     conn.commit()
     conn.close()
@@ -2419,7 +2574,7 @@ def init_db():
 
 
 def backfill_retained_normal_mail_received_at_sort(conn) -> int:
-    'Backfills sortable timestamps for old retained message lines; transaction commit is the responsibility of the caller.'
+    """为旧保留邮件行回填可排序时间戳；事务提交由调用方负责。"""
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -2448,10 +2603,10 @@ def backfill_retained_normal_mail_received_at_sort(conn) -> int:
     return len(updates)
 
 def migrate_sensitive_data(conn):
-    'Migrate existing plaintext sensitive data to encrypted data'
+    """迁移现有明文敏感数据为加密数据"""
     cursor = conn.cursor()
 
-    # Get all accounts
+    # 获取所有账号
     cursor.execute('SELECT id, password, refresh_token FROM accounts')
     accounts = cursor.fetchall()
 
@@ -2461,17 +2616,17 @@ def migrate_sensitive_data(conn):
         new_password = password
         new_refresh_token = refresh_token
 
-        # Check and encrypt password
+        # 检查并加密 password
         if password and not is_encrypted(password):
             new_password = encrypt_data(password)
             needs_update = True
 
-        # Check and encrypt refresh_token
+        # 检查并加密 refresh_token
         if refresh_token and not is_encrypted(refresh_token):
             new_refresh_token = encrypt_data(refresh_token)
             needs_update = True
 
-        # Update database
+        # 更新数据库
         if needs_update:
             cursor.execute('''
                 UPDATE accounts
@@ -2481,39 +2636,39 @@ def migrate_sensitive_data(conn):
             migrated_count += 1
 
     if migrated_count > 0:
-        print(f'Sensitive data of {migrated_count} accounts have been migrated to encrypted storage')
+        print(f"已迁移 {migrated_count} 个账号的敏感数据为加密存储")
 
 
-# ==================== Application initialization ====================
+# ==================== 应用初始化 ====================
 
 def init_app():
-    'Initialize the application (make sure the directory and database exist)'
-    # Make sure the data directory exists
+    """初始化应用（确保目录和数据库存在）"""
+    # 确保数据目录存在
     data_dir = os.path.dirname(DATABASE)
     if data_dir:
         os.makedirs(data_dir, exist_ok=True)
     
-    # Initialize database
+    # 初始化数据库
     init_db()
     
     print("=" * 60)
-    print('Outlook Mail Web App initialized')
-    print(f'Database file: {DATABASE}')
-    print(f'Running directory: {runtime_root()}')
+    print("Outlook 邮件 Web 应用已初始化")
+    print(f"数据库文件: {DATABASE}")
+    print(f"运行目录: {runtime_root()}")
     print(f"GPTMail API: {GPTMAIL_BASE_URL}")
     print(f"DuckMail API: {DUCKMAIL_BASE_URL}")
-    print(f"Cloudflare Temp Email Worker: {CLOUDFLARE_WORKER_DOMAIN or 'Not configured'}")
+    print(f"Cloudflare Temp Email Worker: {CLOUDFLARE_WORKER_DOMAIN or '未配置'}")
     print("=" * 60)
 
 
-# Initialize the application when the module is loaded
+# 在模块加载时初始化应用
 init_app()
 
 
-# ==================== Setting operation ====================
+# ==================== 设置操作 ====================
 
 def get_setting(key: str, default: str = '') -> str:
-    'Get setting value'
+    """获取设置值"""
     db = get_db()
     cursor = db.execute('SELECT value FROM settings WHERE key = ?', (key,))
     row = cursor.fetchone()
@@ -2521,7 +2676,7 @@ def get_setting(key: str, default: str = '') -> str:
 
 
 def set_setting(key: str, value: str) -> bool:
-    'Setting value'
+    """设置值"""
     db = get_db()
     try:
         db.execute('''
@@ -2589,7 +2744,7 @@ def get_app_timezone_info():
 
 
 def get_all_settings() -> Dict[str, str]:
-    'Get all settings'
+    """获取所有设置"""
     db = get_db()
     cursor = db.execute('SELECT key, value FROM settings')
     rows = cursor.fetchall()
@@ -2597,7 +2752,7 @@ def get_all_settings() -> Dict[str, str]:
 
 
 def parse_mail_fetch_timeout_seconds(value: Any) -> Optional[int]:
-    'Parse the user-configured email acquisition timeout seconds.'
+    """解析用户配置的邮件获取超时秒数。"""
     try:
         seconds = int(str(value).strip())
     except (TypeError, ValueError):
@@ -2608,7 +2763,7 @@ def parse_mail_fetch_timeout_seconds(value: Any) -> Optional[int]:
 
 
 def normalize_mail_fetch_timeout_seconds(value: Any, default: int = MAIL_FETCH_TIMEOUT_DEFAULT_SECONDS) -> int:
-    'Limit mail retrieval timeout seconds to a safe range.'
+    """将邮件获取超时秒数限制在安全范围内。"""
     try:
         seconds = int(str(value).strip())
     except (TypeError, ValueError):
@@ -2617,7 +2772,7 @@ def normalize_mail_fetch_timeout_seconds(value: Any, default: int = MAIL_FETCH_T
 
 
 def get_mail_fetch_timeout_seconds() -> int:
-    'Read the current email to obtain the overall timeout seconds. System settings are used first and are compatible with environment variables.'
+    """读取当前邮件获取整体超时秒数，优先使用系统设置，兼容环境变量。"""
     configured_value = ''
     if has_app_context():
         configured_value = str(get_setting(MAIL_FETCH_TIMEOUT_SETTING_KEY, '') or '').strip()
@@ -2628,10 +2783,10 @@ def get_mail_fetch_timeout_seconds() -> int:
     )
 
 
-# ==================== Skin Management ====================
+# ==================== 皮肤管理 ====================
 
 class SkinValidationError(ValueError):
-    'Skin package format or security verification failed.'
+    """皮肤包格式或安全校验失败。"""
 
 
 def normalize_skin_id(value: str) -> str:
@@ -2648,31 +2803,31 @@ def get_skin_data_root() -> Path:
 def get_skin_source_root(source_type: str) -> Path:
     normalized_source = str(source_type or '').strip().lower()
     if normalized_source not in (SKIN_SOURCE_UPLOAD, SKIN_SOURCE_GIT):
-        raise SkinValidationError('Invalid skin source type')
+        raise SkinValidationError('皮肤来源类型无效')
     root = get_skin_data_root() / normalized_source
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
-def safe_skin_relative_path(value: str, field_name: str = 'Path') -> Path:
+def safe_skin_relative_path(value: str, field_name: str = '路径') -> Path:
     raw_value = str(value or '').strip().replace('\\', '/')
     if not raw_value:
-        raise SkinValidationError(f'{field_name} cannot be empty')
+        raise SkinValidationError(f'{field_name}不能为空')
 
     posix_path = PurePosixPath(raw_value)
     if posix_path.is_absolute():
-        raise SkinValidationError(f'{field_name} cannot be an absolute path')
+        raise SkinValidationError(f'{field_name}不能是绝对路径')
     if any(part in ('', '.', '..') for part in posix_path.parts):
-        raise SkinValidationError(f'{field_name} cannot contain path crossing')
+        raise SkinValidationError(f'{field_name}不能包含路径穿越')
 
     return Path(*posix_path.parts)
 
 
-def resolve_skin_package_file(package_dir: Path, relative_path: str, field_name: str = 'Path') -> Path:
+def resolve_skin_package_file(package_dir: Path, relative_path: str, field_name: str = '路径') -> Path:
     base_dir = Path(package_dir).resolve()
     candidate = (base_dir / safe_skin_relative_path(relative_path, field_name)).resolve()
     if os.path.commonpath([str(base_dir), str(candidate)]) != str(base_dir):
-        raise SkinValidationError(f'{field_name} cannot point outside the skin package directory')
+        raise SkinValidationError(f'{field_name}不能指向皮肤包目录外')
     return candidate
 
 
@@ -2700,6 +2855,10 @@ def get_frontend_asset_hash() -> str:
     return compute_static_assets_hash(INDEX_CSS_FILES + INDEX_JS_FILES)
 
 
+def get_dompurify_asset_hash() -> str:
+    return compute_static_assets_hash((DOMPURIFY_JS_FILE,))
+
+
 def get_builtin_editorial_skin_css_path() -> Path:
     return Path(app.static_folder) / 'css' / 'editorial.css'
 
@@ -2716,12 +2875,12 @@ def read_skin_json(path: Path) -> Dict[str, Any]:
         with Path(path).open('r', encoding='utf-8') as file_obj:
             payload = json.load(file_obj)
     except json.JSONDecodeError as exc:
-        raise SkinValidationError(f'skin.json format is invalid: {exc}') from exc
+        raise SkinValidationError(f'skin.json 格式无效: {exc}') from exc
     except OSError as exc:
-        raise SkinValidationError(f'Failed to read skin.json: {exc}') from exc
+        raise SkinValidationError(f'读取 skin.json 失败: {exc}') from exc
 
     if not isinstance(payload, dict):
-        raise SkinValidationError('skin.json must be a JSON object')
+        raise SkinValidationError('skin.json 必须是 JSON 对象')
     return payload
 
 
@@ -2729,9 +2888,9 @@ def validate_skin_file_size(path: Path, max_bytes: int, label: str) -> None:
     try:
         size = Path(path).stat().st_size
     except OSError as exc:
-        raise SkinValidationError(f'{label} cannot be read: {exc}') from exc
+        raise SkinValidationError(f'{label}不可读取: {exc}') from exc
     if size > max_bytes:
-        raise SkinValidationError(f'{label} exceeds size limit')
+        raise SkinValidationError(f'{label}超过大小限制')
 
 
 def validate_skin_extra_files(package_dir: Path, allowed_paths: set[str]) -> None:
@@ -2745,64 +2904,64 @@ def validate_skin_extra_files(package_dir: Path, allowed_paths: set[str]) -> Non
         if file_path.name == SKIN_METADATA_FILENAME:
             continue
         if suffix in SKIN_BLOCKED_EXTRA_EXTENSIONS:
-            raise SkinValidationError(f'Skin pack contains disallowed file types: {relative}')
+            raise SkinValidationError(f'皮肤包包含不允许的文件类型: {relative}')
         if relative in allowed_paths:
             continue
         if suffix == '.css':
-            validate_skin_file_size(file_path, SKIN_MAX_CSS_BYTES, f'CSS file {relative}')
+            validate_skin_file_size(file_path, SKIN_MAX_CSS_BYTES, f'CSS 文件 {relative}')
             continue
         if suffix in SKIN_ALLOWED_PREVIEW_EXTENSIONS:
-            validate_skin_file_size(file_path, SKIN_MAX_PREVIEW_BYTES, f'Image file {relative}')
+            validate_skin_file_size(file_path, SKIN_MAX_PREVIEW_BYTES, f'图片文件 {relative}')
             continue
         if (
             suffix in ('.md', '.txt')
             or file_path.name.upper() in ('README', 'LICENSE')
             or file_path.name in ('.gitignore', '.gitattributes')
         ):
-            validate_skin_file_size(file_path, SKIN_MAX_PREVIEW_BYTES, f'Description file {relative}')
+            validate_skin_file_size(file_path, SKIN_MAX_PREVIEW_BYTES, f'说明文件 {relative}')
             continue
-        raise SkinValidationError(f'The skin package contains unsupported files: {relative}')
+        raise SkinValidationError(f'皮肤包包含不支持的文件: {relative}')
 
 
 def validate_skin_package_directory(package_dir: Path) -> Dict[str, Any]:
     base_dir = Path(package_dir).resolve()
     manifest_path = base_dir / SKIN_MANIFEST_FILENAME
     if not manifest_path.is_file():
-        raise SkinValidationError('The skin package is missing skin.json')
+        raise SkinValidationError('皮肤包缺少 skin.json')
 
     manifest = read_skin_json(manifest_path)
     skin_id = normalize_skin_id(manifest.get('id'))
     if not skin_id:
-        raise SkinValidationError('The id of skin.json can only contain lowercase letters, numbers, underscores and dashes')
+        raise SkinValidationError('skin.json 的 id 只能包含小写字母、数字、下划线和短横线')
     if skin_id == SKIN_CLASSIC_ID:
-        raise SkinValidationError('classic is a built-in skin ID and cannot be used for custom skins')
+        raise SkinValidationError('classic 是内置皮肤 ID，不能用于自定义皮肤')
 
     name = str(manifest.get('name') or '').strip()
     version = str(manifest.get('version') or '').strip()
     entry = str(manifest.get('entry') or '').strip()
     if not name:
-        raise SkinValidationError('skin.json is missing name')
+        raise SkinValidationError('skin.json 缺少 name')
     if not version:
-        raise SkinValidationError('skin.json missing version')
+        raise SkinValidationError('skin.json 缺少 version')
     if not entry:
-        raise SkinValidationError('skin.json is missing entry')
+        raise SkinValidationError('skin.json 缺少 entry')
     if Path(entry).suffix.lower() != '.css':
-        raise SkinValidationError('entry must point to the CSS file')
+        raise SkinValidationError('entry 必须指向 CSS 文件')
 
     entry_path = resolve_skin_package_file(base_dir, entry, 'entry')
     if not entry_path.is_file():
-        raise SkinValidationError('The CSS file pointed to by entry does not exist')
-    validate_skin_file_size(entry_path, SKIN_MAX_CSS_BYTES, 'CSS files')
+        raise SkinValidationError('entry 指向的 CSS 文件不存在')
+    validate_skin_file_size(entry_path, SKIN_MAX_CSS_BYTES, 'CSS 文件')
 
     preview = str(manifest.get('preview') or '').strip()
     preview_path = None
     if preview:
         if Path(preview).suffix.lower() not in SKIN_ALLOWED_PREVIEW_EXTENSIONS:
-            raise SkinValidationError('preview must be a png, jpg, gif or webp image')
+            raise SkinValidationError('preview 必须是 png、jpg、gif 或 webp 图片')
         preview_path = resolve_skin_package_file(base_dir, preview, 'preview')
         if not preview_path.is_file():
-            raise SkinValidationError('The image file pointed to by preview does not exist')
-        validate_skin_file_size(preview_path, SKIN_MAX_PREVIEW_BYTES, 'Preview')
+            raise SkinValidationError('preview 指向的图片文件不存在')
+        validate_skin_file_size(preview_path, SKIN_MAX_PREVIEW_BYTES, '预览图')
 
     allowed_paths = {
         SKIN_MANIFEST_FILENAME,
@@ -2846,9 +3005,9 @@ def build_builtin_skin_record(skin_id: str = SKIN_CLASSIC_ID, active: bool = Fal
     if skin_id == 'editorial':
         return {
             'id': 'editorial',
-            'name': 'Editorial dark blue',
+            'name': '雅致暗蓝',
             'version': APP_VERSION,
-            'description': 'Deep blue, subtle borders and bold typography for a clean editorial layout.',
+            'description': '深邃幽蓝与微光边框，搭配极简大字字重，提供沉浸社论级排版质感。',
             'entry': 'theme.css',
             'preview': '',
             'source_type': SKIN_SOURCE_BUILTIN,
@@ -2862,9 +3021,9 @@ def build_builtin_skin_record(skin_id: str = SKIN_CLASSIC_ID, active: bool = Fal
         }
     return {
         'id': SKIN_CLASSIC_ID,
-        'name': 'Classic',
+        'name': '经典',
         'version': APP_VERSION,
-        'description': 'The default interface theme',
+        'description': '当前默认界面皮肤',
         'entry': '',
         'preview': '',
         'source_type': SKIN_SOURCE_BUILTIN,
@@ -2992,7 +3151,7 @@ def resolve_active_skin_record() -> Dict[str, Any]:
     record = get_skin_record_by_id(configured_id)
     if not record or record.get('status') != 'ok':
         if configured_id not in (SKIN_CLASSIC_ID, 'editorial'):
-            record_skin_error(configured_id, f'The current skin {configured_id} is unavailable and has been returned to classic')
+            record_skin_error(configured_id, f'当前皮肤 {configured_id} 不可用，已回退到 classic')
         return build_builtin_skin_record(SKIN_CLASSIC_ID, active=True)
 
     record['active'] = True
@@ -3020,18 +3179,18 @@ def get_skin_settings_payload() -> Dict[str, Any]:
 def set_active_skin(skin_id: str) -> tuple[bool, str, Optional[Dict[str, Any]]]:
     normalized_id = normalize_skin_id(skin_id)
     if not normalized_id:
-        return False, 'Invalid skin ID', None
+        return False, '皮肤 ID 无效', None
 
     record = get_skin_record_by_id(normalized_id)
     if not record:
-        return False, 'Skin does not exist', None
+        return False, '皮肤不存在', None
     if record.get('status') != 'ok':
-        return False, record.get('last_error') or 'Skin not available', None
+        return False, record.get('last_error') or '皮肤不可用', None
 
     if set_setting('active_skin_id', normalized_id):
         clear_skin_error(normalized_id)
         return True, '', get_skin_record_by_id(normalized_id)
-    return False, 'Failed to save current skin', None
+    return False, '保存当前皮肤失败', None
 
 
 def get_active_skin_asset_hash() -> str:
@@ -3047,29 +3206,29 @@ def get_active_skin_css() -> tuple[str, str]:
             css_path = get_builtin_editorial_skin_css_path()
             return css_path.read_text(encoding='utf-8'), compute_skin_file_hash(css_path)
         except Exception as exc:
-            record_skin_error('editorial', f'Failed to read built-in skin CSS: {exc}')
+            record_skin_error('editorial', f'读取内置皮肤 CSS 失败: {exc}')
             return '/* skin unavailable, fallback to classic */\n', SKIN_CLASSIC_ID
 
     skin_dir = get_skin_directory(record)
     if not skin_dir:
-        record_skin_error(record.get('id'), 'The skin directory does not exist')
+        record_skin_error(record.get('id'), '皮肤目录不存在')
         return '/* skin unavailable, fallback to classic */\n', SKIN_CLASSIC_ID
 
     try:
         css_path = resolve_skin_package_file(skin_dir, record.get('entry', ''), 'entry')
-        validate_skin_file_size(css_path, SKIN_MAX_CSS_BYTES, 'CSS files')
+        validate_skin_file_size(css_path, SKIN_MAX_CSS_BYTES, 'CSS 文件')
         return css_path.read_text(encoding='utf-8'), str(record.get('asset_hash') or compute_skin_file_hash(css_path))
     except Exception as exc:
-        record_skin_error(record.get('id'), f'Failed to read skin CSS: {exc}')
+        record_skin_error(record.get('id'), f'读取皮肤 CSS 失败: {exc}')
         return '/* skin unavailable, fallback to classic */\n', SKIN_CLASSIC_ID
 
 
 def ensure_skin_id_is_installable(skin_id: str, source_type: str) -> None:
     if skin_id in (SKIN_CLASSIC_ID, 'editorial'):
-        raise SkinValidationError(f'{skin_id} is a built-in skin and cannot be overwritten.')
+        raise SkinValidationError(f'{skin_id} 是内置皮肤，不能覆盖')
     existing = get_skin_record_by_id(skin_id)
     if existing and existing.get('source_type') != source_type:
-        raise SkinValidationError('The same skin ID has been installed by another source')
+        raise SkinValidationError('相同皮肤 ID 已由其他来源安装')
 
 
 def replace_skin_directory_atomically(source_dir: Path, target_dir: Path) -> None:
@@ -3099,12 +3258,12 @@ def install_skin_from_directory(
 ) -> Dict[str, Any]:
     normalized_source = str(source_type or '').strip().lower()
     if normalized_source not in (SKIN_SOURCE_UPLOAD, SKIN_SOURCE_GIT):
-        raise SkinValidationError('Invalid skin source type')
+        raise SkinValidationError('皮肤来源类型无效')
 
     manifest = validate_skin_package_directory(package_dir)
     skin_id = manifest['id']
     if expected_skin_id and skin_id != normalize_skin_id(expected_skin_id):
-        raise SkinValidationError('The updated skin ID is inconsistent with the installed skin')
+        raise SkinValidationError('更新后的皮肤 ID 与已安装皮肤不一致')
     ensure_skin_id_is_installable(skin_id, normalized_source)
 
     source_root = get_skin_source_root(normalized_source)
@@ -3146,27 +3305,27 @@ def extract_zip_skin_package(zip_path: Path, output_dir: Path) -> None:
     try:
         archive = zipfile.ZipFile(zip_path)
     except zipfile.BadZipFile as exc:
-        raise SkinValidationError('The uploaded file is not a valid zip') from exc
+        raise SkinValidationError('上传文件不是有效 zip') from exc
 
     with archive:
         total_size = 0
         for info in archive.infolist():
             if zip_entry_is_symlink(info):
-                raise SkinValidationError('zip package cannot contain symbolic links')
-            relative_path = safe_skin_relative_path(info.filename, 'zip file path')
+                raise SkinValidationError('zip 包不能包含符号链接')
+            relative_path = safe_skin_relative_path(info.filename, 'zip 文件路径')
             if info.is_dir():
                 continue
             total_size += int(info.file_size or 0)
             if total_size > SKIN_MAX_ZIP_BYTES:
-                raise SkinValidationError('The zip package content exceeds the size limit')
+                raise SkinValidationError('zip 包内容超过大小限制')
             suffix = Path(relative_path).suffix.lower()
             if suffix in SKIN_BLOCKED_EXTRA_EXTENSIONS:
-                raise SkinValidationError(f'The zip package contains a file type that is not allowed: {relative_path.as_posix()}')
+                raise SkinValidationError(f'zip 包包含不允许的文件类型: {relative_path.as_posix()}')
 
             destination = (Path(output_dir) / relative_path).resolve()
             base_dir = Path(output_dir).resolve()
             if os.path.commonpath([str(base_dir), str(destination)]) != str(base_dir):
-                raise SkinValidationError('zip package contains path traversal')
+                raise SkinValidationError('zip 包包含路径穿越')
             destination.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info, 'r') as source_file, destination.open('wb') as target_file:
                 shutil.copyfileobj(source_file, target_file)
@@ -3174,15 +3333,15 @@ def extract_zip_skin_package(zip_path: Path, output_dir: Path) -> None:
 
 def install_uploaded_skin_file(uploaded_file) -> Dict[str, Any]:
     if not uploaded_file:
-        raise SkinValidationError('Please select zip skin package')
+        raise SkinValidationError('请选择 zip 皮肤包')
     if request.content_length and request.content_length > SKIN_MAX_ZIP_BYTES:
-        raise SkinValidationError('Uploaded file exceeds size limit')
+        raise SkinValidationError('上传文件超过大小限制')
 
     with tempfile.TemporaryDirectory(prefix='outlook-skin-upload-') as temp_root:
         temp_root_path = Path(temp_root)
         zip_path = temp_root_path / 'skin.zip'
         uploaded_file.save(zip_path)
-        validate_skin_file_size(zip_path, SKIN_MAX_ZIP_BYTES, 'zip skin pack')
+        validate_skin_file_size(zip_path, SKIN_MAX_ZIP_BYTES, 'zip 皮肤包')
         package_dir = temp_root_path / 'package'
         package_dir.mkdir()
         extract_zip_skin_package(zip_path, package_dir)
@@ -3192,16 +3351,16 @@ def install_uploaded_skin_file(uploaded_file) -> Dict[str, Any]:
 def normalize_git_skin_url(value: str) -> str:
     git_url = str(value or '').strip()
     if not git_url:
-        raise SkinValidationError('Enter a Git repository URL')
+        raise SkinValidationError('请输入 Git 仓库地址')
     if len(git_url) > 1000 or git_url.startswith('-') or '\n' in git_url or '\r' in git_url:
-        raise SkinValidationError('Invalid Git repository URL')
+        raise SkinValidationError('Git 仓库地址无效')
     return git_url
 
 
 def normalize_git_skin_ref(value: str) -> str:
     git_ref = str(value or '').strip()
     if len(git_ref) > 128 or git_ref.startswith('-') or '\n' in git_ref or '\r' in git_ref:
-        raise SkinValidationError('Git ref is invalid')
+        raise SkinValidationError('Git ref 无效')
     return git_ref
 
 
@@ -3209,7 +3368,7 @@ def install_git_skin_package(git_url: str, git_ref: str = '', expected_skin_id: 
     normalized_url = normalize_git_skin_url(git_url)
     normalized_ref = normalize_git_skin_ref(git_ref)
     if not shutil.which('git'):
-        raise SkinValidationError('Git is not installed; cannot install a theme from a repository')
+        raise SkinValidationError('当前环境未安装 git，无法从仓库安装皮肤')
 
     with tempfile.TemporaryDirectory(prefix='outlook-skin-git-') as temp_root:
         repo_dir = Path(temp_root) / 'repo'
@@ -3225,8 +3384,8 @@ def install_git_skin_package(git_url: str, git_ref: str = '', expected_skin_id: 
             check=False,
         )
         if result.returncode != 0:
-            message = (result.stderr or result.stdout or 'git clone failed').strip()
-            raise SkinValidationError(f'Failed to pull Git skin: {sanitize_error_details(message)}')
+            message = (result.stderr or result.stdout or 'git clone 失败').strip()
+            raise SkinValidationError(f'拉取 Git 皮肤失败: {sanitize_error_details(message)}')
 
         git_dir = repo_dir / '.git'
         if git_dir.exists():
@@ -3242,37 +3401,37 @@ def install_git_skin_package(git_url: str, git_ref: str = '', expected_skin_id: 
 def update_git_skin_package(skin_id: str) -> Dict[str, Any]:
     record = get_skin_record_by_id(skin_id)
     if not record or record.get('source_type') != SKIN_SOURCE_GIT:
-        raise SkinValidationError('This skin is not a Git source')
+        raise SkinValidationError('该皮肤不是 Git 来源')
     git_url = str(record.get('git_url') or '').strip()
     git_ref = str(record.get('git_ref') or '').strip()
     if not git_url:
-        raise SkinValidationError('This skin lacks the Git source address')
+        raise SkinValidationError('该皮肤缺少 Git 来源地址')
     return install_git_skin_package(git_url, git_ref, expected_skin_id=record['id'])
 
 
 def delete_custom_skin(skin_id: str) -> tuple[bool, str]:
     normalized_id = normalize_skin_id(skin_id)
     if not normalized_id or normalized_id in (SKIN_CLASSIC_ID, 'editorial'):
-        return False, f'The built-in {normalized_id} skin cannot be deleted'
+        return False, f'不能删除内置 {normalized_id} 皮肤'
     if get_configured_active_skin_id() == normalized_id:
-        return False, 'The currently enabled skin cannot be deleted, please switch to other skins first'
+        return False, '不能删除当前启用的皮肤，请先切换到其他皮肤'
 
     record = get_skin_record_by_id(normalized_id)
     skin_dir = get_skin_directory(record or {})
     if not skin_dir or not skin_dir.exists():
-        return False, 'Skin does not exist'
+        return False, '皮肤不存在'
     shutil.rmtree(skin_dir)
     return True, ''
 
 
 def get_login_password() -> str:
-    'Get the login password (first read from the database)'
+    """获取登录密码（优先从数据库读取）"""
     password = get_setting('login_password')
     return password if password else LOGIN_PASSWORD
 
 
 def verify_login_password(password: str) -> bool:
-    'Verify the current login password.'
+    """校验当前登录密码。"""
     stored_password = get_login_password()
     if is_password_hashed(stored_password):
         return verify_password(password or '', stored_password)
@@ -3288,7 +3447,7 @@ LOGIN_SESSION_EXPIRATION_KEY = 'login_expires_at'
 
 
 class WebLoginSessionInterface(SecureCookieSessionInterface):
-    "Generate cookies for persistent login sessions that do not expire prematurely due to the application's default expiration date."
+    """为永久登录会话生成不会因应用默认期限提前失效的 Cookie。"""
 
     def get_expiration_time(self, app, session):
         if session.get(LOGIN_SESSION_EXPIRATION_KEY) == LOGIN_SESSION_PERMANENT_OPTION:
@@ -3300,12 +3459,12 @@ app.session_interface = WebLoginSessionInterface()
 
 
 def get_login_session_now() -> float:
-    'Get the current time used by the login session to facilitate unified verification and testing.'
+    """获取登录 Session 使用的当前时间，便于统一校验和测试。"""
     return time.time()
 
 
 def get_login_session_version() -> str:
-    'Get the current login session version; it will be rotated after the login password is modified, and is used to invalidate the old session.'
+    """获取当前登录会话版本；修改登录密码后会轮换，用于使旧会话失效。"""
     value = str(
         get_setting(LOGIN_SESSION_VERSION_SETTING_KEY, DEFAULT_LOGIN_SESSION_VERSION)
         or DEFAULT_LOGIN_SESSION_VERSION
@@ -3314,14 +3473,14 @@ def get_login_session_version() -> str:
 
 
 def rotate_login_session_version() -> str:
-    'Rotate login session versions, invalidating all old Web Sessions.'
+    """轮换登录会话版本，使所有旧 Web Session 失效。"""
     new_version = secrets.token_urlsafe(24)
     set_setting(LOGIN_SESSION_VERSION_SETTING_KEY, new_version)
     return new_version
 
 
 def bind_login_session_version(version: Optional[str] = None) -> None:
-    'Bind the current session to the specified (or latest) login session version.'
+    """把当前 session 绑定到指定（或最新）登录会话版本。"""
     session['login_session_version'] = (
         str(version) if version is not None else get_login_session_version()
     )
@@ -3332,7 +3491,7 @@ def normalize_login_session_duration(
     value: Any,
     allow_default: bool = False,
 ) -> Optional[Union[int, str]]:
-    'Standardize the login validity period, allowing only fixed options or permanent validity.'
+    """规范化登录有效期，只允许固定选项或永久有效。"""
     if value is None:
         return DEFAULT_LOGIN_SESSION_DURATION_DAYS if allow_default else None
     if isinstance(value, str) and value.strip().lower() == LOGIN_SESSION_PERMANENT_OPTION:
@@ -3351,13 +3510,13 @@ def normalize_login_session_duration(
 
 
 def establish_web_login_session(duration_days: Optional[Union[int, str]] = None) -> None:
-    'Establish a logged-in Web Session and bind a fixed or permanent login period.'
+    """建立已登录 Web Session，并绑定固定或永久的登录期限。"""
     normalized_duration = normalize_login_session_duration(
         duration_days,
         allow_default=duration_days is None,
     )
     if normalized_duration is None:
-        raise ValueError('The login validity period is invalid')
+        raise ValueError('登录有效期无效')
 
     session['logged_in'] = True
     session.permanent = True
@@ -3371,7 +3530,7 @@ def establish_web_login_session(duration_days: Optional[Union[int, str]] = None)
 
 
 def clear_web_login_session() -> None:
-    'Clear web login status.'
+    """清除 Web 登录状态。"""
     session.pop('logged_in', None)
     session.pop('login_session_version', None)
     session.pop(LOGIN_SESSION_EXPIRATION_KEY, None)
@@ -3379,12 +3538,12 @@ def clear_web_login_session() -> None:
 
 
 def is_web_login_session_valid() -> bool:
-    'Verify whether the current Web Session is still valid (including version rotation and absolute expiration time).'
+    """校验当前 Web Session 是否仍有效（含版本轮换和绝对过期时间）。"""
     if not session.get('logged_in'):
         return False
     expected = get_login_session_version()
     actual = session.get('login_session_version')
-    # Old sessions with no version written before upgrade: only retained if password rotation has not occurred yet
+    # 升级前未写入 version 的旧会话：仅在尚未发生密码轮换时保留
     if actual is None:
         if expected != DEFAULT_LOGIN_SESSION_VERSION:
             return False
@@ -3395,7 +3554,7 @@ def is_web_login_session_valid() -> bool:
     if expires_at == LOGIN_SESSION_PERMANENT_OPTION:
         return True
     if expires_at is None:
-        # Compatible with sessions that existed before the upgrade: 30 days from the first time the new verification is passed.
+        # 兼容升级前已存在的 Session：从首次通过新校验时开始计默认 30 天。
         session[LOGIN_SESSION_EXPIRATION_KEY] = (
             get_login_session_now() + DEFAULT_LOGIN_SESSION_DURATION_DAYS * 24 * 60 * 60
         )
@@ -3409,36 +3568,45 @@ def is_web_login_session_valid() -> bool:
 
 
 def get_gptmail_api_key() -> str:
-    'Get GPTMail API Key (read from database first)'
+    """获取 GPTMail API Key（优先从数据库读取）"""
     api_key = get_setting('gptmail_api_key')
     return api_key if api_key else GPTMAIL_API_KEY
 
 
 def get_external_api_key() -> str:
-    'Obtain external API Key (read from database, stored in plain text)'
+    """获取对外 API Key（从数据库读取，明文存储）"""
     return get_setting('external_api_key', '')
 
 
+EXTERNAL_API_KEY_PERMISSIONS = ('readonly', 'readwrite')
+
+
+def get_external_api_key_permission() -> str:
+    """获取对外 API Key 权限级别（非法值与未配置均按只读兜底）"""
+    permission = str(get_setting('external_api_key_permission', 'readonly') or '').strip().lower()
+    return permission if permission in EXTERNAL_API_KEY_PERMISSIONS else 'readonly'
+
+
 def get_duckmail_base_url() -> str:
-    'Get the DuckMail API base URL (first read from the database)'
+    """获取 DuckMail API 基础 URL（优先从数据库读取）"""
     url = get_setting('duckmail_base_url')
     return url if url else DUCKMAIL_BASE_URL
 
 
 def get_duckmail_api_key() -> str:
-    'Get DuckMail API Key (read from database first)'
+    """获取 DuckMail API Key（优先从数据库读取）"""
     api_key = get_setting('duckmail_api_key')
     return api_key if api_key else DUCKMAIL_API_KEY
 
 
 def get_cloudflare_worker_domain() -> str:
-    'Obtain Cloudflare Temp Email Worker domain name'
+    """获取 Cloudflare Temp Email Worker 域名"""
     domain = get_setting('cloudflare_worker_domain')
     return domain.strip() if domain else CLOUDFLARE_WORKER_DOMAIN.strip()
 
 
 def get_cloudflare_email_domains() -> List[str]:
-    'Get the list of available domain names for Cloudflare Temp Email'
+    """获取 Cloudflare Temp Email 可用域名列表"""
     raw_domains = get_setting('cloudflare_email_domains')
     value = raw_domains if raw_domains is not None else CLOUDFLARE_EMAIL_DOMAINS
     return [domain.strip() for domain in value.split(',') if domain.strip()]

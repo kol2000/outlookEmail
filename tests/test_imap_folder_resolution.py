@@ -106,17 +106,17 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
     def test_resolve_126_inbox_from_listed_folder(self):
         mail = FakeMail(
-            selectable={'INBOX.\u6536\u4ef6\u7bb1'},
+            selectable={'INBOX.收件箱'},
             list_entries=[
                 b'(\\HasNoChildren) "." "INBOX.Archive"',
-                '(\\HasNoChildren) "." "INBOX.\u6536\u4ef6\u7bb1"'.encode('utf-8'),
+                '(\\HasNoChildren) "." "INBOX.收件箱"'.encode('utf-8'),
             ],
         )
 
         selected, diagnostics = web_outlook_app.resolve_imap_folder(mail, '126', 'inbox', readonly=True)
 
-        self.assertEqual(selected, 'INBOX.\u6536\u4ef6\u7bb1')
-        self.assertIn('INBOX.\u6536\u4ef6\u7bb1', diagnostics.get('matched_folders', []))
+        self.assertEqual(selected, 'INBOX.收件箱')
+        self.assertIn('INBOX.收件箱', diagnostics.get('matched_folders', []))
         self.assertNotIn('INBOX.Archive', diagnostics.get('matched_folders', []))
 
     def test_resolve_junk_folder_from_terminal_alias(self):
@@ -178,16 +178,12 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 if command == 'FETCH':
                     uid = args[0]
                     uid_text = uid.decode('utf-8') if isinstance(uid, (bytes, bytearray)) else str(uid)
-                    if uid_text == '1':
-                        return 'OK', [(
-                            b'1 (FLAGS () INTERNALDATE "14-Apr-2026 10:00:00 +0000" RFC822 {128}',
-                            raw_old_header,
-                        )]
-                    if uid_text == '2':
-                        return 'OK', [(
-                            b'2 (FLAGS () INTERNALDATE "13-Apr-2026 10:00:00 +0000" RFC822 {128}',
-                            raw_new_header,
-                        )]
+                    return 'OK', [
+                        (b'1 (UID 1 FLAGS () INTERNALDATE "14-Apr-2026 10:00:00 +0000" BODY[HEADER] {128}', raw_old_header),
+                        b')',
+                        (b'2 (UID 2 FLAGS () INTERNALDATE "13-Apr-2026 10:00:00 +0000" BODY[HEADER] {128}', raw_new_header),
+                        b')',
+                    ]
                 return super().uid(command, *args, **kwargs)
 
         mail = GmailListMail(selectable={'INBOX'})
@@ -215,20 +211,15 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 if command == 'FETCH':
                     uid = args[0]
                     uid_text = uid.decode('utf-8') if isinstance(uid, (bytes, bytearray)) else str(uid)
-                    minute = int(uid_text) % 60
-                    internal_date = f'14-Apr-2026 08:{minute:02d}:00 +0000'
-                    raw_email = (
-                        f"Subject: page message {uid_text}\r\n"
-                        "From: sender@example.com\r\n"
-                        "To: user@example.com\r\n"
-                        f"Date: Tue, 14 Apr 2026 08:{minute:02d}:00 +0000\r\n"
-                        "\r\n"
-                        "hello\r\n"
-                    ).encode('utf-8')
-                    return 'OK', [(
-                        f'{uid_text} (FLAGS () INTERNALDATE "{internal_date}" RFC822 {{{len(raw_email)}}}'.encode('utf-8'),
-                        raw_email,
-                    )]
+                    data = []
+                    for identifier in uid_text.split(','):
+                        minute = int(identifier) % 60
+                        raw_header = f'Subject: page message {identifier}\r\n\r\n'.encode()
+                        data.extend([(
+                            f'{identifier} (UID {identifier} FLAGS () INTERNALDATE "14-Apr-2026 08:{minute:02d}:00 +0000" BODY[HEADER] {{{len(raw_header)}}}'.encode(),
+                            raw_header,
+                        ), b')'])
+                    return 'OK', data
                 return super().uid(command, *args, **kwargs)
 
         def fetch_page(skip):
@@ -275,7 +266,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 if command == 'FETCH':
                     return 'OK', [
                         (
-                            b'11 (INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                            b'11 (UID 11 INTERNALDATE "14-Apr-2026 08:20:50 +0000" BODY[HEADER] {128}',
                             raw_email,
                         ),
                         b' FLAGS (\\Seen))',
@@ -396,7 +387,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
             def fetch(self, message_id, _query):
                 self.select_calls.append((f'FETCH:{message_id}', False))
                 return 'OK', [(
-                    b'7 (FLAGS (\\Seen) INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                    b'7 (UID 107 FLAGS (\\Seen) INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
                     raw_email,
                 )]
 
@@ -413,10 +404,11 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
         self.assertTrue(result['success'])
         self.assertEqual(len(result['emails']), 1)
-        self.assertEqual(result['emails'][0]['id'], '7')
+        self.assertEqual(result['emails'][0]['id'], '107')
+        self.assertEqual(result['emails'][0]['id_mode'], 'uid')
         self.assertEqual(result['emails'][0]['subject'], 'inbox message')
 
-    def test_custom_imap_detail_falls_back_to_plain_fetch_when_uid_fetch_fails(self):
+    def test_custom_imap_detail_does_not_fall_back_when_uid_fetch_fails(self):
         raw_email = (
             b"Subject: detail message\r\n"
             b"From: sender@example.com\r\n"
@@ -440,7 +432,8 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
         mail = FetchFallbackMail(selectable={'INBOX'}, list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
 
-        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail), \
+                patch.object(mail, 'fetch', wraps=mail.fetch) as sequence_fetch:
             result = web_outlook_app.get_email_detail_imap_generic_result(
                 email_addr='user@example.com',
                 imap_password='secret',
@@ -450,12 +443,10 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 provider='custom',
             )
 
-        self.assertTrue(result['success'])
-        self.assertEqual(result['email']['id'], '9')
-        self.assertEqual(result['email']['subject'], 'detail message')
-        self.assertIn('detail body', result['email']['body'])
+        self.assertFalse(result['success'])
+        sequence_fetch.assert_not_called()
 
-    def test_custom_imap_detail_falls_back_when_uid_fetch_returns_ok_without_payload(self):
+    def test_custom_imap_detail_does_not_fall_back_when_uid_fetch_has_no_payload(self):
         raw_email = (
             b"Subject: detail fallback payload\r\n"
             b"From: sender@example.com\r\n"
@@ -481,7 +472,8 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
         mail = EmptyUidFetchMail(selectable={'INBOX'}, list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
 
-        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail), \
+                patch.object(mail, 'fetch', wraps=mail.fetch) as sequence_fetch:
             result = web_outlook_app.get_email_detail_imap_generic_result(
                 email_addr='user@example.com',
                 imap_password='secret',
@@ -491,12 +483,10 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 provider='custom',
             )
 
-        self.assertTrue(result['success'])
-        self.assertEqual(result['email']['id'], '9')
-        self.assertEqual(result['email']['subject'], 'detail fallback payload')
-        self.assertIn('detail body from sequence fetch', result['email']['body'])
+        self.assertFalse(result['success'])
+        sequence_fetch.assert_not_called()
 
-    def test_custom_imap_raw_fetch_uses_sequence_fallback_when_uid_fetch_has_no_payload(self):
+    def test_custom_imap_raw_fetch_does_not_fall_back_when_uid_fetch_has_no_payload(self):
         raw_email = (
             b"Subject: raw fallback payload\r\n"
             b"From: sender@example.com\r\n"
@@ -540,9 +530,9 @@ class ImapFolderResolutionTests(unittest.TestCase):
                 provider='custom',
             )
 
-        self.assertEqual(result, raw_email)
+        self.assertIsNone(result)
         self.assertEqual(mail.uid_fetch_calls, [('FETCH', ('9', '(RFC822)'))])
-        self.assertEqual(mail.sequence_fetch_calls, [('9', '(RFC822)')])
+        self.assertEqual(mail.sequence_fetch_calls, [])
         self.assertTrue(mail.logged_out)
 
     def test_custom_imap_uses_exists_count_when_search_returns_empty(self):
@@ -573,7 +563,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
             def fetch(self, message_id, _query):
                 if str(message_id) == '1':
                     return 'OK', [(
-                        b'1 (FLAGS () INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                        b'1 (UID 101 FLAGS () INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
                         raw_email,
                     )]
                 return 'NO', [b'not found']
@@ -591,8 +581,243 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
         self.assertTrue(result['success'])
         self.assertEqual(len(result['emails']), 1)
-        self.assertEqual(result['emails'][0]['id'], '1')
+        self.assertEqual(result['emails'][0]['id'], '101')
+        self.assertEqual(result['emails'][0]['id_mode'], 'uid')
         self.assertEqual(result['emails'][0]['subject'], 'exists fallback')
+
+    def test_is_imap_search_protocol_rejection_classifies_attempts(self):
+        self.assertFalse(web_outlook_app.is_imap_search_protocol_rejection([]))
+        self.assertTrue(web_outlook_app.is_imap_search_protocol_rejection([
+            {'mode': 'uid', 'status': 'BAD'},
+            {'mode': 'sequence', 'status': 'NO'},
+        ]))
+        self.assertFalse(web_outlook_app.is_imap_search_protocol_rejection([
+            {'mode': 'uid', 'status': 'TimeoutError'},
+            {'mode': 'sequence', 'status': 'BAD'},
+        ]))
+
+    def test_custom_imap_falls_back_to_sequence_when_search_rejected_with_bad(self):
+        raw_email = (
+            b"Subject: search rejected fallback\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"rejected body\r\n"
+        )
+
+        class SearchRejectedMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'1']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'BAD', [b'invalid command or parameters']
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                return 'NO', [b'SEARCH failed']
+
+            def fetch(self, message_id, _query):
+                if str(message_id) == '1':
+                    return 'OK', [(
+                        b'1 (UID 101 FLAGS () INTERNALDATE "14-Apr-2026 08:20:50 +0000" RFC822 {128}',
+                        raw_email,
+                    )]
+                return 'NO', [b'not found']
+
+        mail = SearchRejectedMail(list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(len(result['emails']), 1)
+        self.assertEqual(result['emails'][0]['id'], '101')
+        self.assertEqual(result['emails'][0]['id_mode'], 'uid')
+        self.assertEqual(result['emails'][0]['subject'], 'search rejected fallback')
+
+    def test_custom_imap_search_rejection_without_messages_still_fails(self):
+        class EmptyRejectedMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'0']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    return 'BAD', [b'invalid command or parameters']
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                return 'NO', [b'SEARCH failed']
+
+        mail = EmptyRejectedMail(list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error_code'], 'IMAP_SEARCH_FAILED')
+
+    def test_custom_imap_search_timeout_does_not_fall_back_to_sequence(self):
+        class SearchTimeoutMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'5']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    raise TimeoutError('timed out')
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                raise TimeoutError('timed out')
+
+        mail = SearchTimeoutMail(list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+
+        with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error_code'], 'IMAP_SEARCH_FAILED')
+        self.assertIn('TimeoutError', result['error']['details'])
+
+    def test_is_imap_search_response_too_large_detects_limit_error(self):
+        too_large = [
+            {'mode': 'uid', 'status': 'error', 'response': 'command: UID => got more than 1000000 bytes'},
+            {'mode': 'sequence', 'status': 'error', 'response': 'command: SEARCH => got more than 1000000 bytes'},
+        ]
+        self.assertTrue(web_outlook_app.is_imap_search_response_too_large(too_large))
+        self.assertFalse(web_outlook_app.is_imap_search_response_too_large([]))
+        self.assertFalse(web_outlook_app.is_imap_search_response_too_large([
+            {'mode': 'uid', 'status': 'TimeoutError', 'response': 'timed out'},
+        ]))
+        self.assertFalse(web_outlook_app.is_imap_search_response_too_large([
+            {'mode': 'uid', 'status': 'BAD', 'response': 'invalid command or parameters'},
+        ]))
+
+    def test_custom_imap_reconnects_when_search_response_exceeds_line_limit(self):
+        raw_email = (
+            b"Subject: too large fallback\r\n"
+            b"From: sender@example.com\r\n"
+            b"To: user@example.com\r\n"
+            b"Date: Tue, 14 Apr 2026 08:20:50 +0000\r\n"
+            b"\r\n"
+            b"reconnected body\r\n"
+        )
+
+        class SearchTooLargeMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'150000']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    raise web_outlook_app.imaplib.IMAP4.error('command: UID => got more than 1000000 bytes')
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                raise web_outlook_app.imaplib.IMAP4.error('command: SEARCH => got more than 1000000 bytes')
+
+        class ReconnectedMail(FakeMail):
+            def __init__(self):
+                super().__init__(list_entries=[b'(\\HasNoChildren) "." "INBOX"'])
+                self.fetch_calls = []
+
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'2']
+                return 'NO', [b'folder not found']
+
+            def fetch(self, message_id, query):
+                self.fetch_calls.append((str(message_id), query))
+                data = []
+                for identifier in str(message_id).split(','):
+                    data.extend([(
+                        f'{identifier} (UID {int(identifier) + 100} FLAGS () INTERNALDATE "14-Apr-2026 08:20:50 +0000" BODY[HEADER] {{128}}'.encode(),
+                        raw_email,
+                    ), b')'])
+                return 'OK', data
+
+        first_mail = SearchTooLargeMail()
+        second_mail = ReconnectedMail()
+
+        with patch.object(web_outlook_app, 'create_imap_connection', side_effect=[first_mail, second_mail]):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertTrue(result['success'], result.get('error'))
+        self.assertEqual(len(result['emails']), 2)
+        self.assertEqual({item['subject'] for item in result['emails']}, {'too large fallback'})
+        self.assertTrue(first_mail.logged_out)
+        self.assertTrue(second_mail.logged_out)
+        self.assertEqual([call[0] for call in second_mail.fetch_calls], ['2,1'])
+
+    def test_custom_imap_search_too_large_reconnect_failure_keeps_error(self):
+        class SearchTooLargeMail(FakeMail):
+            def select(self, name, readonly=True):
+                self.select_calls.append((name, readonly))
+                if name in {'INBOX', '"INBOX"'}:
+                    return 'OK', [b'150000']
+                return 'NO', [b'folder not found']
+
+            def uid(self, command, *args, **kwargs):
+                if command == 'SEARCH':
+                    raise web_outlook_app.imaplib.IMAP4.error('command: UID => got more than 1000000 bytes')
+                return super().uid(command, *args, **kwargs)
+
+            def search(self, *_args, **_kwargs):
+                raise web_outlook_app.imaplib.IMAP4.error('command: SEARCH => got more than 1000000 bytes')
+
+        mail = SearchTooLargeMail()
+
+        with patch.object(web_outlook_app, 'create_imap_connection',
+                          side_effect=[mail, ConnectionError('reconnect failed')]):
+            result = web_outlook_app.get_emails_imap_generic(
+                email_addr='user@example.com',
+                imap_password='secret',
+                imap_host='imap.example.com',
+                folder='inbox',
+                provider='custom',
+            )
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['error_code'], 'IMAP_SEARCH_FAILED')
+        self.assertIn('got more than', result['error']['details'])
+        self.assertTrue(mail.logged_out)
 
     def test_fetch_account_emails_all_fetches_in_parallel(self):
         account = {
@@ -610,7 +835,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
             try:
                 barrier.wait()
             except threading.BrokenBarrierError as exc:
-                raise AssertionError('folder=all is still a serial capture') from exc
+                raise AssertionError('folder=all 仍然是串行抓取') from exc
             return {
                 'success': True,
                 'emails': [{
@@ -700,7 +925,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
         results = {
             'inbox': {
                 'success': False,
-                'error': 'Unable to get mail, all methods failed',
+                'error': '无法获取邮件，所有方式均失败',
                 'details': {
                     'graph': graph_error,
                     'imap_new': imap_new_error,
@@ -709,7 +934,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
             },
             'junkemail': {
                 'success': False,
-                'error': 'Unable to get mail, all methods failed',
+                'error': '无法获取邮件，所有方式均失败',
                 'details': {
                     'graph': graph_error,
                     'imap_new': imap_new_error,
@@ -720,7 +945,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
         merged = web_outlook_app.merge_folder_results(results, 0, 40)
 
         self.assertFalse(merged['success'])
-        self.assertEqual(merged['error'], 'Unable to get mail, all methods failed')
+        self.assertEqual(merged['error'], '无法获取邮件，所有方式均失败')
 
         inbox_detail = merged['details']['inbox']
         self.assertIsInstance(inbox_detail, dict)
@@ -748,7 +973,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
             },
             'junkemail': {
                 'success': False,
-                'error': 'Unable to get mail, all methods failed',
+                'error': '无法获取邮件，所有方式均失败',
                 'details': {
                     'graph': {
                         'code': 'EMAIL_FETCH_FAILED',
@@ -782,7 +1007,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
     def test_build_folder_failure_detail_keeps_structured_top_error(self):
         top_error = {
             'code': 'EMAIL_FETCH_TIMEOUT',
-            'message': 'Retrieval of email timed out, please try again later.',
+            'message': '获取邮件超时，请稍后重试',
             'type': 'TimeoutError',
             'status': 504,
             'details': '',
@@ -799,7 +1024,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
         detail = web_outlook_app.build_folder_failure_detail(result)
 
         self.assertEqual(detail['code'], 'EMAIL_FETCH_TIMEOUT')
-        self.assertEqual(detail['message'], 'Retrieval of email timed out, please try again later.')
+        self.assertEqual(detail['message'], '获取邮件超时，请稍后重试')
         self.assertEqual(detail['status'], 504)
         self.assertEqual(detail['details']['graph']['message'], 'should not override')
 
@@ -824,7 +1049,7 @@ class ImapFolderResolutionTests(unittest.TestCase):
 
             def uid(self, command, message_id, query):
                 self.uid_calls.append((command, message_id, query))
-                return 'OK', [(b'7 (RFC822 {128}', raw_email)]
+                return 'OK', [(b'7 (UID 7 RFC822 {128}', raw_email)]
 
             def fetch(self, message_id, query):
                 self.fetch_calls.append((message_id, query))
@@ -872,12 +1097,12 @@ class ExternalAccountsApiTests(unittest.TestCase):
             db.execute('DELETE FROM temp_emails')
             db.execute('DELETE FROM cloudflare_channels')
             db.execute('DELETE FROM tags')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
 
             self.assertTrue(web_outlook_app.set_setting('external_api_key', 'test-external-key'))
 
-            tag_id = web_outlook_app.add_tag('Core', '#1a1a1a')
+            tag_id = web_outlook_app.add_tag('核心', '#1a1a1a')
             self.assertIsNotNone(tag_id)
 
             added = web_outlook_app.add_account(
@@ -886,7 +1111,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
                 '24d9a0ed-8787-4584-883c-2fd79308940a',
                 '0.AXEA_refresh',
                 group_id=1,
-                remark='Main account',
+                remark='主账号',
                 forward_enabled=True
             )
             self.assertTrue(added)
@@ -1011,6 +1236,8 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertEqual(global_payload['logs'][0]['account_id'], self.account_id)
         self.assertEqual(global_payload['logs'][0]['refresh_type'], 'manual')
         self.assertEqual(global_payload['logs'][0]['status'], 'success')
+        self.assertIsNone(global_payload['logs'][0]['token_rotated'])
+        self.assertIn('未记录', global_payload['logs'][0]['message'])
         self.assertIn('created_at', global_payload['logs'][0])
 
         account_response = self.client.get(f'/api/accounts/{self.account_id}/refresh-logs')
@@ -1231,7 +1458,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'API Key is invalid')
+        self.assertEqual(payload['error'], 'API Key 无效')
 
     def test_external_accounts_uses_constant_time_api_key_compare(self):
         original_compare_digest = web_outlook_app.secrets.compare_digest
@@ -1261,7 +1488,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertTrue(payload['need_login'])
-        self.assertEqual(payload['error'], 'Please log in first')
+        self.assertEqual(payload['error'], '请先登录')
 
     def test_internal_emails_does_not_update_last_refresh_time(self):
         expected_result = {
@@ -1392,7 +1619,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
                 'client-id-plus',
                 'refresh-token-plus',
                 group_id=1,
-                remark='plus account'
+                remark='plus 账号'
             )
             self.assertTrue(added)
 
@@ -1522,7 +1749,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertTrue(payload['need_login'])
-        self.assertEqual(payload['error'], 'Please log in first')
+        self.assertEqual(payload['error'], '请先登录')
 
     def test_dynamic_endpoint_overrides_keep_required_guards(self):
         self.assertTrue(getattr(self.app.view_functions['api_update_account'], '_requires_login', False))
@@ -1531,7 +1758,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
 
     def test_external_accounts_returns_sanitized_accounts(self):
         with self.app.app_context():
-            group_id = web_outlook_app.add_group('Agent group', 'Account with proxy', '#123456')
+            group_id = web_outlook_app.add_group('代理组', '带代理的账号', '#123456')
             self.assertIsNotNone(group_id)
             added = web_outlook_app.add_account(
                 'other@example.com',
@@ -1539,7 +1766,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
                 '',
                 '',
                 group_id=group_id,
-                remark='secondary accounts',
+                remark='次账号',
                 account_type='imap',
                 provider='custom',
                 imap_host='imap.example.com',
@@ -1565,14 +1792,14 @@ class ExternalAccountsApiTests(unittest.TestCase):
         self.assertEqual(account['aliases'], ['alias@example.com'])
         self.assertEqual(account['alias_count'], 1)
         self.assertEqual(account['group_id'], 1)
-        self.assertEqual(account['group_name'], '\u9ed8\u8ba4\u5206\u7ec4')
-        self.assertEqual(account['remark'], 'Main account')
+        self.assertEqual(account['group_name'], '默认分组')
+        self.assertEqual(account['remark'], '主账号')
         self.assertEqual(account['status'], 'active')
         self.assertEqual(account['provider'], 'outlook')
         self.assertTrue(account['forward_enabled'])
         self.assertEqual(account['last_refresh_status'], 'success')
         self.assertIsNone(account['last_refresh_error'])
-        self.assertEqual(account['tags'][0]['name'], 'Core')
+        self.assertEqual(account['tags'][0]['name'], '核心')
         self.assertNotIn('password', account)
         self.assertNotIn('refresh_token', account)
         self.assertNotIn('client_id', account)
@@ -1640,7 +1867,7 @@ class ExternalAccountsApiTests(unittest.TestCase):
                 'client-id-plus',
                 'refresh-token-plus',
                 group_id=1,
-                remark='plus account'
+                remark='plus 账号'
             )
             self.assertTrue(added)
 
@@ -1996,7 +2223,7 @@ class BatchForwardingApiTests(unittest.TestCase):
             db.execute('DELETE FROM account_refresh_logs')
             db.execute('DELETE FROM accounts')
             db.execute('DELETE FROM tags')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
 
             self.assertTrue(web_outlook_app.add_account(
@@ -2094,8 +2321,8 @@ class TempEmailTagsApiTests(unittest.TestCase):
             db.execute('DELETE FROM tags')
             db.commit()
 
-            self.primary_tag_id = web_outlook_app.add_tag('Temporary focus', '#111111')
-            self.secondary_tag_id = web_outlook_app.add_tag('To be cleaned', '#ff6600')
+            self.primary_tag_id = web_outlook_app.add_tag('临时重点', '#111111')
+            self.secondary_tag_id = web_outlook_app.add_tag('待清理', '#ff6600')
             self.assertTrue(web_outlook_app.add_temp_email('case-one@example.com', provider='gptmail'))
             self.assertTrue(web_outlook_app.add_temp_email('case-two@example.com', provider='duckmail'))
 
@@ -2115,7 +2342,7 @@ class TempEmailTagsApiTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         email_map = {item['email']: item for item in payload['emails']}
         self.assertIn('case-one@example.com', email_map)
-        self.assertEqual(email_map['case-one@example.com']['tags'][0]['name'], 'Temporary focus')
+        self.assertEqual(email_map['case-one@example.com']['tags'][0]['name'], '临时重点')
         self.assertEqual(email_map['case-two@example.com']['tags'], [])
 
     def test_batch_manage_temp_email_tags_add_and_remove(self):
@@ -2136,8 +2363,8 @@ class TempEmailTagsApiTests(unittest.TestCase):
             first_tags = web_outlook_app.get_temp_email_tags(self.temp_email_one['id'])
             second_tags = web_outlook_app.get_temp_email_tags(self.temp_email_two['id'])
 
-        self.assertEqual([tag['name'] for tag in first_tags], ['To be cleaned'])
-        self.assertEqual([tag['name'] for tag in second_tags], ['To be cleaned'])
+        self.assertEqual([tag['name'] for tag in first_tags], ['待清理'])
+        self.assertEqual([tag['name'] for tag in second_tags], ['待清理'])
 
         remove_response = self.client.post(
             '/api/temp-emails/tags',
@@ -2157,7 +2384,7 @@ class TempEmailTagsApiTests(unittest.TestCase):
             second_tags = web_outlook_app.get_temp_email_tags(self.temp_email_two['id'])
 
         self.assertEqual(first_tags, [])
-        self.assertEqual([tag['name'] for tag in second_tags], ['To be cleaned'])
+        self.assertEqual([tag['name'] for tag in second_tags], ['待清理'])
 
 
 class AssetRenderingTests(unittest.TestCase):
@@ -2190,7 +2417,15 @@ class AssetRenderingTests(unittest.TestCase):
 
 
 class RefreshTokenProxyFallbackTests(unittest.TestCase):
+    @staticmethod
+    def _token_response(status_code, payload):
+        response = web_outlook_app.requests.Response()
+        response.status_code = status_code
+        response._content = json.dumps(payload).encode('utf-8')
+        return response
+
     def setUp(self):
+        web_outlook_app.reset_graph_token_scope_cache()
         self.app = web_outlook_app.app
         self.app.config['TESTING'] = True
         self.app.config['WTF_CSRF_ENABLED'] = False
@@ -2203,12 +2438,12 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             db = web_outlook_app.get_db()
             db.execute('DELETE FROM account_refresh_logs')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
 
             group_id = web_outlook_app.add_group(
-                'Agent refresh group',
-                'Direct connection and retry after test proxy failure',
+                '代理刷新组',
+                '测试代理失败后直连重试',
                 '#225588',
                 'socks5://127.0.0.1:1080',
                 'http://127.0.0.1:7891',
@@ -2223,7 +2458,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 '24d9a0ed-8787-4584-883c-2fd79308940a',
                 '0.AXEA_refresh',
                 group_id=group_id,
-                remark='Agent refresh test account',
+                remark='代理刷新测试账号',
                 forward_enabled=False,
             )
             self.assertTrue(added)
@@ -2238,7 +2473,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
 
             @staticmethod
             def json():
-                return {'access_token': 'access-token'}
+                return {'access_token': 'access-token', 'refresh_token': 'rotated-token'}
 
         proxy_error = web_outlook_app.requests.exceptions.ConnectionError(
             'SOCKSHTTPSConnectionPool(host=\'login.microsoftonline.com\', port=443): '
@@ -2259,7 +2494,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload['success'])
-        self.assertEqual(payload['message'], 'Token refreshed successfully')
+        self.assertEqual(payload['message'], '刷新成功，Token 已更新')
         self.assertEqual(mocked_request.call_count, 3)
         self.assertEqual(
             mocked_request.call_args_list[0].kwargs['proxies'],
@@ -2346,14 +2581,14 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 'client_id': '24d9a0ed-8787-4584-883c-2fd79308940a',
                 'refresh_token': '0.AXEA_refresh',
                 'group_id': self.group_id,
-                'remark': 'Agent refresh test account',
+                'remark': '代理刷新测试账号',
                 'status': 'active',
                 'account_type': 'outlook',
                 'provider': 'outlook',
                 'forward_enabled': False,
                 'proxy_url': 'socks5://account-api:1080',
                 'fallback_proxy_url_1': 'http://account-api-fallback:7890',
-                'fallback_proxy_url_2': 'direct',
+                'fallback_proxy_url_2': '直连',
             },
         )
 
@@ -2367,7 +2602,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         self.assertEqual(payload['account']['proxy_url'], 'socks5://account-api:1080')
         self.assertEqual(payload['account']['fallback_proxy_url_1'], 'http://account-api-fallback:7890')
-        self.assertEqual(payload['account']['fallback_proxy_url_2'], 'direct')
+        self.assertEqual(payload['account']['fallback_proxy_url_2'], '直连')
         self.assertTrue(payload['account']['proxy_override_enabled'])
 
         response = self.client.put(
@@ -2378,7 +2613,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 'client_id': '24d9a0ed-8787-4584-883c-2fd79308940a',
                 'refresh_token': '0.AXEA_refresh',
                 'group_id': self.group_id,
-                'remark': 'Agent refresh test account-the agent field is not passed',
+                'remark': '代理刷新测试账号-未传代理字段',
                 'status': 'active',
                 'account_type': 'outlook',
                 'provider': 'outlook',
@@ -2394,7 +2629,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload['account']['proxy_url'], 'socks5://account-api:1080')
         self.assertEqual(payload['account']['fallback_proxy_url_1'], 'http://account-api-fallback:7890')
-        self.assertEqual(payload['account']['fallback_proxy_url_2'], 'direct')
+        self.assertEqual(payload['account']['fallback_proxy_url_2'], '直连')
 
     def test_batch_update_account_proxy_sets_and_clears_override(self):
         with self.app.app_context():
@@ -2457,40 +2692,206 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 self.assertFalse(web_outlook_app.account_has_proxy_override(account))
                 self.assertEqual(web_outlook_app.get_account_proxy_url(account), 'socks5://127.0.0.1:1080')
 
-    def test_refresh_account_uses_delegated_graph_scope_before_default_scope(self):
-        class FakeResponse:
-            status_code = 200
-
-            @staticmethod
-            def json():
-                return {'access_token': 'access-token'}
-
-        with patch.object(web_outlook_app.requests, 'request', return_value=FakeResponse()) as mocked_request:
+    def test_refresh_account_uses_default_scope_first(self):
+        token_response = self._token_response(200, {
+            'access_token': 'access-token',
+            'refresh_token': 'rotated-token',
+        })
+        with patch.object(web_outlook_app.requests, 'request', return_value=token_response) as mocked_request:
             response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
 
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload['success'])
+        mocked_request.assert_called_once()
         request_data = mocked_request.call_args.kwargs['data']
-        self.assertIn('https://graph.microsoft.com/Mail.Read', request_data['scope'])
-        self.assertIn('https://graph.microsoft.com/Mail.ReadWrite', request_data['scope'])
-        self.assertIn('offline_access', request_data['scope'])
-        self.assertNotEqual(request_data['scope'], 'https://graph.microsoft.com/.default')
+        self.assertEqual(request_data['scope'], 'https://graph.microsoft.com/.default')
+
+    def test_refresh_account_reports_rotation_in_response_and_history(self):
+        cases = [
+            ('', False, '验证成功，Token 未轮换，继续使用原 Token'),
+            ('0.AXEA_refresh', False, '验证成功，Token 未轮换，继续使用原 Token'),
+            ('new-refresh-token', True, '刷新成功，Token 已更新'),
+        ]
+        for token, rotated, message in cases:
+            with self.subTest(token=token):
+                with patch.object(web_outlook_app, 'test_refresh_token',
+                                  return_value=(True, None, token, 'graph')):
+                    response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+                payload = response.get_json()
+                self.assertTrue(payload['success'])
+                self.assertIs(payload['token_rotated'], rotated)
+                self.assertEqual(payload['message'], message)
+                for url in ('/api/accounts/refresh-logs', f'/api/accounts/{self.account_id}/refresh-logs'):
+                    log = self.client.get(url).get_json()['logs'][0]
+                    self.assertIs(log['token_rotated'], rotated)
+                    self.assertEqual(log['message'], message)
+                item = self.client.get('/api/accounts/refresh-status-list').get_json()['items'][0]
+                self.assertIs(item['last_refresh_token_rotated'], rotated)
+
+    def test_refresh_account_reports_failure_when_new_token_cannot_be_saved(self):
+        with patch.object(web_outlook_app, 'test_refresh_token',
+                          return_value=(True, None, 'new-refresh-token', 'graph')), \
+             patch.object(web_outlook_app, 'persist_rotated_refresh_token', return_value=False):
+            response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+        payload = response.get_json()
+        self.assertFalse(payload['success'])
+        self.assertIn('保存', payload['error']['details'])
+        log = self.client.get(f'/api/accounts/{self.account_id}/refresh-logs').get_json()['logs'][0]
+        self.assertEqual(log['status'], 'failed')
+        self.assertIs(log['token_rotated'], False)
+        with self.app.app_context():
+            row = web_outlook_app.get_db().execute(
+                'SELECT refresh_token, refresh_token_updated_at FROM accounts WHERE id = ?',
+                (self.account_id,),
+            ).fetchone()
+        self.assertEqual(web_outlook_app.decrypt_data(row['refresh_token']), '0.AXEA_refresh')
+        self.assertIsNone(row['refresh_token_updated_at'])
+
+    def test_refresh_times_track_success_independently_of_rotation(self):
+        old_success_at = '2025-01-01 10:00:00'
+        old_rotation_at = '2025-02-01 10:00:00'
+        cases = [
+            (True, '', False, False),
+            (True, '0.AXEA_refresh', False, False),
+            (True, 'new-token', False, True),
+            (False, '', False, False),
+            (True, 'new-token', True, False),
+        ]
+        for upstream_success, token, save_fails, rotated in cases:
+            with self.subTest(upstream_success=upstream_success, token=token, save_fails=save_fails):
+                with self.app.app_context():
+                    db = web_outlook_app.get_db()
+                    db.execute('UPDATE accounts SET refresh_token = ?, last_refresh_success_at = ?, '
+                               'refresh_token_updated_at = ? WHERE id = ?',
+                               (web_outlook_app.encrypt_data('0.AXEA_refresh'), old_success_at,
+                                old_rotation_at, self.account_id))
+                    db.commit()
+                with patch.object(web_outlook_app, 'test_refresh_token', return_value=(
+                    upstream_success, None if upstream_success else 'refresh failed', token, 'graph',
+                )), patch.object(web_outlook_app, 'persist_rotated_refresh_token',
+                                 wraps=web_outlook_app.persist_rotated_refresh_token) as persist:
+                    if save_fails:
+                        persist.return_value = False
+                    payload = self.client.post(f'/api/accounts/{self.account_id}/refresh').get_json()
+                success = upstream_success and not save_fails
+                self.assertIs(payload['success'], success)
+                self.assertIs(payload['token_rotated'], rotated)
+                with self.app.app_context():
+                    times = dict(web_outlook_app.get_db().execute(
+                        'SELECT last_refresh_at, last_refresh_success_at, refresh_token_updated_at '
+                        'FROM accounts WHERE id = ?', (self.account_id,),
+                    ).fetchone())
+                for field, value in times.items():
+                    self.assertEqual(payload[field], value)
+                if success:
+                    self.assertEqual(times['last_refresh_success_at'], times['last_refresh_at'])
+                    self.assertNotEqual(times['last_refresh_success_at'], old_success_at)
+                else:
+                    self.assertEqual(times['last_refresh_success_at'], old_success_at)
+                if rotated:
+                    self.assertNotEqual(times['refresh_token_updated_at'], old_rotation_at)
+                else:
+                    self.assertEqual(times['refresh_token_updated_at'], old_rotation_at)
+                item = self.client.get('/api/accounts/refresh-status-list').get_json()['items'][0]
+                self.assertEqual(item['last_refresh_success_at'], times['last_refresh_success_at'])
+                self.assertEqual(item['refresh_token_updated_at'], times['refresh_token_updated_at'])
+
+    def test_batch_refresh_counts_rotated_and_unrotated_tokens(self):
+        with self.app.app_context():
+            web_outlook_app.add_account('second-refresh@example.com', 'password', 'client-id', 'old-token')
+            second_id = web_outlook_app.get_account_by_email('second-refresh@example.com')['id']
+        with patch.object(web_outlook_app, 'test_refresh_token',
+                          side_effect=[(True, None, '', 'graph'), (True, None, 'new-token', 'graph')]):
+            response = self.client.post('/api/accounts/refresh-selected', json={
+                'account_ids': [self.account_id, second_id],
+            })
+        payload = response.get_json()
+        self.assertTrue(payload['success'])
+        self.assertEqual(payload['success_count'], 2)
+        self.assertEqual(payload['rotated_count'], 1)
+        self.assertEqual(payload['unrotated_count'], 1)
+
+    def test_refresh_streams_report_rotation_and_success_message(self):
+        streams = [
+            lambda: web_outlook_app.stream_full_refresh_events('manual_all', 'manual'),
+            web_outlook_app.stream_failed_refresh_events,
+            lambda: web_outlook_app.stream_selected_refresh_events([self.account_id]),
+        ]
+        for stream in streams:
+            for rotated in (False, True):
+                with self.subTest(stream=stream, rotated=rotated):
+                    with self.app.app_context():
+                        db = web_outlook_app.get_db()
+                        db.execute("UPDATE accounts SET refresh_token = ?, last_refresh_status = 'failed' WHERE id = ?",
+                                   (web_outlook_app.encrypt_data('0.AXEA_refresh'), self.account_id))
+                        db.execute("UPDATE settings SET value = '0' WHERE key = 'refresh_delay_seconds'")
+                        db.commit()
+                    token = 'new-refresh-token' if rotated else ''
+                    with patch.object(web_outlook_app, 'test_refresh_token',
+                                      return_value=(True, None, token, 'graph')):
+                        events = [json.loads(event.removeprefix('data: ').strip()) for event in stream()]
+                    result = next(event for event in events if event['type'] == 'account_result')
+                    self.assertIs(result['token_rotated'], rotated)
+                    with self.app.app_context():
+                        times = dict(web_outlook_app.get_db().execute(
+                            'SELECT last_refresh_at, last_refresh_success_at, refresh_token_updated_at '
+                            'FROM accounts WHERE id = ?', (self.account_id,),
+                        ).fetchone())
+                    for field, value in times.items():
+                        self.assertEqual(result[field], value)
+                    expected = '刷新成功，Token 已更新' if rotated else '验证成功，Token 未轮换，继续使用原 Token'
+                    self.assertEqual(result['message'], expected)
+
+    def test_refresh_rotation_migration_preserves_unknown_legacy_results(self):
+        with tempfile.TemporaryDirectory() as root:
+            database_path = os.path.join(root, 'legacy.db')
+            with web_outlook_app.sqlite3.connect(web_outlook_app.DATABASE) as source, \
+                 web_outlook_app.sqlite3.connect(database_path) as legacy:
+                source.backup(legacy)
+                for table, column in [('accounts', 'last_refresh_token_rotated'),
+                                      ('accounts', 'last_refresh_success_at'),
+                                      ('account_refresh_logs', 'token_rotated')]:
+                    columns = [row[1] for row in legacy.execute(f'PRAGMA table_info({table})')]
+                    if column in columns:
+                        legacy.execute(f'ALTER TABLE {table} DROP COLUMN {column}')
+                legacy.executemany('INSERT INTO account_refresh_logs '
+                                   '(account_id, account_email, status, created_at) VALUES (?, ?, ?, ?)', [
+                    (self.account_id, 'legacy@example.com', 'success', '2026-01-01 09:00:00'),
+                    (self.account_id, 'legacy@example.com', 'success', '2026-02-01 09:00:00'),
+                    (self.account_id, 'legacy@example.com', 'failed', '2026-03-01 09:00:00'),
+                ])
+                legacy.execute("UPDATE accounts SET last_refresh_status = 'failed', "
+                               "last_refresh_at = '2026-03-01 09:00:00' WHERE id = ?", (self.account_id,))
+                legacy.execute('INSERT INTO accounts (email, last_refresh_status, last_refresh_at) '
+                               "VALUES ('legacy-success@example.com', 'success', '2026-04-01 09:00:00')")
+                legacy.execute("INSERT INTO accounts (email) VALUES ('never-refreshed@example.com')")
+            source.close()
+            legacy.close()
+            with patch.object(web_outlook_app, 'DATABASE', database_path):
+                web_outlook_app.init_db()
+                web_outlook_app.init_db()
+                with web_outlook_app.sqlite3.connect(database_path) as migrated:
+                    self.assertEqual(migrated.execute('SELECT token_rotated FROM account_refresh_logs').fetchall(),
+                                     [(None,), (None,), (None,)])
+                    self.assertIsNone(migrated.execute('SELECT last_refresh_token_rotated FROM accounts '
+                                                      'WHERE id = ?', (self.account_id,)).fetchone()[0])
+                    self.assertEqual(migrated.execute('SELECT last_refresh_success_at FROM accounts WHERE id = ?',
+                                                      (self.account_id,)).fetchone()[0], '2026-02-01 09:00:00')
+                    self.assertEqual(migrated.execute('SELECT last_refresh_success_at FROM accounts '
+                                                      "WHERE email = 'legacy-success@example.com'").fetchone()[0],
+                                     '2026-04-01 09:00:00')
+                    self.assertIsNone(migrated.execute('SELECT last_refresh_success_at FROM accounts '
+                                                       "WHERE email = 'never-refreshed@example.com'").fetchone()[0])
+
+            migrated.close()
 
     def test_refresh_account_falls_back_to_original_scope_after_aadsts90023(self):
-        class FakeResponse:
-            def __init__(self, status_code, payload):
-                self.status_code = status_code
-                self._payload = payload
-
-            def json(self):
-                return self._payload
-
-        no_permissions_response = FakeResponse(400, {
+        no_permissions_response = self._token_response(400, {
             'error': 'invalid_request',
             'error_description': 'AADSTS90023: No applicable permissions were found for this user.',
         })
-        success_response = FakeResponse(200, {
+        success_response = self._token_response(200, {
             'access_token': 'access-token',
             'refresh_token': 'M.C556_SN1.0.U.rotated',
         })
@@ -2500,9 +2901,6 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             'request',
             side_effect=[
                 no_permissions_response,
-                no_permissions_response,
-                no_permissions_response,
-                no_permissions_response,
                 success_response,
             ],
         ) as mocked_request:
@@ -2513,11 +2911,9 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertTrue(payload['success'])
 
         request_data = [call.kwargs['data'] for call in mocked_request.call_args_list]
-        self.assertIn('scope', request_data[0])
-        self.assertIn('scope', request_data[1])
-        self.assertIn('scope', request_data[2])
-        self.assertEqual(request_data[3]['scope'], 'https://graph.microsoft.com/.default')
-        self.assertNotIn('scope', request_data[4])
+        self.assertEqual(len(request_data), 2)
+        self.assertEqual(request_data[0]['scope'], 'https://graph.microsoft.com/.default')
+        self.assertNotIn('scope', request_data[1])
 
         with self.app.app_context():
             refreshed = web_outlook_app.get_account_by_id(self.account_id)
@@ -2525,16 +2921,8 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertIsNotNone(refreshed)
         self.assertEqual(refreshed['refresh_token'], 'M.C556_SN1.0.U.rotated')
 
-    def test_refresh_account_falls_back_to_default_scope_after_aadsts70000(self):
-        class FakeResponse:
-            def __init__(self, status_code, payload):
-                self.status_code = status_code
-                self._payload = payload
-
-            def json(self):
-                return self._payload
-
-        unauthorized_scope_response = FakeResponse(400, {
+    def test_refresh_account_falls_back_to_original_scope_after_aadsts70000(self):
+        unauthorized_scope_response = self._token_response(400, {
             'error': 'invalid_grant',
             'error_description': (
                 'AADSTS70000: The request was denied because one or more scopes requested '
@@ -2542,17 +2930,15 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 'client application access to the requested scope.'
             ),
         })
-        success_response = FakeResponse(200, {
+        success_response = self._token_response(200, {
             'access_token': 'access-token',
-            'refresh_token': 'M.C556_SN1.0.U.default-rotated',
+            'refresh_token': 'M.C556_SN1.0.U.original-rotated',
         })
 
         with patch.object(
             web_outlook_app.requests,
             'request',
             side_effect=[
-                unauthorized_scope_response,
-                unauthorized_scope_response,
                 unauthorized_scope_response,
                 success_response,
             ],
@@ -2564,17 +2950,87 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertTrue(payload['success'])
 
         request_data = [call.kwargs['data'] for call in mocked_request.call_args_list]
-        self.assertIn('https://graph.microsoft.com/Mail.ReadWrite', request_data[0]['scope'])
-        self.assertNotIn('https://graph.microsoft.com/Mail.Send', request_data[1]['scope'])
-        self.assertIn('https://graph.microsoft.com/Mail.ReadWrite', request_data[1]['scope'])
-        self.assertNotIn('https://graph.microsoft.com/Mail.ReadWrite', request_data[2]['scope'])
-        self.assertEqual(request_data[3]['scope'], 'https://graph.microsoft.com/.default')
+        self.assertEqual(len(request_data), 2)
+        self.assertEqual(request_data[0]['scope'], 'https://graph.microsoft.com/.default')
+        self.assertNotIn('scope', request_data[1])
 
         with self.app.app_context():
             refreshed = web_outlook_app.get_account_by_id(self.account_id)
 
         self.assertIsNotNone(refreshed)
-        self.assertEqual(refreshed['refresh_token'], 'M.C556_SN1.0.U.default-rotated')
+        self.assertEqual(refreshed['refresh_token'], 'M.C556_SN1.0.U.original-rotated')
+
+    def test_refresh_account_preserves_token_and_timestamp_without_rotation(self):
+        default_payloads = [
+            {'access_token': 'access-token'},
+            {'access_token': 'access-token', 'refresh_token': None},
+            {'access_token': 'access-token', 'refresh_token': ' \t '},
+        ]
+        original_tokens = [None, '', ' \t ', '0.AXEA_refresh']
+        for default_payload in default_payloads:
+            for original_token in original_tokens:
+                for updated_at in (None, '2026-01-01 00:00:00'):
+                    with self.subTest(default=default_payload, original=original_token, updated_at=updated_at):
+                        with self.app.app_context():
+                            db = web_outlook_app.get_db()
+                            db.execute('UPDATE accounts SET refresh_token_updated_at = ? WHERE id = ?',
+                                       (updated_at, self.account_id))
+                            db.commit()
+                            before = db.execute('SELECT refresh_token FROM accounts WHERE id = ?',
+                                                (self.account_id,)).fetchone()['refresh_token']
+                        responses = [
+                            self._token_response(200, default_payload),
+                            self._token_response(200, {
+                                'access_token': 'original-access-token',
+                                'refresh_token': original_token,
+                            }),
+                        ]
+                        with patch.object(web_outlook_app.requests, 'request', side_effect=responses) as request, \
+                             patch.object(web_outlook_app, 'persist_rotated_refresh_token') as persist:
+                            response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+                        self.assertTrue(response.get_json()['success'])
+                        self.assertEqual(request.call_count, 2)
+                        self.assertEqual(request.call_args_list[0].kwargs['data']['scope'],
+                                         'https://graph.microsoft.com/.default')
+                        self.assertNotIn('scope', request.call_args_list[1].kwargs['data'])
+                        persist.assert_not_called()
+                        with self.app.app_context():
+                            row = web_outlook_app.get_db().execute(
+                                'SELECT refresh_token, refresh_token_updated_at, last_refresh_status '
+                                'FROM accounts WHERE id = ?', (self.account_id,)
+                            ).fetchone()
+                        self.assertEqual(row['refresh_token'], before)
+                        self.assertEqual(row['refresh_token_updated_at'], updated_at)
+                        self.assertEqual(row['last_refresh_status'], 'success')
+
+    def test_default_success_is_preserved_when_original_scope_fails(self):
+        original_results = [
+            self._token_response(400, {'error': 'invalid_grant'}),
+            self._token_response(500, {'error': 'server_error'}),
+            web_outlook_app.requests.exceptions.Timeout('original scope timed out'),
+            self._token_response(200, None),
+        ]
+        for original_result in original_results:
+            with self.subTest(original=original_result):
+                default_response = self._token_response(200, {'access_token': 'access-token'})
+                with patch.object(web_outlook_app, 'post_with_proxy_fallback',
+                                  side_effect=[default_response, original_result]) as request:
+                    response = web_outlook_app.request_graph_token_response(
+                        'client-id', 'refresh-token', include_original_scope_fallback=True,
+                    )
+                self.assertEqual(request.call_count, 2)
+                self.assertIs(response, default_response)
+
+    def test_default_response_with_same_refresh_token_stops_without_rotation(self):
+        token_response = self._token_response(200, {
+            'access_token': 'access-token', 'refresh_token': '0.AXEA_refresh',
+        })
+        with patch.object(web_outlook_app.requests, 'request', return_value=token_response) as request, \
+             patch.object(web_outlook_app, 'persist_rotated_refresh_token') as persist:
+            response = self.client.post(f'/api/accounts/{self.account_id}/refresh')
+        self.assertTrue(response.get_json()['success'])
+        request.assert_called_once()
+        persist.assert_not_called()
 
     def test_refresh_account_falls_back_to_imap_after_graph_refresh_fails(self):
         class FakeResponse:
@@ -2603,9 +3059,6 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             side_effect=[
                 graph_failure,
                 graph_failure,
-                graph_failure,
-                graph_failure,
-                graph_failure,
                 imap_success,
             ],
         ) as mocked_request:
@@ -2616,10 +3069,9 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertTrue(payload['success'])
 
         request_urls = [call.args[1] for call in mocked_request.call_args_list]
-        self.assertEqual(request_urls[:5], [web_outlook_app.TOKEN_URL_GRAPH] * 5)
-        self.assertEqual(request_urls[5], web_outlook_app.TOKEN_URL_IMAP)
+        self.assertEqual(request_urls, [web_outlook_app.TOKEN_URL_GRAPH] * 2 + [web_outlook_app.TOKEN_URL_IMAP])
 
-        imap_request_data = mocked_request.call_args_list[5].kwargs['data']
+        imap_request_data = mocked_request.call_args_list[2].kwargs['data']
         self.assertEqual(imap_request_data['scope'], web_outlook_app.IMAP_TOKEN_SCOPE)
 
         with self.app.app_context():
@@ -2641,10 +3093,22 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
 
         self.assertTrue(result['success'])
         self.assertEqual(result['access_token'], 'access-token')
+        mocked_request.assert_called_once()
         request_data = mocked_request.call_args.kwargs['data']
         self.assertIn('https://graph.microsoft.com/Mail.Read', request_data['scope'])
         self.assertIn('https://graph.microsoft.com/Mail.ReadWrite', request_data['scope'])
         self.assertNotEqual(request_data['scope'], 'https://graph.microsoft.com/.default')
+
+    def test_graph_access_token_stops_at_default_without_refresh_token(self):
+        rejected = self._token_response(400, {'error': 'invalid_scope'})
+        access_only = self._token_response(200, {'access_token': 'access-token'})
+        with patch.object(web_outlook_app.requests, 'request',
+                          side_effect=[rejected] * 3 + [access_only]) as request:
+            result = web_outlook_app.get_access_token_graph_result('client-id', 'refresh-token')
+        self.assertEqual(result, {'success': True, 'access_token': 'access-token'})
+        self.assertEqual(request.call_count, 4)
+        self.assertTrue(all('scope' in call.kwargs['data'] for call in request.call_args_list))
+        self.assertEqual(request.call_args.kwargs['data']['scope'], 'https://graph.microsoft.com/.default')
 
     def test_refresh_account_persists_rotated_refresh_token(self):
         class FakeResponse:
@@ -2681,8 +3145,15 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     'refresh_token': '0.AXEA_rotated_scheduled',
                 }
 
-        with patch.object(web_outlook_app.requests, 'request', return_value=FakeResponse()):
+        default_response = self._token_response(200, {'access_token': 'access-token'})
+        with patch.object(web_outlook_app.requests, 'request',
+                          side_effect=[default_response, FakeResponse()]) as request:
             web_outlook_app.trigger_refresh_internal()
+
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(request.call_args_list[0].kwargs['data']['scope'],
+                         'https://graph.microsoft.com/.default')
+        self.assertNotIn('scope', request.call_args_list[1].kwargs['data'])
 
         with self.app.app_context():
             refreshed = web_outlook_app.get_account_by_id(self.account_id)
@@ -2712,6 +3183,9 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertIsNone(account_row['last_refresh_error'])
         self.assertIsNotNone(account_row['last_refresh_at'])
         self.assertIsNotNone(account_row['refresh_token_updated_at'])
+        logs = self.client.get(f'/api/accounts/{self.account_id}/refresh-logs').get_json()['logs']
+        self.assertIs(logs[0]['token_rotated'], True)
+        self.assertEqual(logs[0]['message'], '刷新成功，Token 已更新')
         self.assertEqual(snapshot_row['trigger_type'], 'scheduled')
         self.assertEqual(snapshot_row['status'], 'success')
         self.assertEqual(snapshot_row['total_count'], 1)
@@ -2769,7 +3243,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
 
         payload = json.loads(first_event.removeprefix('data: ').strip())
         self.assertEqual(payload['type'], 'conflict')
-        self.assertIn('The Token full refresh task is already being executed', payload['message'])
+        self.assertIn('已有 Token 全量刷新任务在执行', payload['message'])
 
     def test_stop_full_refresh_requests_stop_when_running(self):
         web_outlook_app.clear_token_refresh_stop_request()
@@ -2793,7 +3267,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '24d9a0ed-8787-4584-883c-2fd79308940a',
                     '0.AXEA_refresh_2',
                     group_id=self.group_id,
-                    remark='The second refresh account',
+                    remark='第二个刷新账号',
                     forward_enabled=False,
                 )
             )
@@ -2804,7 +3278,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             processed_emails.append(account['email'])
             if len(processed_emails) == 1:
                 web_outlook_app.request_token_refresh_stop()
-            return {'success': True, 'message': 'Token refreshed successfully'}
+            return {'success': True, 'message': 'Token 刷新成功'}
 
         with patch.object(web_outlook_app, 'refresh_outlook_account_token', side_effect=fake_refresh):
             stream = web_outlook_app.stream_full_refresh_events('manual_all', 'manual')
@@ -2831,7 +3305,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         self.assertEqual(snapshot_row['total_count'], 2)
         self.assertEqual(snapshot_row['success_count'], 1)
         self.assertEqual(snapshot_row['failed_count'], 0)
-        self.assertIn('manually stopped', snapshot_row['error_summary'])
+        self.assertIn('手动停止', snapshot_row['error_summary'])
 
     def test_stream_failed_refresh_events_yields_complete_and_reads_delay(self):
         with self.app.app_context():
@@ -2842,7 +3316,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '24d9a0ed-8787-4584-883c-2fd79308940a',
                     '0.AXEA_refresh_2',
                     group_id=self.group_id,
-                    remark='Second failed retry account',
+                    remark='第二个失败重试账号',
                     forward_enabled=False,
                 )
             )
@@ -2881,7 +3355,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             'refresh_outlook_account_token',
             side_effect=[
                 {'success': False, 'error_message': 'still failing'},
-                {'success': True, 'message': 'Token refreshed successfully'},
+                {'success': True, 'message': 'Token 刷新成功'},
             ],
         ), patch.object(web_outlook_app, 'wait_refresh_delay', side_effect=fake_wait):
             stream = web_outlook_app.stream_failed_refresh_events()
@@ -2910,7 +3384,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '24d9a0ed-8787-4584-883c-2fd79308940a',
                     '0.AXEA_refresh_2',
                     group_id=self.group_id,
-                    remark='Second failed retry account',
+                    remark='第二个失败重试账号',
                     forward_enabled=False,
                 )
             )
@@ -2943,7 +3417,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
             processed_emails.append(account['email'])
             if len(processed_emails) == 1:
                 web_outlook_app.request_token_refresh_stop()
-            return {'success': True, 'message': 'Token refreshed successfully'}
+            return {'success': True, 'message': 'Token 刷新成功'}
 
         with patch.object(web_outlook_app, 'refresh_outlook_account_token', side_effect=fake_refresh):
             stream = web_outlook_app.stream_failed_refresh_events()
@@ -3002,7 +3476,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '24d9a0ed-8787-4584-883c-2fd79308940a',
                     '0.AXEA_success',
                     group_id=self.group_id,
-                    remark='Successful account',
+                    remark='成功账号',
                     forward_enabled=False,
                 )
             )
@@ -3013,7 +3487,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '24d9a0ed-8787-4584-883c-2fd79308940a',
                     '0.AXEA_never',
                     group_id=self.group_id,
-                    remark='Never refreshed the account',
+                    remark='从未刷新账号',
                     forward_enabled=False,
                 )
             )
@@ -3024,7 +3498,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                     '',
                     '',
                     group_id=self.group_id,
-                    remark='should not appear in the refresh list',
+                    remark='不应出现在刷新列表',
                     account_type='imap',
                     provider='custom',
                     imap_host='imap.example.com',
@@ -3177,7 +3651,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
 
     def test_refresh_status_list_loads_account_tags_in_one_batch(self):
         with self.app.app_context():
-            tag_id = web_outlook_app.add_tag('Refresh label', '#336699')
+            tag_id = web_outlook_app.add_tag('刷新标签', '#336699')
             self.assertIsNotNone(tag_id)
             self.assertTrue(web_outlook_app.add_account(
                 'tagged-refresh@example.com',
@@ -3185,7 +3659,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
                 'client-id-tagged',
                 'refresh-token-tagged',
                 group_id=self.group_id,
-                remark='Refresh account with label',
+                remark='带标签刷新账号',
                 forward_enabled=False,
             ))
             tagged_account = web_outlook_app.get_account_by_email('tagged-refresh@example.com')
@@ -3207,26 +3681,26 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         tagged_items = [item for item in payload['items'] if item['email'] == 'tagged-refresh@example.com']
         self.assertEqual(len(tagged_items), 1)
         tagged_item = tagged_items[0]
-        self.assertEqual([tag['name'] for tag in tagged_item['tags']], ['Refresh label'])
+        self.assertEqual([tag['name'] for tag in tagged_item['tags']], ['刷新标签'])
         self.assertEqual(tagged_item['aliases'], ['tagged-refresh-alias@example.com'])
         self.assertEqual(tagged_item['alias_count'], 1)
         self.assertEqual(tagged_item['account_type'], 'outlook')
         self.assertEqual(tagged_item['provider'], 'outlook')
         self.assertFalse(tagged_item['forward_enabled'])
         self.assertEqual(tagged_item['group_id'], self.group_id)
-        self.assertEqual(tagged_item['group_name'], 'Agent refresh group')
+        self.assertEqual(tagged_item['group_name'], '代理刷新组')
         self.assertEqual(tagged_item['group_color'], '#225588')
 
     def test_group_api_persists_proxy_failover_fields(self):
         response = self.client.put(
             f'/api/groups/{self.group_id}',
             json={
-                'name': 'Agent refresh group',
-                'description': 'Direct connection and retry after test proxy failure',
+                'name': '代理刷新组',
+                'description': '测试代理失败后直连重试',
                 'color': '#225588',
                 'proxy_url': 'socks5://127.0.0.1:1080',
                 'fallback_proxy_url_1': 'socks5://127.0.0.1:2080',
-                'fallback_proxy_url_2': 'direct',
+                'fallback_proxy_url_2': '直连',
                 'sort_position': 1,
             }
         )
@@ -3240,7 +3714,7 @@ class RefreshTokenProxyFallbackTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload['success'])
         self.assertEqual(payload['group']['fallback_proxy_url_1'], 'socks5://127.0.0.1:2080')
-        self.assertEqual(payload['group']['fallback_proxy_url_2'], 'direct')
+        self.assertEqual(payload['group']['fallback_proxy_url_2'], '直连')
 
 
 class TelegramForwardingProxySettingsTests(unittest.TestCase):
@@ -3479,7 +3953,7 @@ class AppTimezoneSettingsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('forward polling interval must be between 20-3600 seconds', payload['error'])
+        self.assertIn('转发轮询间隔必须在 20-3600 秒之间', payload['error'])
 
         response = self.client.get('/api/settings')
         payload = response.get_json()
@@ -3516,10 +3990,11 @@ class MultiChannelForwardingTests(unittest.TestCase):
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM account_refresh_logs')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
 
             self.assertTrue(web_outlook_app.set_setting('forward_channels', 'smtp,telegram'))
+            self.assertTrue(web_outlook_app.set_setting('forward_keywords', ''))
             self.assertTrue(web_outlook_app.set_setting('forward_execution_mode', 'serial'))
             self.assertTrue(web_outlook_app.set_setting('forward_parallel_workers', '4'))
             self.assertTrue(web_outlook_app.set_setting('email_forward_recipient', 'main@example.com'))
@@ -3543,6 +4018,150 @@ class MultiChannelForwardingTests(unittest.TestCase):
                 (self.account_id,),
             )
             db.commit()
+            # Legacy opt-ins are materialized before a job; polling only reads routes.
+            web_outlook_app.sync_legacy_forwarding()
+
+    def tearDown(self):
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute("DELETE FROM settings WHERE key = 'forward_keywords'")
+            db.commit()
+
+    def test_forward_payload_shows_actual_recipients_and_escapes_html(self):
+        detail = {
+            'subject': 'notice', 'from': 'sender@example.com',
+            'to': 'Alias <alias+tag@example.com>, second@example.com',
+            'cc': 'Team <team@example.com>', 'body': 'hello', 'body_type': 'text',
+        }
+        _, plain, html_body, notification = web_outlook_app.build_forward_payload(
+            {'email': 'primary@example.com'}, detail,
+        )
+        for text in (plain, notification):
+            self.assertIn('账号: primary@example.com', text)
+            self.assertIn('收件人: ' + detail['to'], text)
+            self.assertIn('抄送: ' + detail['cc'], text)
+        self.assertIn('Alias &lt;alias+tag@example.com&gt;', html_body)
+        self.assertIn('Team &lt;team@example.com&gt;', html_body)
+        _, plain, html_body, notification = web_outlook_app.build_forward_payload(
+            {'email': 'primary@example.com'}, {'body': 'hello'},
+        )
+        self.assertIn('收件人: 未提供', notification)
+        self.assertNotIn('收件人: primary@example.com', notification)
+        for text in (plain, html_body, notification):
+            self.assertNotIn('抄送', text)
+
+    def test_forward_keywords_match_full_visible_subject_or_body(self):
+        for detail, keywords, expected in [
+            ({'subject': 'Your ACCESS DEACTIVATED notice'}, ['Access deactivated'], True),
+            ({'body': 'x' * 3000 + 'access deactivated'}, ['Access deactivated'], True),
+            ({'body': '<p>Access&nbsp;<b>deactivated</b></p>', 'body_type': 'html'}, ['Access deactivated'], True),
+            ({'body': '<script>Access deactivated</script><p>hello</p>', 'body_type': 'html'}, ['Access deactivated'], False),
+            ({'body': '账号已停用'}, ['Access deactivated', '已停用'], True),
+            ({'from': 'Access deactivated', 'to': 'Access deactivated', 'body': 'hello'}, ['Access deactivated'], False),
+            ({'body': 'hello'}, [], True),
+        ]:
+            with self.subTest(detail=detail, keywords=keywords):
+                self.assertEqual(web_outlook_app.forward_email_matches_keywords(detail, keywords), expected)
+
+    def test_settings_api_roundtrips_and_validates_forward_keywords(self):
+        self.app.config['WTF_CSRF_ENABLED'] = False
+        client = self.app.test_client()
+        with client.session_transaction() as session:
+            session['logged_in'] = True
+        self.assertEqual(client.get('/api/settings').get_json()['settings']['forward_keywords'], '')
+        response = client.put('/api/settings', json={
+            'forward_keywords': '  Access deactivated  \r\n\n已停用\nACCESS DEACTIVATED\n',
+        })
+        self.assertTrue(response.get_json()['success'])
+        self.assertEqual(client.get('/api/settings').get_json()['settings']['forward_keywords'],
+                         'Access deactivated\n已停用')
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.build_forwarding_job_config()['keywords'],
+                             ['Access deactivated', '已停用'])
+        for invalid in (None, [], 123):
+            with self.subTest(invalid=invalid):
+                response = client.put('/api/settings', json={'forward_keywords': invalid})
+                self.assertFalse(response.get_json()['success'])
+                self.assertEqual(client.get('/api/settings').get_json()['settings']['forward_keywords'],
+                                 'Access deactivated\n已停用')
+        self.assertTrue(client.put('/api/settings', json={'forward_keywords': ''}).get_json()['success'])
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.build_forwarding_job_config()['keywords'], [])
+
+    def _process_keyword_messages(self, items, details, *, telegram_success=True):
+        with self.app.app_context():
+            web_outlook_app.set_setting('forward_keywords', 'Access deactivated')
+            web_outlook_app.set_setting('forward_channels', 'smtp,telegram,wecom')
+            web_outlook_app.set_setting_encrypted('wecom_webhook_url', 'https://example.com/robot')
+            web_outlook_app.sync_legacy_forwarding()
+            config = web_outlook_app.build_forwarding_job_config()
+            config.update(include_junkemail=False, forward_window_start=None)
+            account = web_outlook_app.get_account_by_id(self.account_id)
+        with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={
+            'success': True, 'emails': items,
+        }), patch.object(web_outlook_app, 'fetch_forward_detail', side_effect=lambda _account, message_id, _folder: details[message_id]) as detail_mock, patch.object(
+            web_outlook_app, 'send_forward_email', return_value=True,
+        ) as email_mock, patch.object(
+            web_outlook_app, 'send_forward_telegram', return_value=telegram_success,
+        ) as tg_mock, patch.object(
+            web_outlook_app, 'send_forward_wecom', return_value=True,
+        ) as wecom_mock:
+            result = web_outlook_app.process_forwarding_account(account, config)
+        return result, detail_mock, email_mock, tg_mock, wecom_mock
+
+    def test_forward_keywords_skip_all_channels_and_advance_cursor(self):
+        items = [{'id': 'filtered', 'date': '2026-10-18T01:00:00Z', 'folder': 'inbox'}]
+        details = {'filtered': {'id': 'filtered', 'subject': 'newsletter', 'body': 'hello'}}
+        result, _, email_mock, tg_mock, wecom_mock = self._process_keyword_messages(items, details)
+        for sender in (email_mock, tg_mock, wecom_mock):
+            sender.assert_not_called()
+        self.assertTrue(result['cursor_updated'])
+        self.assertFalse(result['had_processing_failure'])
+        with self.app.app_context():
+            rows = web_outlook_app.get_db().execute(
+                'SELECT COUNT(*) AS count FROM forwarding_logs WHERE account_id = ?', (self.account_id,),
+            ).fetchone()
+            self.assertEqual(rows['count'], 0)
+        result, detail_mock, *_ = self._process_keyword_messages(items, details)
+        self.assertEqual(result['pending_count'], 0)
+        detail_mock.assert_not_called()
+
+    def test_forward_keywords_preserve_failed_older_mail_for_retry(self):
+        items = [
+            {'id': 'failed', 'date': '2026-10-18T01:00:00Z', 'folder': 'inbox'},
+            {'id': 'filtered', 'date': '2026-10-18T02:00:00Z', 'folder': 'inbox'},
+        ]
+        matching = {'id': 'failed', 'body': 'x' * 3000 + 'ACCESS DEACTIVATED',
+                    'to': 'alias@example.com', 'cc': 'team@example.com'}
+        for detail_fails in (True, False):
+            with self.subTest(detail_fails=detail_fails):
+                with self.app.app_context():
+                    db = web_outlook_app.get_db()
+                    db.execute('DELETE FROM forward_logs')
+                    db.execute("DELETE FROM forwarding_events WHERE source_type='account' AND source_id=?", (self.account_id,))
+                    db.execute('UPDATE accounts SET forward_last_checked_at = NULL WHERE id = ?', (self.account_id,))
+                    db.commit()
+                details = {'failed': None if detail_fails else matching,
+                           'filtered': {'id': 'filtered', 'body': 'newsletter'}}
+                result, *_ = self._process_keyword_messages(items, details, telegram_success=False)
+                self.assertTrue(result['had_processing_failure'])
+                self.assertFalse(result['cursor_updated'])
+                details['failed'] = matching
+                with self.app.app_context():
+                    # Simulate the next eligible poll without waiting for the
+                    # persisted notification retry backoff in this unit test.
+                    db = web_outlook_app.get_db()
+                    db.execute("UPDATE forwarding_deliveries SET next_attempt_at=0 WHERE status='failed'")
+                    db.commit()
+                result, _, email_mock, tg_mock, wecom_mock = self._process_keyword_messages(items, details)
+                self.assertFalse(result['had_processing_failure'])
+                with self.app.app_context():
+                    self.assertEqual(result['cursor'], web_outlook_app.parse_email_datetime(items[-1]['date']).isoformat())
+                tg_mock.assert_called_once()
+                self.assertIn('收件人: alias@example.com', tg_mock.call_args.args[0])
+                self.assertIn('抄送: team@example.com', wecom_mock.call_args.args[0] if detail_fails else tg_mock.call_args.args[0])
+                self.assertEqual(email_mock.call_count, int(detail_fails))
+                self.assertEqual(wecom_mock.call_count, int(detail_fails))
 
     def test_process_forwarding_job_sends_to_all_enabled_channels(self):
         email_item = {
@@ -3728,6 +4347,7 @@ class MultiChannelForwardingTests(unittest.TestCase):
                 ('second-forward@example.com',),
             )
             db.commit()
+            web_outlook_app.sync_legacy_forwarding()
 
         with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={'success': True, 'emails': [], 'error': ''}) as candidates_mock:
             with patch.object(web_outlook_app.time, 'sleep') as sleep_mock:
@@ -3766,6 +4386,7 @@ class MultiChannelForwardingTests(unittest.TestCase):
                 ('parallel-second@example.com',),
             )
             db.commit()
+            web_outlook_app.sync_legacy_forwarding()
 
         first_started = threading.Event()
         second_processed = threading.Event()
@@ -3808,6 +4429,7 @@ class MultiChannelForwardingTests(unittest.TestCase):
                 ('parallel-delay-second@example.com',),
             )
             db.commit()
+            web_outlook_app.sync_legacy_forwarding()
 
         with patch.object(web_outlook_app, 'fetch_forward_candidates', return_value={'success': True, 'emails': [], 'error': ''}) as candidates_mock:
             with patch.object(web_outlook_app.time, 'sleep') as sleep_mock:
@@ -3853,12 +4475,12 @@ class MailFetchErrorPayloadTests(unittest.TestCase):
         payload = web_outlook_app.build_mail_fetch_error(
             error,
             proxy_url='http://proxy.example:8080',
-            operation='Fetch mail',
+            operation='获取邮件',
         )
 
         self.assertEqual(payload['code'], 'MAIL_PROXY_FAILED')
         self.assertEqual(payload['category'], 'proxy')
-        self.assertIn('Proxy', payload['message'])
+        self.assertIn('代理', payload['message'])
         self.assertIn('Unable to connect to proxy', payload['details'])
         self.assertIn('proxy_attempts', payload['details'])
 
@@ -3879,11 +4501,11 @@ class MailFetchErrorPayloadTests(unittest.TestCase):
     def test_timeout_is_classified_as_network_timeout(self):
         error = web_outlook_app.requests.exceptions.ConnectTimeout('Connection timed out')
 
-        payload = web_outlook_app.build_mail_fetch_error(error, operation='Fetch mail')
+        payload = web_outlook_app.build_mail_fetch_error(error, operation='获取邮件')
 
         self.assertEqual(payload['code'], 'MAIL_NETWORK_TIMEOUT')
         self.assertEqual(payload['category'], 'network')
-        self.assertIn('timeout', payload['message'])
+        self.assertIn('超时', payload['message'])
 
     def test_dns_and_tls_failures_have_distinct_error_codes(self):
         cases = (
@@ -3899,7 +4521,7 @@ class MailFetchErrorPayloadTests(unittest.TestCase):
 
         for error, expected_code in cases:
             with self.subTest(expected_code=expected_code):
-                payload = web_outlook_app.build_mail_fetch_error(error, operation='Fetch mail')
+                payload = web_outlook_app.build_mail_fetch_error(error, operation='获取邮件')
                 self.assertEqual(payload['code'], expected_code)
                 self.assertEqual(payload['category'], 'network')
 
@@ -3938,7 +4560,7 @@ class MailFetchErrorPayloadTests(unittest.TestCase):
     def test_tls_failure_keeps_imap_fallback_available(self):
         tls_error = web_outlook_app.build_mail_fetch_error(
             web_outlook_app.requests.exceptions.SSLError('certificate verify failed'),
-            operation='Fetch mail',
+            operation='获取邮件',
         )
         account = {
             'email': 'user@outlook.com',

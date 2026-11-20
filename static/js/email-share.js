@@ -7,6 +7,7 @@
     let isLoading = false;
     let currentMethod = 'graph';
     let selectedEmailId = null;
+    let isShareReady = false;
 
     // --- Utility Functions ---
     function createLucideIcons() {
@@ -39,33 +40,64 @@
     }
 
     function showInvalid(message) {
+        isShareReady = false;
+        const accessCodeState = document.getElementById('shareAccessCodeState');
+        if (accessCodeState) accessCodeState.hidden = true;
         const appBody = document.getElementById('appBody');
         if (appBody) appBody.style.display = 'none';
         
         const invalid = document.getElementById('shareInvalidState');
         const title = document.getElementById('shareInvalidTitle');
-        if (title) title.textContent = message || I18n.t("Sharing link is not available");
+        if (title) title.textContent = message || I18n.t('分享链接不可用');
         if (invalid) invalid.hidden = false;
         
-        setStatus(I18n.t("Link invalid"), 'invalid');
+        setStatus(I18n.t('链接失效'), 'invalid');
         createLucideIcons();
     }
 
     function showContent() {
+        isShareReady = true;
+        const accessCodeState = document.getElementById('shareAccessCodeState');
+        if (accessCodeState) accessCodeState.hidden = true;
         const invalid = document.getElementById('shareInvalidState');
         if (invalid) invalid.hidden = true;
-        
+
         const appBody = document.getElementById('appBody');
         if (appBody) appBody.style.display = 'flex';
-        
-        setStatus(I18n.t("The connection is valid"), 'active');
+
+        setStatus(I18n.t('连接有效'), 'active');
     }
 
-    async function requestJson(url) {
-        const response = await fetch(url, { cache: 'no-store' });
+    function showAccessCodePrompt() {
+        isShareReady = false;
+        const appBody = document.getElementById('appBody');
+        if (appBody) appBody.style.display = 'none';
+        const invalid = document.getElementById('shareInvalidState');
+        if (invalid) invalid.hidden = true;
+        const accessCodeState = document.getElementById('shareAccessCodeState');
+        if (accessCodeState) accessCodeState.hidden = false;
+        setStatus(I18n.t('等待访问码'), 'invalid');
+        document.getElementById('shareAccessCodeInput')?.focus();
+        createLucideIcons();
+    }
+
+    function renderShareVisibilityHint(maxEmailCount) {
+        const hint = document.getElementById('shareVisibilityHint');
+        if (!hint) return;
+        const count = Number(maxEmailCount);
+        const isLimited = Number.isInteger(count) && count > 0;
+        hint.hidden = !isLimited;
+        hint.textContent = isLimited ? I18n.tpl`收件箱和垃圾邮件分别仅显示各自最新 ${count} 封邮件` : '';
+    }
+
+    async function requestJson(url, options = {}) {
+        const response = await fetch(url, { ...options, cache: 'no-store' });
         const data = await response.json();
         if (!response.ok || data.success === false) {
-            throw new Error(data.error || I18n.t("Request failed"));
+            if (data.status === 'access_code_required') showAccessCodePrompt();
+            const error = new Error(data.error || I18n.t('请求失败'));
+            error.status = data.status;
+            throw error;
         }
         return data;
     }
@@ -134,14 +166,14 @@
             
             // Today
             if (date.toDateString() === now.toDateString()) {
-                return I18n.tpl`Today ${hours}:${minutes}`;
+                return I18n.tpl`今天 ${hours}:${minutes}`;
             }
             
             // Yesterday
             const yesterday = new Date(now);
             yesterday.setDate(now.getDate() - 1);
             if (date.toDateString() === yesterday.toDateString()) {
-                return I18n.tpl`Yesterday ${hours}:${minutes}`;
+                return I18n.tpl`昨天 ${hours}:${minutes}`;
             }
             
             // This year
@@ -223,7 +255,7 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="alert-triangle" style="color: var(--danger)"></i>
                     </div>
-                    <h3>Failed to load email</h3>
+                    <h3>加载邮件失败</h3>
                     <p>${escapeHtml(message)}</p>
                 </div>
             `;
@@ -243,8 +275,8 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="mail-open"></i>
                     </div>
-                    <h3>${isSearching ? I18n.t("No relevant email found") : I18n.t("No email yet")}</h3>
-                    <p>${isSearching ? I18n.t("Please try to modify your search keywords") : I18n.t("No emails received in the current folder")}</p>
+                    <h3>${isSearching ? I18n.t('未找到相关邮件') : I18n.t('暂无邮件')}</h3>
+                    <p>${isSearching ? I18n.t('请尝试修改您的搜索关键词') : I18n.t('当前文件夹中没有收到任何邮件')}</p>
                 </div>
             `;
         } else {
@@ -266,12 +298,12 @@
                                 <span class="email-item-sender">${escapeHtml(senderName)}</span>
                                 <span class="email-item-date">${escapeHtml(formatDate(email.date))}</span>
                             </div>
-                            <div class="email-item-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</div>
+                            <div class="email-item-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
                             <div class="email-item-body">${escapeHtml(email.body_preview || '')}</div>
                             ${email.has_attachments ? I18n.tpl`
                                 <div class="email-item-meta">
                                     <i data-lucide="paperclip"></i>
-                                    <span>Includes attachments</span>
+                                    <span>包含附件</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -290,7 +322,7 @@
     }
 
     async function loadEmails({ append = false } = {}) {
-        if (isLoading) return;
+        if (!isShareReady || isLoading) return;
         isLoading = true;
 
         if (!append) {
@@ -305,8 +337,8 @@
                         <div class="empty-icon-wrapper">
                             <i data-lucide="mail-open" class="empty-icon"></i>
                         </div>
-                        <h3>Select an email</h3>
-                        <p>Click an email in the list on the left to see its details and attachments here.</p>
+                        <h3>选择一封邮件</h3>
+                        <p>点击左侧列表中的邮件以在此处查看其详细内容和附件。</p>
                     </div>
                 `;
             }
@@ -319,7 +351,7 @@
             loadMoreBtn.disabled = true;
             const btnText = loadMoreBtn.querySelector('span');
             if (btnText) {
-                btnText.textContent = I18n.t("Loading…");
+                btnText.textContent = I18n.t('加载中...');
             }
             // Show load more button while loading to show feedback
             loadMoreBtn.hidden = false;
@@ -341,17 +373,17 @@
             
             const methodTag = document.getElementById('shareMethodTag');
             if (methodTag) {
-                methodTag.textContent = data.method ? I18n.tpl`Reading method: ${data.method}` : '';
+                methodTag.textContent = data.method ? I18n.tpl`读取方式: ${data.method}` : '';
             }
             
             renderEmailList();
         } catch (error) {
             if (append) {
-                console.error(I18n.t("Failed to load more emails:"), error);
+                console.error(I18n.t("加载更多邮件失败:"), error);
                 if (loadMoreBtn) {
                     const btnText = loadMoreBtn.querySelector('span');
                     if (btnText) {
-                        btnText.textContent = I18n.t("Loading failed, click to try again");
+                        btnText.textContent = I18n.t('加载失败，点击重试');
                     }
                 }
             } else {
@@ -362,8 +394,8 @@
             if (loadMoreBtn) {
                 loadMoreBtn.disabled = false;
                 const btnText = loadMoreBtn.querySelector('span');
-                if (btnText && btnText.textContent === I18n.t("Loading…")) {
-                    btnText.textContent = I18n.t("Load more");
+                if (btnText && btnText.textContent === I18n.t('加载中...')) {
+                    btnText.textContent = I18n.t('加载更多');
                 }
                 const searchInput = document.getElementById('emailSearchInput');
                 const isSearching = searchInput && searchInput.value.trim() !== '';
@@ -391,11 +423,11 @@
             <div class="attachments-section">
                 <div class="attachments-title">
                     <i data-lucide="paperclip"></i>
-                    <span>Attachment (${attachments.length})</span>
+                    <span>附件 (${attachments.length})</span>
                 </div>
                 <div class="attachments-grid">
                     ${attachments.map(att => {
-                        const name = att.name || att.filename || I18n.t("Unnamed attachment");
+                        const name = att.name || att.filename || I18n.t('未命名附件');
                         const size = att.size ? formatBytes(att.size) : '';
                         const icon = getAttachmentIcon(name);
                         return `
@@ -422,7 +454,7 @@
             const safeHtml = window.DOMPurify ? window.DOMPurify.sanitize(body) : escapeHtml(body);
             return I18n.tpl`
                 <div class="iframe-container">
-                    <iframe title="Email text" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapeHtml(safeHtml)}"></iframe>
+                    <iframe title="邮件正文" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${escapeHtml(safeHtml)}"></iframe>
                 </div>
             `;
         }
@@ -441,7 +473,7 @@
             detailPanel.innerHTML = I18n.tpl`
                 <div class="detail-card">
                     <div class="detail-header">
-                        <h2 class="detail-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</h2>
+                        <h2 class="detail-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</h2>
                         <div class="detail-meta-row">
                             <div class="detail-meta-avatar" style="background-color: ${color}">
                                 ${escapeHtml(initials)}
@@ -452,8 +484,8 @@
                                     <span class="user-email" style="font-size: 12px; font-weight: normal; margin-left: 4px;">${escapeHtml(emailAddress)}</span>
                                 </div>
                                 <div class="detail-recipients">
-                                    <strong>Recipient:</strong> ${escapeHtml(email.to || '')}
-                                    ${email.cc ? I18n.tpl`<br><strong>CC:</strong> ${escapeHtml(email.cc)}` : ''}
+                                    <strong>收件人:</strong> ${escapeHtml(email.to || '')}
+                                    ${email.cc ? I18n.tpl`<br><strong>抄送:</strong> ${escapeHtml(email.cc)}` : ''}
                                 </div>
                             </div>
                             <div class="detail-date">
@@ -488,8 +520,8 @@
                     <div class="empty-icon-wrapper">
                         <i data-lucide="loader" class="animate-spin" style="animation: spin 1s linear infinite;"></i>
                     </div>
-                    <h3>Loading email details...</h3>
-                    <p>Retrieving the complete email content and attachment list, please wait.</p>
+                    <h3>正在加载邮件详情...</h3>
+                    <p>正在拉取完整的邮件内容及附件列表，请稍候。</p>
                 </div>
             `;
             createLucideIcons();
@@ -504,7 +536,7 @@
         try {
             // Find email object to resolve parameters
             const email = currentEmails.find(e => e.id === emailId);
-            if (!email) throw new Error(I18n.t("Mail object not found"));
+            if (!email) throw new Error(I18n.t('未找到邮件对象'));
             
             const data = await requestJson(buildDetailUrl(email));
             renderEmailDetail(data.email || {});
@@ -515,7 +547,7 @@
                         <div class="empty-icon-wrapper">
                             <i data-lucide="alert-triangle" style="color: var(--danger)"></i>
                         </div>
-                        <h3>Failed to load email details</h3>
+                        <h3>加载邮件详情失败</h3>
                         <p>${escapeHtml(error.message)}</p>
                     </div>
                 `;
@@ -599,10 +631,10 @@
         if (!githubLink) {
             githubLink = document.createElement('a');
             githubLink.className = 'github-link';
-            githubLink.href = 'https://github.com/assast/outlookEmail';
+            githubLink.href = 'https://github.com/kol2000/outlookEmail';
             githubLink.target = '_blank';
             githubLink.rel = 'noopener noreferrer';
-            githubLink.setAttribute('aria-label', I18n.t("GitHub repository"));
+            githubLink.setAttribute('aria-label', I18n.t('GitHub 仓库'));
             githubLink.innerHTML = svgHtml;
             headerRight.appendChild(githubLink);
         } else {
@@ -649,7 +681,7 @@
         textArea.select();
         try {
             document.execCommand('copy');
-            showToast(I18n.t("Email address copied to clipboard"));
+            showToast(I18n.t('已复制邮箱地址到剪贴板'));
         } catch (err) {
             console.error('Fallback copy failed', err);
         }
@@ -668,7 +700,7 @@
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(emailText)
                             .then(() => {
-                                showToast(I18n.t("Email address copied to clipboard"));
+                                showToast(I18n.t('已复制邮箱地址到剪贴板'));
                             })
                             .catch(err => {
                                 console.error('Clipboard copy failed: ', err);
@@ -682,25 +714,14 @@
         }
     }
 
-    // --- Setup Initialization ---
-    async function initializeSharePage() {
-        insertGithubLink();
-        setupTheme();
-        setupSearch();
-        setupScrollLoad();
-        setupCopyEmail();
-
-        if (!token) {
-            showInvalid(I18n.t("Sharing link is not available"));
-            return;
-        }
-
+    async function loadShareContent() {
         try {
             const status = await requestJson(`/api/share/email/${encodeURIComponent(token)}/status`);
             
             const titleElement = document.getElementById('shareEmailTitle');
-            if (titleElement) titleElement.textContent = status.email || I18n.t("Email sharing");
-            
+            if (titleElement) titleElement.textContent = status.email || I18n.t('邮箱分享');
+            renderShareVisibilityHint(status.max_email_count);
+
             const headerAvatar = document.getElementById('headerUserAvatar');
             if (headerAvatar) {
                 headerAvatar.textContent = getInitials(status.email);
@@ -710,9 +731,59 @@
             showContent();
             await loadEmails();
         } catch (error) {
-            showInvalid(error.message);
+            if (error.status !== 'access_code_required') showInvalid(error.message);
         }
     }
+
+    async function verifyAccessCode(event) {
+        event.preventDefault();
+        const input = document.getElementById('shareAccessCodeInput');
+        const button = document.getElementById('shareAccessCodeSubmit');
+        const errorText = document.getElementById('shareAccessCodeError');
+        if (!input || !button || button.disabled) return;
+        button.disabled = true;
+        if (errorText) errorText.hidden = true;
+        try {
+            await requestJson(`/api/share/email/${encodeURIComponent(token)}/verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ access_code: input.value })
+            });
+            input.value = '';
+            await loadShareContent();
+        } catch (error) {
+            if (['expired', 'revoked', 'invalid'].includes(error.status)) {
+                showInvalid(error.message);
+            } else if (errorText) {
+                errorText.textContent = error.message;
+                errorText.hidden = false;
+            }
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    // --- Setup Initialization ---
+    async function initializeSharePage() {
+        insertGithubLink();
+        setupTheme();
+        setupSearch();
+        setupScrollLoad();
+        setupCopyEmail();
+
+        if (!token) {
+            showInvalid(I18n.t('分享链接不可用'));
+            return;
+        }
+        await loadShareContent();
+    }
+
+    document.addEventListener('submit', (event) => {
+        if (event.target.id === 'shareAccessCodeForm') verifyAccessCode(event);
+    });
 
     // --- Global Event Delegation ---
     document.addEventListener('click', (event) => {

@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   merge-main-into-dev:
+    if: github.repository == 'assast/outlookEmail'
     runs-on: ubuntu-latest
 
     steps:

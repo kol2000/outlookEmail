@@ -34,7 +34,7 @@ env:
 
 jobs:
   build-from-event:
-    if: ${{ inputs.version == '' }}
+    if: ${{ github.repository == 'assast/outlookEmail' && inputs.version == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,7 +83,7 @@ jobs:
         run: echo ${{ steps.meta.outputs.digest }}
 
   build-from-release:
-    if: ${{ inputs.version != '' }}
+    if: ${{ github.repository == 'assast/outlookEmail' && inputs.version != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,58 +1,42 @@
 # OutlookEmail — English / Русский
 
-This fork of [assast/outlookEmail](https://github.com/assast/outlookEmail) is based on **v3.0.9** and adds an English/Russian interface switcher, offline translation catalogs, localized status messages and browser-extension labels.
+Based on [upstream v3.0.32](https://github.com/assast/outlookEmail/releases/tag/v3.0.32), with an offline English/Russian language switcher.
 
-[English manual](README.en.md) · [Руководство на русском](README.ru.md) · [Original upstream README](https://github.com/assast/outlookEmail/blob/main/README.md)
+[Download the Windows release](https://github.com/kol2000/outlookEmail/releases/latest) · [English manual](README.en.md) · [Руководство на русском](README.ru.md)
 
-## Download for Windows
+## Windows
 
-Get the Windows ZIP from [Releases](https://github.com/kol2000/outlookEmail/releases). Extract the entire archive and keep `_internal` beside `OutlookEmail.exe`.
+Download `OutlookEmail-v3.0.32-en-ru-Windows.zip` from the release assets, extract it, and run `OutlookEmail/OutlookEmail.exe`. Keep the `_internal` directory next to the executable. Python is not required. Choose English or Русский on the sign-in page or in the toolbar.
 
-## Run this translated version
+Close the old application before starting the new one. Back up `%APPDATA%\OutlookEmail` first; this is where the packaged application stores its database and session secret. If you configured `OUTLOOK_EMAIL_HOME`, back up that directory instead. Extract the new release to a separate folder. Your accounts remain in the data directory.
 
-```sh
-git clone https://github.com/kol2000/outlookEmail.git
-cd outlookEmail
-git checkout localization/en-ru-v3.0.9
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
-python -m pip install -r requirements.txt
-```
+The initial password for a new installation is `admin123`; change it in Settings. Existing installations keep their password.
 
-On Windows PowerShell, generate a local session secret and start the app:
+## What's included
+
+- Upstream v3.0.32, including iCloud management, forwarding improvements, account ordering and IMAP fixes.
+- English/Russian UI, application status messages, browser extension and manuals.
+- Update checks point to this fork. This portable folder is updated by extracting the complete release ZIP; replacing only its EXE is disabled.
+- Original upstream ancestry is preserved for future merges. Syncing source does not itself translate new text or build a Windows release.
+
+## Run from source
 
 ```powershell
-$env:SECRET_KEY = python -c "import secrets; print(secrets.token_hex(32))"
-$env:HOST = "127.0.0.1"
-python web_outlook_app.py
+git clone https://github.com/kol2000/outlookEmail.git
+cd outlookEmail
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python web_outlook_app.py
 ```
 
-On macOS/Linux:
+Open http://127.0.0.1:5000. The browser remembers the language selection. `OUTLOOK_LANGUAGE=en` or `OUTLOOK_LANGUAGE=ru` selects the default language.
 
-```sh
-export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
-HOST=127.0.0.1 python web_outlook_app.py
-```
+## Extension
 
-Open http://127.0.0.1:5000. The upstream initial password is `admin123`; change it in Settings after signing in. Select **English** or **Русский** on the sign-in page or in the application toolbar. The browser remembers the selection. `OUTLOOK_LANGUAGE=en` or `OUTLOOK_LANGUAGE=ru` selects the server/desktop default.
+The extension ZIP is an optional Chrome/Edge companion, not the Windows application. Extract it and load the `browser-extension` directory as an unpacked extension. It has its own language selector.
 
-For Docker, build this checkout using `docker compose -f docker-compose.build.yml up -d --build` after configuring `.env.local` from `.env.example`. The original author's prebuilt images and release downloads do **not** contain this fork's translation.
+## Localization and maintenance
 
-Load `browser-extension/` as an unpacked extension in Chrome or Edge. Its language selector is independent of the web application. [English extension manual](browser-extension/README.en.md) · [Русская инструкция](browser-extension/README.ru.md).
+Translations are bundled; no translation service receives mailbox content at runtime. Email bodies, subjects, account names, passwords, tokens and API identifiers are preserved. Long-form documentation uses machine translation and may need editorial refinement. Original screenshots and historical upstream commits may contain Chinese.
 
-## Repository history
-
-This fork preserves the original upstream history, including its original commit messages. English/Russian localization and English source/documentation changes are separate commits based on upstream v3.0.9. The earlier translated history has been replaced to restore a common ancestor with upstream; existing clones should be backed up before switching to the restored branches.
-
-GitHub's **Sync fork** can now compare and merge upstream updates using the shared history. It cannot translate new strings, resolve conflicting edits, or publish a new Windows build. If GitHub reports conflicts, resolve them in an update branch, check both languages, run the tests, and build a new release before distributing the update. Do not use **Discard commits** to update this fork: that would remove the localization commits.
-
-The application remains based on **v3.0.9**. A trial merge of upstream **v3.0.32** has conflicts and has not been applied. Restoring history alone is not an application upgrade. See [the update workflow](docs/upstream-updates.md).
-
-## Localization details
-
-Catalogs are stored in `static/locales/en.json` and `ru.json`. No translation service is contacted while the application is running. Account names, mailbox contents, credentials, persisted identifiers, import/export formats and API field names are preserved. Server status messages are localized at the response boundary; protocol values and persisted identifiers remain compatible with upstream. API clients may send `X-Outlook-Language: en`, `ru`, or `zh-CN` (legacy pass-through; newly authored statuses are English).
-
-The full manuals were machine translated; common UI terminology has been edited and placeholder/markup integrity is tested. Long help text may still benefit from editorial review. Source comments, current documentation, changelog entries and commit messages use English. Original screenshots are linked in the upstream project rather than embedded here. External provider error messages are preserved when they do not match an application message.
-
-See [localization maintenance and verification](docs/localization.md). Upstream declares MIT in its README, but the v3.0.9 snapshot does not include the referenced LICENSE file; no new license grant is added by this fork.
+See [localization maintenance](docs/localization.md) and the [upstream changelog](CHANGELOG.en.md). Upstream declares MIT in its README; retained third-party licenses are included in `third_party` and the vendor assets.

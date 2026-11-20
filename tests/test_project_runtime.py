@@ -31,7 +31,7 @@ class ProjectRuntimeTests(unittest.TestCase):
 
         with self.app.app_context():
             web_outlook_app.init_db()
-            # Avoid contaminating the fake login state of this use case with the modified session version of other use cases.
+            # 避免其他用例改密后的会话版本污染本用例的假登录态
             web_outlook_app.set_setting(
                 web_outlook_app.LOGIN_SESSION_VERSION_SETTING_KEY,
                 web_outlook_app.DEFAULT_LOGIN_SESSION_VERSION,
@@ -48,7 +48,7 @@ class ProjectRuntimeTests(unittest.TestCase):
             db.execute('DELETE FROM temp_email_messages')
             db.execute('DELETE FROM temp_emails')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
 
         with self.client.session_transaction() as sess:
@@ -84,6 +84,93 @@ class ProjectRuntimeTests(unittest.TestCase):
             )
             db.commit()
             return int(cursor.lastrowid)
+
+    def test_batch_account_status_preserves_data_and_controls_account_eligibility(self):
+        account_id = self._insert_account('batch-status@example.com')
+        inactive_id = self._insert_account('already-inactive@example.com', status='inactive')
+        unselected_id = self._insert_account('unselected-status@example.com')
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            db.execute(
+                '''UPDATE accounts SET password = ?, refresh_token = ?, forward_enabled = 1,
+                   last_refresh_status = 'failed', last_refresh_error = 'expired' WHERE id = ?''',
+                (web_outlook_app.encrypt_data('saved-password'),
+                 web_outlook_app.encrypt_data('saved-token'), account_id),
+            )
+            db.commit()
+            before = dict(db.execute('SELECT * FROM accounts WHERE id = ?', (account_id,)).fetchone())
+            web_outlook_app.start_project('batch-status')
+
+        response = self.client.post('/api/accounts/batch-update-status', json={
+            'account_ids': [account_id, str(account_id), inactive_id, 99999999, 'invalid', -1],
+            'status': 'inactive',
+        })
+        self.assertEqual(response.status_code, 200)
+        result = response.get_json()
+        self.assertTrue(result['success'])
+        self.assertEqual(result['updated_count'], 1)
+        self.assertEqual(result['unchanged_count'], 1)
+        self.assertEqual(result['missing_ids'], [99999999])
+        self.assertEqual(result['updated_accounts'], [{'id': account_id, 'email': before['email']}])
+
+        with self.app.app_context():
+            db = web_outlook_app.get_db()
+            after = dict(db.execute('SELECT * FROM accounts WHERE id = ?', (account_id,)).fetchone())
+            self.assertEqual(after['status'], 'inactive')
+            for key in before.keys() - {'status', 'updated_at'}:
+                self.assertEqual(after[key], before[key], key)
+            self.assertEqual(web_outlook_app.query_refreshable_accounts()['total'], 1)
+            self.assertEqual({a['id'] for a in web_outlook_app.get_forwarding_enabled_accounts()}, {unselected_id})
+            claim = web_outlook_app.claim_project_account('batch-status', 'worker', 'unselected')
+            self.assertEqual(claim['account_id'], unselected_id)
+            self.assertTrue(web_outlook_app.complete_project_account_success(
+                'batch-status', unselected_id, claim['claim_token'],
+            ))
+            self.assertIsNone(web_outlook_app.claim_project_account('batch-status', 'worker', 'task'))
+
+        # 停用账号仍在主页列表中，允许批量恢复。
+        accounts = self.client.get('/api/accounts/search?q=batch-status').get_json()['accounts']
+        self.assertEqual(accounts[0]['status'], 'inactive')
+        restored = self.client.post('/api/accounts/batch-update-status', json={
+            'account_ids': [account_id, inactive_id], 'status': 'active',
+        }).get_json()
+        self.assertTrue(restored['success'])
+        self.assertEqual(restored['updated_count'], 2)
+        with self.app.app_context():
+            self.assertEqual(web_outlook_app.query_refreshable_accounts()['total'], 3)
+            self.assertEqual({a['id'] for a in web_outlook_app.get_forwarding_enabled_accounts()}, {account_id, inactive_id, unselected_id})
+            claim = web_outlook_app.claim_project_account('batch-status', 'worker', 'task')
+            self.assertIn(claim['account_id'], [account_id, inactive_id])
+
+        unchanged = self.client.post('/api/accounts/batch-update-status', json={
+            'account_ids': [account_id, inactive_id], 'status': 'active',
+        }).get_json()
+        self.assertTrue(unchanged['success'])
+        self.assertEqual(unchanged['updated_count'], 0)
+        self.assertEqual(unchanged['unchanged_count'], 2)
+
+    def test_batch_account_status_rejects_invalid_requests_and_requires_login(self):
+        account_id = self._insert_account('invalid-batch-status@example.com')
+        for payload in [
+            {}, [], {'account_ids': [account_id]},
+            {'account_ids': [account_id], 'status': 'deleted'},
+            {'account_ids': [account_id], 'status': ['inactive']},
+            {'account_ids': str(account_id), 'status': 'inactive'},
+            {'account_ids': [], 'status': 'inactive'},
+            {'account_ids': [99999999], 'status': 'inactive'},
+        ]:
+            with self.subTest(payload=payload):
+                response = self.client.post('/api/accounts/batch-update-status', json=payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.get_json()['success'])
+        with self.app.app_context():
+            row = web_outlook_app.get_db().execute('SELECT status FROM accounts WHERE id = ?', (account_id,)).fetchone()
+            self.assertEqual(row['status'], 'active')
+        response = self.app.test_client().post('/api/accounts/batch-update-status', json={
+            'account_ids': [account_id], 'status': 'inactive',
+        })
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(response.get_json()['success'])
 
     def _set_group_sort_order(self, group_id: int, sort_order: int):
         with self.app.app_context():
@@ -384,7 +471,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         self.assertEqual(payload['filename'], 'message-1.eml')
         self.assertIn('Subject: Raw Source', payload['raw'])
-        self.assertIn('original email contains complete email headers', payload['warning'])
+        self.assertIn('原始邮件包含完整邮件头', payload['warning'])
 
     def test_raw_email_endpoint_returns_imap_mime_source_as_text(self):
         self._insert_account('raw-imap@example.com')
@@ -426,7 +513,7 @@ class ProjectRuntimeTests(unittest.TestCase):
                 'release_version': 'v2.0.24',
                 'release_url': 'https://example.com/releases/v2.0.24',
                 'release_title': 'v2.0.24',
-                'release_body': '- Added version prompt pop-up box\n- Fix update status display',
+                'release_body': '- 新增版本提示弹框\n- 修复更新状态显示',
                 'repository_version': 'v2.0.24',
                 'errors': [],
             },
@@ -436,11 +523,11 @@ class ProjectRuntimeTests(unittest.TestCase):
             return_value={
                 'source': 'changelog',
                 'title': 'v2.0.24',
-                'items': ['Added version prompt pop-up box'],
+                'items': ['新增版本提示弹框'],
                 'entries': [
-                    {'title': 'v2.0.24', 'items': ['Added version prompt pop-up box'], 'url': 'https://example.com/changelog'},
-                    {'title': 'v2.0.23', 'items': ['Optimized version check'], 'url': 'https://example.com/changelog'},
-                    {'title': 'v2.0.22', 'items': ['Fix update entry'], 'url': 'https://example.com/changelog'},
+                    {'title': 'v2.0.24', 'items': ['新增版本提示弹框'], 'url': 'https://example.com/changelog'},
+                    {'title': 'v2.0.23', 'items': ['优化版本检查'], 'url': 'https://example.com/changelog'},
+                    {'title': 'v2.0.22', 'items': ['修复更新入口'], 'url': 'https://example.com/changelog'},
                 ],
                 'url': 'https://example.com/changelog',
             },
@@ -456,19 +543,22 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         version_status = payload['version_status']
         self.assertEqual(version_status['status'], 'update_available')
-        self.assertEqual(version_status['badge_label'], 'Updatable')
+        self.assertEqual(version_status['badge_label'], '可更新')
         self.assertEqual(version_status['latest_version'], 'v2.0.24')
         self.assertIn('v2.0.24', version_status['hint'])
         self.assertEqual(version_status['release_notes']['source'], 'changelog')
         self.assertEqual(version_status['release_notes']['title'], 'v2.0.24')
-        self.assertIn('Added version prompt pop-up box', version_status['release_notes']['items'])
+        self.assertIn('新增版本提示弹框', version_status['release_notes']['items'])
         self.assertEqual(len(version_status['release_notes']['entries']), 3)
         self.assertEqual(version_status['release_notes']['entries'][1]['title'], 'v2.0.23')
 
     def test_version_status_falls_back_to_changelog_release_notes(self):
         class FakeResponse:
             text = (
-                '## [2.0.24] - 2026-06-04\n\n- Added remote update instructions\n- Optimized version pop-up box\n\n## [2.0.23] - 2026-06-03\n\n- Fix version checking\n\n## [2.0.22] - 2026-06-02\n\n- Optimize download entrance\n\n## [2.0.21] - 2026-06-01\n\n- This should not be shown\n'
+                '## [2.0.24] - 2026-06-04\n\n- 新增远端更新说明\n- 优化版本弹框\n\n'
+                '## [2.0.23] - 2026-06-03\n\n- 修复版本检查\n\n'
+                '## [2.0.22] - 2026-06-02\n\n- 优化下载入口\n\n'
+                '## [2.0.21] - 2026-06-01\n\n- 不应展示这一条\n'
             )
 
             def raise_for_status(self):
@@ -501,7 +591,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         release_notes = payload['version_status']['release_notes']
         self.assertEqual(release_notes['source'], 'changelog')
         self.assertEqual(release_notes['title'], 'v2.0.24')
-        self.assertEqual(release_notes['items'], ['Added remote update instructions', 'Optimized version pop-up box'])
+        self.assertEqual(release_notes['items'], ['新增远端更新说明', '优化版本弹框'])
         self.assertEqual([entry['title'] for entry in release_notes['entries']], ['v2.0.24', 'v2.0.23', 'v2.0.22'])
 
     def test_version_status_reports_up_to_date_when_release_matches(self):
@@ -526,8 +616,8 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(payload['success'])
         version_status = payload['version_status']
         self.assertEqual(version_status['status'], 'up_to_date')
-        self.assertEqual(version_status['badge_label'], 'Stable version')
-        self.assertEqual(version_status['hint'], 'Synchronize with warehouse release version')
+        self.assertEqual(version_status['badge_label'], '稳定版')
+        self.assertEqual(version_status['hint'], '与仓库发布版本同步')
 
     def test_start_project_all_scope_creates_project_and_accounts(self):
         self._insert_account('alpha@example.com')
@@ -633,7 +723,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Wrong password')
+        self.assertEqual(payload['error'], '密码错误')
 
     def test_extension_login_launch_url_sets_session_once(self):
         with self.app.app_context():
@@ -780,7 +870,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         ordered_groups = self._ordered_groups()
         self.assertEqual(
             [group['name'] for group in ordered_groups],
-            ['\u4e34\u65f6\u90ae\u7bb1', 'Beta Group', '\u9ed8\u8ba4\u5206\u7ec4', 'Alpha Group']
+            ['临时邮箱', 'Beta Group', '默认分组', 'Alpha Group']
         )
         self.assertEqual(
             [group['sort_order'] for group in ordered_groups],
@@ -801,7 +891,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         ordered_groups = self._ordered_groups()
         self.assertEqual(
             [group['name'] for group in ordered_groups],
-            ['\u4e34\u65f6\u90ae\u7bb1', '\u9ed8\u8ba4\u5206\u7ec4', 'Gamma Group', 'Delta Group']
+            ['临时邮箱', '默认分组', 'Gamma Group', 'Delta Group']
         )
         self.assertEqual(
             [group['sort_order'] for group in ordered_groups],
@@ -934,7 +1024,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(search_payload['accounts'][0]['sort_order'], 7)
 
     def test_account_search_can_filter_to_group(self):
-        target_group_id = self._create_group('Search group')
+        target_group_id = self._create_group('搜索分组')
         self._insert_account('scope-filter-default@example.com', group_id=1)
         self._insert_account('scope-filter-target@example.com', group_id=target_group_id)
         self._insert_account('scope-filter-other@example.com', group_id=1)
@@ -989,13 +1079,13 @@ class ProjectRuntimeTests(unittest.TestCase):
         alias_match_id = self._insert_account('keyword-alias-owner@example.com')
         self._insert_account('keyword-other@example.com')
 
-        self._set_account_remark(remark_match_id, '\u5ba2\u6237\u5907\u6ce8\u547d\u4e2d')
-        tag_id = self._create_tag('\u91cd\u70b9\u6807\u7b7e')
+        self._set_account_remark(remark_match_id, '客户备注命中')
+        tag_id = self._create_tag('重点标签')
         self._tag_account(tag_match_id, tag_id)
         self._set_aliases(alias_match_id, 'keyword-alias-owner@example.com', ['keyword-alias@example.com'])
 
         response = self.client.get('/api/accounts/search', query_string={
-            'q': 'keyword-email\n\u5ba2\u6237\u5907\u6ce8 \u91cd\u70b9\u6807\u7b7e keyword-alias@example.com',
+            'q': 'keyword-email\n客户备注 重点标签 keyword-alias@example.com',
             'sort_by': 'email',
             'sort_order': 'asc',
         })
@@ -1020,12 +1110,12 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertEqual(payload['error'], 'Search keywords support up to 200')
+        self.assertEqual(payload['error'], '搜索关键词最多支持 200 个')
 
     def test_account_search_email_list_combines_group_scope_and_tag_filter(self):
-        target_group_id = self._create_group('Combined search grouping')
-        other_group_id = self._create_group('Other search groups')
-        tag_id = self._create_tag('Combination tag')
+        target_group_id = self._create_group('组合搜索分组')
+        other_group_id = self._create_group('其他搜索分组')
+        tag_id = self._create_tag('组合标签')
 
         primary_id = self._insert_account('combo-primary@example.com', group_id=target_group_id)
         alias_owner_id = self._insert_account('combo-alias-owner@example.com', group_id=target_group_id)
@@ -1058,9 +1148,9 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertNotIn(untagged_id, [account['id'] for account in payload['accounts']])
 
     def test_account_list_supports_include_exclude_and_untagged_tag_filters(self):
-        tag_a_id = self._create_tag('Tag A')
-        tag_b_id = self._create_tag('Tag B')
-        tag_c_id = self._create_tag('Tag C')
+        tag_a_id = self._create_tag('标签 A')
+        tag_b_id = self._create_tag('标签 B')
+        tag_c_id = self._create_tag('标签 C')
         a_only_id = self._insert_account('tag-a-only@example.com')
         b_only_id = self._insert_account('tag-b-only@example.com')
         a_and_b_id = self._insert_account('tag-a-and-b@example.com')
@@ -1136,9 +1226,9 @@ class ProjectRuntimeTests(unittest.TestCase):
             self.assertEqual(list_args['exclude_tag_ids'], expected_tag_ids)
 
     def test_account_list_and_search_combine_untagged_with_multiple_excluded_tags(self):
-        tag_a_id = self._create_tag('Multiple exclusion tags A')
-        tag_b_id = self._create_tag('Multiple exclusion tags B')
-        tag_c_id = self._create_tag('Multiple exclusion tags C')
+        tag_a_id = self._create_tag('多排除标签 A')
+        tag_b_id = self._create_tag('多排除标签 B')
+        tag_c_id = self._create_tag('多排除标签 C')
         a_only_id = self._insert_account('multi-exclude-a-only@example.com')
         a_and_b_id = self._insert_account('multi-exclude-a-b@example.com')
         a_and_c_id = self._insert_account('multi-exclude-a-c@example.com')
@@ -1200,11 +1290,11 @@ class ProjectRuntimeTests(unittest.TestCase):
 
     def test_account_search_count_pagination_and_descendants_share_exclude_tag_filter(self):
         with self.app.app_context():
-            parent_group_id = web_outlook_app.add_group('Label filter parent group')
-            child_group_id = web_outlook_app.add_group('Label filter subgrouping', parent_id=parent_group_id)
-        outside_group_id = self._create_group('Label filter group outside the group')
-        tag_a_id = self._create_tag('Range label A')
-        tag_b_id = self._create_tag('Range label B')
+            parent_group_id = web_outlook_app.add_group('标签筛选父分组')
+            child_group_id = web_outlook_app.add_group('标签筛选子分组', parent_id=parent_group_id)
+        outside_group_id = self._create_group('标签筛选组外分组')
+        tag_a_id = self._create_tag('范围标签 A')
+        tag_b_id = self._create_tag('范围标签 B')
         parent_a_only_id = self._insert_account('scope-parent-a@example.com', group_id=parent_group_id)
         child_a_only_id = self._insert_account('scope-child-a@example.com', group_id=child_group_id)
         child_a_and_b_id = self._insert_account('scope-child-a-b@example.com', group_id=child_group_id)
@@ -1282,7 +1372,7 @@ class ProjectRuntimeTests(unittest.TestCase):
             db = web_outlook_app.get_db()
             tag_id = db.execute(
                 'INSERT INTO tags (name, color) VALUES (?, ?)',
-                ('Import batch', '#0078d4')
+                ('导入批次', '#0078d4')
             ).lastrowid
             db.commit()
 
@@ -1295,7 +1385,7 @@ class ProjectRuntimeTests(unittest.TestCase):
                 ]),
                 'group_id': 1,
                 'provider': 'gmail',
-                'remark': 'Unified import of notes',
+                'remark': '统一导入备注',
                 'status': 'inactive',
                 'tag_ids': [tag_id],
             })
@@ -1336,9 +1426,9 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(account_rows['metadata-existing@example.com']['id'], existing_id)
         self.assertEqual(account_rows['metadata-existing@example.com']['remark'], '')
         self.assertEqual(account_rows['metadata-existing@example.com']['status'], 'active')
-        self.assertEqual(account_rows['metadata-new-a@example.com']['remark'], 'Unified import of notes')
+        self.assertEqual(account_rows['metadata-new-a@example.com']['remark'], '统一导入备注')
         self.assertEqual(account_rows['metadata-new-a@example.com']['status'], 'inactive')
-        self.assertEqual(account_rows['metadata-new-b@example.com']['remark'], 'Unified import of notes')
+        self.assertEqual(account_rows['metadata-new-b@example.com']['remark'], '统一导入备注')
         self.assertEqual(account_rows['metadata-new-b@example.com']['status'], 'inactive')
         self.assertEqual(
             {row['account_id'] for row in tagged_rows},
@@ -1430,7 +1520,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('password', payload['error'])
+        self.assertIn('登录密码', payload['error'])
 
         with self.app.app_context():
             self.assertEqual(web_outlook_app.get_setting('webdav_backup_enabled'), 'false')
@@ -1451,7 +1541,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(missing_current.status_code, 200)
         missing_payload = missing_current.get_json()
         self.assertFalse(missing_payload['success'])
-        self.assertIn('current password', missing_payload['error'])
+        self.assertIn('当前密码', missing_payload['error'])
 
         wrong_current = self.client.put(
             '/api/settings',
@@ -1463,7 +1553,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(wrong_current.status_code, 200)
         wrong_payload = wrong_current.get_json()
         self.assertFalse(wrong_payload['success'])
-        self.assertIn('The current login password is incorrect', wrong_payload['error'])
+        self.assertIn('当前登录密码错误', wrong_payload['error'])
 
         with self.app.app_context():
             self.assertTrue(web_outlook_app.verify_login_password('current-password'))
@@ -1500,7 +1590,7 @@ class ProjectRuntimeTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             payload = response.get_json()
             self.assertTrue(payload['success'], msg=payload.get('error'))
-            self.assertIn('Password', payload.get('message', ''))
+            self.assertIn('登录密码', payload.get('message', ''))
 
             with self.app.app_context():
                 self.assertTrue(web_outlook_app.verify_login_password('new-password-1'))
@@ -1599,13 +1689,13 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('Only supports 5-segment Cron', payload['error'])
+        self.assertIn('仅支持 5 段 Cron', payload['error'])
 
         with self.app.app_context():
             self.assertEqual(web_outlook_app.get_setting('webdav_backup_cron'), '0 3 * * *')
 
     def test_all_groups_backup_uses_selected_group_export_shape(self):
-        extra_group_id = self._create_group('Backup group')
+        extra_group_id = self._create_group('备份分组')
         self._insert_account('default-export@example.com', group_id=1)
         self._insert_account('group-export@example.com', group_id=extra_group_id)
 
@@ -1615,7 +1705,7 @@ class ProjectRuntimeTests(unittest.TestCase):
 
         self.assertEqual(export_payload['total_count'], 2)
         self.assertIn(default_group['name'], export_payload['content'])
-        self.assertIn('Backup group', export_payload['content'])
+        self.assertIn('备份分组', export_payload['content'])
         self.assertIn('default-export@example.com', export_payload['content'])
         self.assertIn('group-export@example.com', export_payload['content'])
 
@@ -1786,7 +1876,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertTrue(call_args.args[0].startswith('https://dav.example.com/backups/all_groups_backup_'))
         self.assertEqual(call_args.kwargs['auth'], ('dav-user', 'dav-pass'))
         self.assertIn('backup-upload@example.com', call_args.kwargs['data'].decode('utf-8'))
-        self.assertIn('\u9ed8\u8ba4\u5206\u7ec4', call_args.kwargs['data'].decode('utf-8'))
+        self.assertIn('默认分组', call_args.kwargs['data'].decode('utf-8'))
 
     def test_webdav_backup_test_uploads_without_login_password(self):
         class PutResponseStub:
@@ -1843,7 +1933,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload['success'], msg=payload.get('error'))
-        self.assertIn('directory writable', payload['message'])
+        self.assertIn('目录可写', payload['message'])
         put_mock.assert_called_once()
         delete_mock.assert_called_once()
         self.assertTrue(put_mock.call_args.args[0].startswith('https://dav.example.com/backups/outlookemail_webdav_test_'))
@@ -1870,7 +1960,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertEqual(payload['status_code'], 404)
-        self.assertIn('The target directory does not exist', payload['error'])
+        self.assertIn('目标目录不存在', payload['error'])
         self.assertIn('https://dav.jianguoyun.com/dav/mailBackup', payload['error'])
 
     def test_webdav_backup_test_409_explains_path_conflict(self):
@@ -1893,8 +1983,8 @@ class ProjectRuntimeTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertEqual(payload['status_code'], 409)
-        self.assertIn('target path conflicts', payload['error'])
-        self.assertIn('create the mailBackup folder first', payload['error'])
+        self.assertIn('目标路径冲突', payload['error'])
+        self.assertIn('先创建 mailBackup 文件夹', payload['error'])
 
     def test_manual_webdav_upload_requires_login_password(self):
         self._insert_account('manual-upload@example.com', group_id=1)
@@ -1916,7 +2006,7 @@ class ProjectRuntimeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('password', payload['error'])
+        self.assertIn('登录密码', payload['error'])
         put_mock.assert_not_called()
 
     def test_manual_webdav_upload_uses_current_form_config(self):
@@ -2198,6 +2288,7 @@ class ProjectRuntimeTests(unittest.TestCase):
             'inbox',
             'custom',
             '',
+            preferred_id_mode='uid',
         )
 
     def test_imap_attachment_detail_and_download_route(self):
@@ -2255,13 +2346,13 @@ class ProjectRuntimeTests(unittest.TestCase):
 
             def uid(self, command, *args, **_kwargs):
                 if command == 'FETCH':
-                    return 'OK', [(b'1 (RFC822 {256}', raw_email)]
+                    return 'OK', [(b'1 (UID 1 RFC822 {256}', raw_email)]
                 if command == 'SEARCH':
                     return 'OK', [b'1']
                 return 'OK', [b'']
 
             def fetch(self, *_args, **_kwargs):
-                return 'OK', [(b'1 (RFC822 {256}', raw_email)]
+                return 'OK', [(b'1 (UID 1 RFC822 {256}', raw_email)]
 
             def logout(self):
                 self.logged_out = True
@@ -2269,7 +2360,7 @@ class ProjectRuntimeTests(unittest.TestCase):
 
         mail = AttachmentMail()
         with patch.object(web_outlook_app, 'create_imap_connection', return_value=mail):
-            detail_response = self.client.get('/api/email/user@example.com/msg-1?method=imap&folder=inbox')
+            detail_response = self.client.get('/api/email/user@example.com/1?method=imap&folder=inbox')
             self.assertEqual(detail_response.status_code, 200)
             detail_payload = detail_response.get_json()
             self.assertTrue(detail_payload['success'])
@@ -2277,12 +2368,12 @@ class ProjectRuntimeTests(unittest.TestCase):
             self.assertEqual(detail_payload['email']['attachments'][0]['name'], 'report.txt')
             self.assertEqual(detail_payload['email']['body'], 'body line 1\nbody line 2\n')
 
-            download_response = self.client.get('/api/email/user@example.com/msg-1/attachments/attachment-1?method=imap&folder=inbox')
+            download_response = self.client.get('/api/email/user@example.com/1/attachments/attachment-1?method=imap&folder=inbox')
             self.assertEqual(download_response.status_code, 200)
             self.assertEqual(download_response.data, b'attachment body')
             self.assertIn("filename*=UTF-8''report.txt", download_response.headers.get('Content-Disposition', ''))
 
-            zip_response = self.client.get('/api/email/user@example.com/msg-1/attachments/download-all?method=imap&folder=inbox')
+            zip_response = self.client.get('/api/email/user@example.com/1/attachments/download-all?method=imap&folder=inbox')
             self.assertEqual(zip_response.status_code, 200)
             self.assertEqual(zip_response.mimetype, 'application/zip')
             self.assertIn("filename*=UTF-8''attachments.zip", zip_response.headers.get('Content-Disposition', ''))
@@ -2307,7 +2398,7 @@ class FrontendColorPickerTests(unittest.TestCase):
         core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
 
         function_start = core_js.index('function initColorPicker()')
-        function_end = core_js.index('// Initialize mailing list scrolling monitoring', function_start)
+        function_end = core_js.index('// 初始化邮件列表滚动监听', function_start)
         init_color_picker = core_js[function_start:function_end]
 
         self.assertIn("option.dataset.colorPickerBound === 'true'", init_color_picker)
@@ -2329,8 +2420,8 @@ class FrontendAccountSearchScopeTests(unittest.TestCase):
         ).read_text(encoding='utf-8')
         groups_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '02-groups.js').read_text(encoding='utf-8')
 
-        self.assertIn('<option value="all">{{ tr("All groups") }}</option>', layout_html)
-        self.assertIn('<option value="group" selected>{{ tr("Current group") }}</option>', layout_html)
+        self.assertIn('<option value="all">{{ tr("所有分组") }}</option>', layout_html)
+        self.assertIn('<option value="group" selected>{{ tr("当前分组") }}</option>', layout_html)
         self.assertIn("select.value = savedScope === 'all' ? 'all' : 'group';", groups_js)
         self.assertIn("localStorage.setItem('outlook_account_search_scope', normalizedScope);", groups_js)
 
@@ -2437,10 +2528,10 @@ class FrontendEmailListSecurityTests(unittest.TestCase):
         self.assertIn('class="email-checkbox-wrapper" data-email-id=', self.emails_js)
 
     def test_detail_load_error_message_is_rendered_as_text(self):
-        self.assertNotIn('${data.error && data.error.message ? data.error.message : I18n.t("Loading failed")}', self.emails_js)
+        self.assertNotIn("${data.error && data.error.message ? data.error.message : '加载失败'}", self.emails_js)
         self.assertIn("const errorText = container.querySelector('.empty-state-text');", self.emails_js)
         self.assertIn('const detailErrorMessage = data.error?.message', self.emails_js)
-        self.assertIn('|| I18n.t("Loading failed");', self.emails_js)
+        self.assertIn("|| I18n.t('加载失败');", self.emails_js)
         self.assertIn('errorText.textContent = detailErrorMessage;', self.emails_js)
 
     def test_delete_emails_removes_matching_cached_rows_and_preserves_unrelated_detail(self):
@@ -2459,11 +2550,10 @@ class FrontendEmailBodyRetentionAndIframeTests(unittest.TestCase):
     def setUp(self):
         self.emails_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '05-emails.js').read_text(encoding='utf-8')
 
-    def test_body_retention_failed_requests_are_retryable(self):
-        self.assertIn('const requestedKeys = items', self.emails_js)
-        self.assertIn('requestedKeys.forEach(key => requestedBodyRetentionKeys.add(key));', self.emails_js)
-        self.assertIn('requestedKeys.forEach(key => requestedBodyRetentionKeys.delete(key));', self.emails_js)
-        self.assertIn('if (data && data.success === false)', self.emails_js)
+    def test_bodies_are_fetched_on_detail_requests_instead_of_new_row_prefetch(self):
+        self.assertNotIn("fetch('/api/emails/retain-bodies'", self.emails_js)
+        self.assertIn('function buildEmailDetailRequestUrl(', self.emails_js)
+        self.assertIn("query.set('prefer_local', '1');", self.emails_js)
 
     def test_normal_detail_iframe_resize_resources_are_cleaned(self):
         self.assertIn('const normalDetailIframeResizeResources = { timers: [], observer: null };', self.emails_js)
@@ -2488,7 +2578,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertEqual(settings_js.count('setAppTimeZone(appTimeZone);'), 2)
         self.assertIn("settings.app_timezone = appTimeZone;", settings_js)
-        self.assertIn('showToast(I18n.t("The time display has taken effect and will take effect after the scheduled task is restarted."), \'success\');', settings_js)
+        self.assertIn("showToast(I18n.t('时间展示已生效，定时任务重启后生效'), 'success');", settings_js)
 
     def test_frontend_bootstraps_saved_timezone_before_loading_groups(self):
         core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
@@ -2516,7 +2606,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('id="testWebdavBackupBtn"', settings_html)
         self.assertIn('id="uploadWebdavBackupBtn"', settings_html)
         self.assertIn('id="webdavBackupTestResult"', settings_html)
-        self.assertIn('Please create a directory in the WebDAV service first', settings_html)
+        self.assertIn('请先在 WebDAV 服务中创建目录', settings_html)
         self.assertIn('https://dav.jianguoyun.com/dav/mailBackup', settings_html)
         self.assertLess(settings_html.index('id="webdavBackupPassword"'), settings_html.index('id="testWebdavBackupBtn"'))
         self.assertLess(settings_html.index('id="testWebdavBackupBtn"'), settings_html.index('id="webdavBackupCron"'))
@@ -2533,7 +2623,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('scrollbar-width: thin;', settings_css)
 
     def test_forwarding_latency_settings_ui_is_present(self):
-        settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
+        settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'forwarding-runtime-settings.html').read_text(encoding='utf-8')
         settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
         extension_js = pathlib.Path(ROOT_DIR, 'browser-extension', 'sidepanel.js').read_text(encoding='utf-8')
 
@@ -2616,16 +2706,16 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         groups_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '02-groups.js').read_text(encoding='utf-8')
         settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
 
-        self.assertIn('Temporary mailbox type', dialog_html)
+        self.assertIn('临时邮箱类型', dialog_html)
         self.assertIn('id="importChannelSelect"', dialog_html)
         self.assertIn('id="importCloudflareChannelSelect"', dialog_html)
         self.assertIn('id="importCloudflareImportMode"', dialog_html)
-        self.assertIn('Automatically pull mailboxes for import', dialog_html)
-        self.assertIn('Manual import', dialog_html)
+        self.assertIn('自动拉取邮箱导入', dialog_html)
+        self.assertIn('手动导入', dialog_html)
         self.assertIn("const isTagField = !!field.querySelector('#importTagFilterDropdown');", groups_js)
         self.assertIn("field.style.display = isTempGroup ? (isTagField ? '' : 'none') : '';", groups_js)
-        self.assertIn('Automatically pull email addresses from the selected Cloudflare channel and import them, without pulling JWT.', groups_js)
-        self.assertIn('Manual import no longer supports email----JWT', groups_js)
+        self.assertIn('自动从所选 Cloudflare 渠道拉取邮箱地址并导入，不拉取 JWT。', groups_js)
+        self.assertIn('手动导入不再支持 邮箱----JWT', groups_js)
         self.assertIn('loadCloudflareChannelsForImport()', groups_js)
         self.assertIn("'/api/temp-emails/import-cloudflare-addresses'", settings_js)
         self.assertIn('payload.cloudflare_channel_id = cloudflareChannelId;', settings_js)
@@ -2656,21 +2746,21 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertNotIn('splitTerms.every', groups_js)
         self.assertIn('return Array.from(new Set(splitTerms));', groups_js)
         self.assertIn('ACCOUNT_SEARCH_MAX_TERMS = 200', groups_js)
-        self.assertIn('Search keywords support up to 200', groups_js)
+        self.assertIn('搜索关键词最多支持 200 个', groups_js)
 
     def test_save_settings_separates_saved_refresh_failure(self):
         settings_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '07-settings.js').read_text(encoding='utf-8')
 
         refresh_block = (
-            'try {\n                await loadGroups();\n                await refreshVisibleAccountList(false);\n            } catch (error) {\n                showToast(I18n.t("The settings have been saved, but the list refresh failed, please refresh the page."), \'warning\');'
+            "try {\n                await loadGroups();\n                await refreshVisibleAccountList(false);\n            } catch (error) {\n                showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');"
         )
 
         self.assertIn(refresh_block, settings_js)
-        self.assertIn('showToast(I18n.t("The settings have been saved, but the list refresh failed, please refresh the page."), \'warning\');', settings_js)
-        self.assertIn('showToast(I18n.t("Failed to save settings"), \'error\');\n                return;', settings_js)
+        self.assertIn("showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');", settings_js)
+        self.assertIn("showToast(I18n.t('保存设置失败'), 'error');\n                return;", settings_js)
         self.assertLess(
             settings_js.index('if (!data.success)'),
-            settings_js.index('showToast(I18n.t("The settings have been saved, but the list refresh failed, please refresh the page."), \'warning\');')
+            settings_js.index("showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');")
         )
 
     def test_attachment_download_url_builders_include_id_mode(self):
@@ -2688,8 +2778,8 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
 
         self.assertIn('function downloadEmailAttachmentFile(event, link)', emails_js)
         self.assertIn('onclick="downloadEmailAttachmentFile(event, this)"', emails_js)
-        self.assertIn('link.textContent = isDownloading ? I18n.t("Packing...") : link.dataset.defaultLabel;', emails_js)
-        self.assertIn('action.textContent = isDownloading ? I18n.t("Downloading...") : I18n.t("Download");', emails_js)
+        self.assertIn("link.textContent = isDownloading ? I18n.t('打包中...') : link.dataset.defaultLabel;", emails_js)
+        self.assertIn("action.textContent = isDownloading ? I18n.t('下载中...') : I18n.t('下载');", emails_js)
         self.assertIn("showToast(pendingMessage, 'info');", emails_js)
 
     def test_local_retention_load_more_keeps_source_local(self):
@@ -2739,15 +2829,15 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('const mergeResult = mergeEmailListByStableKey(', apply_block)
         self.assertIn('currentEmails = mergeResult.emails;', apply_block)
         self.assertIn('renderEmailList(currentEmails);', apply_block)
-        self.assertIn('requestBodyRetentionForNewRows(newlySyncedRows, pending.options.folder);', apply_block)
+        self.assertNotIn('requestBodyRetentionForNewRows', apply_block)
         self.assertIn('scheduleNewEmailHighlightClear();', apply_block)
 
         self.assertIn("notice.setAttribute('role', 'button');", emails_js)
         self.assertIn("notice.setAttribute('tabindex', '0');", emails_js)
         self.assertIn('notice.replaceChildren();', emails_js)
-        self.assertIn('hint.textContent = I18n.t("Click to display");', emails_js)
+        self.assertIn("hint.textContent = I18n.t('点击显示');", emails_js)
         self.assertIn('NEW_EMAIL_HIGHLIGHT_CLEAR_DELAY_MS', emails_js)
-        self.assertNotIn('Automatically displayed', emails_js)
+        self.assertNotIn('已自动显示', emails_js)
         self.assertNotIn('cacheRemoteEmailSyncResult', emails_js)
 
     def test_provider_fallback_uses_id_mode_for_detail_raw_and_attachments(self):
@@ -2784,7 +2874,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertNotIn("currentSortBy === 'refresh_time'", groups_js)
         self.assertIn('shouldShowAccountCreatedAt()', groups_js)
         self.assertIn('shouldShowAccountSortOrder()', groups_js)
-        self.assertIn('Sort value ${escapeHtml(String(sortOrder))}', groups_js)
+        self.assertIn('排序值 ${escapeHtml(String(sortOrder))}', groups_js)
         self.assertIn('formatAbsoluteDateTime(acc.created_at)', groups_js)
         self.assertIn("document.getElementById('editSortOrder').value = Number(acc.sort_order || 0);", settings_js)
         self.assertIn("document.getElementById('settingsShowAccountCreatedAt').checked = String(data.settings.show_account_created_at) !== 'false';", settings_js)
@@ -2802,7 +2892,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         general_section = settings_html.split('id="settingsGeneralSection"', 1)[1].split('</section>', 1)[0]
         gptmail_section = settings_html.split('id="settingsAccessSection"', 1)[1].split('</section>', 1)[0]
 
-        self.assertIn('GPTMail temporary mailbox settings', settings_html)
+        self.assertIn('GPTMail 临时邮箱设置', settings_html)
         self.assertIn('id="settingsCurrentPassword"', general_section)
         self.assertIn('id="settingsPassword"', general_section)
         self.assertIn('id="settingsExternalApiKey"', general_section)
@@ -2818,12 +2908,12 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         settings_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
 
         self.assertLess(settings_html.index('data-target="settingsGeneralSection"'), settings_html.index('data-target="settingsRefreshSection"'))
-        self.assertLess(settings_html.index('data-target="settingsRefreshSection"'), settings_html.index('data-target="forwardingSettingsSection"'))
-        self.assertLess(settings_html.index('data-target="forwardingSettingsSection"'), settings_html.index('data-target="settingsCloudflareSection"'))
+        self.assertNotIn('data-target="forwardingSettingsSection"', settings_html)
+        self.assertLess(settings_html.index('data-target="settingsRefreshSection"'), settings_html.index('data-target="settingsCloudflareSection"'))
         self.assertLess(settings_html.index('data-target="settingsCloudflareSection"'), settings_html.index('data-target="settingsAccessSection"'))
         self.assertLess(settings_html.index('data-target="settingsAccessSection"'), settings_html.index('data-target="settingsDuckMailSection"'))
 
-        self.assertLess(settings_html.index('id="forwardingSettingsSection"'), settings_html.index('id="settingsCloudflareSection"'))
+        self.assertNotIn('id="forwardingSettingsSection"', settings_html)
         self.assertLess(settings_html.index('id="settingsCloudflareSection"'), settings_html.index('id="settingsAccessSection"'))
         self.assertLess(settings_html.index('id="settingsAccessSection"'), settings_html.index('id="settingsDuckMailSection"'))
 
@@ -2833,13 +2923,13 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         cloudflare_section = settings_html.split('id="settingsCloudflareSection"', 1)[1].split('</section>', 1)[0]
 
         self.assertIn('id="saveCloudflareChannelBtn"', cloudflare_section)
-        self.assertIn('onclick="saveCloudflareChannel()">{{ tr("Create channels") }}</button>', cloudflare_section)
+        self.assertIn('onclick="saveCloudflareChannel()">{{ tr("创建渠道") }}</button>', cloudflare_section)
         self.assertIn('id="resetCloudflareChannelBtn"', cloudflare_section)
-        self.assertIn('onclick="resetCloudflareChannelForm()">{{ tr("Clear the form") }}</button>', cloudflare_section)
-        self.assertIn('if (saveBtn) saveBtn.textContent = isEditing ? I18n.t("Save channels") : I18n.t("Create channels");', settings_js)
-        self.assertIn('if (resetBtn) resetBtn.textContent = isEditing ? I18n.t("Create new channel") : I18n.t("Clear the form");', settings_js)
-        self.assertIn('showToast(I18n.t("Please fill in the channel name and Worker domain name"), \'error\');', settings_js)
-        self.assertNotIn('Please fill in the channel name, Worker domain name and email domain name', settings_js)
+        self.assertIn('onclick="resetCloudflareChannelForm()">{{ tr("清空表单") }}</button>', cloudflare_section)
+        self.assertIn("if (saveBtn) saveBtn.textContent = isEditing ? I18n.t('保存渠道') : I18n.t('创建渠道');", settings_js)
+        self.assertIn("if (resetBtn) resetBtn.textContent = isEditing ? I18n.t('新建渠道') : I18n.t('清空表单');", settings_js)
+        self.assertIn("showToast(I18n.t('请填写渠道名称和 Worker 域名'), 'error');", settings_js)
+        self.assertNotIn('请填写渠道名称、Worker 域名和邮箱域名', settings_js)
         self.assertIn('setCloudflareChannelFormMode(false);', settings_js)
         self.assertIn('setCloudflareChannelFormMode(true);', settings_js)
 
@@ -2851,12 +2941,51 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('grid-column: 2;', settings_css)
         self.assertIn('grid-row: 1;', settings_css)
 
-    def test_version_popover_mentions_docker_only_online_update_setup(self):
+    def test_version_popover_exposes_windows_and_docker_online_update(self):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
+        dialogs_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'dialogs-management.html').read_text(encoding='utf-8')
+        core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
 
-        self.assertIn('Only Docker version supports online update', layout_html)
-        self.assertIn(r'\"Enable interface Docker online update\" in README', layout_html)
+        self.assertIn('Windows 桌面版与启用后的 Docker 部署支持在线更新', layout_html)
         self.assertIn('https://github.com/kol2000/outlookEmail#readme', layout_html)
+        self.assertIn('id="appVersionWindowsUpdateBtn"', layout_html)
+        self.assertIn('id="releaseNoticeWindowsUpdateBtn"', dialogs_html)
+        self.assertIn('id="windowsUpdateProgressBar"', dialogs_html)
+        self.assertIn('id="windowsUpdateCancelBtn"', dialogs_html)
+        self.assertIn("function startWindowsUpdate()", core_js)
+        self.assertIn("function waitForWindowsUpdateRestart(targetVersion)", core_js)
+
+    def test_windows_update_progress_is_above_release_notes_and_scrolled_into_view(self):
+        dialogs_html = pathlib.Path(
+            ROOT_DIR,
+            'templates',
+            'partials',
+            'index',
+            'dialogs-management.html',
+        ).read_text(encoding='utf-8')
+        core_js = pathlib.Path(ROOT_DIR, 'static', 'js', 'index', '01-core.js').read_text(encoding='utf-8')
+        release_modal = dialogs_html.split('id="releaseNoticeModal"', 1)[1].split(
+            '<!-- Outlook 上传账号模态框 -->',
+            1,
+        )[0]
+
+        self.assertLess(
+            release_modal.index('id="releaseNoticeVersionSummary"'),
+            release_modal.index('id="releaseNoticeHint"'),
+        )
+        self.assertLess(
+            release_modal.index('id="releaseNoticeHint"'),
+            release_modal.index('id="windowsUpdateProgress"'),
+        )
+        self.assertLess(
+            release_modal.index('id="windowsUpdateProgress"'),
+            release_modal.index('id="releaseNoticeNotesList"'),
+        )
+        self.assertIn('function scrollWindowsUpdateProgressIntoView()', core_js)
+        self.assertIn("progressPanel.closest('.release-notice-modal-content')", core_js)
+        self.assertIn("modalContent.scrollTo({ top: 0, behavior: 'smooth' });", core_js)
+        self.assertIn("progressPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });", core_js)
+        self.assertIn('scrollWindowsUpdateProgressIntoView();', core_js)
 
     def test_version_chip_shows_upgrade_badge_markup_and_logic(self):
         layout_html = pathlib.Path(ROOT_DIR, 'templates', 'partials', 'index', 'layout.html').read_text(encoding='utf-8')
@@ -2867,7 +2996,7 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('id="appVersionUpgradeBadge"', layout_html)
         self.assertIn('aria-hidden="true"', layout_html)
         self.assertIn('stroke="currentColor"', layout_html)
-        self.assertNotIn('id="appVersionUpgradeBadge" hidden>Upgrade</span>', layout_html)
+        self.assertNotIn('id="appVersionUpgradeBadge" hidden>升级</span>', layout_html)
         self.assertIn("const upgradeBadgeEl = document.getElementById('appVersionUpgradeBadge');", core_js)
         self.assertIn("const shouldShowUpgradeBadge = state === 'update_available';", core_js)
         self.assertIn('upgradeBadgeEl.hidden = !shouldShowUpgradeBadge;', core_js)
@@ -2875,17 +3004,25 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('showUpdateNoticeIfNeeded(payload.version_status);', core_js)
         self.assertNotIn('window.setTimeout(showReleaseNoticeIfNeeded, 900);', core_js)
         self.assertIn('id="releaseNoticeDockerUpdateBtn"', settings_html)
-        self.assertIn('Docker online update', settings_html)
-        self.assertIn('Go to download', settings_html)
-        self.assertIn('Only Docker version supports online update', settings_html)
-        self.assertIn(r'\"Enable interface Docker online update\" in README', settings_html)
+        self.assertIn('Docker 在线更新', settings_html)
+        self.assertIn('前往下载', settings_html)
+        self.assertIn('仅 Docker 版本支持在线更新', settings_html)
+        self.assertIn('README 中的「启用界面 Docker 在线更新」', settings_html)
         self.assertIn("document.getElementById('releaseNoticeDockerUpdateBtn')", core_js)
         self.assertIn('releaseNotes.entries', core_js)
         self.assertIn('releaseNotes.entries.slice(0, 3)', core_js)
         self.assertIn('updateButton.hidden = !(enabled && updateAvailable);', core_js)
         self.assertIn('updateButton.disabled = !available || running;', core_js)
         self.assertIn("const dockerHint = document.getElementById('releaseNoticeDockerHint');", core_js)
-        self.assertIn('dockerHint.hidden = !updateAvailable || available;', core_js)
+        self.assertIn('function refreshOnlineUpdateHint()', core_js)
+        self.assertIn('|| windowsEnabled', core_js)
+        self.assertIn('.windows-update-progress[hidden] {', pathlib.Path(
+            ROOT_DIR,
+            'static',
+            'css',
+            'index',
+            '06-modals-toast.css',
+        ).read_text(encoding='utf-8'))
         self.assertIn('.app-version-chip__upgrade-badge {', navbar_css)
         self.assertIn('background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);', navbar_css)
         self.assertIn('color: #92400e;', navbar_css)
@@ -2917,8 +3054,8 @@ class FrontendTimezoneBootstrapTests(unittest.TestCase):
         self.assertIn('id="refreshSelectedBtn"', settings_html)
         self.assertIn('id="refreshCopySelectedBtn"', settings_html)
         self.assertIn('id="refreshExportSelectedBtn"', settings_html)
-        self.assertIn('id="refreshEnableForwardingBtn"', settings_html)
-        self.assertIn('id="refreshDisableForwardingBtn"', settings_html)
+        self.assertNotIn('id="refreshEnableForwardingBtn"', settings_html)
+        self.assertNotIn('id="refreshDisableForwardingBtn"', settings_html)
         self.assertIn('id="refreshProxyBtn"', settings_html)
         self.assertIn('id="refreshAddTagBtn"', settings_html)
         self.assertIn('id="refreshRemoveTagBtn"', settings_html)

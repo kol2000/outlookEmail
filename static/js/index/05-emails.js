@@ -1,6 +1,6 @@
         /* global EMAIL_DETAIL_REQUEST_TIMEOUT_MS, EMAIL_LIST_REQUEST_TIMEOUT_MS, adjustIframeHeight, applyEmailListCache, closeMobilePanels, closeNavbarActionsMenu, copyCurrentEmail, currentAccount, currentAccountSummary, currentEmailDetail, currentEmailId, currentEmails, currentFolder, currentMethod, currentSkip, emailListCache, escapeHtml, fetchWithTimeout, formatDate, getEmailListCacheEntry, getFolderDisplayName, getNextEmailSkipFromCache, handleApiError, hasMoreEmails, hideModal, invalidateEmailListCache, isNormalMailLocalRetentionEnabled, isTempEmailGroup, isTimeoutAbortError, loadCloudflareGlobalMessages, mergeFolderSummaries, normalizeFolderSummaries, renderCloudflareGlobalFilterBar, renderEmptyStateMarkup, scheduleEmailListLoadCheck, showEmailFetchErrorModal, showMobileEmailDetail, showModal, showReauthorizeAccountModal, showToast, updateMobileContext, updateModalBodyState */
 
-        // ==================== Email related ====================
+        // ==================== 邮件相关 ====================
 
         function isNormalMailboxListRequest() {
             return !isTempEmailGroup && currentMethod !== 'cloudflare-admin';
@@ -54,14 +54,14 @@
                 .map(recipient => recipient.trim())
                 .filter(Boolean);
             if (!rawRecipients.length) {
-                return { recipients: [], error: I18n.t("Please fill in at least one recipient") };
+                return { recipients: [], error: I18n.t('请至少填写一个收件人') };
             }
 
             const recipients = [];
             const seenRecipients = new Set();
             for (const rawRecipient of rawRecipients) {
                 if (!GRAPH_SEND_MAIL_RECIPIENT_PATTERN.test(rawRecipient)) {
-                    return { recipients: [], error: I18n.t("Please fill in a valid recipient email address") };
+                    return { recipients: [], error: I18n.t('请填写有效的收件人邮箱地址') };
                 }
                 const normalizedRecipient = rawRecipient.toLowerCase();
                 if (!seenRecipients.has(normalizedRecipient)) {
@@ -121,7 +121,7 @@
             const submitButton = document.getElementById('graphSendMailSubmitBtn');
             if (submitButton) {
                 submitButton.disabled = submitting;
-                submitButton.textContent = submitting ? I18n.t("Submitting...") : I18n.t("Submit to send");
+                submitButton.textContent = submitting ? I18n.t('提交中...') : I18n.t('提交发送');
             }
             updateGraphSendMailAvailability();
         }
@@ -148,7 +148,7 @@
             const account = getGraphSendMailCandidate();
             if (!account) {
                 updateGraphSendMailAvailability();
-                showToast(I18n.t("The current account does not support Graph basic sending"), 'error');
+                showToast(I18n.t('当前账号不支持 Graph 基础发信'), 'error');
                 return;
             }
             graphSendMailAccountSnapshot = account;
@@ -160,7 +160,7 @@
 
         function hideGraphSendMailModal() {
             if (isGraphSendMailSubmitting) {
-                showToast(I18n.t("The email is being submitted, please wait for the result to be returned"), 'info');
+                showToast(I18n.t('邮件正在提交，请等待结果返回'), 'info');
                 return;
             }
             hideModal('graphSendMailModal');
@@ -179,7 +179,7 @@
         function reauthorizeGraphSendMailAccount() {
             const account = graphSendMailAccountSnapshot || getGraphSendMailCandidate();
             if (!account) {
-                showGraphSendMailFeedback(I18n.t("The current account has changed, please reselect the account before authorizing it."), 'error');
+                showGraphSendMailFeedback(I18n.t('当前账号已变化，请重新选择账号后再授权'), 'error');
                 return;
             }
             showReauthorizeAccountModal({ id: account.id, email: account.email });
@@ -190,7 +190,7 @@
             const code = String(error.code || '');
             if (code === 'GRAPH_SEND_REAUTH_REQUIRED') {
                 return {
-                    message: I18n.t("Insufficient permission to send messages or the authorization has expired. Please complete the Graph authorization again and try again."),
+                    message: I18n.t('发信权限不足或授权已失效，请重新完成 Graph 授权后再试'),
                     type: 'error',
                     reauthorizationRequired: true,
                 };
@@ -198,18 +198,18 @@
             if (code === 'GRAPH_SEND_THROTTLED' || responseStatus === 429) {
                 const retryAfter = Number(data?.retry_after);
                 const waitMessage = Number.isFinite(retryAfter) && retryAfter >= 0
-                    ? I18n.tpl`Sending requests too frequently, please try again in ${retryAfter} seconds`
-                    : I18n.t("Requests are sent too frequently, please try again later.");
+                    ? I18n.tpl`发送请求过于频繁，请在 ${retryAfter} 秒后重试`
+                    : I18n.t('发送请求过于频繁，请稍后重试');
                 return { message: waitMessage, type: 'warning' };
             }
             if (code === 'GRAPH_SEND_RESULT_UNKNOWN') {
                 return {
-                    message: I18n.t("The result of email submission is uncertain, please confirm before deciding whether to resend."),
+                    message: I18n.t('邮件提交结果不确定，请确认后再决定是否重新发送'),
                     type: 'warning',
                 };
             }
             return {
-                message: String(error.message || I18n.t("Email submission failed, please check the recipient and account status and try again")),
+                message: String(error.message || I18n.t('邮件提交失败，请检查收件人和账号状态后重试')),
                 type: 'error',
             };
         }
@@ -219,7 +219,7 @@
                 return;
             }
             if (!isGraphSendMailSnapshotCurrent()) {
-                showGraphSendMailFeedback(I18n.t("The current account has changed, please reopen the email writing window before submitting."), 'error');
+                showGraphSendMailFeedback(I18n.t('当前账号已变化，请重新打开写邮件窗口后再提交'), 'error');
                 return;
             }
 
@@ -236,11 +236,11 @@
             const subject = String(subjectInput?.value || '');
             const body = String(bodyInput?.value || '');
             if (!subject.trim() && !body.trim()) {
-                showGraphSendMailFeedback(I18n.t("The subject and body cannot be empty at the same time"), 'error');
+                showGraphSendMailFeedback(I18n.t('主题和正文不能同时为空'), 'error');
                 return;
             }
             if (/\r|\n/.test(subject)) {
-                showGraphSendMailFeedback(I18n.t("The subject cannot contain line breaks"), 'error');
+                showGraphSendMailFeedback(I18n.t('主题不能包含换行符'), 'error');
                 return;
             }
 
@@ -257,15 +257,15 @@
                         body,
                     }),
                     timeoutMs: GRAPH_SEND_MAIL_REQUEST_TIMEOUT_MS,
-                    timeoutMessage: I18n.t("The result of email submission is uncertain, please confirm before deciding whether to resend."),
+                    timeoutMessage: I18n.t('邮件提交结果不确定，请确认后再决定是否重新发送'),
                 });
                 const data = await response.json().catch(() => ({}));
                 if (response.status === 202 && data?.success === true && data?.submitted === true) {
                     if (recipientsInput) recipientsInput.value = '';
                     if (subjectInput) subjectInput.value = '';
                     if (bodyInput) bodyInput.value = '';
-                    showGraphSendMailFeedback(I18n.t("The email has been submitted for sending"), 'success');
-                    showToast(I18n.t("The email has been submitted for sending"), 'success');
+                    showGraphSendMailFeedback(I18n.t('邮件已提交发送'), 'success');
+                    showToast(I18n.t('邮件已提交发送'), 'success');
                     return;
                 }
 
@@ -273,7 +273,7 @@
                 showGraphSendMailFeedback(feedback.message, feedback.type, feedback);
             } catch (error) {
                 showGraphSendMailFeedback(
-                    I18n.t("The result of email submission is uncertain, please confirm before deciding whether to resend."),
+                    I18n.t('邮件提交结果不确定，请确认后再决定是否重新发送'),
                     'warning',
                 );
             } finally {
@@ -333,14 +333,14 @@
                 refreshBtn.disabled = isLoading && !isBackgroundSync;
                 refreshBtn.classList.toggle('spinning', isLoading);
                 refreshBtn.title = isLoading
-                    ? (isBackgroundSync ? I18n.t("Locally retained emails are displayed and remote emails are being synchronized in the background.") : I18n.t("Fetching mail..."))
-                    : I18n.t("Fetch mail");
+                    ? (isBackgroundSync ? I18n.t('本地保留邮件已显示，正在后台同步远程邮件') : I18n.t('正在获取邮件...'))
+                    : I18n.t('获取邮件');
                 refreshBtn.toggleAttribute('aria-busy', isLoading);
             }
             folderTabs.forEach(tab => {
                 tab.disabled = isLoading && !isBackgroundSync;
                 tab.title = isLoading && isBackgroundSync
-                    ? I18n.t("Locally retained emails have been displayed and background synchronization is in progress.")
+                    ? I18n.t('本地保留邮件已显示，后台同步进行中')
                     : '';
             });
         }
@@ -417,7 +417,10 @@
                 const key = getEmailMessageStableKey(emailItem, fallbackFolder);
                 if (key && indexByKey.has(key)) {
                     const index = indexByKey.get(key);
-                    mergedEmails[index] = { ...mergedEmails[index], ...emailItem };
+                    mergedEmails[index] = {
+                        ...mergedEmails[index], ...emailItem,
+                        body_preview: emailItem.body_preview || mergedEmails[index].body_preview || ''
+                    };
                     return;
                 }
 
@@ -556,7 +559,6 @@
                 }
             }
             scheduleEmailListLoadCheck(80);
-            requestBodyRetentionForNewRows(newlySyncedRows, pending.options.folder);
             if (newlySyncedRows.length > 0) {
                 scheduleNewEmailHighlightClear();
             }
@@ -589,7 +591,7 @@
 
         async function tryRenderLocalRetainedEmails(email, cacheKey) {
             if (!isNormalMailLocalRetentionEnabled()) {
-                setMailSyncStatus(I18n.t("Local storage is not enabled"));
+                setMailSyncStatus(I18n.t('本地存储未启用'));
                 return false;
             }
             try {
@@ -602,7 +604,7 @@
                     }),
                     {
                         timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
-                        timeoutMessage: I18n.t("Timeout reading local retained messages")
+                        timeoutMessage: I18n.t('读取本地保留邮件超时')
                     }
                 );
                 const data = await response.json();
@@ -624,8 +626,8 @@
         function buildBrowserMailFetchError(error) {
             const isTimeout = isTimeoutAbortError(error);
             const message = isTimeout
-                ? I18n.t("Network connection timeout: The email service did not respond within the specified time, please check the network, proxy and service address")
-                : I18n.t("Network connection failed: The browser cannot connect to the email interface. Please check whether the current network, proxy and service are normal.");
+                ? I18n.t('网络连接超时：邮件服务未在规定时间内响应，请检查网络、代理和服务地址')
+                : I18n.t('网络连接失败：浏览器无法连接邮件接口，请检查当前网络、代理和服务是否正常');
             return {
                 code: isTimeout ? 'MAIL_NETWORK_TIMEOUT' : 'MAIL_NETWORK_FAILED',
                 message,
@@ -673,7 +675,7 @@
                 }),
                 {
                     timeoutMs: EMAIL_LIST_REQUEST_TIMEOUT_MS,
-                    timeoutMessage: I18n.t("Retrieval of email timed out, please check the network, proxy or account configuration and try again")
+                    timeoutMessage: I18n.t('获取邮件超时，请检查网络、代理或账号配置后重试')
                 }
             );
             const data = await response.json();
@@ -696,8 +698,8 @@
                 if (!options.context || isCurrentMailboxContext(options.context)) {
                     const errorMessage = data.error?.message
                         || (typeof data.error === 'string' ? data.error : '')
-                        || I18n.t("Background synchronization failed, local mailing list has been retained");
-                    setMailSyncStatus(I18n.tpl`Background synchronization failed: ${errorMessage}`);
+                        || I18n.t('后台同步失败，已保留本地邮件列表');
+                    setMailSyncStatus(I18n.tpl`后台同步失败：${errorMessage}`);
                     showToast(errorMessage, 'error');
                     showBackgroundMailFetchErrorModal(options.context, fetchErrorDetails);
                 }
@@ -707,15 +709,15 @@
             if (Object.keys(fetchErrorDetails).length > 0) {
                 showEmailFetchErrorModal(fetchErrorDetails);
             } else {
-                handleApiError(data, I18n.t("Failed to get mail"));
+                handleApiError(data, I18n.t('获取邮件失败'));
             }
             document.getElementById('emailList').innerHTML = renderEmptyStateMarkup(
                 '⚠️',
-                I18n.t("Failed to get email,<a href=\"javascript:void(0)\" onclick=\"showEmailFetchErrorModal(window._lastFetchErrorDetails)\" style=\"color:#409eff;text-decoration:underline;\">Click to view details</a>"),
+                I18n.t('获取邮件失败，<a href="javascript:void(0)" onclick="showEmailFetchErrorModal(window._lastFetchErrorDetails)" style="color:#409eff;text-decoration:underline;">点击查看详情</a>'),
                 {
                     allowHtml: true,
                     onAction: 'refreshEmails()',
-                    actionTitle: I18n.t("Refresh mailing list")
+                    actionTitle: I18n.t('刷新邮件列表')
                 }
             );
             window._lastFetchErrorDetails = fetchErrorDetails;
@@ -744,7 +746,7 @@
                 if (isCurrentMailboxContext(context)) {
                     const browserError = buildBrowserMailFetchError(error);
                     const errorMessage = getFetchErrorMessage(error);
-                    setMailSyncStatus(I18n.tpl`Background synchronization failed: ${errorMessage}`);
+                    setMailSyncStatus(I18n.tpl`后台同步失败：${errorMessage}`);
                     showToast(errorMessage, 'error');
                     showBackgroundMailFetchErrorModal(context, { browser: browserError });
                 }
@@ -757,11 +759,11 @@
             backgroundMailboxSyncs.set(syncKey, syncPromise);
         }
 
-        // Load mailing list
+        // 加载邮件列表
         async function loadEmails(email, forceRefresh = false) {
             const container = document.getElementById('emailList');
 
-            // Clear the selected status when switching accounts/refreshing
+            // 切换账号/刷新时清除选中状态
             selectedEmailIds.clear();
             updateEmailBatchActionBar();
             hideNewMailNotice();
@@ -795,7 +797,7 @@
                 showEmailFetchErrorModal({ browser: browserError });
                 container.innerHTML = renderEmptyStateMarkup('⚠️', errorMessage, {
                     onAction: 'refreshEmails()',
-                    actionTitle: I18n.t("Refresh mailing list")
+                    actionTitle: I18n.t('刷新邮件列表')
                 });
             } finally {
                 if (!startedBackgroundSync) {
@@ -804,14 +806,12 @@
             }
         }
 
-        // Render mailing list
+        // 渲染邮件列表
         // Selected email IDs
         let selectedEmailIds = new Set();
         let pendingReadEmailIds = new Set();
         let isBatchSelectMode = false;
         let highlightedNewEmailKeys = new Set();
-        const requestedBodyRetentionKeys = new Set();
-        const BODY_RETENTION_REQUEST_LIMIT = 5;
 
         function hideNewMailNotice() {
             const notice = document.getElementById('newMailNotice');
@@ -871,10 +871,10 @@
             };
             notice.replaceChildren();
             const message = document.createElement('span');
-            message.textContent = I18n.tpl`${Number(newCount)} new emails have been synchronized`;
+            message.textContent = I18n.tpl`有 ${Number(newCount)} 封新邮件已同步`;
             const hint = document.createElement('span');
             hint.className = 'new-mail-notice__hint';
-            hint.textContent = I18n.t("Click to display");
+            hint.textContent = I18n.t('点击显示');
             notice.append(message, hint);
         }
 
@@ -907,62 +907,6 @@
             }
 
             showNewMailNotice(visibleCount, syncKey);
-        }
-
-        function buildBodyRetentionItems(rows, fallbackFolder = currentFolder) {
-            const method = getRemoteMailboxMethodFallback();
-            return (rows || [])
-                .map(emailItem => ({
-                    id: String(emailItem?.id || '').trim(),
-                    folder: String(emailItem?.folder || fallbackFolder || 'inbox'),
-                    id_mode: String(emailItem?.id_mode || '').trim(),
-                    method
-                }))
-                .filter(item => item.id);
-        }
-
-        function getUnrequestedBodyRetentionItems(rows, fallbackFolder = currentFolder) {
-            const items = buildBodyRetentionItems(rows, fallbackFolder);
-            const unrequestedItems = items.filter(item => {
-                const key = getEmailMessageStableKey(item, fallbackFolder);
-                return key && !requestedBodyRetentionKeys.has(key);
-            });
-            return unrequestedItems.slice(0, BODY_RETENTION_REQUEST_LIMIT);
-        }
-
-        function requestBodyRetentionForNewRows(rows, fallbackFolder = currentFolder) {
-            const items = getUnrequestedBodyRetentionItems(rows, fallbackFolder);
-            if (!items.length || !currentAccount || isTempEmailGroup || !isNormalMailLocalRetentionEnabled()) {
-                return;
-            }
-
-            const requestedKeys = items
-                .map(item => getEmailMessageStableKey(item, fallbackFolder))
-                .filter(Boolean);
-            requestedKeys.forEach(key => requestedBodyRetentionKeys.add(key));
-
-            fetch('/api/emails/retain-bodies', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: currentAccount,
-                    folder: fallbackFolder,
-                    method: getRemoteMailboxMethodFallback(),
-                    items
-                })
-            }).then(response => {
-                if (!response.ok) {
-                    throw new Error(`Retained body request failed with status ${response.status}`);
-                }
-                return response.json().catch(() => ({ success: true }));
-            }).then(data => {
-                if (data && data.success === false) {
-                    throw new Error(data.error || 'Retained body request failed');
-                }
-            }).catch(error => {
-                requestedKeys.forEach(key => requestedBodyRetentionKeys.delete(key));
-                console.warn('Retained mail body background fetch failed:', error);
-            });
         }
 
         function buildEmailDetailRequestUrl(messageId, folder, selectedEmail = {}) {
@@ -1078,15 +1022,15 @@
 
             if (link.classList.contains('email-attachments__download-all')) {
                 if (!link.dataset.defaultLabel) {
-                    link.dataset.defaultLabel = link.textContent.trim() || I18n.t("Download all");
+                    link.dataset.defaultLabel = link.textContent.trim() || I18n.t('全部下载');
                 }
-                link.textContent = isDownloading ? I18n.t("Packing...") : link.dataset.defaultLabel;
+                link.textContent = isDownloading ? I18n.t('打包中...') : link.dataset.defaultLabel;
                 return;
             }
 
             const action = link.querySelector('.email-attachment-item__action');
             if (action) {
-                action.textContent = isDownloading ? I18n.t("Downloading...") : I18n.t("Download");
+                action.textContent = isDownloading ? I18n.t('下载中...') : I18n.t('下载');
             }
         }
 
@@ -1098,9 +1042,9 @@
 
             const isDownloadAll = link.classList.contains('email-attachments__download-all');
             const fallbackFilename = link.getAttribute('download') || (isDownloadAll ? 'attachments.zip' : 'attachment');
-            const pendingMessage = isDownloadAll ? I18n.t("Packing attachments...") : I18n.t("Downloading attachment...");
-            const failureMessage = isDownloadAll ? I18n.t("All attachments failed to download") : I18n.t("Attachment download failed");
-            const successMessage = isDownloadAll ? I18n.t("The attachment has been packaged and the download has started") : I18n.t("Attachment download has started");
+            const pendingMessage = isDownloadAll ? I18n.t('正在打包附件...') : I18n.t('正在下载附件...');
+            const failureMessage = isDownloadAll ? I18n.t('全部附件下载失败') : I18n.t('附件下载失败');
+            const successMessage = isDownloadAll ? I18n.t('附件已打包，下载已开始') : I18n.t('附件下载已开始');
 
             setAttachmentDownloadState(link, true);
             showToast(pendingMessage, 'info');
@@ -1131,7 +1075,7 @@
                 triggerAttachmentDownload(blob, parseDownloadFilename(response, fallbackFilename));
                 showToast(successMessage, 'success');
             } catch (error) {
-                showToast(I18n.tpl`${failureMessage}, please check the network and try again`, 'error');
+                showToast(I18n.tpl`${failureMessage}，请检查网络后重试`, 'error');
             } finally {
                 setAttachmentDownloadState(link, false);
             }
@@ -1144,17 +1088,17 @@
             }
 
             return I18n.tpl`
-                <section class="email-attachments" aria-label="Email attachment">
+                <section class="email-attachments" aria-label="邮件附件">
                     <div class="email-attachments__header">
                         <div class="email-attachments__summary">
-                            <div class="email-attachments__title">Attachment</div>
-                            <div class="email-attachments__count">${attachments.length}</div>
+                            <div class="email-attachments__title">附件</div>
+                            <div class="email-attachments__count">${attachments.length} 个</div>
                         </div>
                         ${attachments.length > 1 ? I18n.tpl`
                             <a class="email-attachments__download-all"
                                href="${buildAllAttachmentsDownloadUrl(email)}"
                                download="attachments.zip"
-                               onclick="downloadEmailAttachmentFile(event, this)">Download all</a>
+                               onclick="downloadEmailAttachmentFile(event, this)">全部下载</a>
                         ` : ''}
                     </div>
                     <div class="email-attachments__list">
@@ -1167,12 +1111,12 @@
                                 <span class="email-attachment-item__content">
                                     <span class="email-attachment-item__name">${escapeHtml(attachment.name || 'attachment')}</span>
                                     <span class="email-attachment-item__meta">
-                                        ${attachment.is_inline ? I18n.t("<span class=\"email-attachment-item__badge\">Inline</span>") : ''}
+                                        ${attachment.is_inline ? I18n.t('<span class="email-attachment-item__badge">内联</span>') : ''}
                                         <span>${formatAttachmentSize(attachment.size)}</span>
                                         <span>${escapeHtml(attachment.content_type || 'application/octet-stream')}</span>
                                     </span>
                                 </span>
-                                <span class="email-attachment-item__action">Download</span>
+                                <span class="email-attachment-item__action">下载</span>
                             </a>
                         `).join('')}
                     </div>
@@ -1185,14 +1129,14 @@
 
             if (emails.length === 0) {
                 const emptyStateText = isTempEmailGroup
-                    ? I18n.t("No email yet")
-                    : I18n.tpl`${getFolderDisplayName(currentFolder)} is empty`;
+                    ? I18n.t('暂无邮件')
+                    : I18n.tpl`${getFolderDisplayName(currentFolder)}为空`;
                 const emptyPrefix = currentMethod === 'cloudflare-admin' && typeof renderCloudflareGlobalFilterBar === 'function'
                     ? renderCloudflareGlobalFilterBar()
                     : '';
                 container.innerHTML = emptyPrefix + renderEmptyStateMarkup('📭', emptyStateText, {
                     onAction: 'refreshEmails()',
-                    actionTitle: I18n.t("Refresh mailing list")
+                    actionTitle: I18n.t('刷新邮件列表')
                 });
                 // Reset selection
                 selectedEmailIds.clear();
@@ -1223,18 +1167,18 @@
                     <div class="email-body">
                         <div class="email-top-row">
                             <div class="email-top-main">
-                                ${email.is_read === false ? I18n.t("<span class=\"email-unread-dot\" title=\"unread\" aria-label=\"unread\"></span>") : ''}
+                                ${email.is_read === false ? I18n.t('<span class="email-unread-dot" title="未读" aria-label="未读"></span>') : ''}
                                 <div class="email-sender-block">
-                                    <div class="email-from" title="${escapeHtml(email.from || I18n.t("Unknown sender"))}">${escapeHtml(email.from || I18n.t("Unknown sender"))}</div>
+                                    <div class="email-from" title="${escapeHtml(email.from || I18n.t('未知发件人'))}">${escapeHtml(email.from || I18n.t('未知发件人'))}</div>
                                     ${recipientDisplayLabel ? `<div class="email-recipient" title="${escapeHtml(recipientDisplayLabel)}">${escapeHtml(recipientDisplayLabel)}</div>` : ''}
                                 </div>
-                                ${hasAttachments ? I18n.t("<span class=\"email-attachment-indicator\" title=\"With attachments\" aria-label=\"With attachments\">📎</span>") : ''}
+                                ${hasAttachments ? I18n.t('<span class="email-attachment-indicator" title="含附件" aria-label="含附件">📎</span>') : ''}
                                 ${sourceLabel ? `<span class="email-folder-badge email-folder-badge--${escapeHtml(String(email.folder || '').toLowerCase())}">${escapeHtml(sourceLabel)}</span>` : ''}
                             </div>
                             <div class="email-date">${formatDate(email.date)}</div>
                         </div>
-                        <div class="email-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</div>
-                        <div class="email-preview">${escapeHtml((email.body_preview || '').trim() || I18n.t("No preview content yet"))}</div>
+                        <div class="email-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
+                        <div class="email-preview">${escapeHtml((email.body_preview || '').trim() || I18n.t('暂无预览内容'))}</div>
                     </div>
                 </div>
             `}).join('');
@@ -1365,11 +1309,11 @@
 
                 if (!silent) {
                     if (result.success_count > 0 && result.failed_count === 0) {
-                        showToast(I18n.tpl`${result.success_count} messages have been set as read`);
+                        showToast(I18n.tpl`已将 ${result.success_count} 封邮件设为已读`);
                     } else if (result.success_count > 0) {
-                        showToast(I18n.tpl`${result.success_count} seals have been set as read, ${result.failed_count} seals have failed`, 'warning');
+                        showToast(I18n.tpl`已设为已读 ${result.success_count} 封，失败 ${result.failed_count} 封`, 'warning');
                     } else {
-                        handleApiError(result, I18n.t("Failed to set as read"));
+                        handleApiError(result, I18n.t('设为已读失败'));
                     }
                 }
 
@@ -1380,7 +1324,7 @@
                 return result;
             } catch (error) {
                 if (!silent) {
-                    showToast(I18n.t("Failed to set as read, please check the network and try again"), 'error');
+                    showToast(I18n.t('设为已读失败，请检查网络后重试'), 'error');
                 }
                 return {
                     success: false,
@@ -1420,7 +1364,7 @@
                 if (markReadBtn) {
                     markReadBtn.disabled = false;
                     markReadBtn.dataset.loading = 'false';
-                    markReadBtn.textContent = I18n.t("Set as read");
+                    markReadBtn.textContent = I18n.t('设为已读');
                     markReadBtn.title = '';
                 }
                 return;
@@ -1428,20 +1372,20 @@
             if (selectedEmailIds.size > 0) {
                 bar.style.display = 'flex';
                 panel?.classList.add('batch-toolbar-active');
-                document.getElementById('emailSelectedCount').textContent = I18n.tpl`${selectedEmailIds.size} item selected`;
+                document.getElementById('emailSelectedCount').textContent = I18n.tpl`已选 ${selectedEmailIds.size} 项`;
                 if (selectAllBtn) {
                     selectAllBtn.textContent = currentEmails.length > 0 && selectedEmailIds.size === currentEmails.length
-                        ? I18n.t("Deselect all")
-                        : I18n.t("Select all");
+                        ? I18n.t('取消全选')
+                        : I18n.t('全选');
                 }
                 if (markReadBtn) {
                     const isMarking = markReadBtn.dataset.loading === 'true';
                     markReadBtn.disabled = unreadSelectedCount === 0 || isMarking;
-                    markReadBtn.title = unreadSelectedCount === 0 ? I18n.t("All selected emails have been read") : '';
+                    markReadBtn.title = unreadSelectedCount === 0 ? I18n.t('所选邮件已全部为已读') : '';
                     if (!isMarking) {
                         markReadBtn.textContent = unreadSelectedCount > 0
-                            ? I18n.tpl`Set as read${unreadSelectedCount !== selectedEmails.length ? ` (${unreadSelectedCount})` : ''}`
-                            : I18n.t("Set as read");
+                            ? I18n.tpl`设为已读${unreadSelectedCount !== selectedEmails.length ? ` (${unreadSelectedCount})` : ''}`
+                            : I18n.t('设为已读');
                     }
                 }
             } else {
@@ -1450,7 +1394,7 @@
                 if (markReadBtn) {
                     markReadBtn.disabled = false;
                     markReadBtn.dataset.loading = 'false';
-                    markReadBtn.textContent = I18n.t("Set as read");
+                    markReadBtn.textContent = I18n.t('设为已读');
                     markReadBtn.title = '';
                 }
             }
@@ -1487,13 +1431,13 @@
                 }));
 
             if (!unreadItems.length) {
-                showToast(I18n.t("All selected emails have been read"));
+                showToast(I18n.t('所选邮件已全部为已读'));
                 return;
             }
 
             btn.disabled = true;
             btn.dataset.loading = 'true';
-            btn.textContent = I18n.t("Setting up...");
+            btn.textContent = I18n.t('设置中...');
 
             try {
                 await requestMarkEmailsAsRead(unreadItems);
@@ -1536,7 +1480,7 @@
         async function confirmBatchDeleteEmails() {
             if (selectedEmailIds.size === 0) return;
 
-            if (!(await showConfirmModal(I18n.tpl`Are you sure you want to permanently delete the selected ${selectedEmailIds.size} emails? This operation is irreversible!`, { title: I18n.t("Delete emails in batches"), confirmText: I18n.t("Confirm deletion") }))) {
+            if (!(await showConfirmModal(I18n.tpl`确定要永久删除选中的 ${selectedEmailIds.size} 封邮件吗？此操作不可恢复！`, { title: I18n.t('批量删除邮件'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -1547,7 +1491,7 @@
             if (isTempEmailGroup) return;
             if (!currentEmailDetail || !currentEmailDetail.id) return;
 
-            if (!(await showConfirmModal(I18n.t("Are you sure you want to permanently delete this message? This operation is irreversible!"), { title: I18n.t("Delete mail"), confirmText: I18n.t("Confirm deletion") }))) {
+            if (!(await showConfirmModal(I18n.t('确定要永久删除这封邮件吗？此操作不可恢复！'), { title: I18n.t('删除邮件'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
 
@@ -1579,7 +1523,7 @@
                 return;
             }
 
-            showToast(I18n.t("Deleting..."), 'info');
+            showToast(I18n.t('正在删除...'), 'info');
 
             try {
                 const response = await fetch('/api/emails/delete', {
@@ -1604,9 +1548,9 @@
 
                 if (result.success || deletedIds.size > 0) {
                     if (result.success && result.failed_count === 0) {
-                        showToast(I18n.tpl`${result.success_count || deletedIds.size} emails successfully deleted`);
+                        showToast(I18n.tpl`成功删除 ${result.success_count || deletedIds.size} 封邮件`);
                     } else if (deletedIds.size > 0) {
-                        showToast(I18n.tpl`${deletedIds.size} seal deleted, ${result.failed_count || 0} seal failed`, 'warning');
+                        showToast(I18n.tpl`已删除 ${deletedIds.size} 封，失败 ${result.failed_count || 0} 封`, 'warning');
                     }
 
                     currentEmails = currentEmails.filter(e => !deletedIds.has(String(e.id)));
@@ -1625,7 +1569,7 @@
                         document.getElementById('emailDetail').innerHTML = I18n.tpl`
                             <div class="empty-state">
                                 <div class="empty-state-icon">🗑️</div>
-                                <div class="empty-state-text">Message deleted</div>
+                                <div class="empty-state-text">邮件已删除</div>
                             </div>
                         `;
                         document.getElementById('emailDetailToolbar').style.display = 'none';
@@ -1638,42 +1582,42 @@
                 } else {
                     const errorMessage = result.error && result.error.message
                         ? result.error.message
-                        : (result.error || I18n.t("Unknown error"));
-                    showToast(I18n.t("Delete failed: ") + errorMessage, 'error');
+                        : (result.error || I18n.t('未知错误'));
+                    showToast(I18n.t('删除失败: ') + errorMessage, 'error');
                 }
             } catch (e) {
-                showToast(I18n.t("Network error"), 'error');
+                showToast(I18n.t('网络错误'), 'error');
                 console.error(e);
             }
         }
 
-        // Select email
+        // 选择邮件
         async function selectEmail(messageId, index) {
             currentEmailId = messageId;
             const selectedEmail = currentEmails.find(email => email.id === messageId);
             const requestFolder = currentFolder === 'all'
                 ? (selectedEmail?.folder || 'inbox')
                 : currentFolder;
-            // Update UI
+            // 更新 UI
             document.querySelectorAll('.email-item').forEach((item, i) => {
                 item.classList.toggle('active', i === index);
             });
 
-            // CurrentEmailDetail is not reset here, but will be set after fetch is successful.
+            // 这里不重置 currentEmailDetail，等到 fetch 成功后再设置
 
-            // Reset trust mode
+            // 重置信任模式
             const trustCheckbox = document.getElementById('trustEmailCheckbox');
             trustCheckbox.checked = false;
             isTrustedMode = false;
             updateTrustToggleState(trustCheckbox);
 
-            // Show toolbar
+            // 显示工具栏
             document.getElementById('emailDetailToolbar').style.display = 'flex';
             const deleteBtn = document.querySelector('#emailDetailToolbar .batch-btn.danger');
             if (deleteBtn) deleteBtn.style.display = '';
             showMobileEmailDetail();
 
-            // Load email details
+            // 加载邮件详情
             const container = document.getElementById('emailDetail');
             container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
 
@@ -1682,7 +1626,7 @@
                     buildEmailDetailRequestUrl(messageId, requestFolder, selectedEmail),
                     {
                         timeoutMs: EMAIL_DETAIL_REQUEST_TIMEOUT_MS,
-                        timeoutMessage: I18n.t("Loading email details timed out, please try again later.")
+                        timeoutMessage: I18n.t('加载邮件详情超时，请稍后重试')
                     }
                 );
                 const data = await response.json();
@@ -1702,10 +1646,10 @@
                         }], { silent: true });
                     }
                 } else {
-                    handleApiError(data, I18n.t("Failed to load email details"));
+                    handleApiError(data, I18n.t('加载邮件详情失败'));
                     const detailErrorMessage = data.error?.message
                         || (typeof data.error === 'string' ? data.error : '')
-                        || I18n.t("Loading failed");
+                        || I18n.t('加载失败');
                     const hasProtocolDetails = data.details
                         && typeof data.details === 'object'
                         && Object.keys(data.details).length > 0;
@@ -1716,7 +1660,7 @@
                         <div class="empty-state">
                             <div class="empty-state-icon">⚠️</div>
                             <div class="empty-state-text"></div>
-                            ${hasProtocolDetails ? I18n.t("<div class=\"empty-state-actions\" style=\"margin-top:12px;\"><a href=\"javascript:void(0)\" class=\"email-detail-error-link\" style=\"color:#409eff;text-decoration:underline;\">Click to view details</a></div>") : ''}
+                            ${hasProtocolDetails ? I18n.t('<div class="empty-state-actions" style="margin-top:12px;"><a href="javascript:void(0)" class="email-detail-error-link" style="color:#409eff;text-decoration:underline;">点击查看详情</a></div>') : ''}
                         </div>
                     `;
                     const errorText = container.querySelector('.empty-state-text');
@@ -1732,8 +1676,8 @@
                 }
             } catch (error) {
                 const errorMessage = isTimeoutAbortError(error)
-                    ? I18n.t("Loading email details timed out, please try again.")
-                    : I18n.t("Network error, please try again");
+                    ? I18n.t('加载邮件详情超时，请重试')
+                    : I18n.t('网络错误，请重试');
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
@@ -1743,7 +1687,7 @@
             }
         }
 
-        // Render email details
+        // 渲染邮件详情
         function renderEmailDetail(email) {
             cleanupNormalDetailIframeResizeResources();
             const container = document.getElementById('emailDetail');
@@ -1758,21 +1702,21 @@
 
             const detailMetaRows = I18n.tpl`
                 <div class="email-detail-meta-row">
-                    <span class="email-detail-meta-label">Sender</span>
+                    <span class="email-detail-meta-label">发件人</span>
                     <span class="email-detail-meta-value">${escapeHtml(email.from)}</span>
                 </div>
                 <div class="email-detail-meta-row">
-                    <span class="email-detail-meta-label">Recipients</span>
+                    <span class="email-detail-meta-label">收件人</span>
                     <span class="email-detail-meta-value">${escapeHtml(email.to || '-')}</span>
                 </div>
                 ${email.cc ? I18n.tpl`
                 <div class="email-detail-meta-row">
-                    <span class="email-detail-meta-label">CC</span>
+                    <span class="email-detail-meta-label">抄送</span>
                     <span class="email-detail-meta-value">${escapeHtml(email.cc)}</span>
                 </div>
                 ` : ''}
                 <div class="email-detail-meta-row">
-                    <span class="email-detail-meta-label">Time</span>
+                    <span class="email-detail-meta-label">时间</span>
                     <span class="email-detail-meta-value">${formatDate(email.date)}</span>
                 </div>
             `;
@@ -1780,14 +1724,14 @@
             const detailHeader = compactMobileMeta
                 ? I18n.tpl`
                 <div class="email-detail-header email-detail-header--compact">
-                    <div class="email-detail-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</div>
+                    <div class="email-detail-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
                     <div class="email-detail-meta-inline">
-                        <span class="email-detail-meta-inline__from">${escapeHtml(email.from || I18n.t("Unknown sender"))}</span>
+                        <span class="email-detail-meta-inline__from">${escapeHtml(email.from || I18n.t('未知发件人'))}</span>
                         <span class="email-detail-meta-inline__dot"></span>
                         <span class="email-detail-meta-inline__time">${formatDate(email.date)}</span>
                     </div>
                     <details class="email-detail-meta-collapsible">
-                        <summary class="email-detail-meta-collapsible__summary">View email messages</summary>
+                        <summary class="email-detail-meta-collapsible__summary">查看邮件信息</summary>
                         <div class="email-detail-meta email-detail-meta--compact">
                             ${detailMetaRows}
                         </div>
@@ -1796,7 +1740,7 @@
                 `
                 : `
                 <div class="email-detail-header">
-                    <div class="email-detail-subject">${escapeHtml(email.subject || I18n.t("No topic"))}</div>
+                    <div class="email-detail-subject">${escapeHtml(email.subject || I18n.t('无主题'))}</div>
                     <div class="email-detail-meta">
                         ${detailMetaRows}
                     </div>
@@ -1811,15 +1755,15 @@
                 </div>
             `;
 
-            // If it is HTML content, set iframe content
+            // 如果是 HTML 内容，设置 iframe 内容
             if (isHtml) {
                 const iframe = document.getElementById('emailBodyFrame');
                 if (iframe) {
                     let sanitizedBody;
                     if (isTrustedMode) {
-                        sanitizedBody = email.body; // Trust mode: no filtering
+                        sanitizedBody = email.body; // 信任模式：不过滤
                     } else {
-                        // Use DOMPurify to sanitize HTML content and prevent XSS attacks
+                        // 使用 DOMPurify 净化 HTML 内容，防止 XSS 攻击
                         sanitizedBody = DOMPurify.sanitize(email.body, {
                             ALLOWED_TAGS: ['a', 'b', 'i', 'u', 'strong', 'em', 'p', 'br', 'div', 'span', 'img', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code'],
                             ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'style', 'class', 'width', 'height', 'align', 'border', 'cellpadding', 'cellspacing'],
@@ -1861,7 +1805,7 @@
             }
         }
 
-        // Dynamically adjust iframe height
+        // 动态调整 iframe 高度
         function adjustIframeHeight(iframe) {
             cleanupNormalDetailIframeResizeResources();
             try {
@@ -1907,7 +1851,7 @@
             }
         }
 
-        // View email in full screen
+        // 全屏查看邮件
         let currentFullscreenEmail = null;
         let currentRawEmailSource = '';
         let currentRawEmailFilename = 'message.eml';
@@ -1918,38 +1862,38 @@
             const content = document.getElementById('fullscreenEmailContent');
             const title = document.getElementById('fullscreenEmailTitle');
 
-            // Get the title of the current email
+            // 获取当前邮件的标题
             const subjectElement = emailDetail.querySelector('.email-detail-subject');
             if (subjectElement) {
                 title.textContent = subjectElement.textContent;
             }
 
-            // Clone email content
+            // 克隆邮件内容
             const emailHeader = emailDetail.querySelector('.email-detail-header');
             const emailBody = emailDetail.querySelector('.email-detail-body');
 
             if (emailHeader && emailBody) {
                 cleanupFullscreenIframeResizeResources();
-                // Clear content
+                // 清空内容
                 content.innerHTML = '';
 
-                // Clone header information
+                // 克隆头部信息
                 const headerClone = emailHeader.cloneNode(true);
                 content.appendChild(headerClone);
 
-                // Process the email body
+                // 处理邮件正文
                 const iframe = emailBody.querySelector('iframe');
                 const textContent = emailBody.querySelector('.email-body-text');
 
                 if (iframe) {
-                    // If it is an HTML email, create a new iframe
+                    // 如果是 HTML 邮件，创建新的 iframe
                     const newIframe = document.createElement('iframe');
                     newIframe.id = 'fullscreenEmailBodyFrame';
                     newIframe.style.width = '100%';
                     newIframe.style.border = 'none';
                     newIframe.style.backgroundColor = '#ffffff';
 
-                    // Copy the content of the original iframe
+                    // 复制原 iframe 的内容
                     if (iframe.contentDocument) {
                         const htmlContent = iframe.contentDocument.documentElement.outerHTML;
                         newIframe.srcdoc = htmlContent;
@@ -1957,23 +1901,23 @@
 
                     content.appendChild(newIframe);
 
-                    // Adjust iframe height
+                    // 调整 iframe 高度
                     newIframe.onload = function () {
                         adjustFullscreenIframeHeight(newIframe);
                     };
                 } else if (textContent) {
-                    // If it is a plain text email, clone it directly
+                    // 如果是纯文本邮件，直接克隆
                     const textClone = textContent.cloneNode(true);
                     content.appendChild(textClone);
                 }
 
-                // Show modal box
+                // 显示模态框
                 modal.classList.add('show');
                 updateModalBodyState();
             }
         }
 
-        // Switch trust mode
+        // 切换信任模式
         function updateTrustToggleState(checkbox) {
             checkbox?.closest('.email-trust-toggle')?.classList.toggle('is-active', !!checkbox?.checked);
         }
@@ -1981,7 +1925,7 @@
         async function toggleTrustMode(checkbox) {
             updateTrustToggleState(checkbox);
             if (checkbox.checked) {
-                if (await showConfirmModal(I18n.t("⚠️ Warning: Enabling trust mode will directly display the original content of the email without any security filtering. \n\nThis may contain malicious scripts or unsafe content. Are you sure you want to continue?"), { title: I18n.t("Enable trust mode"), confirmText: I18n.t("Confirm activation") })) {
+                if (await showConfirmModal(I18n.t('⚠️ 警告：启用信任模式将直接显示邮件原始内容，不进行任何安全过滤。\n\n这可能包含恶意脚本或不安全的内容。您确定要继续吗？'), { title: I18n.t('启用信任模式'), confirmText: I18n.t('确认启用') })) {
                     isTrustedMode = true;
                     if (currentEmailDetail) {
                         renderEmailDetail(currentEmailDetail);
@@ -2008,7 +1952,7 @@
 
         async function openRawEmailModal() {
             if (!currentEmailDetail || !currentEmailDetail.id || !currentAccount) {
-                showToast(I18n.t("Please select an email first"), 'warning');
+                showToast(I18n.t('请先选择一封邮件'), 'warning');
                 return;
             }
 
@@ -2020,9 +1964,9 @@
 
             currentRawEmailSource = '';
             currentRawEmailFilename = `${currentEmailDetail.id || 'message'}.eml`;
-            title.textContent = currentEmailDetail.subject ? I18n.tpl`Original email: ${currentEmailDetail.subject}` : I18n.t("Original email");
-            warning.textContent = I18n.t("The original email contains complete email headers and routing information, please share with caution.");
-            content.textContent = I18n.t("Loading original email source code...");
+            title.textContent = currentEmailDetail.subject ? I18n.tpl`原始邮件：${currentEmailDetail.subject}` : I18n.t('原始邮件');
+            warning.textContent = I18n.t('原始邮件包含完整邮件头和路由信息，请谨慎分享。');
+            content.textContent = I18n.t('正在加载原始邮件源码...');
             modal.classList.add('show');
             updateModalBodyState();
 
@@ -2033,13 +1977,13 @@
                     `/api/email/${encodeURIComponent(currentAccount)}/${encodeURIComponent(currentEmailDetail.id)}/raw?method=${method}&folder=${folder}`,
                     {
                         timeoutMs: EMAIL_DETAIL_REQUEST_TIMEOUT_MS,
-                        timeoutMessage: I18n.t("Timeout loading original email, please try again later.")
+                        timeoutMessage: I18n.t('加载原始邮件超时，请稍后重试')
                     }
                 );
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, I18n.t("Failed to load original email"));
-                    content.textContent = data.error && data.error.message ? data.error.message : (data.error || I18n.t("Failed to load original email"));
+                    handleApiError(data, I18n.t('加载原始邮件失败'));
+                    content.textContent = data.error && data.error.message ? data.error.message : (data.error || I18n.t('加载原始邮件失败'));
                     return;
                 }
                 currentRawEmailSource = data.raw || '';
@@ -2047,11 +1991,11 @@
                 if (data.warning) {
                     warning.textContent = data.warning;
                 }
-                content.textContent = currentRawEmailSource || I18n.t("The original email is empty");
+                content.textContent = currentRawEmailSource || I18n.t('原始邮件为空');
             } catch (error) {
                 const errorMessage = isTimeoutAbortError(error)
-                    ? I18n.t("Timeout loading original email, please try again")
-                    : I18n.t("Network error, please try again");
+                    ? I18n.t('加载原始邮件超时，请重试')
+                    : I18n.t('网络错误，请重试');
                 content.textContent = errorMessage;
                 showToast(errorMessage, 'error');
             }
@@ -2072,29 +2016,29 @@
 
         async function copyRawEmailSource() {
             if (!currentRawEmailSource) {
-                showToast(I18n.t("There is currently no copy of the original email content."), 'warning');
+                showToast(I18n.t('暂无可复制的原始邮件内容'), 'warning');
                 return;
             }
             try {
                 await navigator.clipboard.writeText(currentRawEmailSource);
-                showToast(I18n.t("Original message copied"));
+                showToast(I18n.t('原始邮件已复制'));
             } catch (error) {
-                showToast(I18n.t("Copy failed, please select copy manually"), 'error');
+                showToast(I18n.t('复制失败，请手动选择复制'), 'error');
             }
         }
 
         function downloadRawEmailSource() {
             if (!currentRawEmailSource) {
-                showToast(I18n.t("The original email content is currently unavailable for download."), 'warning');
+                showToast(I18n.t('暂无可下载的原始邮件内容'), 'warning');
                 return;
             }
             const blob = new Blob([currentRawEmailSource], { type: 'message/rfc822;charset=utf-8' });
             triggerAttachmentDownload(blob, currentRawEmailFilename || 'message.eml');
-            showToast(I18n.t("Original email download has started"));
+            showToast(I18n.t('原始邮件下载已开始'));
         }
 
         function closeFullscreenEmailOnBackdrop(event) {
-            // Only closes when clicking on the background, not closing when clicking on the content area
+            // 只有点击背景时才关闭，点击内容区域不关闭
             if (event.target.id === 'fullscreenEmailModal') {
                 closeFullscreenEmail();
             }
@@ -2144,11 +2088,11 @@
                 console.log('Cannot adjust fullscreen iframe height:', e);
             }
         }
-        // Display mailing list (mobile version)
+        // 显示邮件列表（移动端）
         function showEmailList({ scheduleLoadCheck = true } = {}) {
             document.getElementById('emailListPanel').classList.remove('hidden');
             isListVisible = true;
-            document.getElementById('toggleListText').textContent = I18n.t("Hide list");
+            document.getElementById('toggleListText').textContent = I18n.t('隐藏列表');
             closeMobilePanels();
             closeNavbarActionsMenu();
             updateMobileContext();
@@ -2157,7 +2101,7 @@
             }
         }
 
-        // Refresh mail
+        // 刷新邮件
         function refreshEmails() {
             if (currentAccount) {
                 if (isTempEmailGroup) {
@@ -2167,16 +2111,16 @@
                         loadTempEmailMessages(currentAccount);
                     }
                 } else {
-                    // Clear the current cache and force refresh
+                    // 清除当前缓存并强制刷新
                     invalidateEmailListCache(currentAccount, currentFolder);
                     loadEmails(currentAccount, true);
                 }
             } else {
-                showToast(I18n.t("Please select an email account first"), 'error');
+                showToast(I18n.t('请先选择一个邮箱账号'), 'error');
             }
         }
 
-        function copyTextToClipboard(text, successMessage = I18n.t("Content copied")) {
+        function copyTextToClipboard(text, successMessage = I18n.t('内容已复制')) {
             const fallbackCopy = () => {
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
@@ -2199,23 +2143,23 @@
             return Promise.resolve();
         }
 
-        // Copy email address
+        // 复制邮箱地址
         function copyEmail(email) {
-            copyTextToClipboard(email, I18n.t("Email address copied"));
+            copyTextToClipboard(email, I18n.t('邮箱地址已复制'));
         }
 
-        // Copy current mailbox
+        // 复制当前邮箱
         function copyCurrentEmail() {
             const emailElement = document.getElementById('currentAccountEmail');
             if (emailElement && emailElement.textContent) {
-                const email = emailElement.textContent.replace(I18n.t(" (temporary)"), '').trim();
+                const email = emailElement.textContent.replace(I18n.t(' (临时)'), '').trim();
                 copyEmail(email);
             }
         }
 
-        // Sign out
+        // 退出登录
         async function logout() {
-            if (await showConfirmModal(I18n.t("Are you sure you want to log out?"), { title: I18n.t("Sign out"), confirmText: I18n.t("Confirm to exit"), danger: false })) {
+            if (await showConfirmModal(I18n.t('确定要退出登录吗？'), { title: I18n.t('退出登录'), confirmText: I18n.t('确认退出'), danger: false })) {
                 window.location.href = '/logout';
             }
         }

@@ -14,7 +14,7 @@ TRAILING_ZONE_NAME_RE = re.compile(r'\s+\([A-Za-z0-9_./+-]+\)$')
 
 
 def parse_mail_datetime(value: str) -> Optional[datetime]:
-    'Parse common email date formats and return local time zone-free datetime.'
+    """解析常见邮件日期格式，返回本地无时区 datetime。"""
     if not value:
         return None
     try:

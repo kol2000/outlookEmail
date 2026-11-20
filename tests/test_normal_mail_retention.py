@@ -38,7 +38,7 @@ class NormalMailRetentionTests(unittest.TestCase):
             db.execute('DELETE FROM account_aliases')
             db.execute('DELETE FROM account_tags')
             db.execute('DELETE FROM accounts')
-            db.execute("DELETE FROM groups WHERE name NOT IN ('\u9ed8\u8ba4\u5206\u7ec4', '\u4e34\u65f6\u90ae\u7bb1')")
+            db.execute("DELETE FROM groups WHERE name NOT IN ('默认分组', '临时邮箱')")
             db.commit()
             added = web_outlook_app.add_account(
                 'retained@example.com',
@@ -52,7 +52,7 @@ class NormalMailRetentionTests(unittest.TestCase):
             self.assertTrue(added)
             self.account = web_outlook_app.get_account_by_email('retained@example.com')
             if hasattr(web_outlook_app, 'set_normal_mail_retention_clear_status'):
-                web_outlook_app.set_normal_mail_retention_clear_status('idle', 'No cache cleanup is running')
+                web_outlook_app.set_normal_mail_retention_clear_status('idle', '普通邮箱本地缓存清理空闲')
             if hasattr(web_outlook_app, 'clear_normal_mail_local_retention_enabled_cache'):
                 web_outlook_app.clear_normal_mail_local_retention_enabled_cache()
 
@@ -87,6 +87,20 @@ class NormalMailRetentionTests(unittest.TestCase):
             'method': 'Graph API / IMAP',
             'has_more': False,
         }
+
+    def test_header_only_sync_preserves_existing_preview(self):
+        item = self._remote_list_result()['emails'][1]
+        with self.app.app_context():
+            web_outlook_app.upsert_retained_normal_mail_list_items(self.account, 'inbox', [item])
+            web_outlook_app.upsert_retained_normal_mail_list_items(
+                self.account, 'inbox', [{**item, 'body_preview': '', 'is_read': False}]
+            )
+            row = web_outlook_app.get_db().execute(
+                'SELECT body_preview, is_read FROM retained_normal_mail_messages WHERE provider_message_id = ?',
+                (item['id'],),
+            ).fetchone()
+        self.assertEqual(row['body_preview'], 'Inbox preview')
+        self.assertEqual(row['is_read'], 0)
 
     def test_retention_enabled_setting_uses_process_cache(self):
         with self.app.app_context():
@@ -687,7 +701,7 @@ class NormalMailRetentionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 payload = response.get_json()
                 self.assertFalse(payload['success'])
-                self.assertEqual(payload['error'], 'Incomplete parameters')
+                self.assertEqual(payload['error'], '参数不完整')
 
     def test_delete_emails_imap_uses_imap_oauth_token_and_expunges(self):
         with patch.object(web_outlook_app, 'get_access_token_graph') as graph_token_mock, \
@@ -906,7 +920,7 @@ class NormalMailRetentionTests(unittest.TestCase):
         self.assertFalse(disabled_payload['local_retention'])
         self.assertEqual(disabled_payload['emails'], [])
         self.assertEqual(disabled_payload['count'], 0)
-        self.assertEqual(disabled_payload['message'], 'Local storage is not enabled')
+        self.assertEqual(disabled_payload['message'], '本地存储未启用')
 
         with self.app.app_context():
             self.assertTrue(web_outlook_app.set_setting(
@@ -1654,7 +1668,7 @@ class NormalMailRetentionTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload['success'])
         self.assertFalse(payload['local_retention_enabled'])
-        self.assertIn('local retention is not enabled', payload['error'])
+        self.assertIn('本地保留未启用', payload['error'])
         detail_mock.assert_not_called()
         attachments_mock.assert_not_called()
 

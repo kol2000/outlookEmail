@@ -82,17 +82,17 @@ def localize_payload(payload, locale):
     if not isinstance(payload, dict):
         return payload
     result = dict(payload)
-    for key in ('error', 'message', 'hint', 'badge_label', 'warning', 'status_message', 'user_message'):
+    for key in ('error', 'message', 'hint', 'badge_label', 'warning', 'status_message', 'user_message', 'reason', 'last_error'):
         if isinstance(result.get(key), str):
             result[key] = translate_message(result[key], locale)
     if isinstance(result.get('errors'), list):
         result['errors'] = [translate_message(item, locale) if isinstance(item, str) else item for item in result['errors']]
     # Refresh/forwarding history consists of application status records. Mail
     # data, names, subjects, bodies, settings and exports are deliberately absent.
-    for key in ('failed_list', 'logs', 'history'):
+    for key in ('failed_list', 'logs', 'history', 'sessions'):
         if isinstance(result.get(key), list):
-            result[key] = [localize_payload(item, locale) for item in result[key]]
-    for key in ('error', 'status', 'clear_status'):
+            result[key] = [translate_message(item, locale) if isinstance(item, str) else localize_payload(item, locale) for item in result[key]]
+    for key in ('error', 'status', 'clear_status', 'windows_update', 'docker_update', 'state', 'version_status'):
         if isinstance(result.get(key), dict):
             result[key] = localize_payload(result[key], locale)
     def builtin_skin(skin):
@@ -103,6 +103,31 @@ def localize_payload(payload, locale):
         result['active_skin'] = builtin_skin(result['active_skin'])
     if isinstance(result.get('skins'), list):
         result['skins'] = [builtin_skin(skin) for skin in result['skins']]
+    return result
+
+
+def localize_icloud_payload(payload, locale):
+    """Translate only iCloud-owned connection errors and alias conflicts."""
+    def account(value):
+        if not isinstance(value, dict):
+            return value
+        value = dict(value)
+        if isinstance(value.get('sessions'), list):
+            value['sessions'] = [localize_payload(row, locale) for row in value['sessions']]
+        if isinstance(value.get('aliases'), list):
+            value['aliases'] = [alias(row) for row in value['aliases']]
+        return value
+    def alias(value):
+        if not isinstance(value, dict):
+            return value
+        return {**value, **({'conflict': translate_message(value['conflict'], locale)} if 'conflict' in value else {})}
+    result = localize_payload(payload, locale)
+    if isinstance(result.get('accounts'), list):
+        result['accounts'] = [account(row) for row in result['accounts']]
+    if isinstance(result.get('account'), dict):
+        result['account'] = account(result['account'])
+    if isinstance(result.get('aliases'), list):
+        result['aliases'] = [alias(row) for row in result['aliases']]
     return result
 
 
@@ -153,7 +178,9 @@ def install(app):
         if response.is_json and not response.is_streamed:
             payload = response.get_json(silent=True)
             if isinstance(payload, dict):
-                response.set_data(json.dumps(localize_payload(payload, locale), ensure_ascii=True))
+                from flask import request
+                localized = localize_icloud_payload(payload, locale) if request.path.startswith('/api/icloud/') else localize_payload(payload, locale)
+                response.set_data(json.dumps(localized, ensure_ascii=True))
         elif response.mimetype == 'text/event-stream':
             response.response = localize_sse(response.response, locale)
         response.headers['Content-Language'] = locale

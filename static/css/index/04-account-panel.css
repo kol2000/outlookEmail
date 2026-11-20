@@ -1,4 +1,4 @@
-        /* Email account panel */
+        /* 邮箱账号面板 */
         .account-panel {
             width: 340px;
             background-color: var(--skin-surface);
@@ -67,20 +67,70 @@
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
 
-        .panel-action-subgroup {
-            display: flex;
-            align-items: center;
-            gap: 4px;
+        /* 更多操作下拉（头部 ⋯ 按钮，仅点击展开） */
+        .account-more-dropdown:hover .navbar-dropdown-menu {
+            display: none;
         }
 
-        .panel-action-separator {
-            width: 1px;
-            height: 18px;
-            background-color: #cbd5e1;
-            margin: 0 4px;
+        /* 点击时指针必然悬停在按钮上，is-open 必须覆盖上面的 hover 抑制，
+           否则菜单要等鼠标移开按钮后才出现 */
+        .account-more-dropdown.is-open .navbar-dropdown-menu,
+        .account-more-dropdown.is-open:hover .navbar-dropdown-menu {
+            display: flex;
+        }
+
+        .account-more-dropdown .navbar-dropdown-menu {
+            min-width: 176px;
+        }
+
+        .account-more-btn {
+            position: relative;
+        }
+
+        .account-more-btn.has-active::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #2563eb;
+        }
+
+        .account-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .account-menu-item-icon {
+            display: inline-flex;
+            align-items: center;
             flex-shrink: 0;
         }
 
+        .account-menu-item-label {
+            flex: 1;
+            text-align: left;
+        }
+
+        .account-menu-item-check {
+            display: inline-flex;
+            align-items: center;
+            color: #2563eb;
+            opacity: 0;
+        }
+
+        .account-menu-item.active {
+            color: var(--skin-text);
+            font-weight: 600;
+            background-color: var(--skin-surface-soft);
+        }
+
+        .account-menu-item.active .account-menu-item-check {
+            opacity: 1;
+        }
 
         .account-toolbar {
             padding: 12px 16px 14px;
@@ -599,12 +649,6 @@
             height: 16px;
             cursor: pointer;
             accent-color: #1a1a1a;
-        }
-
-        .account-selection-mode-btn.active {
-            background-color: #111827;
-            border-color: #111827;
-            color: #ffffff;
         }
 
         .account-panel.account-selection-mode .account-list {
@@ -1174,7 +1218,7 @@
             }
         }
 
-        /* Minimalist mode style */
+        /* 极简模式样式 */
         .account-panel.minimal-mode .account-item {
             margin-bottom: 6px;
             padding: 8px 12px;
@@ -1229,7 +1273,7 @@
             color: #ffffff !important;
         }
 
-        /* Batch operation drop-down menu */
+        /* 批量操作下拉菜单 */
         .batch-dropdown {
             position: relative;
             display: inline-block;
@@ -1238,7 +1282,7 @@
         .batch-dropdown-menu {
             display: none;
             position: absolute;
-            bottom: calc(100% + 8px); /* Pop up */
+            bottom: calc(100% + 8px); /* 向上弹出 */
             left: 50%;
             transform: translateX(-50%);
             background: #ffffff;
@@ -1252,7 +1296,7 @@
             gap: 2px;
         }
 
-        /* Add a small arrow to the pop-up menu */
+        /* 向上弹出的菜单增加一个小箭头 */
         .batch-dropdown-menu::after {
             content: '';
             position: absolute;
@@ -1288,7 +1332,7 @@
             transform: rotate(180deg);
         }
 
-        /* Drop-down item style */
+        /* 下拉项样式 */
         .batch-dropdown-menu .dropdown-item {
             display: block;
             width: 100%;
@@ -1310,3 +1354,56 @@
             color: #1e40af;
         }
 
+
+        /* 自定义排序：提示覆盖标签和分页选项行，不因三秒后隐藏而移动邮箱行。 */
+        .account-manual-sort-help {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            top: 8px;
+            z-index: 21;
+            margin: 0;
+            padding: 10px 12px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #1e40af;
+            background: #eff6ff;
+            border: 1px solid #93c5fd;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+
+        .account-manual-sort-help[hidden] { display: none; }
+
+        .account-email[data-account-sort-name] {
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            border-radius: 2px;
+        }
+
+        .account-email[data-account-sort-name]:focus-visible {
+            outline: 2px solid var(--skin-primary);
+            outline-offset: 3px;
+        }
+
+        .account-email[data-account-sort-name][aria-disabled="true"] { cursor: wait; }
+        .account-item.account-sort-dragging { opacity: 0.45; }
+        .account-item.account-sort-dragging .account-email { cursor: grabbing; }
+        .account-item.account-sort-before,
+        .account-item.account-sort-after { z-index: 8; }
+        .account-item.account-sort-before::before,
+        .account-item.account-sort-after::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 2px;
+            background: #2563eb;
+            pointer-events: none;
+        }
+        .account-item.account-sort-before::before { top: -7px; }
+        .account-item.account-sort-after::after { bottom: -7px; }

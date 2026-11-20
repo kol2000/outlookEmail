@@ -36,7 +36,9 @@ Remote sync must not block initial list rendering. A failed sync should leave th
 
 When background sync finds messages that were not already retained locally, the client should show a non-destructive new-message notice. The notice tells the user that newer remote messages are available without abruptly replacing the list while they are reading.
 
-Background sync must stage newly discovered rows without immediately merging them into the current visible list. After the user accepts the notice, the client merges the staged rows into the current list, highlights the newly visible messages, updates the list cache, and triggers best-effort body retention for the newly accepted rows.
+Background sync must stage newly discovered rows without immediately merging them into the current visible list. After the user accepts the notice, the client merges the staged rows into the current list, highlights the newly visible messages, and updates the list cache. Accepting the notice does not prefetch message bodies.
+
+IMAP lists fetch message headers, flags, arrival dates, and attachment structure in a single batch for the requested page. They do not download bodies or attachments. Previously retained previews are preserved; messages without a cached preview show the empty-preview placeholder until content is available.
 
 ## Detail body retention
 
@@ -44,7 +46,9 @@ When retention is enabled, opening a message detail should prefer a retained bod
 
 If a remote detail fetch fails but a retained body exists, the detail view should show the retained body as a fallback and indicate that the content is cached or may be stale. If no retained body exists and the remote fetch fails, the existing error path should remain visible.
 
-Outlook/Hotmail OAuth accounts that use IMAP fallback must keep the provider message identifier mode with the row. `id_mode=uid` is the default for missing or invalid detail and attachment requests; `id_mode=sequence` is accepted only when the caller is replaying a sequence-based list item. This keeps UID and sequence-number reads from being mixed accidentally.
+Standard IMAP and Outlook/Hotmail OAuth IMAP rows use `id_mode=uid`. When the server provides UIDVALIDITY, the opaque message ID includes both UIDVALIDITY and UID (`imap:<UIDVALIDITY>:<UID>`), keeping mailbox generations separate within the account and folder. Sequence numbers are used only for pagination inside the current connection; old sequence-based requests must refresh their lists. A missing UID never falls back to a sequence number.
+
+On the first startup after this change, legacy IMAP cache rows without the mailbox generation are marked unavailable for list and body reads. Their original body records remain in SQLite for recovery; subsequent synchronization rebuilds the active cache. Graph cache rows, account credentials, and remote messages are preserved. Old client records must be synchronized again rather than relabeled from `sequence` to `uid`.
 
 ## Retention statistics
 

@@ -1,3 +1,11 @@
+# v3.0.32-en-ru.1 — 2026-11-20
+
+- Merge upstream v3.0.32 while preserving original ancestry and English/Russian localization.
+- Translate the new iCloud, forwarding, account-ordering and update screens.
+- Include a tested Windows portable folder and localized browser extension.
+- Preserve account and email content; translate application status messages only.
+- Update portable installations by extracting the full ZIP. Single-EXE replacement is unavailable for folder-based packages.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -5,6 +13,236 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog, and this project follows Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 ## [Unreleased]
+
+## [3.0.32] - 2026-11-17
+
+### Added
+- A new "custom" sorting is added to the email account list, which supports dragging, keyboard direction keys, and menu move up/down; the order is saved independently and is compatible with automatic migration of existing databases.
+
+## [3.0.31] - 2026-11-12
+
+### Security
+- Incorporate DOMPurify 3.4.17 into local static resources and use it for the main interface and email sharing page to avoid relying on CDN for email body purification scripts (#108).
+
+## [3.0.30] - 2026-11-06
+
+### Fixed
+- Fixed the mismatch between list subject and details after deletion of IMAP emails, and the problem that old serial numbers may accidentally delete other emails (#105); the list returns UID uniformly, and is bound together when the server provides UIDVALIDITY. Details, original emails, attachments, read and delete operations no longer fall back on the same number between UID and serial number.
+- The old serial number request prompts resynchronization; the first startup will invalidate and rebuild the old IMAP cache tag at one time, retaining the original cache text record to avoid mismatched details from continuing to be displayed.
+- Fixed the problem that mailboxes such as Gmail and Outlook IMAP that do not support IMAP SORT cannot access "Latest N Only" shares (#107); fall back to reading UID and INTERNALDATE metadata in batches, sorting by actual email time, ensuring that imported or copied old emails will not enter the wrong authorization range due to large UIDs.
+
+### Important
+- The IMAP message ID is `imap:<UIDVALIDITY>:<UID>` when the server provides UIDVALIDITY. The API client must re-obtain the list and return the ID as it is, and cannot change the old serial number to a UID; the account number, authorization information and remote email will not be affected.
+- Servers that do not support SORT require additional scan time metadata, and the limited share verification of large mailboxes may be slower; rollback scans share the current IMAP timeout budget, and access will continue to be denied when the data is incomplete, the response exceeds the limit, or the timeout occurs, and will not be automatically changed to unlimited.
+
+## [3.0.29] - 2026-11-06
+
+### Added
+- Outlook/Hotmail accounts support independent selection of Graph Token scope, and can use automatic, `.default`, read-only, full permissions or custom configuration; automatic mode will remember the most recent successful scope in the process to reduce repeated failed requests (#103).
+
+### Changed
+- Restricted email sharing is lazy loaded according to the currently opened folder, and the inbox and spam emails display the latest N emails respectively, reducing additional requests when opening the sharing page (#104).
+
+### Fixed
+- Clear the old success cache immediately after modifying the account scope or restoring automatic mode to avoid continuing to use the previous read-only configuration.
+- Background forwarding will also apply the scope saved by the account during cold start, without opening the account page first.
+- Select the scope according to the required permissions for sending, deleting and marking as read, to avoid reusing incompatible read-only cache; retain `.default`, custom scope and original authorized scope fallback, and send the message only once.
+- Limit Gmail IMAP login retries and list connection cleanup waits to reduce letter fetching lags under abnormal networks.
+
+### Important
+- **Old links with restricted sharing will also adopt new rules**: the original "N posts in total for both folders" is changed to "N posts for each folder", and a maximum of 2N posts can be accessed. If you do not accept the new visibility range, please revoke the relevant links before upgrading.
+- The account scope field is automatically completed at startup, eliminating the need for manual migration; unconfigured accounts continue to use automatic mode, and the automatic memory of successful scopes will be re-established after the process is restarted.
+
+## [3.0.28] - 2026-10-31
+
+### Added
+- Forwarding rules support independent setting of email keywords and sender conditions, and can be used for both ordinary mailboxes and Cloudflare sources; the preview and rule list will display the actual effective conditions.
+- Forwarding rules support single editing and batch editing of the same source range. You can modify the notification method, channel, keywords or sender respectively, and leave the unchecked fields.
+
+### Changed
+- Email filtering conditions have been moved from global running settings to source rules. Keywords and sender conditions must be hit at the same time when filled in at the same time; emails that do not match the conditions will not be delivered, but the scanning progress will be advanced normally.
+- Existing rules can be edited through the stable rule ID. Modifying the notification target or filter conditions will not change the source identity; when batch editing fails, the entire rule will be rolled back, and historical delivery will not be automatically resent due to changes in rule conditions.
+
+### Important
+- The upgrade will automatically complete the rule condition fields for the existing database and migrate the old global keywords to the ordinary mailbox rules that were in effect before the upgrade; Cloudflare will continue to be unaffected by the old global keywords. Migration and tagging are submitted in the same transaction. If it fails, the entire system will be rolled back. Manual migration is not required. However, it is recommended to back up the `data/` directory before upgrading.
+
+## [3.0.27] - 2026-10-31
+
+### Added
+- Email forwarding settings are restructured into independent management workspaces: support the creation of multiple SMTP, Telegram, Enterprise WeChat and Feishu notification channels, and associate rules by ordinary email, group, Cloudflare Worker, domain name or complete recipient address.
+- Added preview of forwarding rules, delivery history, channel independent delivery status, failed retry and batch filtering and deletion; the same email records results for different notification channels separately.
+
+### Changed
+- Ordinary mailbox notifications are inherited according to "specific mailbox → group → common default configuration", and Cloudflare emails are parsed according to "specific address → domain name → Worker default configuration"; running settings and channel rules are saved separately.
+- Forward delivery and source scanning state persistence to support continued processing after service restart, and to correctly block or cancel pending deliveries when modifying notification destinations, deactivating sources, or deactivating channels.
+
+### Important
+- The upgrade will automatically and idempotently migrate old SMTP, Telegram, Enterprise WeChat, and Feishu settings to compatible channels; existing accounts that originally enabled forwarding will be migrated to specific email rules, and accounts that were originally closed will remain without notification, and existing manual rules will be retained. No manual migration is required, but it is recommended to back up the `data/` directory before upgrading.
+
+## [3.0.26] - 2026-10-29
+
+### Added
+- A new request time-consuming log is added to the IMAP mailing list, which can track the connection, authentication, folder selection, search, pull, parsing and disconnection phases by request.
+
+### Changed
+- The IMAP mailing list reads message headers, read status, arrival time and attachment structure in batches on a page basis; the body and attachments are only read when the message is opened. When the server rejects a batch request, it automatically falls back to reading the email headers one by one.
+- No longer prefetch the text after accepting new emails synchronized in the background; list refresh retains the existing local text preview.
+
+### Important
+- No manual migration required. Messages in the IMAP list that have not yet been cached for preview display an empty preview, and the text is read after the message is opened.
+
+## [3.0.25] - 2026-10-27
+
+### Added
+- iCloud Management (#101): Supports configuration of Apple main account, manual login and two-factor verification code, synchronization/creation/deactivation/delete of hidden email addresses, optional automatic re-login, and mapping of addresses to corresponding receiving accounts.
+- Ordinary mailboxes support iCloud IMAP and App-specific passwords; new independent iCloud usage instructions cover configuration, backup and downgrade.
+
+### Security
+- Apple login password, management session and automatic re-login configuration are encrypted and saved; the verification code is only used for the current verification process and is not persisted.
+
+### Important
+- No manual migration required. The Apple private agreement and long-term renewal have not yet passed the real account acceptance; please follow the instructions to verify your login, address management and mail receipt.
+
+## [3.0.24] - 2026-10-24
+
+### Added
+- New Feishuqun robot channel for email forwarding (#99): supports Webhook, optional signature key and sending test messages. It can be enabled at the same time as SMTP, Telegram and Enterprise WeChat. The push includes account number, sender, recipient/cc, subject, time and text summary.
+- Feishu reuses the existing account forwarding switch, keyword filtering, time window and deduplication by channel; supports shared speed limit, current limit cooling and safe business error prompts. After failure, it will only retry the channels that have not been successful.
+- The test message uses the current form and is not automatically saved; both the test and official notifications include "email forwarding" to facilitate the configuration of robot security keywords.
+
+### Security
+- Feishu Webhook and signature keys are encrypted and saved without being echoed. Leave them blank to retain the existing configuration. Removing the signature requires explicit operation. Successful delivery is recorded only when both HTTP success and Feishu business code are successful.
+
+### Important
+- Upgrade without manual migration. Before use, please configure and enable Feishu in "Settings -> Email Forwarding Settings", and enable account-level forwarding for the email addresses that need to be notified. The sending result may be uncertain after network timeout, and subsequent retries may result in repeated notifications.
+
+## [3.0.23] - 2026-10-23
+
+### Fixed
+- Fixed the problem of background email forwarding continuing to hold SQLite write locks during subsequent network requests: Folder or email details failed to be obtained, timely submission after each channel was sent, reducing database lock errors that occurred due to local cache writing being blocked when refreshing and viewing emails in the foreground (#100).
+- Each forwarding channel submits deduplication records independently. Subsequent email processing exceptions will no longer cancel the records of successful channels, reducing repeated forwarding during retries.
+
+## [3.0.22] - 2026-10-23
+
+### Added
+- Email sharing supports network disk-style custom access codes (#92): 4-32 English letters or numbers can be set when creating, case-sensitive; after successful creation, you can copy the sharing link and access code, and the sharing management will indicate whether an access code is required.
+- Visitors can only view email information, mailing lists and details after entering the correct access code; the same browser session remembers the 20 most recently verified shared links, and will still comply with the validity period, revocation status and email quantity limit after verification.
+
+### Security
+- The access code is stored using bcrypt hash, and the plain text is only displayed in the creation result; successful verification only grants read permission to the corresponding share, and does not grant management or write permission.
+- After the same IP is entered incorrectly for the same share 5 times in a row, the verification will be suspended for 5 minutes; caching of the sharing page and anonymous reading interface is prohibited, and the email address or email content will not be returned before verification.
+
+### Important
+- Database fields are automatically completed at startup, eliminating the need for manual migration; existing links and new links with no access code set continue to be accessed directly.
+- Please save the access code displayed when you created it; if you forget the access code, please cancel the old share and create it again.
+
+## [3.0.21] - 2026-10-21
+
+### Added
+- Token refresh results distinguish between "refresh successful, Token has been updated" and "verification successful, Token has not been rotated, continue to use the original Token", single account prompts, batch logs and refresh lists are displayed simultaneously, and the results of whether each refresh is rotated are persisted.
+- Token refresh management adds "Latest Successful Refresh" and "Latest Rotation" time, which are displayed separately from "Last Refresh"; if the request is not rotated but the request is successful, the success time will be updated as well. If subsequent failures fail, the last successful time will be retained. If it is not rotated, the last rotation time will be retained.
+- The batch refresh completion prompt increases the number of accounts with updated and unrotated Tokens.
+
+### Fixed
+- Outlook Graph Token refresh is changed to prioritize requesting `.default`. When successful but no valid Refresh Token is returned, the original authorization scope is continued to be tried; when reissuance fails or a new value is not returned, the existing successful results and old Token are retained to avoid skipping available rotation opportunities. Pull requests maintain the original scope order.
+- When the new Refresh Token fails to be saved, it is recorded as a refresh failure to avoid false reports that the Token has been updated; the refresh log is supplemented with same-second sorting to ensure that the latest results are displayed first.
+
+### Important
+- Automatically complete database fields at startup, and restore the most recent confirmable success time from existing success logs and account status; the rotation result of old logs is displayed as "Unrecorded", and unknown times remain empty, without manual migration.
+
+## [3.0.20] - 2026-10-18
+
+### Added
+- The actual recipient and carbon copy address are added to the email forwarding summary, and Telegram, WeChat Enterprise and SMTP share consistent recipient information display (#96).
+- New keyword filtering for email forwarding settings: one per line, the subject or the complete visible text will be forwarded only if any keyword is hit, not case-sensitive; leave blank to keep all forwarding, support saving, echoing and clearing (#96).
+
+### Fixed
+- Emails that do not match keywords will be forwarded to the forwarding check position to avoid repeated scanning; when the same batch fails to read details or the channel fails to send, the original check position will be maintained. Successful channels will continue to deduplicate through history records to ensure that failed emails can still be retried.
+
+## [3.0.19] - 2026-10-17
+
+### Added
+- Batch activation and deactivation of email accounts (#97): The homepage email list supports batch "activate account/deactivate account", and Token refresh management supports batch deactivation after filtering and refreshing failed accounts; a confirmation prompt is displayed before the operation, and accounts that are already in the target state are automatically skipped.
+- Added new login interface `POST /api/accounts/batch-update-status`, which supports account ID deduplication, status verification, and returns the number and list of accounts that are actually updated, do not need to be updated, and are not found.
+
+### Important
+- Deactivation will retain the password, Refresh Token and project records. Subsequent project collection, token refresh and automatic forwarding will skip the deactivated account; the status of existing project collection will not be revoked, and reactivation will not reset the project progress.
+- Deactivated accounts will be removed from the Token refresh management list and can still be found on the homepage and enabled in batches. This upgrade does not require database migration.
+
+## [3.0.18] - 2026-10-16
+
+### Fixed
+- When the SEARCH response of a very large mailbox exceeds the single-line reading limit of imaplib, reconnect by serial number enumeration (#93): When the number of emails is about hundreds of thousands, the single-line response of `SEARCH ALL` (all email IDs) exceeds the 1MB line limit of the Python standard library imaplib, `got more than 1000000 bytes` is thrown, and the residual response causes the connection to be out of sync. Now after detecting the error, it automatically reconnects and re-SELECTs, enumerates according to the serial number 1..EXISTS, and only FETCH the current page. Extra-large mailboxes can be browsed and turned normally; if reconnection fails, 502 will still be returned and the original error details will be retained.
+
+## [3.0.17] - 2026-10-16
+
+### Fixed
+- Alibaba Cloud and other IMAP servers fall back on sequence number enumeration when they reject the SEARCH command (#93): When the IMAP server previously returned NO/BAD for both `UID SEARCH` and `SEARCH` (Alibaba Cloud returned `BAD invalid command or parameters` for unsupported parameters), the entire mailbox directly reported `IMAP_SEARCH_FAILED` 502 Unable to browse. Now when two SEARCH are rejected at the protocol level (the connection is still available) and SELECT returns EXISTS > 0, the fallback is to enumerate and obtain the letter by sequence number 1..N; exceptions such as timeout/connection interruption will not fall back, and 502 will still be returned to avoid FETCH having to hang.
+
+## [3.0.16] - 2026-10-16
+
+### Fixed
+- Share management time is displayed according to the application time zone (#94): Backend `expires_at` / `created_at` is a UTC string without time zone mark. The previous table was displayed as it is, and the creation/expiration time under non-UTC deployment (such as East Eighth District) is 8 hours earlier. The "validity until" "creation time" and the "validity period" of the creation sharing pop-up window are unified to use `formatAbsoluteDateTime`. Press Settings → Apply Time Zone Conversion, hovering the creation time still displays the original UTC value.
+
+### Changed
+- The header layout of the mailbox panel is streamlined: the header action buttons are reduced from 6 icons to 4 "Refresh/Authorize and Save (temporary mailbox is to generate a temporary mailbox)/Import/More". Batch selection, management tags, and switching minimalist display are included in the "More" drop-down menu; menu items have activation highlights and checkmarks. When batch selection or minimalist display is activated, a blue dot is displayed in the upper right corner of the "More" button; the refresh button is supplemented with a loading rotation animation.
+
+## [3.0.15] - 2026-10-14
+
+### Added
+- Web project management interface (#91): Settings → General Settings adds a "Project Management Portal" switch (off by default). After turning it on, the "Project Management" portal appears in the top navigation (mobile menu and desktop "More Functions"). The modal box supports project list (total number/to be collected/receiving/completed/failed count, status logo, filtering by Key/name), creation of projects (Key/name/description/grouping range/alias pool), deactivation/recovery and deletion (the reason for backend rejection is displayed when there is an email being collected); the entrance is immediately visible and hidden after saving the settings, without refreshing.
+
+## [3.0.14] - 2026-10-14
+
+### Added
+- External API adds batch modification account grouping endpoint `POST /api/external/accounts/batch-update-group` (requires read and write permissions): supports `account_ids` (automatic filtering of illegal IDs) and `group_id`. If the group does not exist, 404 will be returned. System grouping and no matching account will return 400, `updated_count` will be returned and audit logs will be written; the device side can move used accounts to exclusive groups for visual distinction (#91).
+- Project life cycle management interface: New project deactivation (`POST /api/projects/<project_key>/archive`), recovery (`/restore`) and deletion (`DELETE /api/projects/<project_key>`) endpoints are added to both the Web client and the external API. After deactivation, `claim-random` returns 400 "Project has been deactivated", and the query and report endpoints are not affected; deletion will remove the project, mailbox pool association, grouping range, and project event history, but will not delete the `accounts` main table account, and refuse to delete it when the `claiming` mailbox exists (#91).
+
+### Changed
+- External and Web side `claim-random` uniformly return HTTP 400 "Project does not exist" when the project does not exist (originally, the Web side and the pool exhaustion both gave 200 prompts and could not be distinguished).
+- Calling `start` again will no longer reset the project status: deactivated (`archived`) projects will complete the scope as usual but remain deactivated, and need to explicitly call `restore` to restore (originally `start` will silently change the status back to `active`).
+
+## [3.0.13] - 2026-10-13
+
+### Added
+- The project interface is opened to the external API Key for external systems to directly connect to the mailbox for collection and rewards: read-only permission can query the project list (`GET /api/external/projects`), project details and project mailbox pool (`GET /api/external/projects/<project_key>/accounts`, supports `status`/`group_id`/`provider`/`keyword` filtering); read and write permissions are additionally opened `start`, `claim-random`, `complete-success`, `complete-failed`, `release`, `reset-failed`, `remove-account`, `restore-account` eight operation endpoints.
+- The external project endpoint shares the same set of back-end logic with the Web side `/api/projects/*`: state machine (toClaim/claiming/done/failed/removed/deleted), automatic recycling of lease timeout, independent status of multiple projects in the same mailbox, false alarm prevention for receiving `claim_token`, startup completion/deletion compensation/alias pooling rules are exactly the same, and the response structure mirrors the Web side (list query has additional `total`).
+- All external project read and write operations are written to the audit log (`resource_type=project`), and project events are recorded for status flow and traceability on the Web side.
+
+### Changed
+- External `claim-random` returns 404 when the project does not exist (the web side returns the same prompt as when the pool is exhausted), which facilitates external scripts to distinguish configuration errors from pool exhaustion; when the pool is exhausted, it still returns 200 + `success:false`, consistent with the web side.
+
+### Security
+- The collection and return endpoint requires an API Key and the permission is read and write (`readwrite`); the read-only permission call returns 403 with switching instructions. The query endpoint is open to any permission. After the upgrade, the read-only Key can be used to query project data immediately; Web-side project routing still requires Session login.
+
+## [3.0.12] - 2026-10-13
+
+### Added
+- New permission level for external API Key (`readonly` default / `readwrite`): read-only maintains all external capabilities before the upgrade; read-write additional official account import and delete endpoints are opened. The "External API Key Permission" drop-down is added to the setting interface, and the `external_api_key_permission` field is added to `GET/PUT /api/settings` (illegal values ​​return 400, and the existing value is retained when the field is not passed).
+- Added `POST /api/external/accounts`: Press `Email----Password----client_id----refresh_token` or IMAP account string to batch import the official account, support `group_id` (the group does not exist and return 404), `account_format`, `provider`, `remark`, `tag_ids`, `imap_host`/`imap_port`, return Count added/skipped/invalid/tagged and write audit logs.
+- Added `DELETE /api/external/accounts/email/<email>`: delete the official account by email (case insensitive, support aliases, tags/aliases will be cleaned up and the project association will be marked as `deleted`), 404 will be returned if it does not exist, and the standard mailbox in the library will be successfully returned and the audit log will be written.
+
+### Security
+- Both new write endpoints require API Key and the permissions are read and write; the read-only permission call returns 403 with switching instructions. The behavior of the original three external endpoints remains unchanged, and the default behavior changes after the upgrade; the browser extension’s saved settings will not overwrite the permission fields.
+
+## [3.0.11] - 2026-10-10
+
+### Fixed
+- Graph no longer only displays `Msg ID: xxx, Status: 403` when batch deletion of emails fails: the error prompt now includes the specific error details returned by Graph; when the account lacks the `Mail.ReadWrite` write permission or the authorization has expired (401/403), the account is directly prompted to re-authorize the account.
+
+## [3.0.10] - 2026-10-05
+
+### Added
+- Windows Portable EXE supports online upgrade from the existing GitHub Release ZIP: accurate download progress and speed are displayed after user confirmation, the same directory replacement and restart are automatically completed, and the old version is restored when the new version fails to start.
+- When creating an email sharing link, you can select the "Latest N Only" range and set `1–50`; after the inbox and spam emails are merged and sorted, the sharing page will only display the latest N emails.
+- The server-side access scope of email sharing links has covered lists, pagination and email details; old links and new links without restrictions continue to be unlimited.
+
+### Changed
+- The version pop-up box will provide Windows EXE or Docker online update entrance according to the operating environment; Windows download phase supports cancellation, and the current version will not exit when the program directory is not writable or the corresponding Release ZIP has not been released.
+
+### Important
+- **Mail sharing visibility range:** "Only the latest N" is a dynamic window; after new emails arrive, older emails may exit the visible range. The restricted link that never expires will continue to display the latest N blocks in the future. If you want to stop accessing, please cancel the link.
+- Restricted IMAP sharing requires the server to provide stable UID ordering; when the accessible range cannot be safely confirmed, reading will be refused and will not degrade to unlimited display.
 
 ## [3.0.9] - 2026-09-22
 

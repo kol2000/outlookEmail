@@ -126,3 +126,19 @@ def test_extension_bundle_matches_web_catalogs():
     for language in ('en', 'ru'):
         labels = json.loads((ROOT / f'browser-extension/_locales/{language}/messages.json').read_text(encoding='utf-8'))
         assert all(labels[key]['message'] for key in ('extensionName', 'extensionDescription', 'openConsole'))
+
+
+def test_new_update_and_icloud_errors_preserve_user_content():
+    from outlook_web.i18n import localize_icloud_payload
+    payload = {'account': {'remark': 'Login failed', 'sessions': [{'last_error': 'Login failed'}],
+                          'aliases': [{'conflict': 'Login failed', 'label': 'Login failed', 'note': 'Login failed'}]},
+               'windows_update': {'reason': 'Login failed', 'state': {'logs': ['Login failed']}},
+               'body': 'Login failed'}
+    value = localize_icloud_payload(payload, 'ru')
+    expected = catalog('ru')['Login failed']
+    assert value['account']['sessions'][0]['last_error'] == expected
+    assert value['account']['aliases'][0]['conflict'] == expected
+    assert value['windows_update']['reason'] == expected
+    assert value['windows_update']['state']['logs'] == [expected]
+    assert value['account']['remark'] == value['body'] == 'Login failed'
+    assert value['account']['aliases'][0]['label'] == value['account']['aliases'][0]['note'] == 'Login failed'

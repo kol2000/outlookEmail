@@ -1,6 +1,6 @@
         /* global accountsCache, allTags, closeAllModals, closeMobilePanels, closeNavbarActionsMenu, currentGroupId, currentGroupName, deleteCurrentAccount, ensureForwardingSettingsUI, escapeHtml, formatAbsoluteDateTime, getSelectedForwardChannels, groups, handleApiError, hideEditAccountModal, hideModal, hideSettingsModal, invalidateNormalMailRetentionCaches, isTempEmailGroup, isTempImportGroup, loadAccountsByGroup, loadCloudflareChannelsForTempEmails, loadGroups, loadTempEmails, normalizeSmtpForwardProvider, refreshVisibleAccountList, setAppTimeZone, setMailFetchTimeoutSeconds, setModalVisible, setSelectedForwardChannels, setShowAccountCreatedAt, setShowAccountSortOrder, setShowGroupId, setNormalMailLocalRetentionEnabled, showConfirmModal, showModal, showToast, syncSmtpProviderUI, toggleRefreshStrategy, updateEditAccountFields, updateImportHint */
 
-        // ==================== Setting related ====================
+        // ==================== 设置相关 ====================
         let settingsScrollSyncBound = false;
         let settingsScrollSyncFrame = 0;
         let lastLoadedWebdavBackupSettings = null;
@@ -89,8 +89,8 @@
 
             const isRevealed = input.dataset.secretRevealed === 'true';
             const isImap = inputId === 'editImapPassword';
-            const showLabel = isImap ? I18n.t("Show IMAP password") : I18n.t("Show password");
-            const hideLabel = isImap ? I18n.t("Hide IMAP password") : I18n.t("Hide password");
+            const showLabel = isImap ? I18n.t('显示 IMAP 密码') : I18n.t('显示密码');
+            const hideLabel = isImap ? I18n.t('隐藏 IMAP 密码') : I18n.t('隐藏密码');
 
             if (isRevealed) {
                 input.value = input.dataset.secretMask || '';
@@ -110,7 +110,7 @@
         }
 
         function clearEditAccountSecrets() {
-            resetEditSecretInput('editPassword', 'revealEditPasswordBtn', false, '', I18n.t("Optional"));
+            resetEditSecretInput('editPassword', 'revealEditPasswordBtn', false, '', I18n.t('可选'));
             resetEditSecretInput('editImapPassword', 'revealEditImapPasswordBtn', false, '', '');
             editAccountSecretState = {
                 accountId: ''
@@ -142,7 +142,7 @@
             if (cachedEl) cachedEl.textContent = String(cachedBodyCount);
             if (estimatedEl) estimatedEl.textContent = formatStorageBytes(status.estimated_retained_bytes);
             if (dbEl) dbEl.textContent = formatStorageBytes(status.db_file_bytes);
-            if (clearEl) clearEl.textContent = I18n.tpl`Cleanup status: ${clearStatus.message || clearStatus.state || I18n.t("No cache cleanup is running")}`;
+            if (clearEl) clearEl.textContent = I18n.tpl`清理状态：${clearStatus.message || clearStatus.state || I18n.t('普通邮箱本地缓存清理空闲')}`;
             if (errorEl) {
                 errorEl.style.display = 'none';
                 errorEl.textContent = '';
@@ -158,7 +158,7 @@
         function renderNormalMailRetentionStatusError(message) {
             const errorEl = document.getElementById('normalMailRetentionStatsError');
             if (!errorEl) return;
-            errorEl.textContent = message || I18n.t("Failed to load local retention statistics for ordinary mailboxes");
+            errorEl.textContent = message || I18n.t('加载普通邮箱本地保留统计失败');
             errorEl.style.display = 'block';
         }
 
@@ -200,13 +200,13 @@
                 const response = await fetch('/api/settings/normal-mail-retention/status', { cache: 'no-store' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to load local retention statistics for ordinary mailboxes"));
+                    throw new Error(data.error || I18n.t('加载普通邮箱本地保留统计失败'));
                 }
                 updateNormalMailRetentionStats(data.status || {});
                 return data.status || {};
             } catch (error) {
                 if (!options.silent) {
-                    renderNormalMailRetentionStatusError(error.message || I18n.t("Failed to load local retention statistics for ordinary mailboxes"));
+                    renderNormalMailRetentionStatusError(error.message || I18n.t('加载普通邮箱本地保留统计失败'));
                 }
                 return null;
             }
@@ -214,15 +214,15 @@
 
         async function clearNormalMailRetentionCache() {
             const confirmed = await showConfirmModal(
-                I18n.t("Are you sure you want to clear the local cache of the ordinary mailbox? This will only delete the normal mailbox list and body cache retained in native SQLite, it will not turn off the local retention switch."),
-                { title: I18n.t("Clear the local cache of ordinary mailboxes"), confirmText: I18n.t("Confirm cleanup") }
+                I18n.t('确定要清理普通邮箱本地缓存吗？这只会删除本机 SQLite 中保留的普通邮箱列表和正文缓存，不会关闭本地保留开关。'),
+                { title: I18n.t('清理普通邮箱本地缓存'), confirmText: I18n.t('确认清理') }
             );
             if (!confirmed) return false;
             try {
                 const response = await fetch('/api/settings/normal-mail-retention/clear', { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to start local cache cleanup of ordinary mailboxes"));
+                    throw new Error(data.error || I18n.t('启动普通邮箱本地缓存清理失败'));
                 }
                 if (typeof invalidateNormalMailRetentionCaches === 'function') {
                     invalidateNormalMailRetentionCaches({ resetCurrentView: true });
@@ -230,14 +230,14 @@
                 resetNormalMailRetentionStatusPollDelay();
                 updateNormalMailRetentionStats({
                     ...(lastNormalMailRetentionStatus || {}),
-                    clear_status: data.status || { state: 'running', message: I18n.t("Cleaning the local cache of ordinary mailboxes...") }
+                    clear_status: data.status || { state: 'running', message: I18n.t('正在清理普通邮箱本地缓存…') }
                 });
-                showToast(data.already_running ? I18n.t("The local cache of ordinary mailboxes is being cleaned.") : I18n.t("Cleaning up the local cache of ordinary mailboxes has started"), 'success');
+                showToast(data.already_running ? I18n.t('普通邮箱本地缓存正在清理中') : I18n.t('已开始清理普通邮箱本地缓存'), 'success');
                 scheduleNormalMailRetentionStatusPoll();
                 return true;
             } catch (error) {
-                renderNormalMailRetentionStatusError(error.message || I18n.t("Failed to start local cache cleanup of ordinary mailboxes"));
-                showToast(I18n.t("Failed to start local cache cleanup of ordinary mailboxes"), 'error');
+                renderNormalMailRetentionStatusError(error.message || I18n.t('启动普通邮箱本地缓存清理失败'));
+                showToast(I18n.t('启动普通邮箱本地缓存清理失败'), 'error');
                 return false;
             }
         }
@@ -275,7 +275,7 @@
             });
         }
 
-        // Display setting modal box
+        // 显示设置模态框
         async function showSettingsModal() {
             ensureSettingsScrollSync();
             showModal('settingsModal');
@@ -286,10 +286,10 @@
             scheduleSettingsSidebarSync();
         }
 
-        // Hide settings modal box
+        // 隐藏设置模态框
         function hideSettingsModal() {
             hideModal('settingsModal');
-            // Clear the password input box
+            // 清空密码输入框
             const passwordInput = document.getElementById('settingsPassword');
             if (passwordInput) {
                 passwordInput.value = '';
@@ -316,10 +316,10 @@
         }
 
         function formatSkinSourceLabel(sourceType) {
-            if (sourceType === 'builtin') return I18n.t("Built-in");
-            if (sourceType === 'upload') return I18n.t("Upload");
+            if (sourceType === 'builtin') return I18n.t('内置');
+            if (sourceType === 'upload') return I18n.t('上传');
             if (sourceType === 'git') return 'Git';
-            return sourceType || I18n.t("Unknown");
+            return sourceType || I18n.t('未知');
         }
 
         function renderSkinList(payload = {}) {
@@ -334,7 +334,7 @@
 
             const skins = Array.isArray(payload.skins) ? payload.skins : [];
             if (!skins.length) {
-                listEl.innerHTML = I18n.t("<div class=\"settings-note\">No skins available.</div>");
+                listEl.innerHTML = I18n.t('<div class="settings-note">没有可用皮肤。</div>');
                 return;
             }
 
@@ -352,16 +352,16 @@
                 const gitMeta = sourceType === 'git' && skin.git_url
                     ? `<span>${escapeHtml(skin.git_url)}${skin.git_ref ? ` @ ${escapeHtml(skin.git_ref)}` : ''}</span>`
                     : '';
-                const activePill = isActive ? I18n.t("<span class=\"skin-pill skin-pill--active\">Active</span>") : '';
-                const invalidPill = isInvalid ? I18n.t("<span class=\"skin-pill skin-pill--invalid\">Not available</span>") : '';
+                const activePill = isActive ? I18n.t('<span class="skin-pill skin-pill--active">当前</span>') : '';
+                const invalidPill = isInvalid ? I18n.t('<span class="skin-pill skin-pill--invalid">不可用</span>') : '';
                 const activateButton = isActive || isInvalid
                     ? ''
-                    : I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="activateSkin('${skinId}')">enable</button>`;
+                    : I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="activateSkin('${skinId}')">启用</button>`;
                 const updateButton = sourceType === 'git'
-                    ? I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="updateGitSkin('${skinId}')">Update</button>`
+                    ? I18n.tpl`<button class="btn btn-sm btn-secondary" type="button" onclick="updateGitSkin('${skinId}')">更新</button>`
                     : '';
                 const deleteButton = !skin.builtin && !isActive
-                    ? I18n.tpl`<button class="btn btn-sm btn-danger" type="button" onclick="deleteSkin('${skinId}')">Delete</button>`
+                    ? I18n.tpl`<button class="btn btn-sm btn-danger" type="button" onclick="deleteSkin('${skinId}')">删除</button>`
                     : '';
 
                 return I18n.tpl`
@@ -374,8 +374,8 @@
                             </div>
                             <div class="skin-card__meta">
                                 <span>ID：${escapedId}</span>
-                                <span>Version: ${version}</span>
-                                <span>Source: ${sourceLabel}</span>
+                                <span>版本：${version}</span>
+                                <span>来源：${sourceLabel}</span>
                                 ${description ? `<span>${description}</span>` : ''}
                                 ${gitMeta}
                             </div>
@@ -394,21 +394,21 @@
         async function loadSkinSettings() {
             const listEl = document.getElementById('settingsSkinList');
             if (listEl) {
-                listEl.innerHTML = I18n.t("<div class=\"settings-note\">Loading skin list...</div>");
+                listEl.innerHTML = I18n.t('<div class="settings-note">正在加载皮肤列表...</div>');
             }
             try {
                 const response = await fetch('/api/skins', { cache: 'no-store' });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to load skin list"));
+                    throw new Error(data.error || I18n.t('加载皮肤列表失败'));
                 }
                 renderSkinList(data);
                 setSkinSettingsStatus('');
                 return data;
             } catch (error) {
-                setSkinSettingsStatus(error.message || I18n.t("Failed to load skin list"), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('加载皮肤列表失败'), 'error');
                 if (listEl) {
-                    listEl.innerHTML = I18n.t("<div class=\"settings-note\">Skin list loading failed.</div>");
+                    listEl.innerHTML = I18n.t('<div class="settings-note">皮肤列表加载失败。</div>');
                 }
                 return null;
             }
@@ -417,7 +417,7 @@
         async function activateSkin(skinId) {
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) {
-                showToast(I18n.t("Invalid skin ID"), 'error');
+                showToast(I18n.t('皮肤 ID 无效'), 'error');
                 return;
             }
             try {
@@ -426,14 +426,14 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to enable skin"));
+                    throw new Error(data.error || I18n.t('启用皮肤失败'));
                 }
                 refreshActiveSkinStylesheet(data.asset_hash);
-                showToast(I18n.t("Skin enabled"), 'success');
+                showToast(I18n.t('皮肤已启用'), 'success');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to enable skin"), 'error');
-                setSkinSettingsStatus(error.message || I18n.t("Failed to enable skin"), 'error');
+                showToast(error.message || I18n.t('启用皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('启用皮肤失败'), 'error');
             }
         }
 
@@ -441,12 +441,12 @@
             const input = document.getElementById('settingsSkinUploadFile');
             const file = input?.files?.[0];
             if (!file) {
-                showToast(I18n.t("Please select zip skin package"), 'error');
+                showToast(I18n.t('请选择 zip 皮肤包'), 'error');
                 return;
             }
             const formData = new FormData();
             formData.append('skin', file);
-            setSkinSettingsStatus(I18n.t("Installing and uploading skin..."), 'pending');
+            setSkinSettingsStatus(I18n.t('正在安装上传皮肤...'), 'pending');
             try {
                 const response = await fetch('/api/skins/upload', {
                     method: 'POST',
@@ -454,15 +454,15 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to install and upload skin"));
+                    throw new Error(data.error || I18n.t('安装上传皮肤失败'));
                 }
                 if (input) input.value = '';
-                showToast(I18n.t("Skin installed"), 'success');
+                showToast(I18n.t('皮肤已安装'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to install and upload skin"), 'error');
-                setSkinSettingsStatus(error.message || I18n.t("Failed to install and upload skin"), 'error');
+                showToast(error.message || I18n.t('安装上传皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('安装上传皮肤失败'), 'error');
             }
         }
 
@@ -470,10 +470,10 @@
             const gitUrl = document.getElementById('settingsSkinGitUrl')?.value.trim() || '';
             const gitRef = document.getElementById('settingsSkinGitRef')?.value.trim() || '';
             if (!gitUrl) {
-                showToast(I18n.t("Enter a Git repository URL"), 'error');
+                showToast(I18n.t('请输入 Git 仓库地址'), 'error');
                 return;
             }
-            setSkinSettingsStatus(I18n.t("Installing Git skin..."), 'pending');
+            setSkinSettingsStatus(I18n.t('正在安装 Git 皮肤...'), 'pending');
             try {
                 const response = await fetch('/api/skins/git/install', {
                     method: 'POST',
@@ -482,38 +482,38 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to install Git skin"));
+                    throw new Error(data.error || I18n.t('安装 Git 皮肤失败'));
                 }
-                showToast(I18n.t("Git skin installed"), 'success');
+                showToast(I18n.t('Git 皮肤已安装'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to install Git skin"), 'error');
-                setSkinSettingsStatus(error.message || I18n.t("Failed to install Git skin"), 'error');
+                showToast(error.message || I18n.t('安装 Git 皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('安装 Git 皮肤失败'), 'error');
             }
         }
 
         async function updateGitSkin(skinId) {
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) return;
-            setSkinSettingsStatus(I18n.t("Updating Git skin..."), 'pending');
+            setSkinSettingsStatus(I18n.t('正在更新 Git 皮肤...'), 'pending');
             try {
                 const response = await fetch(`/api/skins/${encodeURIComponent(normalizedId)}/git/update`, {
                     method: 'POST'
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to update Git skin"));
+                    throw new Error(data.error || I18n.t('更新 Git 皮肤失败'));
                 }
                 if (lastLoadedSkinSettings?.active_skin_id === normalizedId) {
                     refreshActiveSkinStylesheet(data.skin?.asset_hash);
                 }
-                showToast(I18n.t("Git skin has been updated"), 'success');
+                showToast(I18n.t('Git 皮肤已更新'), 'success');
                 setSkinSettingsStatus('');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to update Git skin"), 'error');
-                setSkinSettingsStatus(error.message || I18n.t("Failed to update Git skin"), 'error');
+                showToast(error.message || I18n.t('更新 Git 皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('更新 Git 皮肤失败'), 'error');
             }
         }
 
@@ -521,8 +521,8 @@
             const normalizedId = String(skinId || '').trim();
             if (!normalizedId) return;
             const confirmed = await showConfirmModal(
-                I18n.t("Are you sure you want to delete this custom skin?"),
-                { title: I18n.t("Delete skin"), confirmText: I18n.t("Confirm deletion") }
+                I18n.t('确定要删除这个自定义皮肤吗？'),
+                { title: I18n.t('删除皮肤'), confirmText: I18n.t('确认删除') }
             );
             if (!confirmed) return;
             try {
@@ -531,13 +531,13 @@
                 });
                 const data = await response.json();
                 if (!response.ok || !data.success) {
-                    throw new Error(data.error || I18n.t("Failed to delete skin"));
+                    throw new Error(data.error || I18n.t('删除皮肤失败'));
                 }
-                showToast(I18n.t("Skin removed"), 'success');
+                showToast(I18n.t('皮肤已删除'), 'success');
                 await loadSkinSettings();
             } catch (error) {
-                showToast(error.message || I18n.t("Failed to delete skin"), 'error');
-                setSkinSettingsStatus(error.message || I18n.t("Failed to delete skin"), 'error');
+                showToast(error.message || I18n.t('删除皮肤失败'), 'error');
+                setSkinSettingsStatus(error.message || I18n.t('删除皮肤失败'), 'error');
             }
         }
 
@@ -651,29 +651,29 @@
             }
         }
 
-        // Generate random external API Key
+        // 生成随机对外 API Key
         function generateExternalApiKey() {
             const array = new Uint8Array(16);
             crypto.getRandomValues(array);
             const key = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
             document.getElementById('settingsExternalApiKey').value = key;
-            showToast(I18n.t("Random API Key has been generated, please save the settings"), 'success');
+            showToast(I18n.t('已生成随机 API Key，请保存设置'), 'success');
         }
 
-        // Switch refresh strategy
+        // 切换刷新策略
         function toggleRefreshStrategy() {
             const strategy = document.querySelector('input[name="refreshStrategy"]:checked').value;
             document.getElementById('daysStrategyContainer').style.display = strategy === 'days' ? 'block' : 'none';
             document.getElementById('cronStrategyContainer').style.display = strategy === 'cron' ? 'block' : 'none';
         }
 
-        // Select Cron sample
+        // 选择 Cron 样例
         async function selectCronExample(cronExpr) {
             document.getElementById('refreshCron').value = cronExpr;
             await validateCronExpression();
         }
 
-        // Validating Cron expressions
+        // 验证 Cron 表达式
         async function validateCronExpression() {
             const cronExpr = document.getElementById('refreshCron').value.trim();
             const resultEl = document.getElementById('cronValidationResult');
@@ -720,15 +720,15 @@
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = I18n.tpl`
                         <div style="color: #28a745;">
-                            ✓ The expression is valid<br>
-                            Next execution: ${nextRun}
+                            ✓ 表达式有效<br>
+                            下次执行: ${nextRun}
                         </div>
                     `;
                 } else {
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = `
                         <div style="color: #dc3545;">
-                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t("Invalid expression"))}
+                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t('表达式无效'))}
                         </div>
                     `;
                 }
@@ -736,7 +736,7 @@
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = I18n.tpl`
                     <div style="color: #dc3545;">
-                        ✗ Verification failed: ${error.message}
+                        ✗ 验证失败: ${error.message}
                     </div>
                 `;
             }
@@ -783,21 +783,21 @@
 
             const lines = [];
             if (settings.webdav_backup_next_run) {
-                lines.push(I18n.tpl`Next execution: ${formatAbsoluteDateTime(settings.webdav_backup_next_run)} (${settings.app_timezone || getAppTimeZone()})`);
+                lines.push(I18n.tpl`下次执行：${formatAbsoluteDateTime(settings.webdav_backup_next_run)}（${settings.app_timezone || getAppTimeZone()}）`);
             }
             if (settings.webdav_backup_last_run_at) {
-                const statusText = settings.webdav_backup_last_status === 'success' ? I18n.t("Success") : (settings.webdav_backup_last_status || I18n.t("Unknown"));
-                lines.push(I18n.tpl`Last execution: ${formatAbsoluteDateTime(settings.webdav_backup_last_run_at)}, status: ${statusText}`);
+                const statusText = settings.webdav_backup_last_status === 'success' ? I18n.t('成功') : (settings.webdav_backup_last_status || I18n.t('未知'));
+                lines.push(I18n.tpl`上次执行：${formatAbsoluteDateTime(settings.webdav_backup_last_run_at)}，状态：${statusText}`);
             }
             if (settings.webdav_backup_last_filename) {
-                lines.push(I18n.tpl`Recent files: ${settings.webdav_backup_last_filename}`);
+                lines.push(I18n.tpl`最近文件：${settings.webdav_backup_last_filename}`);
             }
             if (settings.webdav_backup_last_message) {
                 lines.push(settings.webdav_backup_last_message);
             }
 
             statusEl.style.display = 'block';
-            statusEl.textContent = lines.length ? lines.join('\n') : I18n.t("No backup has been performed yet. After saving the settings, the new cron schedule will be loaded when the scheduler restarts.");
+            statusEl.textContent = lines.length ? lines.join('\n') : I18n.t('尚未执行备份。保存设置后，调度器重启时会加载新的 Cron 计划。');
         }
 
         async function selectWebdavBackupCronExample(cronExpr) {
@@ -850,15 +850,15 @@
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = I18n.tpl`
                         <div style="color: #28a745;">
-                            ✓ The expression is valid<br>
-                            Next execution: ${nextRun}
+                            ✓ 表达式有效<br>
+                            下次执行: ${nextRun}
                         </div>
                     `;
                 } else {
                     resultEl.style.display = 'block';
                     resultEl.innerHTML = `
                         <div style="color: #dc3545;">
-                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t("Invalid expression"))}
+                            ✗ ${data.error && data.error.message ? data.error.message : (data.error || I18n.t('表达式无效'))}
                         </div>
                     `;
                 }
@@ -866,7 +866,7 @@
                 resultEl.style.display = 'block';
                 resultEl.innerHTML = I18n.tpl`
                     <div style="color: #dc3545;">
-                        ✗ Verification failed: ${error.message}
+                        ✗ 验证失败: ${error.message}
                     </div>
                 `;
             }
@@ -880,27 +880,27 @@
             const draft = buildWebdavBackupDraftConfig();
 
             if (!draft.url) {
-                showToast(I18n.t("Please fill in the WebDAV directory URL first"), 'error');
+                showToast(I18n.t('请先填写 WebDAV 目录 URL'), 'error');
                 return;
             }
             try {
                 const backupUrl = new URL(draft.url);
                 if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                    showToast(I18n.t("WebDAV directory URL must be an http(s) address"), 'error');
+                    showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                     return;
                 }
             } catch (error) {
-                showToast(I18n.t("Invalid WebDAV directory URL"), 'error');
+                showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = I18n.t("Testing...");
+            btn.textContent = I18n.t('测试中...');
             if (resultEl) {
                 resultEl.style.display = 'block';
                 resultEl.style.color = '';
-                resultEl.textContent = I18n.t("Uploading test files...");
+                resultEl.textContent = I18n.t('正在上传测试文件...');
             }
 
             try {
@@ -913,7 +913,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    const message = data.message || I18n.t("WebDAV test successful");
+                    const message = data.message || I18n.t('WebDAV 测试成功');
                     showToast(message, 'success');
                     if (resultEl) {
                         resultEl.style.display = 'block';
@@ -921,8 +921,8 @@
                         resultEl.textContent = `✓ ${message}`;
                     }
                 } else {
-                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t("WebDAV test failed"));
-                    handleApiError(data, I18n.t("WebDAV test failed"));
+                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t('WebDAV 测试失败'));
+                    handleApiError(data, I18n.t('WebDAV 测试失败'));
                     if (resultEl) {
                         resultEl.style.display = 'block';
                         resultEl.style.color = '#dc3545';
@@ -930,11 +930,11 @@
                     }
                 }
             } catch (error) {
-                showToast(I18n.t("WebDAV test failed"), 'error');
+                showToast(I18n.t('WebDAV 测试失败'), 'error');
                 if (resultEl) {
                     resultEl.style.display = 'block';
                     resultEl.style.color = '#dc3545';
-                    resultEl.textContent = I18n.tpl`✗ WebDAV test failed: ${error.message}`;
+                    resultEl.textContent = I18n.tpl`✗ WebDAV 测试失败: ${error.message}`;
                 }
             } finally {
                 btn.disabled = false;
@@ -951,31 +951,31 @@
             const loginPassword = document.getElementById('webdavBackupVerifyPassword')?.value || '';
 
             if (!draft.url) {
-                showToast(I18n.t("Please fill in the WebDAV directory URL first"), 'error');
+                showToast(I18n.t('请先填写 WebDAV 目录 URL'), 'error');
                 return;
             }
             try {
                 const backupUrl = new URL(draft.url);
                 if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                    showToast(I18n.t("WebDAV directory URL must be an http(s) address"), 'error');
+                    showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                     return;
                 }
             } catch (error) {
-                showToast(I18n.t("Invalid WebDAV directory URL"), 'error');
+                showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                 return;
             }
             if (!loginPassword) {
-                showToast(I18n.t("Manually uploading backup requires entering login password"), 'error');
+                showToast(I18n.t('手动上传备份需要输入登录密码'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = I18n.t("Uploading...");
+            btn.textContent = I18n.t('上传中...');
             if (resultEl) {
                 resultEl.style.display = 'block';
                 resultEl.style.color = '';
-                resultEl.textContent = I18n.t("Uploading real backup file...");
+                resultEl.textContent = I18n.t('正在上传真实备份文件...');
             }
 
             try {
@@ -989,7 +989,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    const message = data.message || I18n.t("WebDAV backup uploaded");
+                    const message = data.message || I18n.t('WebDAV 备份已上传');
                     showToast(message, 'success');
                     if (resultEl) {
                         resultEl.style.display = 'block';
@@ -998,8 +998,8 @@
                     }
                     await loadSettings();
                 } else {
-                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t("WebDAV backup upload failed"));
-                    handleApiError(data, I18n.t("Manual upload failed"));
+                    const message = data.error && data.error.message ? data.error.message : (data.error || I18n.t('WebDAV 备份上传失败'));
+                    handleApiError(data, I18n.t('手动上传失败'));
                     if (resultEl) {
                         resultEl.style.display = 'block';
                         resultEl.style.color = '#dc3545';
@@ -1007,31 +1007,16 @@
                     }
                 }
             } catch (error) {
-                showToast(I18n.t("Manual upload failed"), 'error');
+                showToast(I18n.t('手动上传失败'), 'error');
                 if (resultEl) {
                     resultEl.style.display = 'block';
                     resultEl.style.color = '#dc3545';
-                    resultEl.textContent = I18n.tpl`✗ Manual upload failed: ${error.message}`;
+                    resultEl.textContent = I18n.tpl`✗ 手动上传失败: ${error.message}`;
                 }
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
             }
-        }
-
-        function ensureEditForwardToggle() {
-            if (document.getElementById('editForwardEnabled')) return;
-            const statusGroup = document.getElementById('editStatus')?.closest('.form-group');
-            if (!statusGroup) return;
-            statusGroup.insertAdjacentHTML('afterend', I18n.tpl`
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="editForwardEnabled">
-                        <span class="form-label" style="margin: 0;">Enable mail forwarding</span>
-                    </label>
-                    <div class="form-hint">When turned on, it will be forwarded to email or Telegram according to system settings.</div>
-                </div>
-            `);
         }
 
         function renderImportTagOptions() {
@@ -1052,7 +1037,7 @@
             const selectedIds = getTagFilterSelectedIds(container);
             const tags = typeof allTags !== 'undefined' && Array.isArray(allTags) ? allTags : [];
             const selectedItems = selectedIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
-            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t("No tag selected"));
+            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t('未选择标签'));
         }
 
         function toggleImportTagDropdown(event) {
@@ -1077,14 +1062,47 @@
         function resetImportDefaults() {
             const remarkInput = document.getElementById('importRemark');
             const statusSelect = document.getElementById('importStatus');
-            const forwardInput = document.getElementById('importForwardEnabled');
             const tagDropdown = document.getElementById('importTagFilterDropdown');
 
             if (remarkInput) remarkInput.value = '';
             if (statusSelect) statusSelect.value = 'active';
-            if (forwardInput) forwardInput.checked = false;
+            setGraphScopeFieldValue('importGraphScopeSelect', 'importGraphScopeCustom', '');
             tagDropdown?.classList.remove('open');
             renderImportTagOptions();
+        }
+
+        function syncGraphScopeCustomVisibility(selectId, customId) {
+            const select = document.getElementById(selectId);
+            const custom = document.getElementById(customId);
+            if (!select || !custom) return;
+            const isCustom = select.value === '__custom__';
+            custom.style.display = isCustom ? '' : 'none';
+            if (isCustom) custom.focus();
+        }
+
+        function resolveGraphScopeFieldValue(selectId, customId) {
+            const select = document.getElementById(selectId);
+            if (!select) return '';
+            if (select.value === '__custom__') {
+                return (document.getElementById(customId)?.value || '').trim();
+            }
+            return select.value;
+        }
+
+        function setGraphScopeFieldValue(selectId, customId, value) {
+            const select = document.getElementById(selectId);
+            const custom = document.getElementById(customId);
+            if (!select) return;
+            const normalized = String(value || '').trim();
+            const optionValues = Array.from(select.options).map(option => option.value);
+            if (normalized && !optionValues.includes(normalized)) {
+                select.value = '__custom__';
+                if (custom) custom.value = normalized;
+            } else {
+                select.value = normalized;
+                if (custom) custom.value = '';
+            }
+            if (custom) custom.style.display = select.value === '__custom__' ? '' : 'none';
         }
 
         function getImportSelectedTagIds() {
@@ -1092,7 +1110,7 @@
             return getTagFilterSelectedIds(container);
         }
 
-        // ==================== Edit account modal box label ====================
+        // ==================== 编辑账号模态框标签 ====================
 
         function renderEditTagOptions(selectedTagIds) {
             const container = document.getElementById('editTagFilterOptions');
@@ -1112,7 +1130,7 @@
             const selectedIds = getTagFilterSelectedIds(container);
             const tags = typeof allTags !== 'undefined' && Array.isArray(allTags) ? allTags : [];
             const selectedItems = selectedIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
-            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t("No tag selected"));
+            updateTagFilterSummaryText(summaryEl, countEl, selectedItems, I18n.t('未选择标签'));
         }
 
         function toggleEditTagDropdown(event) {
@@ -1147,7 +1165,7 @@
                 : [];
             const enabledChannels = (Array.isArray(channels) ? channels : []).filter(channel => channel.enabled);
             if (!enabledChannels.length) {
-                select.innerHTML = I18n.t("<option value=\"\">Please configure Cloudflare channel in settings first</option>");
+                select.innerHTML = I18n.t('<option value="">请先在设置中配置 Cloudflare 渠道</option>');
                 return [];
             }
             const currentValue = select.value;
@@ -1196,30 +1214,29 @@
             const cloudflareChannelId = document.getElementById('importCloudflareChannelSelect')?.value || '';
             const imapHost = document.getElementById('importImapHost')?.value.trim() || '';
             const imapPort = parseInt(document.getElementById('importImapPort')?.value || '993', 10);
-            const forwardEnabled = !!document.getElementById('importForwardEnabled')?.checked;
             const remark = document.getElementById('importRemark')?.value.trim() || '';
             const status = document.getElementById('importStatus')?.value || 'active';
             const tagIds = getImportSelectedTagIds();
             const importButton = document.querySelector('#addAccountModal .btn.btn-primary');
 
             if (!input && !isCloudflareAutoImport) {
-                showToast(I18n.t("Please enter account information"), 'error');
+                showToast(I18n.t('请输入账号信息'), 'error');
                 return;
             }
 
             if (!isTempGroup && provider === 'custom' && !imapHost) {
-                showToast(I18n.t("Custom IMAP must fill in the server address"), 'error');
+                showToast(I18n.t('自定义 IMAP 必须填写服务器地址'), 'error');
                 return;
             }
             if (isTempGroup && tempProvider === 'cloudflare' && !cloudflareChannelId) {
-                showToast(I18n.t("Please select a Cloudflare channel"), 'error');
+                showToast(I18n.t('请选择 Cloudflare 渠道'), 'error');
                 return;
             }
 
             try {
                 if (importButton) {
                     importButton.disabled = true;
-                    importButton.textContent = I18n.t("Importing...");
+                    importButton.textContent = I18n.t('导入中...');
                 }
                 let response;
                 if (isTempGroup) {
@@ -1237,13 +1254,13 @@
                         payload.cloudflare_channel_id = cloudflareChannelId;
                     }
 
-                    // Automatic import supports streaming progress
+                    // 自动导入支持流式进度
                     if (isCloudflareAutoImport) {
                         payload.stream = true;
                         const progressHint = document.getElementById('importFormatExample');
                         if (progressHint) {
                             progressHint.style.display = '';
-                            progressHint.textContent = I18n.t("Pulling address list...");
+                            progressHint.textContent = I18n.t('正在拉取地址列表...');
                         }
 
                         response = await fetch(endpoint, {
@@ -1252,7 +1269,7 @@
                             body: JSON.stringify(payload)
                         });
 
-                        // Handling the Server-Sent Events stream
+                        // 处理 Server-Sent Events 流
                         if (response.headers.get('content-type')?.includes('text/event-stream')) {
                             const reader = response.body.getReader();
                             const decoder = new TextDecoder();
@@ -1277,12 +1294,12 @@
                                                 const percent = eventData.total > 0
                                                     ? Math.round((eventData.imported / eventData.total) * 100)
                                                     : 0;
-                                                progressHint.textContent = I18n.tpl`Import progress: ${eventData.imported}/${eventData.total} (${percent}%) - Add ${eventData.added}, update ${eventData.updated}`;
+                                                progressHint.textContent = I18n.tpl`导入进度: ${eventData.imported}/${eventData.total} (${percent}%) - 新增 ${eventData.added}，更新 ${eventData.updated}`;
                                             } else if (eventData.type === 'complete') {
                                                 if (progressHint) {
                                                     progressHint.textContent = eventData.success
-                                                        ? `✅ ${eventData.message || I18n.t("Import completed")}`
-                                                        : `❌ ${eventData.error || I18n.t("Import failed")}`;
+                                                        ? `✅ ${eventData.message || I18n.t('导入完成')}`
+                                                        : `❌ ${eventData.error || I18n.t('导入失败')}`;
                                                 }
                                             }
                                         } catch (e) {
@@ -1292,7 +1309,7 @@
                                 }
                             }
 
-                            // Use the last complete data received
+                            // 使用最后收到的完整数据
                             if (lastData && lastData.type === 'complete') {
                                 if (lastData.success) {
                                     showToast(lastData.message, 'success');
@@ -1301,7 +1318,7 @@
                                     await loadGroups();
                                     if (currentGroupId === groupId) await loadAccountsByGroup(groupId);
                                 } else {
-                                    handleApiError(lastData, I18n.t("Failed to import temporary mailbox"));
+                                    handleApiError(lastData, I18n.t('导入临时邮箱失败'));
                                 }
                                 return;
                             }
@@ -1323,10 +1340,12 @@
                             provider,
                             imap_host: imapHost,
                             imap_port: Number.isFinite(imapPort) ? imapPort : 993,
-                            forward_enabled: forwardEnabled,
                             remark,
                             status,
-                            tag_ids: tagIds
+                            tag_ids: tagIds,
+                            graph_token_scope: provider === 'outlook'
+                                ? resolveGraphScopeFieldValue('importGraphScopeSelect', 'importGraphScopeCustom')
+                                : ''
                         })
                     });
                 }
@@ -1343,21 +1362,20 @@
                         await loadAccountsByGroup(groupId, true);
                     }
                 } else {
-                    handleApiError(data, I18n.t("Import failed"));
+                    handleApiError(data, I18n.t('导入失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Import failed"), 'error');
+                showToast(I18n.t('导入失败'), 'error');
             } finally {
                 if (importButton) {
                     importButton.disabled = false;
-                    importButton.textContent = I18n.t("Import");
+                    importButton.textContent = I18n.t('导入');
                 }
             }
         }
 
         async function showEditAccountModal(accountId) {
             try {
-                ensureEditForwardToggle();
                 const response = await fetch(`/api/accounts/${accountId}`);
                 const data = await response.json();
 
@@ -1367,9 +1385,10 @@
                     editAccountSecretState.accountId = String(acc.id || '');
                     document.getElementById('editAccountId').value = acc.id;
                     document.getElementById('editEmail').value = acc.email || '';
-                    resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', I18n.t("Optional"));
+                    resetEditSecretInput('editPassword', 'revealEditPasswordBtn', !!acc.has_password, acc.password || '', I18n.t('可选'));
                     document.getElementById('editClientId').value = acc.client_id || '';
                     document.getElementById('editAuthorizationType').value = acc.authorization_type || '';
+                    setGraphScopeFieldValue('editGraphScopeSelect', 'editGraphScopeCustom', acc.graph_token_scope || '');
                     document.getElementById('editRefreshToken').value = acc.refresh_token || '';
                     resetEditSecretInput('editImapPassword', 'revealEditImapPasswordBtn', !!acc.has_imap_password, acc.imap_password || '', '');
                     document.getElementById('editImapHost').value = acc.imap_host || '';
@@ -1380,11 +1399,11 @@
                     document.getElementById('editFallbackProxyUrl2').value = acc.fallback_proxy_url_2 || '';
                     document.getElementById('editSortOrder').value = Number(acc.sort_order || 0);
                     document.getElementById('editRemark').value = acc.remark || '';
-                    document.getElementById('editAliases').value = Array.isArray(acc.aliases) ? acc.aliases.join('\n') : '';
+                    const managedAliases = new Set(acc.managed_aliases || []);
+                    document.getElementById('editAliases').value = (acc.aliases || []).filter(alias => !managedAliases.has(alias)).join('\n');
+                    document.getElementById('editManagedAliases').textContent = managedAliases.size
+                        ? I18n.tpl`iCloud 托管别名（只读，请前往 iCloud 管理）：${[...managedAliases].join('、')}` : '';
                     document.getElementById('editStatus').value = acc.status || 'active';
-                    if (document.getElementById('editForwardEnabled')) {
-                        document.getElementById('editForwardEnabled').checked = !!acc.forward_enabled;
-                    }
                     if (document.getElementById('editProviderSelect')) {
                         document.getElementById('editProviderSelect').value = acc.provider || (acc.account_type === 'imap' ? 'custom' : 'outlook');
                     }
@@ -1394,7 +1413,7 @@
                     setModalVisible('editAccountModal', true);
                 }
             } catch (error) {
-                showToast(I18n.t("Failed to load account information"), 'error');
+                showToast(I18n.t('加载账号信息失败'), 'error');
             }
         }
 
@@ -1419,6 +1438,9 @@
                 client_id: document.getElementById('editClientId').value.trim(),
                 refresh_token: document.getElementById('editRefreshToken').value.trim(),
                 authorization_type: document.getElementById('editAuthorizationType')?.value || '',
+                graph_token_scope: isOutlook
+                    ? resolveGraphScopeFieldValue('editGraphScopeSelect', 'editGraphScopeCustom')
+                    : '',
                 account_type: isOutlook ? 'outlook' : 'imap',
                 provider,
                 imap_host: document.getElementById('editImapHost')?.value.trim() || '',
@@ -1434,7 +1456,6 @@
                     .map(item => item.trim())
                     .filter(Boolean),
                 status: document.getElementById('editStatus').value,
-                forward_enabled: !!document.getElementById('editForwardEnabled')?.checked,
                 tag_ids: getEditSelectedTagIds()
             };
             if (shouldSubmitSecretInput(passwordInput)) {
@@ -1446,21 +1467,21 @@
 
             if (isOutlook) {
                 if (!data.email || !data.client_id || !data.refresh_token) {
-                    showToast(I18n.t("Email, Client ID and Refresh Token cannot be empty"), 'error');
+                    showToast(I18n.t('邮箱、Client ID 和 Refresh Token 不能为空'), 'error');
                     return;
                 }
             } else {
                 if (!data.email || (!imapPasswordValue && !imapPasswordLockedWithSavedValue)) {
-                    showToast(I18n.t("Email and IMAP password cannot be empty"), 'error');
+                    showToast(I18n.t('邮箱和 IMAP 密码不能为空'), 'error');
                     return;
                 }
                 if (provider === 'custom' && !data.imap_host) {
-                    showToast(I18n.t("Custom IMAP must fill in the server address"), 'error');
+                    showToast(I18n.t('自定义 IMAP 必须填写服务器地址'), 'error');
                     return;
                 }
             }
             if (!Number.isFinite(sortOrder) || sortOrder < 0) {
-                showToast(I18n.t("Sort value cannot be less than 0"), 'error');
+                showToast(I18n.t('排序值不能小于 0'), 'error');
                 return;
             }
 
@@ -1484,10 +1505,10 @@
                         loadAccountsByGroup(currentGroupId, true);
                     }
                 } else {
-                    handleApiError(result, I18n.t("Update failed"));
+                    handleApiError(result, I18n.t('更新失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Update failed"), 'error');
+                showToast(I18n.t('更新失败'), 'error');
             }
         }
 
@@ -1497,8 +1518,8 @@
             const deleteBtn = document.getElementById('deleteCloudflareChannelBtn');
             const testBtn = document.getElementById('testCloudflareChannelBtn');
             const testResult = document.getElementById('cloudflareChannelTestResult');
-            if (saveBtn) saveBtn.textContent = isEditing ? I18n.t("Save channels") : I18n.t("Create channels");
-            if (resetBtn) resetBtn.textContent = isEditing ? I18n.t("Create new channel") : I18n.t("Clear the form");
+            if (saveBtn) saveBtn.textContent = isEditing ? I18n.t('保存渠道') : I18n.t('创建渠道');
+            if (resetBtn) resetBtn.textContent = isEditing ? I18n.t('新建渠道') : I18n.t('清空表单');
             if (deleteBtn) deleteBtn.style.display = isEditing ? '' : 'none';
             if (testBtn) testBtn.style.display = isEditing ? '' : 'none';
             if (testResult) testResult.style.display = 'none';
@@ -1512,7 +1533,7 @@
             document.getElementById('settingsCloudflareWorkerDomain').value = '';
             document.getElementById('settingsCloudflareEmailDomains').value = '';
             document.getElementById('settingsCloudflareAdminPassword').value = '';
-            document.getElementById('settingsCloudflareAdminPassword').placeholder = I18n.t("ADMIN_PASSWORD corresponding to Cloudflare Temp Email");
+            document.getElementById('settingsCloudflareAdminPassword').placeholder = I18n.t('对应 Cloudflare Temp Email 的 ADMIN_PASSWORD');
             document.getElementById('settingsCloudflareEnabled').checked = true;
             document.getElementById('settingsCloudflareDefault').checked = cloudflareSettingsChannels.length === 0;
             setCloudflareChannelFormMode(false);
@@ -1522,7 +1543,7 @@
             const list = document.getElementById('settingsCloudflareChannelList');
             if (!list) return;
             if (!cloudflareSettingsChannels.length) {
-                list.innerHTML = I18n.t("<div class=\"form-hint\">No Cloudflare channel yet</div>");
+                list.innerHTML = I18n.t('<div class="form-hint">暂无 Cloudflare 渠道</div>');
                 return;
             }
             list.innerHTML = cloudflareSettingsChannels.map(channel => I18n.tpl`
@@ -1530,21 +1551,22 @@
                     <div>
                         <div class="cloudflare-channel-row-title">${escapeHtml(channel.name || `#${channel.id}`)}</div>
                         <div class="cloudflare-channel-row-meta">
-                            <span class="cloudflare-channel-pill">${escapeHtml(channel.worker_domain || I18n.t("Worker not configured"))}</span>
-                            <span class="cloudflare-channel-pill">${escapeHtml((channel.email_domains || []).join(', ') || I18n.t("No domain name configured"))}</span>
-                            <span class="cloudflare-channel-pill">${channel.enabled ? I18n.t("enable") : I18n.t("Deactivate")}</span>
-                            ${channel.is_default ? I18n.t("<span class=\"cloudflare-channel-pill\">Default</span>") : ''}
-                            <span class="cloudflare-channel-pill">${Number(channel.reference_count || 0)} mailboxes</span>
+                            <span class="cloudflare-channel-pill">${escapeHtml(channel.worker_domain || I18n.t('未配置 Worker'))}</span>
+                            <span class="cloudflare-channel-pill">${escapeHtml((channel.email_domains || []).join(', ') || I18n.t('未配置域名'))}</span>
+                            <span class="cloudflare-channel-pill">${channel.enabled ? I18n.t('启用') : I18n.t('停用')}</span>
+                            ${channel.is_default ? I18n.t('<span class="cloudflare-channel-pill">默认</span>') : ''}
+                            <span class="cloudflare-channel-pill">${Number(channel.reference_count || 0)} 个邮箱</span>
                         </div>
                     </div>
-                    <button class="btn btn-secondary" type="button" onclick="editCloudflareChannel(${Number(channel.id)})">Edit</button>
+                    <button class="btn btn-secondary" type="button" onclick="editCloudflareChannel(${Number(channel.id)})">编辑</button>
+                    <button class="btn btn-secondary" type="button" onclick="openForwardingSource('cloudflare_worker', ${Number(channel.id)})">通知设置</button>
                 </div>
             `).join('');
         }
 
         async function loadCloudflareChannelsForSettings() {
             const list = document.getElementById('settingsCloudflareChannelList');
-            if (list) list.innerHTML = I18n.t("<div class=\"form-hint\">Loading…</div>");
+            if (list) list.innerHTML = I18n.t('<div class="form-hint">加载中...</div>');
             try {
                 const response = await fetch('/api/cloudflare/channels');
                 const data = await response.json();
@@ -1553,7 +1575,7 @@
                 resetCloudflareChannelForm();
             } catch (error) {
                 cloudflareSettingsChannels = [];
-                if (list) list.innerHTML = I18n.t("<div class=\"form-hint\">Loading failed</div>");
+                if (list) list.innerHTML = I18n.t('<div class="form-hint">加载失败</div>');
             }
         }
 
@@ -1565,7 +1587,7 @@
             document.getElementById('settingsCloudflareWorkerDomain').value = channel.worker_domain || '';
             document.getElementById('settingsCloudflareEmailDomains').value = (channel.email_domains || []).join(', ');
             document.getElementById('settingsCloudflareAdminPassword').value = '';
-            document.getElementById('settingsCloudflareAdminPassword').placeholder = channel.admin_password_configured ? I18n.t("Saved, leave blank without modification") : I18n.t("ADMIN_PASSWORD corresponding to Cloudflare Temp Email");
+            document.getElementById('settingsCloudflareAdminPassword').placeholder = channel.admin_password_configured ? I18n.t('已保存，留空不修改') : I18n.t('对应 Cloudflare Temp Email 的 ADMIN_PASSWORD');
             document.getElementById('settingsCloudflareEnabled').checked = !!channel.enabled;
             document.getElementById('settingsCloudflareDefault').checked = !!channel.is_default;
             setCloudflareChannelFormMode(true);
@@ -1574,7 +1596,7 @@
         async function testCloudflareChannelConnection() {
             const channelId = document.getElementById('settingsCloudflareChannelId')?.value || '';
             if (!channelId) {
-                showToast(I18n.t("Please select the channel to test first"), 'error');
+                showToast(I18n.t('请先选择要测试的渠道'), 'error');
                 return;
             }
 
@@ -1585,13 +1607,13 @@
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = I18n.t("Testing...");
+                btn.textContent = I18n.t('测试中...');
             }
             if (resultContainer) {
                 resultContainer.style.display = '';
             }
             if (resultText) {
-                resultText.textContent = I18n.t("Testing Cloudflare Admin API connection...");
+                resultText.textContent = I18n.t('正在测试 Cloudflare 管理员 API 连接...');
                 resultText.className = 'form-hint';
             }
 
@@ -1603,7 +1625,7 @@
                 const data = await response.json();
 
                 if (resultText) {
-                    let html = `<strong>${escapeHtml(data.message || I18n.t("Test completed"))}</strong><br><br>`;
+                    let html = `<strong>${escapeHtml(data.message || I18n.t('测试完成'))}</strong><br><br>`;
                     if (data.tests && Array.isArray(data.tests)) {
                         html += '<ul style="margin: 0; padding-left: 20px;">';
                         for (const test of data.tests) {
@@ -1611,12 +1633,12 @@
                             html += `<li>${icon} ${escapeHtml(test.test)}`;
                             if (test.success) {
                                 if (test.domains) {
-                                    html += I18n.tpl`: ${test.domains.length} domain names`;
+                                    html += I18n.tpl`: ${test.domains.length} 个域名`;
                                     if (test.domains.length > 0) {
                                         html += ` (${test.domains.slice(0, 3).map(d => escapeHtml(d)).join(', ')}${test.domains.length > 3 ? '...' : ''})`;
                                     }
                                 } else if (test.count !== undefined) {
-                                    html += I18n.tpl`: Total ${test.count} records`;
+                                    html += I18n.tpl`: 总计 ${test.count} 条记录`;
                                 }
                             } else if (test.error) {
                                 html += `: ${escapeHtml(test.error)}`;
@@ -1630,16 +1652,16 @@
                 }
 
                 if (data.success) {
-                    showToast(I18n.t("Connection test passed"), 'success');
+                    showToast(I18n.t('连接测试通过'), 'success');
                 } else {
-                    showToast(data.message || I18n.t("Connection test failed"), 'error');
+                    showToast(data.message || I18n.t('连接测试失败'), 'error');
                 }
             } catch (error) {
                 if (resultText) {
-                    resultText.textContent = I18n.tpl`Test failed: ${error.message}`;
+                    resultText.textContent = I18n.tpl`测试失败: ${error.message}`;
                     resultText.className = 'form-hint error-text';
                 }
-                showToast(I18n.t("Test connection failed"), 'error');
+                showToast(I18n.t('测试连接失败'), 'error');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1659,11 +1681,11 @@
                 is_default: !!document.getElementById('settingsCloudflareDefault')?.checked
             };
             if (!payload.name || !payload.worker_domain) {
-                showToast(I18n.t("Please fill in the channel name and Worker domain name"), 'error');
+                showToast(I18n.t('请填写渠道名称和 Worker 域名'), 'error');
                 return;
             }
             if (!channelId && !payload.admin_password) {
-                showToast(I18n.t("New channels must fill in the administrator password"), 'error');
+                showToast(I18n.t('新建渠道必须填写管理员密码'), 'error');
                 return;
             }
             try {
@@ -1674,39 +1696,39 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, I18n.t("Failed to save Cloudflare channel"));
+                    handleApiError(data, I18n.t('保存 Cloudflare 渠道失败'));
                     return;
                 }
-                showToast(data.message || I18n.t("Cloudflare channel saved"), 'success');
+                showToast(data.message || I18n.t('Cloudflare 渠道已保存'), 'success');
                 delete accountsCache.cloudflareChannels;
                 delete accountsCache.temp;
                 await loadCloudflareChannelsForSettings();
                 if (currentGroupId) loadTempEmails(true);
             } catch (error) {
-                showToast(I18n.t("Failed to save Cloudflare channel"), 'error');
+                showToast(I18n.t('保存 Cloudflare 渠道失败'), 'error');
             }
         }
 
         async function deleteCloudflareChannel() {
             const channelId = document.getElementById('settingsCloudflareChannelId')?.value || '';
             if (!channelId) return;
-            if (!(await showConfirmModal(I18n.t("Are you sure you want to delete this Cloudflare channel?"), { title: I18n.t("Delete channel"), confirmText: I18n.t("Confirm deletion") }))) {
+            if (!(await showConfirmModal(I18n.t('确定要删除这个 Cloudflare 渠道吗？'), { title: I18n.t('删除渠道'), confirmText: I18n.t('确认删除') }))) {
                 return;
             }
             try {
                 const response = await fetch(`/api/cloudflare/channels/${encodeURIComponent(channelId)}`, { method: 'DELETE' });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, I18n.t("Failed to delete Cloudflare channel"));
+                    handleApiError(data, I18n.t('删除 Cloudflare 渠道失败'));
                     return;
                 }
-                showToast(data.message || I18n.t("Cloudflare channel removed"), 'success');
+                showToast(data.message || I18n.t('Cloudflare 渠道已删除'), 'success');
                 delete accountsCache.cloudflareChannels;
                 delete accountsCache.temp;
                 await loadCloudflareChannelsForSettings();
                 if (currentGroupId) loadTempEmails(true);
             } catch (error) {
-                showToast(I18n.t("Failed to delete Cloudflare channel"), 'error');
+                showToast(I18n.t('删除 Cloudflare 渠道失败'), 'error');
             }
         }
 
@@ -1728,10 +1750,10 @@
 
             if (btn) {
                 btn.disabled = true;
-                btn.textContent = I18n.t("Testing...");
+                btn.textContent = I18n.t('测试中...');
             }
             if (resultEl) {
-                resultEl.textContent = I18n.t("Testing...");
+                resultEl.textContent = I18n.t('测试中...');
             }
 
             try {
@@ -1742,18 +1764,18 @@
                 });
                 const data = await response.json();
                 if (!data.success) {
-                    handleApiError(data, I18n.t("AI username test failed"));
-                    if (resultEl) resultEl.textContent = data.error || I18n.t("Test failed");
+                    handleApiError(data, I18n.t('AI 用户名测试失败'));
+                    if (resultEl) resultEl.textContent = data.error || I18n.t('测试失败');
                     return;
                 }
                 const usernames = Array.isArray(data.usernames) ? data.usernames : [];
                 if (resultEl) {
-                    resultEl.textContent = usernames.length ? usernames.join(', ') : I18n.t("No available usernames returned");
+                    resultEl.textContent = usernames.length ? usernames.join(', ') : I18n.t('未返回可用用户名');
                 }
-                showToast(I18n.t("AI username test completed"), 'success');
+                showToast(I18n.t('AI 用户名测试完成'), 'success');
             } catch (error) {
-                showToast(I18n.t("AI username test failed"), 'error');
-                if (resultEl) resultEl.textContent = I18n.t("Test failed");
+                showToast(I18n.t('AI 用户名测试失败'), 'error');
+                if (resultEl) resultEl.textContent = I18n.t('测试失败');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -1774,17 +1796,19 @@
                     populateTimeZoneOptions(appTimeZone);
                     document.getElementById('settingsApiKey').value = data.settings.gptmail_api_key || '';
                     document.getElementById('settingsExternalApiKey').value = data.settings.external_api_key || '';
+                    document.getElementById('settingsExternalApiKeyPermission').value =
+                        data.settings.external_api_key_permission === 'readwrite' ? 'readwrite' : 'readonly';
                     document.getElementById('settingsDuckmailBaseUrl').value = data.settings.duckmail_base_url || '';
                     document.getElementById('settingsDuckmailApiKey').value = data.settings.duckmail_api_key || '';
                     document.getElementById('settingsCloudflareAiEnabled').checked = String(data.settings.cloudflare_ai_username_enabled) === 'true';
                     document.getElementById('settingsCloudflareAiApiUrl').value = data.settings.cloudflare_ai_username_api_url || '';
                     document.getElementById('settingsCloudflareAiModel').value = data.settings.cloudflare_ai_username_model || '';
                     document.getElementById('settingsCloudflareAiApiKey').value = '';
-                    document.getElementById('settingsCloudflareAiApiKey').placeholder = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t("Saved, leave blank without modification") : I18n.t("Enter AI API Key");
-                    document.getElementById('settingsCloudflareAiApiKeyHint').textContent = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t("Configured") : I18n.t("Not configured");
+                    document.getElementById('settingsCloudflareAiApiKey').placeholder = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t('已保存，留空不修改') : I18n.t('输入 AI API Key');
+                    document.getElementById('settingsCloudflareAiApiKeyHint').textContent = data.settings.cloudflare_ai_username_api_key_configured ? I18n.t('已配置') : I18n.t('未配置');
                     document.getElementById('settingsCloudflareAiClearApiKey').checked = false;
                     document.getElementById('settingsCloudflareAiPrompt').value = data.settings.cloudflare_ai_username_prompt || '';
-                    document.getElementById('settingsCloudflareAiTestResult').textContent = I18n.t("Not tested");
+                    document.getElementById('settingsCloudflareAiTestResult').textContent = I18n.t('未测试');
                     document.getElementById('settingsAppTimezone').value = appTimeZone;
                     document.getElementById('settingsPassword').value = '';
                     const currentPasswordInput = document.getElementById('settingsCurrentPassword');
@@ -1800,9 +1824,11 @@
                     document.getElementById('settingsShowAccountCreatedAt').checked = String(data.settings.show_account_created_at) !== 'false';
                     document.getElementById('settingsShowAccountSortOrder').checked = String(data.settings.show_account_sort_order) === 'true';
                     document.getElementById('settingsShowGroupId').checked = String(data.settings.show_group_id) !== 'false';
+                    document.getElementById('settingsShowProjectManagement').checked = String(data.settings.show_project_management) === 'true';
                     const retentionEnabled = parseSettingsBoolean(data.settings.normal_mail_local_retention_enabled);
                     document.getElementById('normalMailLocalRetentionEnabled').checked = retentionEnabled;
                     setNormalMailLocalRetentionEnabled(retentionEnabled);
+                    if (typeof isDedicatedForwardingUI !== 'function' || !isDedicatedForwardingUI()) {
                     const fallbackForwardSeconds = String((parseInt(data.settings.forward_check_interval_minutes || '5', 10) || 5) * 60);
                     document.getElementById('forwardCheckIntervalSeconds').value = data.settings.forward_check_interval_seconds || fallbackForwardSeconds;
                     document.getElementById('forwardExecutionMode').value = data.settings.forward_execution_mode === 'parallel' ? 'parallel' : 'serial';
@@ -1810,6 +1836,7 @@
                     document.getElementById('forwardAccountDelaySeconds').value = data.settings.forward_account_delay_seconds || '0';
                     document.getElementById('forwardEmailWindowMinutes').value = data.settings.forward_email_window_minutes || '0';
                     document.getElementById('forwardIncludeJunkemail').checked = String(data.settings.forward_include_junkemail) === 'true';
+                    }
                     document.getElementById('settingsEmailForwardRecipient').value = data.settings.email_forward_recipient || '';
                     document.getElementById('settingsSmtpHost').value = data.settings.smtp_host || '';
                     document.getElementById('settingsSmtpPort').value = data.settings.smtp_port || '465';
@@ -1824,6 +1851,7 @@
                     document.getElementById('settingsTelegramTopicId').value = data.settings.telegram_topic_id || '';
                     document.getElementById('settingsTelegramProxyUrl').value = data.settings.telegram_proxy_url || '';
                     document.getElementById('settingsWecomWebhookUrl').value = data.settings.wecom_webhook_url || '';
+                    setFeishuForwardingSettings(data.settings);
                     document.getElementById('webdavBackupEnabled').checked = String(data.settings.webdav_backup_enabled) === 'true';
                     document.getElementById('webdavBackupUrl').value = data.settings.webdav_backup_url || '';
                     document.getElementById('webdavBackupUsername').value = data.settings.webdav_backup_username || '';
@@ -1843,7 +1871,7 @@
                     await loadNormalMailRetentionStatus();
                 }
             } catch (error) {
-                showToast(I18n.t("Failed to load settings"), 'error');
+                showToast(I18n.t('加载设置失败'), 'error');
             }
         }
 
@@ -1863,17 +1891,19 @@
             const showAccountCreatedAt = !!document.getElementById('settingsShowAccountCreatedAt')?.checked;
             const showAccountSortOrder = !!document.getElementById('settingsShowAccountSortOrder')?.checked;
             const showGroupId = !!document.getElementById('settingsShowGroupId')?.checked;
+            const showProjectManagement = !!document.getElementById('settingsShowProjectManagement')?.checked;
             const normalMailLocalRetentionEnabled = !!document.getElementById('normalMailLocalRetentionEnabled')?.checked;
             const settings = {};
-            const forwardChannels = getSelectedForwardChannels();
+            const namedForwardingUI = typeof usesNamedForwardingSettings === 'function' && usesNamedForwardingSettings();
+            const forwardChannels = namedForwardingUI ? [] : getSelectedForwardChannels();
 
             if (password) {
                 if (!currentPassword) {
-                    showToast(I18n.t("To change the login password, you need to enter the current password"), 'error');
+                    showToast(I18n.t('修改登录密码需要输入当前密码'), 'error');
                     return;
                 }
                 if (password.length < 8) {
-                    showToast(I18n.t("The new login password must be at least 8 characters in length"), 'error');
+                    showToast(I18n.t('新登录密码长度至少为 8 位'), 'error');
                     return;
                 }
                 settings.login_password = password;
@@ -1882,6 +1912,7 @@
 
             settings.gptmail_api_key = apiKey;
             settings.external_api_key = externalApiKey;
+            settings.external_api_key_permission = document.getElementById('settingsExternalApiKeyPermission')?.value || 'readonly';
             settings.duckmail_base_url = document.getElementById('settingsDuckmailBaseUrl').value.trim();
             settings.duckmail_api_key = document.getElementById('settingsDuckmailApiKey').value.trim();
             settings.cloudflare_ai_username_enabled = !!document.getElementById('settingsCloudflareAiEnabled')?.checked;
@@ -1918,16 +1949,17 @@
             const telegramTopicId = document.getElementById('settingsTelegramTopicId').value.trim();
             const telegramProxyUrl = document.getElementById('settingsTelegramProxyUrl').value.trim();
             const wecomWebhookUrl = document.getElementById('settingsWecomWebhookUrl').value.trim();
+            const feishuDraft = getFeishuForwardingDraftConfig();
             const webdavBackupSettings = getWebdavBackupFormSettings();
             const webdavBackupChanged = hasWebdavBackupSettingsChanged(webdavBackupSettings);
             const webdavBackupVerifyPassword = document.getElementById('webdavBackupVerifyPassword')?.value || '';
 
             if (Number.isNaN(days) || days < 1 || days > 90) {
-                showToast(I18n.t("Refresh period must be between 1-90 days"), 'error');
+                showToast(I18n.t('刷新周期必须在 1-90 天之间'), 'error');
                 return;
             }
             if (Number.isNaN(delay) || delay < 0 || delay > 60) {
-                showToast(I18n.t("The refresh interval must be between 0-60 seconds"), 'error');
+                showToast(I18n.t('刷新间隔必须在 0-60 秒之间'), 'error');
                 return;
             }
             if (!isValidAppTimeZone(appTimeZone)) {
@@ -1935,84 +1967,90 @@
                 return;
             }
             if (Number.isNaN(mailFetchTimeoutSeconds) || mailFetchTimeoutSeconds < 30 || mailFetchTimeoutSeconds > 300) {
-                showToast(I18n.t("Mail retrieval timeout must be between 30-300 seconds"), 'error');
+                showToast(I18n.t('邮件获取超时必须在 30-300 秒之间'), 'error');
                 return;
             }
+            if (typeof isDedicatedForwardingUI !== 'function' || !isDedicatedForwardingUI()) {
             if (Number.isNaN(forwardSeconds) || forwardSeconds < 20 || forwardSeconds > 3600) {
-                showToast(I18n.t("Forward polling interval must be between 20-3600 seconds"), 'error');
+                showToast(I18n.t('转发轮询间隔必须在 20-3600 秒之间'), 'error');
                 return;
             }
             if (!['serial', 'parallel'].includes(forwardExecutionMode)) {
-                showToast(I18n.t("Forward execution mode is invalid"), 'error');
+                showToast(I18n.t('转发执行模式无效'), 'error');
                 return;
             }
             if (Number.isNaN(forwardParallelWorkers) || forwardParallelWorkers < 1 || forwardParallelWorkers > 10) {
-                showToast(I18n.t("The number of forwarding parallel workers must be between 1-10"), 'error');
+                showToast(I18n.t('转发并行 worker 数必须在 1-10 之间'), 'error');
                 return;
             }
             if (Number.isNaN(forwardAccountDelaySeconds) || forwardAccountDelaySeconds < 0 || forwardAccountDelaySeconds > 60) {
-                showToast(I18n.t("The pull interval between accounts must be between 0-60 seconds"), 'error');
+                showToast(I18n.t('账号间拉取间隔必须在 0-60 秒之间'), 'error');
                 return;
             }
             if (Number.isNaN(forwardWindowMinutes) || forwardWindowMinutes < 0 || forwardWindowMinutes > 10080) {
-                showToast(I18n.t("The mail forwarding time range must be between 0-10080 minutes"), 'error');
+                showToast(I18n.t('转发邮件时间范围必须在 0-10080 分钟之间'), 'error');
                 return;
             }
+            }
             if (forwardChannels.includes('smtp') && !smtpRecipient) {
-                showToast(I18n.t("When enabling SMTP forwarding, forward to mailbox must be filled in"), 'error');
+                showToast(I18n.t('启用 SMTP 转发时必须填写转发到邮箱'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && !smtpHost) {
-                showToast(I18n.t("SMTP host must be filled in when enabling SMTP forwarding"), 'error');
+                showToast(I18n.t('启用 SMTP 转发时必须填写 SMTP 主机'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && !smtpUsername && !smtpFromEmail) {
-                showToast(I18n.t("At least one of the SMTP username or sender email is required"), 'error');
+                showToast(I18n.t('至少需要填写 SMTP 用户名或发件人邮箱之一'), 'error');
                 return;
             }
             if (forwardChannels.includes('smtp') && (Number.isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535)) {
-                showToast(I18n.t("Invalid SMTP port"), 'error');
+                showToast(I18n.t('SMTP 端口无效'), 'error');
                 return;
             }
             if (forwardChannels.includes('telegram') && !telegramBotToken) {
-                showToast(I18n.t("Telegram Bot Token must be filled in when enabling TG forwarding"), 'error');
+                showToast(I18n.t('启用 TG 转发时必须填写 Telegram Bot Token'), 'error');
                 return;
             }
             if (forwardChannels.includes('telegram') && !telegramChatId) {
-                showToast(I18n.t("Telegram Chat ID must be filled in when enabling TG forwarding"), 'error');
+                showToast(I18n.t('启用 TG 转发时必须填写 Telegram Chat ID'), 'error');
                 return;
             }
-            if (telegramTopicId && !/^\d+$/.test(telegramTopicId)) {
-                showToast(I18n.t("Telegram Topic ID must be purely numeric"), 'error');
+            if (!namedForwardingUI && telegramTopicId && !/^\d+$/.test(telegramTopicId)) {
+                showToast(I18n.t('Telegram Topic ID 必须是纯数字'), 'error');
                 return;
             }
             if (forwardChannels.includes('wecom') && !wecomWebhookUrl) {
-                showToast(I18n.t("The Webhook address must be filled in when enabling corporate WeChat forwarding"), 'error');
+                showToast(I18n.t('启用企业微信转发时必须填写 Webhook 地址'), 'error');
+                return;
+            }
+            if (forwardChannels.includes('feishu') && !hasFeishuWebhook(feishuDraft)) {
+                showToast(I18n.t('启用飞书转发时必须填写 Webhook 地址'), 'error');
                 return;
             }
             if (webdavBackupChanged) {
                 if (!webdavBackupVerifyPassword) {
-                    showToast(I18n.t("Modifying WebDAV backup settings requires entering a login password"), 'error');
+                    showToast(I18n.t('修改 WebDAV 备份设置需要输入登录密码'), 'error');
                     return;
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true' && !webdavBackupSettings.webdav_backup_url) {
-                    showToast(I18n.t("WebDAV directory URL must be filled in when enabling WebDAV backup"), 'error');
+                    showToast(I18n.t('启用 WebDAV 备份时必须填写 WebDAV 目录 URL'), 'error');
                     return;
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true') {
                     try {
                         const backupUrl = new URL(webdavBackupSettings.webdav_backup_url);
                         if (!['http:', 'https:'].includes(backupUrl.protocol)) {
-                            showToast(I18n.t("WebDAV directory URL must be an http(s) address"), 'error');
+                            showToast(I18n.t('WebDAV 目录 URL 必须是 http(s) 地址'), 'error');
                             return;
                         }
                     } catch (error) {
-                        showToast(I18n.t("Invalid WebDAV directory URL"), 'error');
+                        showToast(I18n.t('WebDAV 目录 URL 无效'), 'error');
                         return;
                     }
                 }
                 if (webdavBackupSettings.webdav_backup_enabled === 'true' && !webdavBackupSettings.webdav_backup_cron) {
-                    showToast(I18n.t("Please enter WebDAV backup cron expression"), 'error');
+                    showToast(I18n.t('请输入 WebDAV 备份 Cron 表达式'), 'error');
                     return;
                 }
             }
@@ -2026,6 +2064,7 @@
             settings.show_account_created_at = showAccountCreatedAt;
             settings.show_account_sort_order = showAccountSortOrder;
             settings.show_group_id = showGroupId;
+            settings.show_project_management = showProjectManagement;
             settings.normal_mail_local_retention_enabled = normalMailLocalRetentionEnabled;
             settings.forward_channels = forwardChannels;
             settings.forward_check_interval_seconds = forwardSeconds;
@@ -2049,6 +2088,10 @@
             settings.telegram_topic_id = telegramTopicId;
             settings.telegram_proxy_url = telegramProxyUrl;
             settings.wecom_webhook_url = wecomWebhookUrl;
+            settings.feishu_webhook_url = feishuDraft.webhook_url;
+            settings.feishu_sign_secret = feishuDraft.sign_secret;
+            settings.feishu_clear_sign_secret = feishuDraft.clear_sign_secret;
+            if (namedForwardingUI) omitLegacyForwardingFields(settings);
 
             if (webdavBackupChanged) {
                 Object.assign(settings, webdavBackupSettings);
@@ -2057,7 +2100,7 @@
 
             if (strategy === 'cron') {
                 if (!refreshCron) {
-                    showToast(I18n.t("Please enter a Cron expression"), 'error');
+                    showToast(I18n.t('请输入 Cron 表达式'), 'error');
                     return;
                 }
                 settings.refresh_cron = refreshCron;
@@ -2068,8 +2111,8 @@
             let shouldClearNormalMailRetentionCache = false;
             if (wasRetentionEnabled && !normalMailLocalRetentionEnabled && savedMessageCount > 0) {
                 const confirmed = await showConfirmModal(
-                    I18n.t("Turning off the local retention of ordinary mailboxes will clear the saved local cache data of ordinary mailboxes. This operation is irreversible. Do you want to continue?"),
-                    { title: I18n.t("Turn off local retention of ordinary mailboxes"), confirmText: I18n.t("Confirm shutdown and cleanup") }
+                    I18n.t('关闭普通邮箱本地保留将清理已保存的普通邮箱本地缓存数据。此操作不可恢复，是否继续？'),
+                    { title: I18n.t('关闭普通邮箱本地保留'), confirmText: I18n.t('确认关闭并清理') }
                 );
                 if (!confirmed) {
                     const switchEl = document.getElementById('normalMailLocalRetentionEnabled');
@@ -2089,12 +2132,12 @@
 
                 data = await response.json();
             } catch (error) {
-                showToast(I18n.t("Failed to save settings"), 'error');
+                showToast(I18n.t('保存设置失败'), 'error');
                 return;
             }
 
             if (!data.success) {
-                handleApiError(data, I18n.t("Failed to save settings"));
+                handleApiError(data, I18n.t('保存设置失败'));
                 return;
             }
 
@@ -2102,6 +2145,7 @@
             setShowAccountCreatedAt(showAccountCreatedAt);
             setShowAccountSortOrder(showAccountSortOrder);
             setShowGroupId(showGroupId);
+            setShowProjectManagement(showProjectManagement);
             setMailFetchTimeoutSeconds(mailFetchTimeoutSeconds);
             setNormalMailLocalRetentionEnabled(normalMailLocalRetentionEnabled);
             if (wasRetentionEnabled && !normalMailLocalRetentionEnabled
@@ -2113,7 +2157,7 @@
                     const clearResponse = await fetch('/api/settings/normal-mail-retention/clear', { method: 'POST' });
                     const clearData = await clearResponse.json();
                     if (!clearResponse.ok || !clearData.success) {
-                        throw new Error(clearData.error || I18n.t("Failed to start local cache cleanup of ordinary mailboxes"));
+                        throw new Error(clearData.error || I18n.t('启动普通邮箱本地缓存清理失败'));
                     }
                     if (typeof invalidateNormalMailRetentionCaches === 'function') {
                         invalidateNormalMailRetentionCaches({ resetCurrentView: true });
@@ -2121,11 +2165,11 @@
                     resetNormalMailRetentionStatusPollDelay();
                     updateNormalMailRetentionStats({
                         ...(lastNormalMailRetentionStatus || {}),
-                        clear_status: clearData.status || { state: 'running', message: I18n.t("Cleaning the local cache of ordinary mailboxes...") }
+                        clear_status: clearData.status || { state: 'running', message: I18n.t('正在清理普通邮箱本地缓存…') }
                     });
                     scheduleNormalMailRetentionStatusPoll();
                 } catch (error) {
-                    showToast(I18n.t("The settings have been saved, but the startup of local cache cleanup for ordinary mailboxes failed."), 'warning');
+                    showToast(I18n.t('设置已保存，但启动普通邮箱本地缓存清理失败'), 'warning');
                 }
             } else {
                 await loadNormalMailRetentionStatus({ silent: true });
@@ -2134,7 +2178,7 @@
                 await loadGroups();
                 await refreshVisibleAccountList(false);
             } catch (error) {
-                showToast(I18n.t("The settings have been saved, but the list refresh failed, please refresh the page."), 'warning');
+                showToast(I18n.t('设置已保存，但列表刷新失败，请刷新页面'), 'warning');
                 hideSettingsModal();
                 return;
             }
@@ -2144,11 +2188,41 @@
             if (currentPasswordInput) currentPasswordInput.value = '';
 
             if (password) {
-                showToast(I18n.t("The login password has been updated, other logged-in devices need to log in again"), 'success');
+                showToast(I18n.t('登录密码已更新，其他已登录设备需要重新登录'), 'success');
             } else {
-                showToast(I18n.t("The time display has taken effect and will take effect after the scheduled task is restarted."), 'success');
+                showToast(I18n.t('时间展示已生效，定时任务重启后生效'), 'success');
             }
             hideSettingsModal();
+        }
+
+        function setFeishuForwardingSettings(settings) {
+            for (const [id, key] of [
+                ['settingsFeishuWebhookUrl', 'feishu_webhook_url'],
+                ['settingsFeishuSignSecret', 'feishu_sign_secret'],
+            ]) {
+                const input = document.getElementById(id);
+                input.value = '';
+                input.dataset.configured = String(!!settings[`${key}_configured`]);
+                input.placeholder = settings[`${key}_configured`]
+                    ? I18n.t('已配置，留空保留；填写新值替换')
+                    : (key === 'feishu_webhook_url'
+                        ? 'https://open.feishu.cn/open-apis/bot/v2/hook/...'
+                        : I18n.t('可选，填写机器人签名校验密钥'));
+            }
+            document.getElementById('settingsFeishuClearSignSecret').checked = false;
+        }
+
+        function getFeishuForwardingDraftConfig() {
+            return {
+                webhook_url: document.getElementById('settingsFeishuWebhookUrl').value.trim(),
+                sign_secret: document.getElementById('settingsFeishuSignSecret').value.trim(),
+                clear_sign_secret: document.getElementById('settingsFeishuClearSignSecret').checked,
+            };
+        }
+
+        function hasFeishuWebhook(draft) {
+            return !!draft.webhook_url
+                || document.getElementById('settingsFeishuWebhookUrl').dataset.configured === 'true';
         }
 
         function buildForwardingDraftConfig() {
@@ -2174,62 +2248,68 @@
                 },
                 wecom: {
                     webhook_url: document.getElementById('settingsWecomWebhookUrl').value.trim(),
-                }
+                },
+                feishu: getFeishuForwardingDraftConfig(),
             };
         }
 
         async function testForwardChannel(channel) {
-            const btn = document.getElementById(
-                channel === 'smtp'
-                    ? 'testSmtpBtn'
-                    : (channel === 'telegram' ? 'testTelegramBtn' : 'testWecomBtn')
-            );
+            const buttonIds = {
+                smtp: 'testSmtpBtn', telegram: 'testTelegramBtn',
+                wecom: 'testWecomBtn', feishu: 'testFeishuBtn',
+            };
+            const btn = document.getElementById(buttonIds[channel]);
             if (!btn || btn.disabled) return;
 
             const draft = buildForwardingDraftConfig();
             if (channel === 'smtp') {
                 if (!draft.smtp.recipient) {
-                    showToast(I18n.t("Please fill in SMTP first and forward to email"), 'error');
+                    showToast(I18n.t('请先填写 SMTP 转发到邮箱'), 'error');
                     return;
                 }
                 if (!draft.smtp.host) {
-                    showToast(I18n.t("Please fill in the SMTP host first"), 'error');
+                    showToast(I18n.t('请先填写 SMTP 主机'), 'error');
                     return;
                 }
                 if (!draft.smtp.username && !draft.smtp.from_email) {
-                    showToast(I18n.t("Please fill in at least SMTP username or sender email"), 'error');
+                    showToast(I18n.t('请至少填写 SMTP 用户名或发件人邮箱'), 'error');
                     return;
                 }
                 if (!draft.smtp.port || draft.smtp.port < 1 || draft.smtp.port > 65535) {
-                    showToast(I18n.t("Invalid SMTP port"), 'error');
+                    showToast(I18n.t('SMTP 端口无效'), 'error');
                     return;
                 }
             } else if (channel === 'telegram') {
                 if (!draft.telegram.bot_token) {
-                    showToast(I18n.t("Please fill in the Telegram Bot Token first"), 'error');
+                    showToast(I18n.t('请先填写 Telegram Bot Token'), 'error');
                     return;
                 }
                 if (!draft.telegram.chat_id) {
-                    showToast(I18n.t("Please fill in Telegram Chat ID first"), 'error');
+                    showToast(I18n.t('请先填写 Telegram Chat ID'), 'error');
                     return;
                 }
                 if (draft.telegram.topic_id && !/^\d+$/.test(draft.telegram.topic_id)) {
-                    showToast(I18n.t("Telegram Topic ID must be purely numeric"), 'error');
+                    showToast(I18n.t('Telegram Topic ID 必须是纯数字'), 'error');
                     return;
                 }
             } else if (channel === 'wecom') {
                 if (!draft.wecom.webhook_url) {
-                    showToast(I18n.t("Please fill in the corporate WeChat Webhook address first"), 'error');
+                    showToast(I18n.t('请先填写企业微信 Webhook 地址'), 'error');
+                    return;
+                }
+            } else if (channel === 'feishu') {
+                if (!hasFeishuWebhook(draft.feishu)) {
+                    showToast(I18n.t('请先填写飞书 Webhook 地址'), 'error');
                     return;
                 }
             } else {
-                showToast(I18n.t("Unknown forwarding channel"), 'error');
+                showToast(I18n.t('未知转发渠道'), 'error');
                 return;
             }
 
             const originalText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = I18n.t("Sending...");
+            btn.textContent = I18n.t('发送中...');
 
             try {
                 const response = await fetch('/api/settings/test-forward-channel', {
@@ -2242,12 +2322,12 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    showToast(data.message || I18n.t("Test successful"), 'success');
+                    showToast(data.message || I18n.t('测试成功'), 'success');
                 } else {
-                    handleApiError(data, I18n.t("Test failed"));
+                    handleApiError(data, I18n.t('测试失败'));
                 }
             } catch (error) {
-                showToast(I18n.t("Test failed"), 'error');
+                showToast(I18n.t('测试失败'), 'error');
             } finally {
                 btn.disabled = false;
                 btn.textContent = originalText;
@@ -2255,7 +2335,7 @@
         }
 
         function formatRelativeTime(timestamp) {
-            if (!timestamp) return I18n.t("Never refreshed");
+            if (!timestamp) return I18n.t('从未刷新');
 
             const now = new Date();
             let dateStr = timestamp;
@@ -2268,9 +2348,9 @@
             const diffHours = Math.floor(diffMs / 3600000);
             const diffDays = Math.floor(diffMs / 86400000);
 
-            if (diffMins < 1) return I18n.t("Just now");
-            if (diffMins < 60) return I18n.tpl`${diffMins} minutes ago`;
-            if (diffHours < 24) return I18n.tpl`${diffHours} hours ago`;
-            if (diffDays < 30) return I18n.tpl`${diffDays} days ago`;
-            return I18n.tpl`${Math.floor(diffDays / 30)} months ago`;
+            if (diffMins < 1) return I18n.t('刚刚');
+            if (diffMins < 60) return I18n.tpl`${diffMins} 分钟前`;
+            if (diffHours < 24) return I18n.tpl`${diffHours} 小时前`;
+            if (diffDays < 30) return I18n.tpl`${diffDays} 天前`;
+            return I18n.tpl`${Math.floor(diffDays / 30)} 月前`;
         }

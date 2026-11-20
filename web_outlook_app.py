@@ -2,16 +2,22 @@
 # -*- coding: utf-8 -*-
 """Compatibility entrypoint for the segmented Outlook web app."""
 
-from outlook_web.i18n import translate as _tr
-
 import os
 import sys
 import threading
 import webbrowser
 from pathlib import Path
 
+from outlook_web import windows_update
 from outlook_web.runtime import is_frozen, notify_startup_error, record_startup_error
 from werkzeug.serving import make_server
+
+
+_update_helper_exit_code = windows_update.run_update_helper_if_requested()
+if _update_helper_exit_code is not None:
+    raise SystemExit(_update_helper_exit_code)
+
+WINDOWS_UPDATE_STARTUP_CONTEXT = windows_update.parse_update_startup_context()
 
 
 SEGMENT_FILES = (
@@ -26,6 +32,8 @@ SEGMENT_FILES = (
     "09_routes_system_update.py",
     "10_routes_email_shares.py",
     "11_routes_graph_oauth.py",
+    "12_routes_icloud.py",
+    "13_routes_forwarding.py",
 )
 
 SEGMENTS_DIR = Path(__file__).resolve().parent / "outlook_web" / "segments"
@@ -60,7 +68,7 @@ class DesktopServer:
         if self.failed.is_set():
             raise self.error
         if not self.ready.is_set():
-            raise RuntimeError(_tr('Desktop service startup timeout'))
+            raise RuntimeError("桌面服务启动超时")
 
     def _serve(self) -> None:
         try:
@@ -88,16 +96,36 @@ def run_desktop_app(access_url: str, host: str, port: int) -> None:
     from outlook_web.windows_tray import WindowsTrayApp
 
     server = DesktopServer(host, port)
-    server.start()
 
     def open_ui():
         webbrowser.open(access_url)
 
+    shutdown_started = threading.Event()
+
     def exit_app():
+        if shutdown_started.is_set():
+            return
+        shutdown_started.set()
         server.stop()
 
-    threading.Timer(1.0, open_ui).start()
-    WindowsTrayApp("OutlookEmail", open_ui, exit_app).run()
+    tray = WindowsTrayApp("OutlookEmail", open_ui, exit_app)
+
+    def shutdown_for_update():
+        try:
+            exit_app()
+        finally:
+            tray.close()
+
+    windows_update.register_shutdown_callback(shutdown_for_update)
+    try:
+        server.start()
+        windows_update.mark_update_startup_healthy(WINDOWS_UPDATE_STARTUP_CONTEXT, APP_VERSION)
+        windows_update.schedule_runner_cleanup(WINDOWS_UPDATE_STARTUP_CONTEXT)
+        if not WINDOWS_UPDATE_STARTUP_CONTEXT.get("restarted"):
+            threading.Timer(1.0, open_ui).start()
+        tray.run()
+    finally:
+        windows_update.register_shutdown_callback(None)
 
 
 def run_windows_desktop(access_url: str, host: str, port: int) -> None:
@@ -112,10 +140,10 @@ def main():
     access_url = f"http://{access_host}:{port}"
 
     print("=" * 60)
-    print(_tr('Outlook Mail Web App'))
+    print("Outlook 邮件 Web 应用")
     print("=" * 60)
-    print(_tr('Access address: {__0__}', f'{access_url}'))
-    print(_tr('Operating mode: {__0__}', f"{('Development' if debug else 'Production')}"))
+    print(f"访问地址: {access_url}")
+    print(f"运行模式: {'开发' if debug else '生产'}")
     print("=" * 60)
 
     try:

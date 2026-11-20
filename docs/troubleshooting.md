@@ -4,7 +4,7 @@
 
 ### Container cannot be started
 
-** inspection steps: **
+**Check steps:**
 
 ```bash
 # 1. View container status
@@ -22,7 +22,7 @@ docker-compose down
 docker-compose up -d
 ```
 
-** The correct log should show: **
+**Correct log should show:**
 ```
 ============================================================
 Outlook Mail Web App initialized
@@ -33,11 +33,11 @@ GPTMail API: https://mail.chatgpt.org.uk
 
 ### Database table does not exist error
 
-** error message: ** `sqlite3.OperationalError: no such table: settings`
+**Error message:** `sqlite3.OperationalError: no such table: settings`
 
-** Reason: ** database is not initialized or damaged
+**Cause:** The database is not initialized or damaged
 
-** Solution: **
+**Solution:**
 
 ```bash
 # Method 1: Delete the old database and re-initialize it
@@ -57,21 +57,33 @@ docker-compose up -d
 
 ### Unable to get mail
 
-** Possible reasons: **
+**Possible reasons:**
 1. Refresh Token expired or invalid
 2. Client ID error
 3. Insufficient API permissions
-4. Network connection issues
+4. Network connection problem
 
-** Solution: **
+**Solution:**
 
-1. ** Refresh Token** - Refresh using the built-in OAuth2 helper
-2. **Check API permissions** - Make sure the required API permissions have been added
-3. **View detailed error ** - Open the browser developer tools (F12) and view the Network tag
+1. **Reacquire Refresh Token** - Use the built-in OAuth2 helper to reacquire
+2. **Check API Permissions** - Make sure the required API permissions have been added
+3. **View detailed errors** - Open the browser developer tools (F12) and view the Network tab
+
+### IMAP is slow to get the letter
+
+`[imap]` records in the log use the same `request_id` to concatenate a list or body request, and `operation=list/detail` to differentiate operations. View the positioning time of `stage` and `elapsed_ms`:
+
+- `connect`: DNS, TCP, TLS and server hello.
+- `login`, `identify`, `select`, `search`: Authentication, client identification, folder selection and mail search.
+- `fetch`, `parse`: network pulling and email parsing.
+- `logout`, `total`: Close the connection and total time taken.
+- Outlook IMAP list also has `token` stage for refreshing OAuth tokens.
+
+`fetch_commands`, `response_bytes`, and `message_count` display the number of pull commands, the number of response bytes, and the number of emails respectively; the logs do not contain passwords, tokens, or email content. A normal paging list only obtains email headers and attachment structures in batches; the text is read when the email is clicked. When the server explicitly rejects a batch request, it logs `batch_rejected` and falls back to reading the headers one by one.
 
 ### 502 error (Nginx)
 
-** Reason: ** application did not start normally or the port configuration is wrong
+**Cause:** The application did not start normally or the port configuration was incorrect.
 
 ```bash
 docker ps
@@ -82,19 +94,19 @@ docker-compose restart
 sudo systemctl reload nginx
 ```
 
-### Temporary mailbox function is not available
+### The temporary mailbox function is not available
 
-1. ** Update API Key** - Update GPTMail API Key in "⚙️ Settings"
-2. ** Check service status ** - Visit GPTMail official website to confirm service status
+1. **Update API Key** - Update GPTMail API Key in "⚙️ Settings"
+2. **Check service status** - Visit GPTMail official website to confirm service status
 
 ### Session expiration problem
 
-1. Fixed SECRET_KEY** setting when deploying ** server
+1. **Set fixed SECRET_KEY during server deployment**
    ```yaml
    environment:
      - SECRET_KEY=your-fixed-secret-key-here
    ```
-   Generated using `python -c 'import secrets; print(secrets.token_hex(32))'`
+   Generate using `python -c 'import secrets; print(secrets.token_hex(32))'`
 
    If you use Windows `exe`, the program will automatically generate and save the fixed `SECRET_KEY` when it is started for the first time. Do not delete the key file in the corresponding data directory.
 
@@ -102,7 +114,7 @@ sudo systemctl reload nginx
 
 ### Database lock error
 
-** error message: ** `sqlite3.OperationalError: database is locked`
+**Error message:** `sqlite3.OperationalError: database is locked`
 
 ```bash
 docker-compose restart
@@ -126,10 +138,10 @@ A: Use the built-in OAuth2 assistant: click "Get Token" → "Generate Authorizat
 A: Click the "Temporary Mailbox" group → "Generate Temporary Mailbox" → Select the mailbox → "Get Mail"
 
 ### Q: How to change the login password?
-A: ** still remembers the current password as **, which can be modified in the Web interface "⚙️ Settings" (the current password must be filled in). The environment variable `LOGIN_PASSWORD` ** is only written to the default value when ** is initialized for the first time (the database does not yet have `login_password`); after the application has been run and the library has been written, only changing env ** will not overwrite the current login password with **.
+A: **If you still remember the current password**, change it in the web interface "⚙️ Settings" (the current password must be filled in). The environment variable `LOGIN_PASSWORD` **only writes the default value during first initialization** (the database does not yet have `login_password`); after the application has been run and the library has been written, only changing the env **will not** overwrite the current login password.
 
 ### Q: What should I do if I forget my web login password?
-A: Use the official reset script (** does not require the old password of **, but requires host permissions to access the database/container):
+A: Use the official reset script (**no need** for the old password, you need host permissions to access the database/container):
 
 ```bash
 # It is recommended to stop the service first (not mandatory) and confirm DATABASE_PATH (default data/outlook_accounts.db)
@@ -143,11 +155,11 @@ docker exec -it outlook-mail-reader python scripts/reset_login_password.py
 
 Enter and confirm your new password (at least 8 digits) when prompted. After success:
 
-- Log in with ** new password **; existing web/extended sessions will become invalid
-- The password is saved in the database `settings.login_password` (bcrypt), ** is not ** and can be restored by changing the `LOGIN_PASSWORD` environment variable.
+- Log in with **new password**; existing web/extension sessions will become invalid
+- The password is saved in the database `settings.login_password` (bcrypt), **not** restored by changing the `LOGIN_PASSWORD` environment variable
 - The script does not support `--password` or piped passwords and must be run in an interactive TTY
 
-See [security.md](security.md) for a more complete description of security boundaries.
+For a more complete description of security boundaries, see [security.md](./security.md).
 
 ### Q: Where is the data stored?
 A: SQLite database `data/outlook_accounts.db`, regular backup is recommended

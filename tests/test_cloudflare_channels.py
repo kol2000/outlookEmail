@@ -203,7 +203,7 @@ class CloudflareChannelApiTests(CloudflareChannelTestCase):
         })
         duplicate_payload = duplicate_response.get_json()
         self.assertFalse(duplicate_payload['success'])
-        self.assertIn('name already exists', duplicate_payload['error'])
+        self.assertIn('名称已存在', duplicate_payload['error'])
 
         other_response = self.client.post('/api/cloudflare/channels', json={
             'name': 'other',
@@ -219,7 +219,7 @@ class CloudflareChannelApiTests(CloudflareChannelTestCase):
         })
         update_payload = update_response.get_json()
         self.assertFalse(update_payload['success'])
-        self.assertIn('name already exists', update_payload['error'])
+        self.assertIn('名称已存在', update_payload['error'])
 
         keep_case_response = self.client.put(f'/api/cloudflare/channels/{channel_id}', json={
             'name': 'cfmail',
@@ -287,23 +287,23 @@ class CloudflareChannelApiTests(CloudflareChannelTestCase):
         delete_response = self.client.delete(f'/api/cloudflare/channels/{channel_id}')
         delete_payload = delete_response.get_json()
         self.assertFalse(delete_payload['success'])
-        self.assertIn('referenced', delete_payload['error'])
+        self.assertIn('引用', delete_payload['error'])
 
         domains_response = self.client.get(f'/api/cloudflare/domains?channel_id={channel_id}')
         domains_payload = domains_response.get_json()
         self.assertFalse(domains_payload['success'])
-        self.assertIn('not available', domains_payload['error'])
+        self.assertIn('不可用', domains_payload['error'])
 
     def test_channel_connection_test_validates_configuration_and_calls_admin_api(self):
-        'Test channel connection test function'
+        """测试渠道连接测试功能"""
         channel_id = self.create_channel(name='cfmail-test', enabled=True)
 
-        # Test non-existent channels
+        # 测试不存在的渠道
         response = self.client.post('/api/cloudflare/channels/99999/test')
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.get_json()['success'])
 
-        # Impersonate administrator API calls
+        # 模拟管理员 API 调用
         with patch.object(web_outlook_app, 'cloudflare_get_domains', return_value=(['test.com', 'example.com'], None)), \
              patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', return_value={
                  'success': True,
@@ -319,16 +319,16 @@ class CloudflareChannelApiTests(CloudflareChannelTestCase):
 
         payload = response.get_json()
         self.assertTrue(payload['success'], payload)
-        self.assertIn('All tests passed', payload['message'])
+        self.assertIn('所有测试通过', payload['message'])
         self.assertEqual(payload['channel_id'], channel_id)
         self.assertEqual(len(payload['tests']), 3)
         self.assertTrue(all(test['success'] for test in payload['tests']))
 
-        # Case where test part fails
-        with patch.object(web_outlook_app, 'cloudflare_get_domains', return_value=([], 'API error')), \
+        # 测试部分失败的情况
+        with patch.object(web_outlook_app, 'cloudflare_get_domains', return_value=([], 'API 错误')), \
              patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', return_value={
                  'success': False,
-                 'error': 'Authentication failed',
+                 'error': '认证失败',
              }), \
              patch.object(web_outlook_app, 'cloudflare_get_admin_messages', return_value={
                  'success': True,
@@ -339,7 +339,7 @@ class CloudflareChannelApiTests(CloudflareChannelTestCase):
 
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('Partial test failure', payload['message'])
+        self.assertIn('部分测试失败', payload['message'])
         failed_tests = [test for test in payload['tests'] if not test['success']]
         self.assertEqual(len(failed_tests), 2)
 
@@ -437,7 +437,7 @@ class CloudflareBatchGenerationTests(CloudflareChannelTestCase):
         })
         invalid_payload = invalid_response.get_json()
         self.assertFalse(invalid_payload['success'])
-        self.assertIn('quantity', invalid_payload['error'])
+        self.assertIn('数量', invalid_payload['error'])
 
         disabled_response = self.client.post('/api/temp-emails/generate-batch', json={
             'provider': 'cloudflare',
@@ -447,7 +447,7 @@ class CloudflareBatchGenerationTests(CloudflareChannelTestCase):
         })
         disabled_payload = disabled_response.get_json()
         self.assertFalse(disabled_payload['success'])
-        self.assertIn('not available', disabled_payload['error'])
+        self.assertIn('不可用', disabled_payload['error'])
 
         create_results = [
             {'address': 'one@cfmail-us.example.com', 'jwt': 'jwt-one', 'id': 'addr-one'},
@@ -491,7 +491,7 @@ class CloudflareBatchGenerationTests(CloudflareChannelTestCase):
 
     def test_batch_generate_binds_existing_tags_and_ignores_unknown_tags(self):
         channel_id = self.create_channel(name='cfmail-tags', enabled=True, is_default=True)
-        tag_id = self.create_tag(name='Bulk tags')
+        tag_id = self.create_tag(name='批量标签')
 
         with patch.object(web_outlook_app, 'cloudflare_create_address', return_value={
             'address': 'tagged@cfmail-tags.example.com',
@@ -554,10 +554,10 @@ class CloudflareBatchGenerationTests(CloudflareChannelTestCase):
     def test_batch_generate_rejects_invalid_explicit_username_lists_before_create(self):
         channel_id = self.create_channel(name='cfmail-invalid', enabled=True, is_default=True)
         cases = [
-            ({'count': 2, 'usernames': ['alpha']}, 'number'),
-            ({'count': 1, 'usernames': ['alpha', 'beta']}, 'number'),
-            ({'count': 2, 'usernames': ['dupe', 'du.pe']}, 'repeated'),
-            ({'count': 1, 'usernames': ['!!']}, 'format'),
+            ({'count': 2, 'usernames': ['alpha']}, '数量'),
+            ({'count': 1, 'usernames': ['alpha', 'beta']}, '数量'),
+            ({'count': 2, 'usernames': ['dupe', 'du.pe']}, '重复'),
+            ({'count': 1, 'usernames': ['!!']}, '格式'),
         ]
 
         for overrides, expected_error in cases:
@@ -752,7 +752,7 @@ class CloudflareAiUsernameTests(CloudflareChannelTestCase):
             })
         unsupported_result = unsupported_response.get_json()
         self.assertFalse(unsupported_result['success'])
-        self.assertIn('missing username list', unsupported_result['error'])
+        self.assertIn('缺少用户名列表', unsupported_result['error'])
 
         missing_response = self.client.post('/api/cloudflare/ai-usernames/test', json={
             'api_url': '',
@@ -762,7 +762,7 @@ class CloudflareAiUsernameTests(CloudflareChannelTestCase):
         })
         missing_payload = missing_response.get_json()
         self.assertFalse(missing_payload['success'])
-        self.assertIn('API address', missing_payload['error'])
+        self.assertIn('API 地址', missing_payload['error'])
 
         with patch.object(web_outlook_app.requests, 'post', return_value=FakeOpenAIResponse(status_code=500, text='bad gateway')):
             failed_response = self.client.post('/api/cloudflare/ai-usernames/test', json={
@@ -803,7 +803,7 @@ class CloudflareAiUsernameTests(CloudflareChannelTestCase):
         disabled_response = self.client.post('/api/cloudflare/ai-usernames/generate', json={'count': 2})
         disabled_payload = disabled_response.get_json()
         self.assertFalse(disabled_payload['success'])
-        self.assertIn('not enabled', disabled_payload['error'])
+        self.assertIn('未启用', disabled_payload['error'])
 
         with self.app.app_context():
             web_outlook_app.set_setting('cloudflare_ai_username_enabled', 'true')
@@ -814,14 +814,14 @@ class CloudflareAiUsernameTests(CloudflareChannelTestCase):
         missing_response = self.client.post('/api/cloudflare/ai-usernames/generate', json={'count': 2})
         missing_payload = missing_response.get_json()
         self.assertFalse(missing_payload['success'])
-        self.assertIn('Missing', missing_payload['error'])
+        self.assertIn('缺少', missing_payload['error'])
 
     def test_ai_username_generate_endpoint_rejects_count_mismatch_without_padding_or_truncating(self):
         self.enable_saved_ai_username_config()
         cases = [
-            ('["alpha"]', 'number'),
-            ('["alpha", "beta", "gamma"]', 'number'),
-            ('["alpha", "alpha"]', 'after AI cleaning'),
+            ('["alpha"]', '数量'),
+            ('["alpha", "beta", "gamma"]', '数量'),
+            ('["alpha", "alpha"]', '清洗后'),
         ]
 
         for content, expected_error in cases:
@@ -876,7 +876,7 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
         })
         payload = response.get_json()
         self.assertFalse(payload['success'])
-        self.assertIn('channel does not exist', payload['error'])
+        self.assertIn('渠道不存在', payload['error'])
 
         response = self.client.post('/api/temp-emails/import', json={
             'provider': 'cloudflare',
@@ -885,7 +885,7 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
         })
         payload = response.get_json()
         self.assertTrue(payload['success'], payload)
-        self.assertIn('Add 1 temporary mailboxes', payload['message'])
+        self.assertIn('新增', payload['message'])
 
         with self.app.app_context():
             imported_email = web_outlook_app.get_temp_email_by_address('legacy-format@us.example.com')
@@ -895,7 +895,7 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
 
     def test_import_binds_tags_to_added_and_updated_cloudflare_emails(self):
         channel_id = self.create_channel(name='cfmail-tags', enabled=True, is_default=True)
-        tag_id = self.create_tag(name='Import tags')
+        tag_id = self.create_tag(name='导入标签')
 
         with self.app.app_context():
             self.assertTrue(web_outlook_app.add_temp_email(
@@ -931,7 +931,7 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
 
     def test_auto_import_cloudflare_addresses_saves_address_ids_without_jwt(self):
         channel_id = self.create_channel(name='cfmail-auto', enabled=True, is_default=True)
-        tag_id = self.create_tag(name='Automatic import')
+        tag_id = self.create_tag(name='自动导入')
 
         with patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', side_effect=[
             {
@@ -1047,12 +1047,12 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
         admin_mock.assert_called_once()
 
     def test_auto_import_protects_against_infinite_pagination_loop(self):
-        'Test the paging protection mechanism of automatic import to prevent infinite loops'
+        """测试自动导入的分页保护机制，防止无限循环"""
         channel_id = self.create_channel(name='cfmail-loop-protection', enabled=True, is_default=True)
 
-        # Simulate a scenario where data is returned every time but count is very large (may lead to infinite loop)
+        # 模拟每次都返回数据但 count 很大的场景（可能导致无限循环）
         def mock_get_addresses(limit, offset, query='', channel=None):
-            # Simulation always has new data, but is limited to 100 pages and is stopped by a protection mechanism
+            # 模拟总是有新数据，但限制在 100 页时会被保护机制停止
             if offset < 10000:
                 return {
                     'success': True,
@@ -1060,11 +1060,10 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
                         {'id': f'addr-{offset + i}', 'name': f'test{offset + i}@example.com'}
                         for i in range(limit)
                     ],
-                    'count': 999999,  # Simulates a very large total
+                    'count': 999999,  # 模拟一个非常大的总数
                 }
             return {'success': True, 'addresses': [], 'count': 0}
 
-        # Exercise pagination protection without 10,000 unrelated SQLite writes.
         with patch.object(web_outlook_app, 'cloudflare_get_admin_addresses', side_effect=mock_get_addresses) as mock_api, patch.object(web_outlook_app, 'upsert_cloudflare_temp_email', return_value=('added', None)) as persist_mock:
             response = self.client.post('/api/temp-emails/import-cloudflare-addresses', json={
                 'cloudflare_channel_id': channel_id,
@@ -1073,11 +1072,11 @@ class CloudflareChannelImportExportTests(CloudflareChannelTestCase):
 
         payload = response.get_json()
         self.assertTrue(payload['success'], payload)
-        # Should stop at 100 pages (100 pages * 100 items/page = 10000 items)
+        # 应该在 100 页时停止（100 页 * 100 条/页 = 10000 条）
         self.assertEqual(mock_api.call_count, 100)
-        self.assertEqual(payload['added_count'], 10000)
         self.assertEqual(persist_mock.call_count, 10000)
-        self.assertIn('maximum paging limit has been reached', '；'.join(payload.get('errors', [])))
+        self.assertEqual(payload['added_count'], 10000)
+        self.assertIn('已达到最大分页限制', '；'.join(payload.get('errors', [])))
 
     def test_export_groups_cloudflare_temp_emails_by_channel_name(self):
         us_channel_id = self.create_channel(name='cfmail-us', enabled=True, is_default=True)

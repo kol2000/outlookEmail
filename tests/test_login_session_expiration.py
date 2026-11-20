@@ -153,7 +153,7 @@ class LoginSessionExpirationTests(unittest.TestCase):
                     },
                 )
             self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.get_json()['error'], 'The login validity period is invalid')
+            self.assertEqual(response.get_json()['error'], '登录有效期无效')
             with self.client.session_transaction() as session:
                 self.assertTrue(session.get('logged_in'))
                 self.assertEqual(

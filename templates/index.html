@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ tr("Outlook Mail Manager") }}</title>
+    <title>{{ tr("Outlook 邮件管理") }}</title>
     <link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">
-    <!-- DOMPurify for XSS protection-->
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+    <!-- DOMPurify for XSS protection -->
+    <script src="{{ url_for('static', filename='vendor/dompurify/purify.min.js', v=dompurify_asset_hash) }}"></script>
     <link rel="stylesheet" href="{{ url_for('bundled_index_css', v=frontend_asset_hash) }}">
     <link rel="stylesheet" id="activeSkinStylesheet" href="{{ url_for('active_skin_css', v=skin_asset_hash) }}">
     <script src="{{ url_for('localized_catalog') }}"></script>
@@ -20,8 +20,9 @@
     {% include "partials/index/dialogs-primary.html" %}
     {% include "partials/index/dialogs-management.html" %}
     {% include "partials/index/dialogs-oauth.html" %}
+    {% include "partials/index/dialogs-icloud.html" %}
 
-    <!-- Message prompt-->
+    <!-- 消息提示 -->
     <div class="toast" id="toast"></div>
 
     <script>
@@ -41,32 +42,35 @@
     <script src="{{ url_for('static', filename='js/index/10-batch-actions.js', v=frontend_asset_hash) }}"></script>
     <script src="{{ url_for('static', filename='js/index/11-email-shares.js', v=frontend_asset_hash) }}"></script>
     <script src="{{ url_for('static', filename='js/index/12-outlook-upload-accounts.js', v=frontend_asset_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/index/13-projects.js', v=frontend_asset_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/index/14-icloud.js', v=frontend_asset_hash) }}"></script>
+    <script src="{{ url_for('static', filename='js/index/15-forwarding.js', v=frontend_asset_hash) }}"></script>
 
-    <!-- View email modal box in full screen-->
+    <!-- 全屏查看邮件模态框 -->
     <div id="fullscreenEmailModal" class="fullscreen-email-modal" onmousedown="closeFullscreenEmailOnBackdrop(event)">
         <div class="fullscreen-email-header">
-            <div class="fullscreen-email-title" id="fullscreenEmailTitle">{{ tr("Email details") }}</div>
+            <div class="fullscreen-email-title" id="fullscreenEmailTitle">{{ tr("邮件详情") }}</div>
             <button class="fullscreen-close-btn" onclick="closeFullscreenEmail()">×</button>
         </div>
         <div class="fullscreen-email-content" id="fullscreenEmailContent">
-            <!-- The content of the email will be displayed here-->
+            <!-- 邮件内容将在这里显示 -->
         </div>
     </div>
 
-    <!-- Original email source code modal box-->
+    <!-- 原始邮件源码模态框 -->
     <div id="rawEmailModal" class="fullscreen-email-modal raw-email-modal" onmousedown="closeRawEmailOnBackdrop(event)">
         <div class="fullscreen-email-header raw-email-header">
             <div>
-                <div class="fullscreen-email-title" id="rawEmailTitle">{{ tr("Original email") }}</div>
-                <div class="raw-email-warning" id="rawEmailWarning">{{ tr("The original email contains complete email headers and routing information, please share with caution.") }}</div>
+                <div class="fullscreen-email-title" id="rawEmailTitle">{{ tr("原始邮件") }}</div>
+                <div class="raw-email-warning" id="rawEmailWarning">{{ tr("原始邮件包含完整邮件头和路由信息，请谨慎分享。") }}</div>
             </div>
             <div class="raw-email-actions">
-                <button class="raw-email-action-btn" type="button" onclick="copyRawEmailSource()">{{ tr("Copy") }}</button>
-                <button class="raw-email-action-btn" type="button" onclick="downloadRawEmailSource()">{{ tr("Download .eml") }}</button>
+                <button class="raw-email-action-btn" type="button" onclick="copyRawEmailSource()">{{ tr("复制") }}</button>
+                <button class="raw-email-action-btn" type="button" onclick="downloadRawEmailSource()">{{ tr("下载 .eml") }}</button>
                 <button class="fullscreen-close-btn" onclick="closeRawEmailModal()">×</button>
             </div>
         </div>
-        <pre class="raw-email-content" id="rawEmailContent">{{ tr("Click \"Show original email\" to load the MIME source code.") }}</pre>
+        <pre class="raw-email-content" id="rawEmailContent">{{ tr("点击“显示原始邮件”加载 MIME 源码。") }}</pre>
     </div>
 </body>
 
